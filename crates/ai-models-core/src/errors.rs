@@ -52,7 +52,6 @@ fn context_limit_code_from_body(body: &Value) -> Option<&str> {
                 | "model_context_window_exceeded"
                 | "input_too_long"
                 | "too_many_tokens"
-                | "INVALID_ARGUMENT"
         )
     })
 }
