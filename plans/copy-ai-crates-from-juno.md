@@ -6,7 +6,7 @@ Copy every Rust crate with an `ai-` prefix from
 `/Users/calummoore/projects/futex/juno/crates` into this repository and make the
 resulting workspace build, test, and document itself independently from Juno.
 
-Source crates identified:
+AI crates identified:
 
 - `ai-interface`
 - `ai-models-anthropic`
@@ -17,10 +17,14 @@ Source crates identified:
 - `ai-models-xai`
 - `ai-tool-calling`
 
-Important source dependency: the provider crates currently depend on the Juno
-workspace crate `json-http`, which does not have an `ai-` prefix. The migration
-must either copy `json-http` as an explicit support crate or replace that
-boundary before the provider crates can compile in this repository.
+Required support crate identified:
+
+- `json-http`
+
+The provider crates depend on the Juno workspace crate `json-http`, which does
+not have an `ai-` prefix. Copy `json-http` into this repository as an explicit
+support crate so the migrated provider crates build without depending on the
+original Juno checkout.
 
 ## Milestone 1: Workspace Bootstrap
 
@@ -39,11 +43,12 @@ valid Cargo workspace even before provider behavior is changed.
       entry points, and links to `plans/README.md`.
 - [ ] Run `cargo metadata` to verify the workspace manifest parses.
 
-## Milestone 2: Copy AI Crates
+## Milestone 2: Copy AI And Support Crates
 
 Bring the AI crates across without changing behavior. At the end of this
-milestone, all `ai-*` crate source, tests, and crate READMEs should be present
-under `crates/` and tracked by Git.
+milestone, all `ai-*` crate source plus the required `json-http` support crate
+source, tests, and crate READMEs should be present under `crates/` and tracked
+by Git.
 
 - [ ] Copy `crates/ai-interface` from Juno.
 - [ ] Copy `crates/ai-models-core` from Juno.
@@ -53,11 +58,15 @@ under `crates/` and tracked by Git.
 - [ ] Copy `crates/ai-models-xai` from Juno.
 - [ ] Copy `crates/ai-models-multi` from Juno.
 - [ ] Copy `crates/ai-tool-calling` from Juno.
+- [ ] Copy `crates/json-http` from Juno as a required support crate for the
+      provider crates.
 - [ ] Preserve source-adjacent `_tests_` directories, crate `README.md` files,
       snapshot files, and fixtures from each copied crate.
-- [ ] Add every copied crate to workspace members and workspace dependencies.
+- [ ] Add every copied crate to workspace members and workspace dependencies,
+      including `json-http`.
 - [ ] Review each copied crate README against the repo's Rust crate README
-      requirements and update any stale Juno-specific references.
+      requirements and update any stale Juno-specific references, including the
+      `json-http` support boundary.
 
 ## Milestone 3: Resolve Non-AI Support Dependencies
 
@@ -67,13 +76,10 @@ on the original Juno checkout.
 
 - [ ] Inventory all copied manifests for `workspace = true`, path, git, and
       unpublished dependencies.
-- [ ] Decide the `json-http` strategy:
-      - [ ] Option A: copy `crates/json-http` as a clearly documented support
-            crate because the AI provider crates already depend on it.
-      - [ ] Option B: replace `json-http` usage in the provider crates with a
-            local AI-owned HTTP boundary or external dependency.
-- [ ] Apply the chosen `json-http` strategy and document the ownership boundary
-      in the relevant README files.
+- [ ] Verify copied provider crates resolve `json-http` through this
+      repository's workspace dependency instead of the Juno checkout.
+- [ ] Document `json-http` as a support crate owned by this workspace for AI
+      provider HTTP client behavior.
 - [ ] Convert inherited workspace dependency versions into this repository's
       root `Cargo.toml` without pinning unnecessary external versions by hand.
 - [ ] Run `cargo metadata` again and fix dependency resolution errors.
