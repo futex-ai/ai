@@ -20,6 +20,9 @@ tool-calling runtime from `ai-tool-calling`.
 
 - Defines `ConversationMessage`, `ConversationRole`, `ToolCall`, and
   `ToolDefinition`
+- Defines provider replay context carried on assistant messages and model
+  responses so provider adapters can preserve opaque state needed by stateless
+  APIs without making it part of user-visible assistant text
 - Defines `ConversationContentPart::Image` for provider request payloads; image
   parts are model-call input, not a tool-result transport or durable storage
   contract
@@ -99,6 +102,11 @@ version, measurement state, and micro-USD cost for the usage metering ledger.
 Provider request failures that clearly indicate the input exceeded the model
 context window use `ModelError::ContextLimitExceeded` so callers can compact
 retained history and retry safely.
+
+Provider adapters can populate `ModelResponse::provider_context` with opaque
+or provider-specific replay items. Conversation runtimes should retain those
+items on the corresponding assistant message and pass them back in later model
+requests; callers should not render them as assistant text or tool output.
 
 Model routing is expressed separately from `ModelRequest`. Callers ask a
 `ModelRouter` to resolve a `ModelRouteRequest` containing hard requirements

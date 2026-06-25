@@ -83,6 +83,7 @@ impl Model for MockModel {
             tool_calls: Vec::new(),
             finish_reason: FinishReason::Stop,
             structured_output,
+            provider_context: Vec::new(),
             usage: ModelUsage {
                 input_tokens: u64::from(input_tokens),
                 output_tokens: u64::from(output_tokens),

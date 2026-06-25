@@ -27,6 +27,8 @@ runtime wrappers from neighboring crates.
   reasoning-capable catalog variants
 - stateless `store: false` generation calls using caller-owned conversation
   state
+- `reasoning.encrypted_content` inclusion for reasoning models so encrypted
+  reasoning items can be replayed across stateless tool-calling turns
 - provider response usage extraction into normalized input, output, cached
   input, and reasoning token counts
 - status, transport, and structured-output validation failure mapping onto
@@ -43,6 +45,10 @@ catalog does not define a max-thinking OpenAI variant.
 OpenAI generation uses workspace-defined function tools with `strict: false` during
 the Responses cutover. OpenAI built-in tools are intentionally not exposed by
 this crate.
+When OpenAI returns Responses `reasoning` output items, this crate stores them
+in `ModelResponse::provider_context`; runtimes should keep that context on the
+assistant message so later OpenAI requests can replay the reasoning item before
+the associated function-call outputs.
 
 `OpenAiAudioTranscriber` submits completed audio recordings to the OpenAI
 transcription endpoint using `gpt-4o-mini-transcribe` or another caller-chosen

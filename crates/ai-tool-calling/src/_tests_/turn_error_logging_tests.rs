@@ -62,6 +62,7 @@ async fn tool_errors_include_debug_details_in_logger_callbacks() {
                 }],
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
+                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             })),
     ));

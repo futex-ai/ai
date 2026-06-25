@@ -24,6 +24,7 @@ async fn conversation_mutation_and_send_flow_work() {
                 tool_calls: Vec::new(),
                 finish_reason: FinishReason::Stop,
                 structured_output: None,
+                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             })),
     ));
@@ -40,6 +41,7 @@ async fn conversation_mutation_and_send_flow_work() {
         name: None,
         tool_call_id: None,
         tool_calls: Vec::new(),
+        provider_context: Vec::new(),
     }]);
     assert_eq!(runtime.conversation().len(), 1);
 
@@ -75,6 +77,7 @@ async fn resume_starts_turn_without_appending_user_message() {
                     tool_calls: Vec::new(),
                     finish_reason: FinishReason::Stop,
                     structured_output: None,
+                    provider_context: Vec::new(),
                     usage: ModelUsage::default(),
                 })
             }),

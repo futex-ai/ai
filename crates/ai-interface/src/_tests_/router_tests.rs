@@ -1,4 +1,5 @@
 use crate::{ModelFeature, ModelPreference, ModelRequirement, ModelRouteRequest, ProviderKind};
+use serde_json::json;
 
 #[test]
 fn default_route_uses_deployment_priority() {
@@ -43,4 +44,17 @@ fn provider_kind_round_trips_config_strings() {
     );
     assert_eq!(ProviderKind::Xai.as_str(), "xai");
     assert_eq!(ProviderKind::from_config_str("unknown"), None);
+}
+
+#[test]
+fn openai_provider_serializes_with_config_identifier() {
+    assert_eq!(
+        serde_json::to_value(ProviderKind::OpenAi).unwrap(),
+        json!("openai")
+    );
+    assert_eq!(
+        serde_json::from_value::<ProviderKind>(json!("openai")).unwrap(),
+        ProviderKind::OpenAi
+    );
+    assert!(serde_json::from_value::<ProviderKind>(json!("open_ai")).is_err());
 }

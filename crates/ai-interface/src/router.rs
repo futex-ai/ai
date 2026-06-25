@@ -14,6 +14,7 @@ pub enum ProviderKind {
     /// Development and test mock provider.
     Mock,
     /// OpenAI model provider.
+    #[serde(rename = "openai")]
     OpenAi,
     /// Anthropic model provider.
     Anthropic,

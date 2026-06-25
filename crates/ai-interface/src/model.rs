@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
 
-use crate::{ConversationMessage, ToolCall, ToolDefinition, usage::ModelUsage};
+use crate::{
+    ConversationMessage, ProviderConversationItem, ToolCall, ToolDefinition, usage::ModelUsage,
+};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 /// Structured response contract the model should satisfy.
@@ -69,6 +71,9 @@ pub struct ModelResponse {
     /// Parsed structured output when the request required a schema.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub structured_output: Option<Value>,
+    /// Provider-specific items that must be retained for future turns.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub provider_context: Vec<ProviderConversationItem>,
     /// Usage and estimated cost information for the call.
     pub usage: ModelUsage,
 }

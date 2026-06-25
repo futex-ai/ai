@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use ai_interface::{
     ConversationRole, FinishReason, Logger, LoggerMock, Model, ModelMock, ModelRequest,
-    ModelResponse, ModelUsage, ToolActivityLogEntry, ToolActivityPhase, ToolCall, ToolCallLogEntry,
-    ToolCallLogResult,
+    ModelResponse, ModelUsage, OpenAiReasoningSummary, ProviderConversationItem,
+    ToolActivityLogEntry, ToolActivityPhase, ToolCall, ToolCallLogEntry, ToolCallLogResult,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
@@ -26,6 +26,7 @@ async fn retained_conversation_is_used_across_future_sends() {
                 tool_calls: Vec::new(),
                 finish_reason: FinishReason::Stop,
                 structured_output: None,
+                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             })),
         ModelMock::complete
@@ -44,6 +45,7 @@ async fn retained_conversation_is_used_across_future_sends() {
                     tool_calls: Vec::new(),
                     finish_reason: FinishReason::Stop,
                     structured_output: None,
+                    provider_context: Vec::new(),
                     usage: ModelUsage::default(),
                 })
             }),
@@ -65,6 +67,51 @@ async fn retained_conversation_is_used_across_future_sends() {
 }
 
 #[tokio::test]
+async fn provider_context_is_retained_with_assistant_tool_calls() {
+    let provider_context = vec![ProviderConversationItem::OpenAiReasoning {
+        id: "rs_1".to_owned(),
+        summary: vec![OpenAiReasoningSummary {
+            kind: "summary_text".to_owned(),
+            text: "Need the tool.".to_owned(),
+        }],
+        encrypted_content: Some("encrypted-reasoning".to_owned()),
+    }];
+    let model: Arc<dyn Model> = Arc::new(Unimock::new(
+        ModelMock::complete
+            .next_call(matching!(_))
+            .returns(Ok(ModelResponse {
+                provider: "openai".to_owned(),
+                model_id: "gpt-5.5".to_owned(),
+                catalog_model_id: None,
+                thinking_level: Some("extra_high".to_owned()),
+                assistant_message: "calling tool".to_owned(),
+                tool_calls: vec![ToolCall {
+                    id: "call-1".to_owned(),
+                    name: "echo".to_owned(),
+                    input: json!({ "message": "hello" }),
+                    operation_id: None,
+                }],
+                finish_reason: FinishReason::ToolCalls,
+                structured_output: None,
+                provider_context: provider_context.clone(),
+                usage: ModelUsage::default(),
+            })),
+    ));
+    let tool = TypedEchoTool::succeeding();
+    let runtime = runtime(model, vec![tool.tool()]).expect("runtime should build");
+    let mut turn = runtime.send(user_message("start"), Some(1));
+
+    turn.step().await.expect("step should succeed");
+
+    let conversation = runtime.conversation();
+    let assistant = conversation
+        .iter()
+        .find(|message| message.role == ConversationRole::Assistant)
+        .expect("assistant message should be retained");
+    assert_eq!(assistant.provider_context, provider_context);
+}
+
+#[tokio::test]
 async fn step_and_run_handle_tool_rounds_and_logger_callbacks() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new((
         ModelMock::complete
@@ -83,6 +130,7 @@ async fn step_and_run_handle_tool_rounds_and_logger_callbacks() {
                 }],
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
+                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             })),
         ModelMock::complete
@@ -107,6 +155,7 @@ async fn step_and_run_handle_tool_rounds_and_logger_callbacks() {
                     tool_calls: Vec::new(),
                     finish_reason: FinishReason::Stop,
                     structured_output: None,
+                    provider_context: Vec::new(),
                     usage: ModelUsage::default(),
                 })
             }),

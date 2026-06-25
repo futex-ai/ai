@@ -2,7 +2,8 @@
 
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, ModelRequest,
-    StructuredOutputSchema, ToolCall, ToolDefinition,
+    OpenAiReasoningSummary, ProviderConversationItem, StructuredOutputSchema, ToolCall,
+    ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 use serde::Serialize;
@@ -14,6 +15,8 @@ pub(super) struct ResponsesRequest {
     instructions: String,
     input: Vec<ResponsesInputItem>,
     store: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    include: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     tools: Vec<ResponsesTool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -28,6 +31,7 @@ pub(super) struct ResponsesRequest {
 #[serde(untagged)]
 enum ResponsesInputItem {
     Message(ResponsesMessage),
+    Reasoning(ResponsesReasoningInput),
     FunctionCall(ResponsesFunctionCallInput),
     FunctionCallOutput(ResponsesFunctionCallOutput),
 }
@@ -61,6 +65,16 @@ struct ResponsesFunctionCallInput {
     call_id: String,
     name: String,
     arguments: String,
+}
+
+#[derive(Debug, Serialize)]
+struct ResponsesReasoningInput {
+    #[serde(rename = "type")]
+    kind: String,
+    id: String,
+    summary: Vec<OpenAiReasoningSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    encrypted_content: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -111,6 +125,7 @@ pub(super) fn build_request(
         instructions: request.system_prompt.clone(),
         input: input_items(&request.messages),
         store: false,
+        include: include_items(thinking_level),
         tool_choice: (!tools.is_empty()).then(|| "auto".to_owned()),
         tools,
         text: request.response_schema.as_ref().map(text_format),
@@ -144,6 +159,7 @@ fn message_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
 
 fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
     let mut items = Vec::new();
+    items.extend(message.provider_context.iter().map(provider_context_item));
     if !message.content.trim().is_empty() || !message.content_parts.is_empty() {
         items.push(ResponsesInputItem::Message(message_item(
             message,
@@ -157,6 +173,21 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
             .map(|call| ResponsesInputItem::FunctionCall(function_call_item(call))),
     );
     items
+}
+
+fn provider_context_item(item: &ProviderConversationItem) -> ResponsesInputItem {
+    match item {
+        ProviderConversationItem::OpenAiReasoning {
+            id,
+            summary,
+            encrypted_content,
+        } => ResponsesInputItem::Reasoning(ResponsesReasoningInput {
+            kind: "reasoning".to_owned(),
+            id: id.clone(),
+            summary: summary.clone(),
+            encrypted_content: encrypted_content.clone(),
+        }),
+    }
 }
 
 fn message_item(message: &ConversationMessage, role: &str) -> ResponsesMessage {
@@ -228,4 +259,12 @@ fn reasoning(thinking_level: ThinkingLevel) -> Option<ResponsesReasoning> {
     Some(ResponsesReasoning {
         effort: effort.to_owned(),
     })
+}
+
+fn include_items(thinking_level: ThinkingLevel) -> Vec<String> {
+    thinking_level
+        .is_enabled()
+        .then(|| "reasoning.encrypted_content".to_owned())
+        .into_iter()
+        .collect()
 }

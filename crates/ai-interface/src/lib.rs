@@ -21,7 +21,10 @@ pub use logger::{
     NoopLogger, ToolActivityLogEntry, ToolActivityPhase, ToolCallLogEntry, ToolCallLogResult,
     TurnOutcomeLogEntry,
 };
-pub use messages::{ConversationContentPart, ConversationMessage, ConversationRole};
+pub use messages::{
+    ConversationContentPart, ConversationMessage, ConversationRole, OpenAiReasoningSummary,
+    ProviderConversationItem,
+};
 pub use mock_audio_transcriber::MockAudioTranscriber;
 pub use mock_model::MockModel;
 pub use model::{

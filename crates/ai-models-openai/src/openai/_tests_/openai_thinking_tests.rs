@@ -51,6 +51,7 @@ async fn builds_openai_thinking_variant_requests() {
     assert_eq!(requests[0].url, "https://api.openai.com/v1/responses");
     assert_eq!(body["model"], "gpt-5.5");
     assert_eq!(body["reasoning"]["effort"], "xhigh");
+    assert_eq!(body["include"][0], "reasoning.encrypted_content");
     assert_eq!(body["tools"][0]["name"], "memory_read");
     assert_eq!(body["tool_choice"], "auto");
     assert!(body.get("reasoning_effort").is_none());

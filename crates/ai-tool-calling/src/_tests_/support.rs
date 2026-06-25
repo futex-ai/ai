@@ -105,5 +105,6 @@ pub(crate) fn user_message(content: &str) -> ConversationMessage {
         name: None,
         tool_call_id: None,
         tool_calls: Vec::new(),
+        provider_context: Vec::new(),
     }
 }

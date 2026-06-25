@@ -81,6 +81,7 @@ pub(super) fn parse_response(
         tool_calls,
         finish_reason: finish_reason(choice.finish_reason.as_deref()),
         structured_output,
+        provider_context: Vec::new(),
         usage: ModelUsage {
             input_tokens,
             output_tokens,

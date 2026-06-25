@@ -29,6 +29,7 @@ async fn tool_errors_surface_on_step_and_are_reused_by_run() {
                 }],
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
+                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             })),
         ModelMock::complete
@@ -49,6 +50,7 @@ async fn tool_errors_surface_on_step_and_are_reused_by_run() {
                     tool_calls: Vec::new(),
                     finish_reason: FinishReason::Stop,
                     structured_output: None,
+                    provider_context: Vec::new(),
                     usage: ModelUsage::default(),
                 })
             }),
@@ -89,6 +91,7 @@ async fn step_limit_is_reported_as_capped() {
                 }],
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
+                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             })),
     ));
@@ -132,6 +135,7 @@ async fn invalid_tool_arguments_surface_once_and_are_retained() {
                 }],
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
+                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             })),
         ModelMock::complete
@@ -152,6 +156,7 @@ async fn invalid_tool_arguments_surface_once_and_are_retained() {
                     tool_calls: Vec::new(),
                     finish_reason: FinishReason::Stop,
                     structured_output: None,
+                    provider_context: Vec::new(),
                     usage: ModelUsage::default(),
                 })
             }),
@@ -207,6 +212,7 @@ async fn failed_tool_calls_still_append_messages_for_later_calls_in_the_same_bat
                 ],
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
+                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             })),
         ModelMock::complete
@@ -232,6 +238,7 @@ async fn failed_tool_calls_still_append_messages_for_later_calls_in_the_same_bat
                     tool_calls: Vec::new(),
                     finish_reason: FinishReason::Stop,
                     structured_output: None,
+                    provider_context: Vec::new(),
                     usage: ModelUsage::default(),
                 })
             }),

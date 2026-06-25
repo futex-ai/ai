@@ -57,6 +57,7 @@ async fn builds_xai_tool_requests_and_parses_response() {
                 name: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
+                provider_context: Vec::new(),
             }],
             tools: vec![ToolDefinition {
                 name: "memory_read".to_owned(),

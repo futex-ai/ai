@@ -32,6 +32,7 @@ async fn tool_dispatch_passes_operation_id_to_tool_boundary() {
                 }],
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
+                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             })),
     ));

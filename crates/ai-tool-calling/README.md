@@ -27,6 +27,9 @@ explicit conversation mutation APIs.
   from the provider tool-call id
 - Uses `ModelResponse::finish_reason` as the turn termination contract instead
   of inferring completion from whether the tool-call list is empty
+- Retains `ModelResponse::provider_context` on assistant messages so
+  provider-specific replay state, such as OpenAI stateless reasoning items,
+  stays available for later model calls
 - Records successful tool output and tool errors back into conversation state,
   always appending one tool-role message per emitted `tool_call_id` even when a
   sibling call in the same model response fails
@@ -70,6 +73,7 @@ fn user_message(content: &str) -> ConversationMessage {
         name: None,
         tool_call_id: None,
         tool_calls: Vec::new(),
+        provider_context: Vec::new(),
     }
 }
 

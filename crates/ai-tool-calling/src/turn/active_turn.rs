@@ -169,11 +169,16 @@ impl<'a> ActiveTurn<'a> {
         if !response.assistant_message.trim().is_empty() {
             self.assistant_message = response.assistant_message.clone();
         }
-        if !response.assistant_message.trim().is_empty() || !response.tool_calls.is_empty() {
-            self.runtime.append_message(ConversationMessage::assistant(
-                response.assistant_message.clone(),
-                response.tool_calls.clone(),
-            ));
+        if !response.assistant_message.trim().is_empty()
+            || !response.tool_calls.is_empty()
+            || !response.provider_context.is_empty()
+        {
+            self.runtime
+                .append_message(ConversationMessage::assistant_with_provider_context(
+                    response.assistant_message.clone(),
+                    response.tool_calls.clone(),
+                    response.provider_context.clone(),
+                ));
         }
         Ok(())
     }

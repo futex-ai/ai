@@ -1,7 +1,8 @@
 //! OpenAI Responses response parsing.
 
 use ai_interface::{
-    FinishReason, ModelError, ModelResponse, ModelUsage, StructuredOutputSchema, ToolCall,
+    FinishReason, ModelError, ModelResponse, ModelUsage, OpenAiReasoningSummary,
+    ProviderConversationItem, StructuredOutputSchema, ToolCall,
 };
 use ai_models_core::{ThinkingLevel, parse_structured_output, parse_tool_call_arguments};
 use serde::Deserialize;
@@ -36,6 +37,7 @@ pub(super) fn parse_response(
 
     let assistant_message = assistant_message(&parsed.output);
     let tool_calls = tool_calls(provider_model_id, &parsed.output)?;
+    let provider_context = provider_context(&parsed.output);
     let finish_reason = finish_reason(&parsed, !tool_calls.is_empty());
     let usage = parsed.usage.unwrap_or_default();
     let structured_output = response_schema
@@ -77,6 +79,7 @@ pub(super) fn parse_response(
         tool_calls,
         finish_reason,
         structured_output,
+        provider_context,
         usage: ModelUsage {
             input_tokens,
             output_tokens,
@@ -108,6 +111,14 @@ struct ResponsesResponse {
 enum ResponsesOutputItem {
     #[serde(rename = "message")]
     Message { content: Vec<ResponsesContentPart> },
+    #[serde(rename = "reasoning")]
+    Reasoning {
+        id: String,
+        #[serde(default)]
+        summary: Vec<OpenAiReasoningSummary>,
+        #[serde(default)]
+        encrypted_content: Option<String>,
+    },
     #[serde(rename = "function_call")]
     FunctionCall {
         call_id: String,
@@ -177,10 +188,32 @@ fn assistant_message(output: &[ResponsesOutputItem]) -> String {
                     ResponsesContentPart::Other => None,
                 })
                 .collect::<Vec<_>>(),
-            ResponsesOutputItem::FunctionCall { .. } | ResponsesOutputItem::Other => Vec::new(),
+            ResponsesOutputItem::Reasoning { .. }
+            | ResponsesOutputItem::FunctionCall { .. }
+            | ResponsesOutputItem::Other => Vec::new(),
         })
         .collect::<Vec<_>>()
         .join("")
+}
+
+fn provider_context(output: &[ResponsesOutputItem]) -> Vec<ProviderConversationItem> {
+    output
+        .iter()
+        .filter_map(|item| match item {
+            ResponsesOutputItem::Reasoning {
+                id,
+                summary,
+                encrypted_content,
+            } => Some(ProviderConversationItem::OpenAiReasoning {
+                id: id.clone(),
+                summary: summary.clone(),
+                encrypted_content: encrypted_content.clone(),
+            }),
+            ResponsesOutputItem::Message { .. }
+            | ResponsesOutputItem::FunctionCall { .. }
+            | ResponsesOutputItem::Other => None,
+        })
+        .collect()
 }
 
 fn tool_calls(
@@ -195,7 +228,9 @@ fn tool_calls(
                 name,
                 arguments,
             } => Some((call_id, name, arguments)),
-            ResponsesOutputItem::Message { .. } | ResponsesOutputItem::Other => None,
+            ResponsesOutputItem::Message { .. }
+            | ResponsesOutputItem::Reasoning { .. }
+            | ResponsesOutputItem::Other => None,
         })
         .map(|(call_id, name, arguments)| {
             Ok(ToolCall {
@@ -246,7 +281,9 @@ fn has_refusal(output: &[ResponsesOutputItem]) -> bool {
         ResponsesOutputItem::Message { content } => content
             .iter()
             .any(|part| matches!(part, ResponsesContentPart::Refusal { .. })),
-        ResponsesOutputItem::FunctionCall { .. } | ResponsesOutputItem::Other => false,
+        ResponsesOutputItem::Reasoning { .. }
+        | ResponsesOutputItem::FunctionCall { .. }
+        | ResponsesOutputItem::Other => false,
     })
 }
 

@@ -91,6 +91,7 @@ fn success_response() -> ModelResponse {
         tool_calls: Vec::new(),
         finish_reason: FinishReason::Stop,
         structured_output: None,
+        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }

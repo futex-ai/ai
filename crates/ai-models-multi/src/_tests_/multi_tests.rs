@@ -186,6 +186,7 @@ fn success_response(provider: &str, model_id: &str) -> ModelResponse {
         tool_calls: Vec::new(),
         finish_reason: FinishReason::Stop,
         structured_output: None,
+        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }

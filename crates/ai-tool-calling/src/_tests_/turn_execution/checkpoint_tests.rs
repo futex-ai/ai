@@ -153,6 +153,7 @@ fn two_tool_response() -> ModelResponse {
         ],
         finish_reason: FinishReason::ToolCalls,
         structured_output: None,
+        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }
@@ -167,6 +168,7 @@ fn terminal_response() -> ModelResponse {
         tool_calls: Vec::new(),
         finish_reason: FinishReason::Stop,
         structured_output: None,
+        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }

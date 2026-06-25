@@ -154,6 +154,7 @@ fn model_response(finish_reason: FinishReason, tool_calls: Vec<ToolCall>) -> Mod
         tool_calls,
         finish_reason,
         structured_output: None,
+        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }
