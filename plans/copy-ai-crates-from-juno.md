@@ -99,7 +99,29 @@ basic runtime-facing smoke check.
       tool-calling registration without requiring live provider API calls.
 - [ ] Run `cargo xtask check` and fix any failures until it passes.
 
-## Milestone 5: Documentation And Review
+## Milestone 5: GitHub CI Workflows
+
+Add repository CI so the copied workspace is checked automatically on pull
+requests and branch pushes. At the end of this milestone, GitHub Actions should
+exercise the same core checks expected locally without requiring live provider
+API keys.
+
+- [ ] Create `.github/workflows/ci.yml` for `pull_request` and `push` events
+      against the main development branches.
+- [ ] Configure the CI workflow to install the pinned Rust toolchain or the
+      repository's default Rust toolchain.
+- [ ] Configure CI to cache Cargo dependencies and build outputs where it is
+      safe and useful.
+- [ ] Run `cargo fmt --all -- --check` in CI.
+- [ ] Run `cargo clippy --workspace --all-targets --all-features` in CI.
+- [ ] Run `cargo test --workspace --all-features` in CI.
+- [ ] Run `cargo xtask rust-file-length-lint --all` in CI.
+- [ ] Run `cargo xtask check` in CI after the faster targeted checks.
+- [ ] Ensure CI and smoke tests do not require live Anthropic, Google, OpenAI,
+      or xAI credentials.
+- [ ] Document the CI workflow in the root `README.md`.
+
+## Milestone 6: Documentation, PR, And Review
 
 Finish the migration with documentation, a committed diff, and reviewer
 feedback. Do not auto-fix review findings without explicit user direction.
@@ -113,6 +135,9 @@ feedback. Do not auto-fix review findings without explicit user direction.
 - [ ] Run `git add -A`.
 - [ ] Commit the completed work with a Conventional Commit message.
 - [ ] Push the current branch.
+- [ ] Create a GitHub pull request against `main` after pushing the branch.
+- [ ] Confirm the GitHub CI workflows start for the pull request and report
+      their status in the final handoff.
 - [ ] Run `cargo xtask review` after pushing so the AI reviewer checks the diff
       against `origin/main`.
 - [ ] Report each review finding in the final message with severity, context,
