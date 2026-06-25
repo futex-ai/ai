@@ -242,7 +242,7 @@ fn text_format(response_schema: &StructuredOutputSchema) -> ResponsesText {
         format: ResponsesTextFormat {
             kind: "json_schema".to_owned(),
             name: response_schema.name.clone(),
-            strict: true,
+            strict: false,
             schema: response_schema.schema.clone(),
         },
     }

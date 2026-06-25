@@ -158,7 +158,7 @@ async fn builds_structured_output_requests_and_parses_response() {
     let format = &requests[0].body.as_ref().expect("body present")["text"]["format"];
     assert_eq!(format["type"], "json_schema");
     assert_eq!(format["name"], "status");
-    assert_eq!(format["strict"], true);
+    assert_eq!(format["strict"], false);
     assert_eq!(
         response.structured_output,
         Some(json!({
