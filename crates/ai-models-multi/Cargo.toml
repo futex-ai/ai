@@ -1,0 +1,16 @@
+[package]
+name = "ai-models-multi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+ai-interface.workspace = true
+async-trait = "0.1.89"
+thiserror = "2.0.18"
+
+[dev-dependencies]
+ai-interface = { workspace = true, features = ["test-support"] }
+tokio = { version = "1.52.1", features = ["macros", "rt"] }
+unimock = "0.6.8"

@@ -1,0 +1,98 @@
+# ai-models-openai
+
+`ai-models-openai` is the OpenAI-specific `ai-interface` implementation crate
+for the workspace. Depend on it when you want to call OpenAI Responses
+generation models or the audio transcription endpoint with explicit auth and shared
+runtime wrappers from neighboring crates.
+
+## Responsibilities
+
+- Implement the OpenAI model client behind `ai_interface::Model`
+- Implement the OpenAI speech-to-text client behind
+  `ai_interface::AudioTranscriber`
+- Export strongly typed known OpenAI model metadata for model routing
+- Map shared model/tool DTOs to the OpenAI Responses API
+- Map shared audio transcription DTOs to `v1/audio/transcriptions`
+- Parse OpenAI responses into shared response DTOs and typed model errors
+
+## What This Crate Does
+
+`OpenAiModel` accepts a `json-http` client plus explicit auth input and handles:
+
+- OpenAI Responses request serialization
+- OpenAI tool-call parsing
+- OpenAI `finish_reason` normalization into `ai_interface::FinishReason`
+- OpenAI `text.format` JSON-schema mapping for structured outputs
+- OpenAI `reasoning.effort` mapping from catalog `ThinkingLevel` for
+  reasoning-capable catalog variants
+- stateless `store: false` generation calls using caller-owned conversation
+  state
+- provider response usage extraction into normalized input, output, cached
+  input, and reasoning token counts
+- status, transport, and structured-output validation failure mapping onto
+  `ai_interface::ModelError`
+
+This crate does not load config, read environment variables, or resolve credentials on its own.
+It exports `known_models()` and typed catalog id constants (`GPT_5_5`,
+`GPT_5_5_THINKING_LOW`, `GPT_5_5_THINKING_HIGH`,
+`GPT_5_5_THINKING_EXTRA_HIGH`, `GPT_5_5_MINI`, `GPT_5_5_NANO`) so
+composition roots can validate deployment config and sort routes without
+duplicating OpenAI model metadata. The `gpt-5.5` thinking variants all send
+provider model id `gpt-5.5`; `gpt-5.5` supports up to `ExtraHigh`, so this
+catalog does not define a max-thinking OpenAI variant.
+OpenAI generation uses workspace-defined function tools with `strict: false` during
+the Responses cutover. OpenAI built-in tools are intentionally not exposed by
+this crate.
+
+`OpenAiAudioTranscriber` submits completed audio recordings to the OpenAI
+transcription endpoint using `gpt-4o-mini-transcribe` or another caller-chosen
+transcription model. It expects the caller to provide the API key and the
+uploaded audio media type.
+
+## Quick Start
+
+```rust
+use std::sync::Arc;
+
+use ai_interface::{AudioTranscriber, Model};
+use ai_models_openai::{GPT_5_5, OpenAiAudioTranscriber, OpenAiModel, known_models};
+use json_http::ReqwestJsonHttpClient;
+
+fn build_model() -> OpenAiModel {
+    OpenAiModel::new(
+        Arc::new(ReqwestJsonHttpClient::new()),
+        GPT_5_5,
+        "sk-demo",
+    )
+}
+
+fn known_model_count() -> usize {
+    known_models().len()
+}
+
+fn build_transcriber() -> OpenAiAudioTranscriber {
+    OpenAiAudioTranscriber::new("gpt-4o-mini-transcribe", "sk-demo")
+}
+```
+
+## Development
+
+```sh
+cargo test -p ai-models-openai
+cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
+```
+
+### Key Code
+
+- `src/openai/mod.rs` - `Model` implementation and request dispatch
+- `src/catalog.rs` - known OpenAI model ids and routing metadata
+- `src/openai/request.rs` - OpenAI Responses request DTO mapping
+- `src/openai/response.rs` - OpenAI Responses response parsing
+- `src/openai/transcription.rs` - OpenAI audio transcription implementation
+
+### Related Docs
+
+- [`../ai-interface/README.md`](../ai-interface/README.md)
+- [`../json-http/README.md`](../json-http/README.md)
+- [`../ai-models-core/README.md`](../ai-models-core/README.md)
+- [`../../plans/README.md`](../../plans/README.md)

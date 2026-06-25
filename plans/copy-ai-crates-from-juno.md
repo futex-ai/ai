@@ -32,16 +32,16 @@ Create a standalone Rust workspace that can own the copied AI crates and run the
 required local checks. At the end of this milestone, the repository should have a
 valid Cargo workspace even before provider behavior is changed.
 
-- [ ] Add root `Cargo.toml` with workspace package metadata, resolver, members,
+- [x] Add root `Cargo.toml` with workspace package metadata, resolver, members,
       and shared dependency declarations needed by the copied crates.
-- [ ] Add or adapt workspace tooling so `cargo xtask check`,
+- [x] Add or adapt workspace tooling so `cargo xtask check`,
       `cargo xtask review`, and `cargo xtask rust-file-length-lint --all` are
       available in this repository.
-- [ ] Add root `.gitignore` entries for Rust build outputs and local tool
+- [x] Add root `.gitignore` entries for Rust build outputs and local tool
       artifacts.
-- [ ] Confirm the root `README.md` explains the workspace purpose, developer
+- [x] Confirm the root `README.md` explains the workspace purpose, developer
       entry points, and links to `plans/README.md`.
-- [ ] Run `cargo metadata` to verify the workspace manifest parses.
+- [x] Run `cargo metadata` to verify the workspace manifest parses.
 
 ## Milestone 2: Copy AI And Support Crates
 
@@ -50,21 +50,21 @@ milestone, all `ai-*` crate source plus the required `json-http` support crate
 source, tests, and crate READMEs should be present under `crates/` and tracked
 by Git.
 
-- [ ] Copy `crates/ai-interface` from Juno.
-- [ ] Copy `crates/ai-models-core` from Juno.
-- [ ] Copy `crates/ai-models-anthropic` from Juno.
-- [ ] Copy `crates/ai-models-google` from Juno.
-- [ ] Copy `crates/ai-models-openai` from Juno.
-- [ ] Copy `crates/ai-models-xai` from Juno.
-- [ ] Copy `crates/ai-models-multi` from Juno.
-- [ ] Copy `crates/ai-tool-calling` from Juno.
-- [ ] Copy `crates/json-http` from Juno as a required support crate for the
+- [x] Copy `crates/ai-interface` from Juno.
+- [x] Copy `crates/ai-models-core` from Juno.
+- [x] Copy `crates/ai-models-anthropic` from Juno.
+- [x] Copy `crates/ai-models-google` from Juno.
+- [x] Copy `crates/ai-models-openai` from Juno.
+- [x] Copy `crates/ai-models-xai` from Juno.
+- [x] Copy `crates/ai-models-multi` from Juno.
+- [x] Copy `crates/ai-tool-calling` from Juno.
+- [x] Copy `crates/json-http` from Juno as a required support crate for the
       provider crates.
-- [ ] Preserve source-adjacent `_tests_` directories, crate `README.md` files,
+- [x] Preserve source-adjacent `_tests_` directories, crate `README.md` files,
       snapshot files, and fixtures from each copied crate.
-- [ ] Add every copied crate to workspace members and workspace dependencies,
+- [x] Add every copied crate to workspace members and workspace dependencies,
       including `json-http`.
-- [ ] Review each copied crate README against the repo's Rust crate README
+- [x] Review each copied crate README against the repo's Rust crate README
       requirements and update any stale Juno-specific references, including the
       `json-http` support boundary.
 
@@ -74,15 +74,15 @@ Make the copied crates independent from unpublished Juno-only workspace
 assumptions. At the end of this milestone, dependency resolution should not rely
 on the original Juno checkout.
 
-- [ ] Inventory all copied manifests for `workspace = true`, path, git, and
+- [x] Inventory all copied manifests for `workspace = true`, path, git, and
       unpublished dependencies.
-- [ ] Verify copied provider crates resolve `json-http` through this
+- [x] Verify copied provider crates resolve `json-http` through this
       repository's workspace dependency instead of the Juno checkout.
-- [ ] Document `json-http` as a support crate owned by this workspace for AI
+- [x] Document `json-http` as a support crate owned by this workspace for AI
       provider HTTP client behavior.
-- [ ] Convert inherited workspace dependency versions into this repository's
+- [x] Convert inherited workspace dependency versions into this repository's
       root `Cargo.toml` without pinning unnecessary external versions by hand.
-- [ ] Run `cargo metadata` again and fix dependency resolution errors.
+- [x] Run `cargo metadata` again and fix dependency resolution errors.
 
 ## Milestone 4: Compile, Test, And Smoke Test
 
@@ -90,14 +90,14 @@ Validate the copied crates as a working product surface. At the end of this
 milestone, all copied crates should pass formatting, linting, tests, and a
 basic runtime-facing smoke check.
 
-- [ ] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
       re-run the check.
-- [ ] Run `cargo clippy --workspace --all-targets --all-features`.
-- [ ] Run `cargo test --workspace --all-features`.
-- [ ] Run `cargo xtask rust-file-length-lint --all`.
-- [ ] Run a smoke check that exercises model-provider construction and
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features`.
+- [x] Run `cargo xtask rust-file-length-lint --all`.
+- [x] Run a smoke check that exercises model-provider construction and
       tool-calling registration without requiring live provider API calls.
-- [ ] Run `cargo xtask check` and fix any failures until it passes.
+- [x] Run `cargo xtask check` and fix any failures until it passes.
 
 ## Milestone 5: GitHub CI Workflows
 
@@ -106,39 +106,39 @@ requests and branch pushes. At the end of this milestone, GitHub Actions should
 exercise the same core checks expected locally without requiring live provider
 API keys.
 
-- [ ] Create `.github/workflows/ci.yml` for `pull_request` and `push` events
+- [x] Create `.github/workflows/ci.yml` for `pull_request` and `push` events
       against the main development branches.
-- [ ] Configure the CI workflow to install the pinned Rust toolchain or the
+- [x] Configure the CI workflow to install the pinned Rust toolchain or the
       repository's default Rust toolchain.
-- [ ] Configure CI to cache Cargo dependencies and build outputs where it is
+- [x] Configure CI to cache Cargo dependencies and build outputs where it is
       safe and useful.
-- [ ] Run `cargo fmt --all -- --check` in CI.
-- [ ] Run `cargo clippy --workspace --all-targets --all-features` in CI.
-- [ ] Run `cargo test --workspace --all-features` in CI.
-- [ ] Run `cargo xtask rust-file-length-lint --all` in CI.
-- [ ] Run `cargo xtask check` in CI after the faster targeted checks.
-- [ ] Ensure CI and smoke tests do not require live Anthropic, Google, OpenAI,
+- [x] Run `cargo fmt --all -- --check` in CI.
+- [x] Run `cargo clippy --workspace --all-targets --all-features` in CI.
+- [x] Run `cargo test --workspace --all-features` in CI.
+- [x] Run `cargo xtask rust-file-length-lint --all` in CI.
+- [x] Run `cargo xtask check` in CI after the faster targeted checks.
+- [x] Ensure CI and smoke tests do not require live Anthropic, Google, OpenAI,
       or xAI credentials.
-- [ ] Document the CI workflow in the root `README.md`.
+- [x] Document the CI workflow in the root `README.md`.
 
 ## Milestone 6: Documentation, PR, And Review
 
 Finish the migration with documentation, a committed diff, and reviewer
 feedback. Do not auto-fix review findings without explicit user direction.
 
-- [ ] Update the root `README.md` with the final workspace summary, developer
+- [x] Update the root `README.md` with the final workspace summary, developer
       setup, crate map, public interfaces, and key code jumping-in points.
-- [ ] Update `plans/README.md` to move this plan from active to completed after
+- [x] Update `plans/README.md` to move this plan from active to completed after
       all previous milestones are done.
-- [ ] Review `git diff origin/main...` for accidental unrelated changes,
+- [x] Review `git diff origin/main...` for accidental unrelated changes,
       generated artifacts, missing files, and stale Juno paths.
-- [ ] Run `git add -A`.
-- [ ] Commit the completed work with a Conventional Commit message.
-- [ ] Push the current branch.
-- [ ] Create a GitHub pull request against `main` after pushing the branch.
-- [ ] Confirm the GitHub CI workflows start for the pull request and report
+- [x] Run `git add -A`.
+- [x] Commit the completed work with a Conventional Commit message.
+- [x] Push the current branch.
+- [x] Create a GitHub pull request against `main` after pushing the branch.
+- [x] Confirm the GitHub CI workflows start for the pull request and report
       their status in the final handoff.
-- [ ] Run `cargo xtask review` after pushing so the AI reviewer checks the diff
+- [x] Run `cargo xtask review` after pushing so the AI reviewer checks the diff
       against `origin/main`.
-- [ ] Report each review finding in the final message with severity, context,
+- [x] Report each review finding in the final message with severity, context,
       impact, solution options, and a recommended option.
