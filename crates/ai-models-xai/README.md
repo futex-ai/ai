@@ -19,8 +19,8 @@
 - xAI OpenAI-compatible `response_format` JSON-schema mapping for structured outputs
 - xAI `reasoning_effort` mapping from catalog `ThinkingLevel` for
   reasoning-capable catalog variants
-- provider response usage extraction into normalized input and output token
-  counts, with unsupported cached/reasoning categories left at zero
+- provider response usage extraction into normalized input, cached input,
+  output, and reasoning token counts when xAI returns compatible usage details
 - status, transport, and structured-output validation failure mapping onto
   `ai_interface::ModelError`
 

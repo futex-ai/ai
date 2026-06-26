@@ -66,12 +66,16 @@ pub(super) fn parse_response(
     } else {
         assistant_message
     };
-    let input_tokens = u64::from(usage.prompt_tokens);
-    let output_tokens = u64::from(usage.completion_tokens);
-    let total_tokens = usage
-        .total_tokens
-        .map(u64::from)
-        .unwrap_or_else(|| input_tokens.saturating_add(output_tokens));
+    let cached_input_tokens = u64::from(usage.prompt_tokens_details.cached_tokens);
+    let reasoning_tokens = u64::from(usage.completion_tokens_details.reasoning_tokens);
+    let input_tokens = u64::from(usage.prompt_tokens).saturating_sub(cached_input_tokens);
+    let output_tokens = u64::from(usage.completion_tokens).saturating_sub(reasoning_tokens);
+    let total_tokens = usage.total_tokens.map(u64::from).unwrap_or_else(|| {
+        input_tokens
+            .saturating_add(output_tokens)
+            .saturating_add(cached_input_tokens)
+            .saturating_add(reasoning_tokens)
+    });
     Ok(ModelResponse {
         provider: PROVIDER.to_owned(),
         model_id: provider_model_id.to_owned(),
@@ -85,8 +89,8 @@ pub(super) fn parse_response(
         usage: ModelUsage {
             input_tokens,
             output_tokens,
-            cached_input_tokens: 0,
-            reasoning_tokens: 0,
+            cached_input_tokens,
+            reasoning_tokens,
             total_tokens,
             estimated_cost_microusd: 0,
             cost_lines: Vec::new(),
@@ -136,6 +140,22 @@ struct ChatCompletionsUsage {
     completion_tokens: u32,
     #[serde(default)]
     total_tokens: Option<u32>,
+    #[serde(default)]
+    prompt_tokens_details: ChatCompletionsPromptTokenDetails,
+    #[serde(default)]
+    completion_tokens_details: ChatCompletionsCompletionTokenDetails,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+struct ChatCompletionsPromptTokenDetails {
+    #[serde(default)]
+    cached_tokens: u32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+struct ChatCompletionsCompletionTokenDetails {
+    #[serde(default)]
+    reasoning_tokens: u32,
 }
 
 fn finish_reason(value: Option<&str>) -> FinishReason {
