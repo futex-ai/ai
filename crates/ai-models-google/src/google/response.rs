@@ -55,8 +55,9 @@ pub(super) fn parse_response(
 
     let usage = parsed.usage_metadata.unwrap_or_default();
     let assistant_message = assistant_parts.join("\n");
+    let finish_reason = finish_reason(candidate.finish_reason.as_deref(), !tool_calls.is_empty());
     let structured_output = response_schema
-        .filter(|_| tool_calls.is_empty())
+        .filter(|_| matches!(finish_reason, FinishReason::Stop) && tool_calls.is_empty())
         .map(|response_schema| {
             parse_structured_output(
                 PROVIDER,
@@ -90,7 +91,7 @@ pub(super) fn parse_response(
         catalog_model_id: Some(catalog_model_id.to_owned()),
         thinking_level: Some(thinking_level.as_str().to_owned()),
         assistant_message,
-        finish_reason: finish_reason(candidate.finish_reason.as_deref(), !tool_calls.is_empty()),
+        finish_reason,
         tool_calls,
         structured_output,
         provider_context: Vec::new(),

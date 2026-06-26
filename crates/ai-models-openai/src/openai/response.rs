@@ -41,7 +41,7 @@ pub(super) fn parse_response(
     let finish_reason = finish_reason(&parsed, !tool_calls.is_empty());
     let usage = parsed.usage.unwrap_or_default();
     let structured_output = response_schema
-        .filter(|_| tool_calls.is_empty())
+        .filter(|_| matches!(finish_reason, FinishReason::Stop) && tool_calls.is_empty())
         .map(|response_schema| {
             parse_structured_output(
                 PROVIDER,

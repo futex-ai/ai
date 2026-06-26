@@ -132,6 +132,10 @@ fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
 mod anthropic_tests;
 
 #[cfg(test)]
+#[path = "_tests_/anthropic_structured_finish_tests.rs"]
+mod anthropic_structured_finish_tests;
+
+#[cfg(test)]
 #[path = "_tests_/anthropic_multimodal_tests.rs"]
 mod anthropic_multimodal_tests;
 

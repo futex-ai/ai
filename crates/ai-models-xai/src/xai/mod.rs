@@ -127,6 +127,10 @@ fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
 mod xai_tests;
 
 #[cfg(test)]
+#[path = "_tests_/xai_structured_finish_tests.rs"]
+mod xai_structured_finish_tests;
+
+#[cfg(test)]
 #[path = "_tests_/xai_multimodal_tests.rs"]
 mod xai_multimodal_tests;
 

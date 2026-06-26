@@ -83,7 +83,9 @@ async fn transcribe_demo() -> ai_interface::TranscriptionResult<String> {
 
 Structured responses are optional at the shared boundary. Callers can attach a
 `StructuredOutputSchema` to `ModelRequest::response_schema` and read validated
-JSON back from `ModelResponse::structured_output`.
+JSON back from `ModelResponse::structured_output` when the provider returns a
+normal `Stop` response. Provider adapters preserve non-success finish reasons
+such as `Filtered` or `Truncated` without attempting schema validation.
 
 `ModelResponse::finish_reason` carries the provider stop signal normalized to
 `FinishReason`: `Stop` for natural completion, `ToolCalls` for model-requested

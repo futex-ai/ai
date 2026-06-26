@@ -54,7 +54,8 @@ the associated function-call outputs.
 `OpenAiAudioTranscriber` submits completed audio recordings to the OpenAI
 transcription endpoint using `gpt-4o-mini-transcribe` or another caller-chosen
 transcription model. It expects the caller to provide the API key and the
-uploaded audio media type.
+uploaded audio media type, and applies a 60-second request timeout so stalled
+provider calls return through the transient transcription error path.
 
 ## Quick Start
 

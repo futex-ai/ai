@@ -18,6 +18,7 @@ use super::GoogleModel;
 mod finish_reason_tests;
 mod multimodal_tests;
 mod request_tests;
+mod structured_finish_tests;
 
 type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 

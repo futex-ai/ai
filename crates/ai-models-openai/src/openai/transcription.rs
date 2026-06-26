@@ -1,5 +1,7 @@
 //! OpenAI audio transcription client.
 
+use std::time::Duration;
+
 use ai_interface::{
     AudioTranscriber, AudioTranscriptionRequest, AudioTranscriptionResponse, TranscriptionError,
     TranscriptionResult,
@@ -9,6 +11,7 @@ use reqwest::{Client, StatusCode, multipart};
 use serde::Deserialize;
 
 const OPENAI_AUDIO_TRANSCRIPTIONS_URL: &str = "https://api.openai.com/v1/audio/transcriptions";
+const DEFAULT_TRANSCRIPTION_TIMEOUT: Duration = Duration::from_secs(60);
 const PROVIDER: &str = "openai";
 
 /// OpenAI-backed `ai_interface::AudioTranscriber` implementation.
@@ -18,6 +21,7 @@ pub struct OpenAiAudioTranscriber {
     model_id: String,
     api_key: String,
     endpoint: String,
+    timeout: Duration,
 }
 
 impl OpenAiAudioTranscriber {
@@ -28,6 +32,7 @@ impl OpenAiAudioTranscriber {
             model_id: model_id.into(),
             api_key: api_key.into(),
             endpoint: OPENAI_AUDIO_TRANSCRIPTIONS_URL.to_owned(),
+            timeout: DEFAULT_TRANSCRIPTION_TIMEOUT,
         }
     }
 }
@@ -54,6 +59,7 @@ impl AudioTranscriber for OpenAiAudioTranscriber {
             .post(&self.endpoint)
             .bearer_auth(&self.api_key)
             .multipart(form)
+            .timeout(self.timeout)
             .send()
             .await
         {
@@ -100,3 +106,7 @@ fn classify_status(status: StatusCode, model_id: &str, body: String) -> Transcri
     }
     TranscriptionError::provider(PROVIDER, model_id, body)
 }
+
+#[cfg(test)]
+#[path = "_tests_/openai_transcription_tests.rs"]
+mod openai_transcription_tests;

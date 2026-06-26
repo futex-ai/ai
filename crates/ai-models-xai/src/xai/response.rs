@@ -47,8 +47,9 @@ pub(super) fn parse_response(
         .collect::<std::result::Result<Vec<_>, ModelError>>()?;
     let usage = parsed.usage.unwrap_or_default();
     let assistant_message = assistant_text(choice.message.content);
+    let finish_reason = finish_reason(choice.finish_reason.as_deref());
     let structured_output = response_schema
-        .filter(|_| tool_calls.is_empty())
+        .filter(|_| matches!(finish_reason, FinishReason::Stop) && tool_calls.is_empty())
         .map(|response_schema| {
             parse_structured_output(
                 PROVIDER,
@@ -83,7 +84,7 @@ pub(super) fn parse_response(
         thinking_level: Some(thinking_level.as_str().to_owned()),
         assistant_message,
         tool_calls,
-        finish_reason: finish_reason(choice.finish_reason.as_deref()),
+        finish_reason,
         structured_output,
         provider_context: Vec::new(),
         usage: ModelUsage {

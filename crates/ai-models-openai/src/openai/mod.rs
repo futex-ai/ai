@@ -134,6 +134,10 @@ mod openai_tests;
 mod openai_response_tests;
 
 #[cfg(test)]
+#[path = "_tests_/openai_structured_finish_tests.rs"]
+mod openai_structured_finish_tests;
+
+#[cfg(test)]
 #[path = "_tests_/openai_reasoning_replay_tests.rs"]
 mod openai_reasoning_replay_tests;
 
