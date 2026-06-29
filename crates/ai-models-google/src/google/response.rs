@@ -5,7 +5,7 @@ use ai_interface::{
 };
 use ai_models_core::{ThinkingLevel, parse_structured_output};
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 const PROVIDER: &str = "google";
 
@@ -67,7 +67,9 @@ pub(super) fn parse_response(
                     .id
                     .unwrap_or_else(|| format!("call_{}", tool_calls.len() + 1)),
                 name: function_call.name,
-                input: function_call.args.unwrap_or(Value::Null),
+                input: function_call
+                    .args
+                    .unwrap_or_else(|| Value::Object(Map::new())),
                 operation_id: None,
             });
         }

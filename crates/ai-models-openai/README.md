@@ -22,6 +22,8 @@ runtime wrappers from neighboring crates.
 - OpenAI Responses request serialization
 - OpenAI tool-call parsing
 - OpenAI `finish_reason` normalization into `ai_interface::FinishReason`
+  before exposing tool calls, so incomplete or failed Responses results cannot
+  dispatch partial function-call output items
 - OpenAI `text.format` JSON-schema mapping for structured outputs, using
   non-strict mode so callers can pass the broader shared schema contract
 - OpenAI `reasoning.effort` mapping from catalog `ThinkingLevel` for

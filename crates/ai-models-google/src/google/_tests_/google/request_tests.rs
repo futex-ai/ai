@@ -93,6 +93,36 @@ async fn builds_google_tool_requests_and_parses_response() {
 }
 
 #[tokio::test]
+async fn google_function_call_without_args_uses_empty_object_input() {
+    let (http_client, _) = recording_http_client(JsonHttpResponse {
+        status: 200,
+        body: json!({
+            "candidates": [{
+                "finishReason": "STOP",
+                "content": {
+                    "parts": [{
+                        "functionCall": {
+                            "id": "call_1",
+                            "name": "status_check"
+                        }
+                    }]
+                }
+            }]
+        }),
+    });
+    let model = GoogleModel::new(http_client, "gemini-2.5-pro", "google-key");
+
+    let response = model
+        .complete(&simple_request())
+        .await
+        .expect("Google no-arg function call should parse");
+
+    assert_eq!(response.finish_reason, FinishReason::ToolCalls);
+    assert_eq!(response.tool_calls.len(), 1);
+    assert_eq!(response.tool_calls[0].input, json!({}));
+}
+
+#[tokio::test]
 async fn builds_google_structured_output_requests_and_parses_response() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
         status: 200,

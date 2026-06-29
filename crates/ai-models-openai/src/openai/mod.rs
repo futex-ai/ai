@@ -130,7 +130,7 @@ fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
 mod openai_tests;
 
 #[cfg(test)]
-#[path = "_tests_/openai_response_tests.rs"]
+#[path = "_tests_/openai_response/mod.rs"]
 mod openai_response_tests;
 
 #[cfg(test)]
