@@ -131,6 +131,10 @@ mod xai_tests;
 mod xai_structured_finish_tests;
 
 #[cfg(test)]
+#[path = "_tests_/xai_tool_finish_tests.rs"]
+mod xai_tool_finish_tests;
+
+#[cfg(test)]
 #[path = "_tests_/xai_multimodal_tests.rs"]
 mod xai_multimodal_tests;
 

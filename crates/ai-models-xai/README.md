@@ -16,6 +16,8 @@
 - xAI chat-completions request serialization
 - xAI tool-call parsing
 - xAI `finish_reason` normalization into `ai_interface::FinishReason`
+- terminal xAI finish reasons such as `length` are preserved before tool-call
+  payloads are parsed, so partial tool-call arguments are not dispatched
 - xAI OpenAI-compatible non-strict `response_format` JSON-schema mapping for
   structured outputs, with local response validation through shared helpers
 - xAI `reasoning_effort` mapping from catalog `ThinkingLevel` for

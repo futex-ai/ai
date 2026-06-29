@@ -168,6 +168,30 @@ the shared non-strict schema contract.
 - [x] Confirm the GitHub CI workflow status for the pull request.
 - [x] Run `cargo xtask review` after pushing and report any findings.
 
+## Milestone 9: Provider Retry and Truncation Follow-ups
+
+Address the reviewer findings selected by the user after the third PR review.
+At the end of this milestone, xAI truncated tool-call responses should preserve
+their terminal finish reason without parsing partial arguments, and HTTP 409
+provider responses should be retryable by the shared retry wrapper.
+
+- [x] Add regression tests for truncated xAI tool-call responses and HTTP 409
+      error classification.
+- [x] Preserve xAI terminal finish reasons before accepting tool-call payloads.
+- [x] Classify HTTP 409 model responses as transient provider failures.
+- [x] Update crate READMEs with the clarified provider behavior.
+- [x] Run targeted regression tests for the changed xAI and core helpers.
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+      re-run the check.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features`.
+- [x] Run `cargo xtask check`.
+- [x] Run `git add -A`.
+- [x] Commit the follow-up work with a Conventional Commit message.
+- [x] Push the current branch.
+- [x] Confirm the GitHub CI workflow status for the pull request.
+- [x] Run `cargo xtask review` after pushing and report any findings.
+
 ## Milestone 8: Tool-Call Safety Review Follow-ups
 
 Address the reviewer findings selected by the user after the second PR review.

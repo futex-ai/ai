@@ -26,7 +26,7 @@ pub fn classify_json_http_error(
     if status == 429 {
         return ModelError::rate_limited(provider, model_id, format!("HTTP {status}: {message}"));
     }
-    if status == 408 || status == 425 || (500..=599).contains(&status) {
+    if status == 408 || status == 409 || status == 425 || (500..=599).contains(&status) {
         return ModelError::transient_provider(
             provider,
             model_id,

@@ -13,7 +13,7 @@
 
 ## What This Crate Does
 
-`ai-models-core` exposes wrappers such as `RetryingModel` and `ConcurrencyLimitedModel` so composition roots can assemble policy layers around provider clients. It also includes provider-facing helpers for common response/error handling, including HTTP status classification, structured context-window overflow detection, and tool-call JSON parsing.
+`ai-models-core` exposes wrappers such as `RetryingModel` and `ConcurrencyLimitedModel` so composition roots can assemble policy layers around provider clients. It also includes provider-facing helpers for common response/error handling, including HTTP status classification, structured context-window overflow detection, and tool-call JSON parsing. HTTP 408, 409, 425, and 5xx model responses are classified as transient provider failures so retry wrappers can apply the configured schedule.
 
 It also defines `KnownModelSpec`, `KnownModelCatalog`, coarse `SpeedTier` and
 `CostTier` values, `ThinkingLevel`, and the 1-to-10 `IntelligenceScore` used

@@ -36,3 +36,19 @@ fn does_not_classify_broad_invalid_argument_as_context_limit() {
 
     assert!(matches!(error, ModelError::Provider { .. }));
 }
+
+#[test]
+fn classifies_conflict_errors_as_transient_provider_failures() {
+    let error = classify_json_http_error(
+        "openai",
+        "gpt",
+        409,
+        &json!({
+            "error": {
+                "message": "request conflict"
+            }
+        }),
+    );
+
+    assert!(matches!(error, ModelError::TransientProvider { .. }));
+}

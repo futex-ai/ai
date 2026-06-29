@@ -28,26 +28,14 @@ pub(super) fn parse_response(
     let choice = parsed.choices.into_iter().next().ok_or_else(|| {
         ModelError::provider(PROVIDER, provider_model_id, "xAI response had no choices")
     })?;
-    let tool_calls = choice
-        .message
-        .tool_calls
-        .into_iter()
-        .map(|call| {
-            Ok(ToolCall {
-                id: call.id,
-                name: call.function.name,
-                input: parse_tool_call_arguments(
-                    PROVIDER,
-                    provider_model_id,
-                    &call.function.arguments,
-                )?,
-                operation_id: None,
-            })
-        })
-        .collect::<std::result::Result<Vec<_>, ModelError>>()?;
     let usage = parsed.usage.unwrap_or_default();
     let assistant_message = assistant_text(choice.message.content);
     let finish_reason = finish_reason(choice.finish_reason.as_deref());
+    let tool_calls = if matches!(finish_reason, FinishReason::ToolCalls) {
+        parse_tool_calls(provider_model_id, choice.message.tool_calls)?
+    } else {
+        Vec::new()
+    };
     let structured_output = response_schema
         .filter(|_| matches!(finish_reason, FinishReason::Stop) && tool_calls.is_empty())
         .map(|response_schema| {
@@ -168,4 +156,25 @@ fn finish_reason(value: Option<&str>) -> FinishReason {
         Some(raw) => FinishReason::Other(raw.to_owned()),
         None => FinishReason::Other("missing".to_owned()),
     }
+}
+
+fn parse_tool_calls(
+    provider_model_id: &str,
+    calls: Vec<ChatCompletionsToolCall>,
+) -> std::result::Result<Vec<ToolCall>, ModelError> {
+    calls
+        .into_iter()
+        .map(|call| {
+            Ok(ToolCall {
+                id: call.id,
+                name: call.function.name,
+                input: parse_tool_call_arguments(
+                    PROVIDER,
+                    provider_model_id,
+                    &call.function.arguments,
+                )?,
+                operation_id: None,
+            })
+        })
+        .collect()
 }
