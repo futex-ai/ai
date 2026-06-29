@@ -152,6 +152,10 @@ async fn builds_xai_structured_output_requests_and_parses_response() {
         "json_schema"
     );
     assert_eq!(
+        requests[0].body.as_ref().expect("body present")["response_format"]["json_schema"]["strict"],
+        false
+    );
+    assert_eq!(
         response.structured_output,
         Some(json!({
             "summary": "Done",

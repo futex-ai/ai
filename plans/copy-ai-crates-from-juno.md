@@ -142,3 +142,28 @@ feedback. Do not auto-fix review findings without explicit user direction.
       against `origin/main`.
 - [x] Report each review finding in the final message with severity, context,
       impact, solution options, and a recommended option.
+
+## Milestone 7: Review Follow-ups
+
+Address the reviewer findings selected by the user after the initial PR review.
+At the end of this milestone, Gemini prompt-level safety blocks should be
+terminal filtered responses, and xAI structured-output requests should accept
+the shared non-strict schema contract.
+
+- [x] Add regression tests for Gemini candidate-less prompt blocks and xAI
+      non-strict structured-output requests.
+- [x] Map Gemini `promptFeedback.blockReason` responses with no candidates to
+      `FinishReason::Filtered`.
+- [x] Set xAI structured-output `json_schema.strict` to `false`.
+- [x] Update crate READMEs with the clarified provider behavior.
+- [x] Run targeted regression tests for the changed Google and xAI adapters.
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+      re-run the check.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features`.
+- [x] Run `cargo xtask check`.
+- [x] Run `git add -A`.
+- [x] Commit the follow-up work with a Conventional Commit message.
+- [x] Push the current branch.
+- [x] Confirm the GitHub CI workflow status for the pull request.
+- [x] Run `cargo xtask review` after pushing and report any findings.

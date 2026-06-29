@@ -128,3 +128,31 @@ async fn google_filtered_candidates_without_content_still_surface_finish_reason(
     assert_eq!(response.finish_reason, FinishReason::Filtered);
     assert!(response.assistant_message.is_empty());
 }
+
+#[tokio::test]
+async fn google_prompt_block_without_candidates_surfaces_filtered_finish_reason() {
+    let (http_client, _) = recording_http_client(JsonHttpResponse {
+        status: 200,
+        body: json!({
+            "candidates": [],
+            "promptFeedback": {
+                "blockReason": "SAFETY"
+            },
+            "usageMetadata": {
+                "promptTokenCount": 7,
+                "totalTokenCount": 7
+            }
+        }),
+    });
+    let model = GoogleModel::new(http_client, "gemini-2.5-pro", "google-key");
+
+    let response = model
+        .complete(&simple_request())
+        .await
+        .expect("Google prompt block should parse as a filtered response");
+
+    assert_eq!(response.finish_reason, FinishReason::Filtered);
+    assert!(response.assistant_message.is_empty());
+    assert_eq!(response.usage.input_tokens, 7);
+    assert_eq!(response.usage.total_tokens, 7);
+}

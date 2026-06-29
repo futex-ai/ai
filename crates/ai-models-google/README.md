@@ -17,7 +17,8 @@
 - function call and function response content parts
 - Gemini `finishReason` normalization into `ai_interface::FinishReason`,
   including deriving normal tool-call completion from parsed `functionCall`
-  parts
+  parts and preserving prompt-level safety blocks as filtered responses even
+  when Gemini returns no candidates
 - Gemini `generationConfig.responseJsonSchema` mapping for structured outputs
 - Gemini `generationConfig.thinkingConfig.thinkingBudget` mapping from catalog
   `ThinkingLevel`

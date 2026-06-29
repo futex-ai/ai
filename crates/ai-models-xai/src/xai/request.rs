@@ -193,7 +193,7 @@ fn response_format(response_schema: &StructuredOutputSchema) -> ChatCompletionsR
         json_schema: ChatCompletionsJsonSchema {
             name: response_schema.name.clone(),
             schema: response_schema.schema.clone(),
-            strict: true,
+            strict: false,
         },
     }
 }

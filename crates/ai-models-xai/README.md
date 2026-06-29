@@ -16,7 +16,8 @@
 - xAI chat-completions request serialization
 - xAI tool-call parsing
 - xAI `finish_reason` normalization into `ai_interface::FinishReason`
-- xAI OpenAI-compatible `response_format` JSON-schema mapping for structured outputs
+- xAI OpenAI-compatible non-strict `response_format` JSON-schema mapping for
+  structured outputs, with local response validation through shared helpers
 - xAI `reasoning_effort` mapping from catalog `ThinkingLevel` for
   reasoning-capable catalog variants
 - provider response usage extraction into normalized input, cached input,

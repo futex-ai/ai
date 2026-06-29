@@ -23,13 +23,33 @@ pub(super) fn parse_response(
             format!("invalid Google response: {source}"),
         )
     })?;
-    let candidate = parsed.candidates.into_iter().next().ok_or_else(|| {
-        ModelError::provider(
-            PROVIDER,
-            provider_model_id,
-            "Google response had no candidates",
-        )
-    })?;
+    let GoogleResponse {
+        candidates,
+        prompt_feedback,
+        usage_metadata,
+    } = parsed;
+    let usage = usage_metadata.unwrap_or_default();
+    let candidate = match candidates.into_iter().next() {
+        Some(candidate) => candidate,
+        None if prompt_feedback
+            .and_then(|feedback| feedback.block_reason)
+            .is_some() =>
+        {
+            return Ok(prompt_block_response(
+                catalog_model_id,
+                provider_model_id,
+                thinking_level,
+                usage,
+            ));
+        }
+        None => {
+            return Err(ModelError::provider(
+                PROVIDER,
+                provider_model_id,
+                "Google response had no candidates",
+            ));
+        }
+    };
     let content = candidate.content.unwrap_or_default();
     let mut assistant_parts = Vec::new();
     let mut tool_calls = Vec::new();
@@ -53,7 +73,6 @@ pub(super) fn parse_response(
         }
     }
 
-    let usage = parsed.usage_metadata.unwrap_or_default();
     let assistant_message = assistant_parts.join("\n");
     let finish_reason = finish_reason(candidate.finish_reason.as_deref(), !tool_calls.is_empty());
     let structured_output = response_schema
@@ -75,16 +94,6 @@ pub(super) fn parse_response(
     } else {
         assistant_message
     };
-    let cached_input_tokens = u64::from(usage.cached_content_token_count);
-    let input_tokens = u64::from(usage.prompt_token_count).saturating_sub(cached_input_tokens);
-    let output_tokens = u64::from(usage.candidates_token_count);
-    let reasoning_tokens = u64::from(usage.thoughts_token_count);
-    let total_tokens = usage.total_token_count.map(u64::from).unwrap_or_else(|| {
-        input_tokens
-            .saturating_add(output_tokens)
-            .saturating_add(cached_input_tokens)
-            .saturating_add(reasoning_tokens)
-    });
     Ok(ModelResponse {
         provider: PROVIDER.to_owned(),
         model_id: provider_model_id.to_owned(),
@@ -95,15 +104,7 @@ pub(super) fn parse_response(
         tool_calls,
         structured_output,
         provider_context: Vec::new(),
-        usage: ModelUsage {
-            input_tokens,
-            output_tokens,
-            cached_input_tokens,
-            reasoning_tokens,
-            total_tokens,
-            estimated_cost_microusd: 0,
-            cost_lines: Vec::new(),
-        },
+        usage: model_usage(usage),
     })
 }
 
@@ -111,8 +112,16 @@ pub(super) fn parse_response(
 struct GoogleResponse {
     #[serde(default)]
     candidates: Vec<GoogleCandidate>,
+    #[serde(default, rename = "promptFeedback")]
+    prompt_feedback: Option<GooglePromptFeedback>,
     #[serde(default, rename = "usageMetadata")]
     usage_metadata: Option<GoogleUsageMetadata>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GooglePromptFeedback {
+    #[serde(default, rename = "blockReason")]
+    block_reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -182,5 +191,47 @@ fn finish_reason(value: Option<&str>, has_tool_calls: bool) -> FinishReason {
         ) => FinishReason::Filtered,
         Some(raw) => FinishReason::Other(raw.to_owned()),
         None => FinishReason::Other("missing".to_owned()),
+    }
+}
+
+fn prompt_block_response(
+    catalog_model_id: &str,
+    provider_model_id: &str,
+    thinking_level: ThinkingLevel,
+    usage: GoogleUsageMetadata,
+) -> ModelResponse {
+    ModelResponse {
+        provider: PROVIDER.to_owned(),
+        model_id: provider_model_id.to_owned(),
+        catalog_model_id: Some(catalog_model_id.to_owned()),
+        thinking_level: Some(thinking_level.as_str().to_owned()),
+        assistant_message: String::new(),
+        finish_reason: FinishReason::Filtered,
+        tool_calls: Vec::new(),
+        structured_output: None,
+        provider_context: Vec::new(),
+        usage: model_usage(usage),
+    }
+}
+
+fn model_usage(usage: GoogleUsageMetadata) -> ModelUsage {
+    let cached_input_tokens = u64::from(usage.cached_content_token_count);
+    let input_tokens = u64::from(usage.prompt_token_count).saturating_sub(cached_input_tokens);
+    let output_tokens = u64::from(usage.candidates_token_count);
+    let reasoning_tokens = u64::from(usage.thoughts_token_count);
+    let total_tokens = usage.total_token_count.map(u64::from).unwrap_or_else(|| {
+        input_tokens
+            .saturating_add(output_tokens)
+            .saturating_add(cached_input_tokens)
+            .saturating_add(reasoning_tokens)
+    });
+    ModelUsage {
+        input_tokens,
+        output_tokens,
+        cached_input_tokens,
+        reasoning_tokens,
+        total_tokens,
+        estimated_cost_microusd: 0,
+        cost_lines: Vec::new(),
     }
 }
