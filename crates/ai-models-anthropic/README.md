@@ -16,6 +16,8 @@
 - Anthropic messages request serialization
 - Anthropic tool-use and tool-result content blocks
 - Anthropic `stop_reason` normalization into `ai_interface::FinishReason`
+- terminal Anthropic stop reasons suppress parsed tool calls unless the
+  normalized finish reason is `ToolCalls`
 - Anthropic adaptive thinking mapping from catalog `ThinkingLevel`
 - validated structured-output requests via JSON-only final responses
 - provider response usage extraction into normalized input, output, cached

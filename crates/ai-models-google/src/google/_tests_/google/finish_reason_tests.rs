@@ -130,6 +130,36 @@ async fn google_filtered_candidates_without_content_still_surface_finish_reason(
 }
 
 #[tokio::test]
+async fn google_terminal_finish_with_function_call_suppresses_tool_calls() {
+    let (http_client, _) = recording_http_client(JsonHttpResponse {
+        status: 200,
+        body: json!({
+            "candidates": [{
+                "finishReason": "MAX_TOKENS",
+                "content": {
+                    "parts": [{
+                        "functionCall": {
+                            "id": "call_1",
+                            "name": "memory_read",
+                            "args": { "path": "root" }
+                        }
+                    }]
+                }
+            }]
+        }),
+    });
+    let model = GoogleModel::new(http_client, "gemini-2.5-pro", "google-key");
+
+    let response = model
+        .complete(&simple_request())
+        .await
+        .expect("Google terminal response should parse");
+
+    assert_eq!(response.finish_reason, FinishReason::Truncated);
+    assert!(response.tool_calls.is_empty());
+}
+
+#[tokio::test]
 async fn google_prompt_block_without_candidates_surfaces_filtered_finish_reason() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
         status: 200,

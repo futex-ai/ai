@@ -168,6 +168,35 @@ the shared non-strict schema contract.
 - [x] Confirm the GitHub CI workflow status for the pull request.
 - [x] Run `cargo xtask review` after pushing and report any findings.
 
+## Milestone 8: Tool-Call Safety Review Follow-ups
+
+Address the reviewer findings selected by the user after the second PR review.
+At the end of this milestone, OpenAI incomplete function-call responses should
+not be dispatchable, and Gemini no-argument function calls should decode as the
+empty object expected by typed tool schemas.
+
+- [x] Add regression tests for incomplete OpenAI function-call responses and
+      Gemini no-argument function calls.
+- [x] Preserve OpenAI incomplete, failed, cancelled, and unknown response
+      statuses before accepting tool-call output items.
+- [x] Suppress OpenAI tool-call payload parsing when the finish reason is not
+      `ToolCalls`.
+- [x] Default omitted Gemini `functionCall.args` values to `{}`.
+- [x] Update crate READMEs with the clarified provider behavior.
+- [x] Split OpenAI response parser and response tests to keep changed Rust files
+      under the 300-line file-length limit.
+- [x] Run targeted regression tests for the changed OpenAI and Google adapters.
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+      re-run the check.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features`.
+- [x] Run `cargo xtask check`.
+- [x] Run `git add -A`.
+- [x] Commit the follow-up work with a Conventional Commit message.
+- [x] Push the current branch.
+- [x] Confirm the GitHub CI workflow status for the pull request.
+- [x] Run `cargo xtask review` after pushing and report any findings.
+
 ## Milestone 9: Provider Retry and Truncation Follow-ups
 
 Address the reviewer findings selected by the user after the third PR review.
@@ -192,24 +221,23 @@ provider responses should be retryable by the shared retry wrapper.
 - [x] Confirm the GitHub CI workflow status for the pull request.
 - [x] Run `cargo xtask review` after pushing and report any findings.
 
-## Milestone 8: Tool-Call Safety Review Follow-ups
+## Milestone 10: Terminal Tool-Call Suppression Follow-ups
 
-Address the reviewer findings selected by the user after the second PR review.
-At the end of this milestone, OpenAI incomplete function-call responses should
-not be dispatchable, and Gemini no-argument function calls should decode as the
-empty object expected by typed tool schemas.
+Address the reviewer findings selected by the user after the fourth PR review.
+At the end of this milestone, Gemini and Anthropic responses should only expose
+tool calls when the normalized finish reason is `ToolCalls`; terminal,
+filtered, truncated, missing, or unknown finishes should preserve their reason
+without exposing parsed calls.
 
-- [x] Add regression tests for incomplete OpenAI function-call responses and
-      Gemini no-argument function calls.
-- [x] Preserve OpenAI incomplete, failed, cancelled, and unknown response
-      statuses before accepting tool-call output items.
-- [x] Suppress OpenAI tool-call payload parsing when the finish reason is not
+- [x] Add regression tests for Gemini and Anthropic terminal responses that
+      include provider tool-call payloads.
+- [x] Suppress Gemini tool calls unless the normalized finish reason is
       `ToolCalls`.
-- [x] Default omitted Gemini `functionCall.args` values to `{}`.
+- [x] Suppress Anthropic tool calls unless the normalized finish reason is
+      `ToolCalls`.
 - [x] Update crate READMEs with the clarified provider behavior.
-- [x] Split OpenAI response parser and response tests to keep changed Rust files
-      under the 300-line file-length limit.
-- [x] Run targeted regression tests for the changed OpenAI and Google adapters.
+- [x] Run targeted regression tests for the changed Google and Anthropic
+      adapters.
 - [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
       re-run the check.
 - [x] Run `cargo clippy --workspace --all-targets --all-features`.

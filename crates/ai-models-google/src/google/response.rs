@@ -52,7 +52,7 @@ pub(super) fn parse_response(
     };
     let content = candidate.content.unwrap_or_default();
     let mut assistant_parts = Vec::new();
-    let mut tool_calls = Vec::new();
+    let mut parsed_tool_calls = Vec::new();
 
     for part in content.parts {
         if part.thought != Some(true)
@@ -62,10 +62,10 @@ pub(super) fn parse_response(
             assistant_parts.push(text);
         }
         if let Some(function_call) = part.function_call {
-            tool_calls.push(ToolCall {
+            parsed_tool_calls.push(ToolCall {
                 id: function_call
                     .id
-                    .unwrap_or_else(|| format!("call_{}", tool_calls.len() + 1)),
+                    .unwrap_or_else(|| format!("call_{}", parsed_tool_calls.len() + 1)),
                 name: function_call.name,
                 input: function_call
                     .args
@@ -76,7 +76,15 @@ pub(super) fn parse_response(
     }
 
     let assistant_message = assistant_parts.join("\n");
-    let finish_reason = finish_reason(candidate.finish_reason.as_deref(), !tool_calls.is_empty());
+    let finish_reason = finish_reason(
+        candidate.finish_reason.as_deref(),
+        !parsed_tool_calls.is_empty(),
+    );
+    let tool_calls = if matches!(finish_reason, FinishReason::ToolCalls) {
+        parsed_tool_calls
+    } else {
+        Vec::new()
+    };
     let structured_output = response_schema
         .filter(|_| matches!(finish_reason, FinishReason::Stop) && tool_calls.is_empty())
         .map(|response_schema| {

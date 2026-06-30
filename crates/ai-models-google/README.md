@@ -19,6 +19,8 @@
   including deriving normal tool-call completion from parsed `functionCall`
   parts and preserving prompt-level safety blocks as filtered responses even
   when Gemini returns no candidates
+- terminal Gemini finish reasons suppress parsed tool calls unless the
+  normalized finish reason is `ToolCalls`
 - Gemini function-call parsing that treats omitted `args` as `{}` for no-arg
   tools
 - Gemini `generationConfig.responseJsonSchema` mapping for structured outputs

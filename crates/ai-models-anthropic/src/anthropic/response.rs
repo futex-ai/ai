@@ -24,7 +24,7 @@ pub(super) fn parse_response(
         )
     })?;
     let mut assistant_parts = Vec::new();
-    let mut tool_calls = Vec::new();
+    let mut parsed_tool_calls = Vec::new();
 
     for block in parsed.content {
         match block {
@@ -34,7 +34,7 @@ pub(super) fn parse_response(
                 }
             }
             AnthropicContentBlock::ToolUse { id, name, input } => {
-                tool_calls.push(ToolCall {
+                parsed_tool_calls.push(ToolCall {
                     id,
                     name,
                     input,
@@ -47,6 +47,11 @@ pub(super) fn parse_response(
 
     let assistant_message = assistant_parts.join("\n");
     let finish_reason = finish_reason(parsed.stop_reason.as_deref());
+    let tool_calls = if matches!(finish_reason, FinishReason::ToolCalls) {
+        parsed_tool_calls
+    } else {
+        Vec::new()
+    };
     let structured_output = response_schema
         .filter(|_| matches!(finish_reason, FinishReason::Stop) && tool_calls.is_empty())
         .map(|response_schema| {
