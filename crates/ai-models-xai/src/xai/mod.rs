@@ -123,6 +123,9 @@ fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
 }
 
 #[cfg(test)]
+#[path = "_tests_/xai_continuation_tests.rs"]
+mod xai_continuation_tests;
+#[cfg(test)]
 #[path = "_tests_/xai_tests.rs"]
 mod xai_tests;
 

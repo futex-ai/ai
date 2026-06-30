@@ -39,9 +39,16 @@ pub(super) fn provider_context(output: &[ResponsesOutputItem]) -> Vec<ProviderCo
                 summary: summary.clone(),
                 encrypted_content: encrypted_content.clone(),
             }),
-            ResponsesOutputItem::Message { .. }
-            | ResponsesOutputItem::FunctionCall { .. }
-            | ResponsesOutputItem::Other => None,
+            ResponsesOutputItem::FunctionCall {
+                call_id,
+                name,
+                arguments,
+            } => Some(ProviderConversationItem::OpenAiFunctionCall {
+                call_id: call_id.clone(),
+                name: name.clone(),
+                arguments: arguments.clone(),
+            }),
+            ResponsesOutputItem::Message { .. } | ResponsesOutputItem::Other => None,
         })
         .collect()
 }

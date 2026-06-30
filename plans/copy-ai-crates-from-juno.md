@@ -248,3 +248,33 @@ without exposing parsed calls.
 - [x] Push the current branch.
 - [x] Confirm the GitHub CI workflow status for the pull request.
 - [x] Run `cargo xtask review` after pushing and report any findings.
+
+## Milestone 11: OpenAI Replay And xAI Tool Continuation Follow-ups
+
+Address the reviewer findings selected by the user after the fifth PR review.
+At the end of this milestone, xAI tool-result continuation messages should use
+only provider-supported tool message fields, and OpenAI Responses replay should
+preserve raw function-call output items needed for stateless tool-calling
+continuations.
+
+- [x] Add regression tests for xAI tool-role message names and OpenAI raw
+      function-call replay context.
+- [x] Suppress xAI `name` serialization on tool-role continuation messages.
+- [x] Preserve OpenAI Responses function-call output items in provider replay
+      context.
+- [x] Replay preserved OpenAI function-call items without duplicating
+      normalized tool calls.
+- [x] Update crate READMEs with the clarified provider replay behavior.
+- [x] Run targeted regression tests for the changed xAI, OpenAI, and interface
+      crates.
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+      re-run the check.
+- [x] Run `cargo xtask rust-file-length-lint --all`.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features`.
+- [x] Run `cargo xtask check`.
+- [x] Run `git add -A`.
+- [x] Commit the follow-up work with a Conventional Commit message.
+- [x] Push the current branch.
+- [x] Confirm the GitHub CI workflow status for the pull request.
+- [x] Run `cargo xtask review` after pushing and report any findings.

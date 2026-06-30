@@ -130,9 +130,16 @@ fn message(message: &ConversationMessage) -> ChatCompletionsMessage {
         }
         .to_owned(),
         content: message_content(message),
-        name: message.name.clone(),
+        name: message_name(message),
         tool_call_id: message.tool_call_id.clone(),
         tool_calls: message.tool_calls.iter().map(tool_call).collect(),
+    }
+}
+
+fn message_name(message: &ConversationMessage) -> Option<String> {
+    match message.role {
+        ConversationRole::Tool => None,
+        ConversationRole::User | ConversationRole::Assistant => message.name.clone(),
     }
 }
 

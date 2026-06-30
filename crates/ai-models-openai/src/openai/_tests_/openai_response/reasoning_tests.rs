@@ -76,13 +76,69 @@ fn preserves_reasoning_items_for_stateless_tool_continuation() {
     assert_eq!(response.tool_calls.len(), 1);
     assert_eq!(
         response.provider_context,
-        vec![ProviderConversationItem::OpenAiReasoning {
-            id: "rs_1".to_owned(),
-            summary: vec![OpenAiReasoningSummary {
-                kind: "summary_text".to_owned(),
-                text: "Need the tool.".to_owned(),
-            }],
-            encrypted_content: Some("encrypted-reasoning".to_owned()),
-        }]
+        vec![
+            ProviderConversationItem::OpenAiReasoning {
+                id: "rs_1".to_owned(),
+                summary: vec![OpenAiReasoningSummary {
+                    kind: "summary_text".to_owned(),
+                    text: "Need the tool.".to_owned(),
+                }],
+                encrypted_content: Some("encrypted-reasoning".to_owned()),
+            },
+            ProviderConversationItem::OpenAiFunctionCall {
+                call_id: "call_1".to_owned(),
+                name: "memory_read".to_owned(),
+                arguments: "{\"path\":\"root\"}".to_owned(),
+            }
+        ]
+    );
+}
+
+#[test]
+fn preserves_function_call_items_for_stateless_replay_context() {
+    let response = parse_response(
+        "gpt-5.5-thinking-extra-high",
+        "gpt-5.5",
+        ThinkingLevel::ExtraHigh,
+        json!({
+            "status": "completed",
+            "output": [
+                {
+                    "type": "reasoning",
+                    "id": "rs_1",
+                    "summary": [{ "type": "summary_text", "text": "Need the tool." }],
+                    "encrypted_content": "encrypted-reasoning"
+                },
+                {
+                    "type": "function_call",
+                    "call_id": "call_1",
+                    "name": "memory_read",
+                    "arguments": "{\n  \"path\": \"root\"\n}"
+                }
+            ]
+        }),
+        None,
+    )
+    .expect("function-call response should parse");
+
+    assert_eq!(response.finish_reason, FinishReason::ToolCalls);
+    assert_eq!(response.tool_calls.len(), 1);
+    assert_eq!(
+        response.provider_context,
+        vec![
+            ProviderConversationItem::OpenAiReasoning {
+                id: "rs_1".to_owned(),
+                summary: vec![OpenAiReasoningSummary {
+                    kind: "summary_text".to_owned(),
+                    text: "Need the tool.".to_owned(),
+                }],
+                encrypted_content: Some("encrypted-reasoning".to_owned()),
+            },
+            ProviderConversationItem::OpenAiFunctionCall {
+                call_id: "call_1".to_owned(),
+                name: "memory_read".to_owned(),
+                arguments: "{\n  \"path\": \"root\"\n}".to_owned(),
+            }
+        ]
     );
 }

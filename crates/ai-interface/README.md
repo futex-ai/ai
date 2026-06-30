@@ -109,6 +109,9 @@ Provider adapters can populate `ModelResponse::provider_context` with opaque
 or provider-specific replay items. Conversation runtimes should retain those
 items on the corresponding assistant message and pass them back in later model
 requests; callers should not render them as assistant text or tool output.
+OpenAI Responses adapters use this context for reasoning items and raw
+function-call items whose original argument strings must be replayed exactly
+during stateless tool-calling continuations.
 
 Model routing is expressed separately from `ModelRequest`. Callers ask a
 `ModelRouter` to resolve a `ModelRouteRequest` containing hard requirements

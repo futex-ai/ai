@@ -74,6 +74,16 @@ pub enum ProviderConversationItem {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         encrypted_content: Option<String>,
     },
+    /// OpenAI Responses function-call item used for stateless tool turns.
+    #[serde(rename = "openai_function_call")]
+    OpenAiFunctionCall {
+        /// OpenAI function-call identifier.
+        call_id: String,
+        /// OpenAI function name.
+        name: String,
+        /// Raw JSON argument string returned by OpenAI.
+        arguments: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

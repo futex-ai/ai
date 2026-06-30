@@ -29,14 +29,21 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
             input: json!({"path": "root"}),
             operation_id: None,
         }],
-        vec![ProviderConversationItem::OpenAiReasoning {
-            id: "rs_1".to_owned(),
-            summary: vec![OpenAiReasoningSummary {
-                kind: "summary_text".to_owned(),
-                text: "Need the memory tool.".to_owned(),
-            }],
-            encrypted_content: Some("encrypted-reasoning".to_owned()),
-        }],
+        vec![
+            ProviderConversationItem::OpenAiReasoning {
+                id: "rs_1".to_owned(),
+                summary: vec![OpenAiReasoningSummary {
+                    kind: "summary_text".to_owned(),
+                    text: "Need the memory tool.".to_owned(),
+                }],
+                encrypted_content: Some("encrypted-reasoning".to_owned()),
+            },
+            ProviderConversationItem::OpenAiFunctionCall {
+                call_id: "call_1".to_owned(),
+                name: "memory_read".to_owned(),
+                arguments: "{\n  \"path\": \"root\"\n}".to_owned(),
+            },
+        ],
     );
 
     model
@@ -63,8 +70,19 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
     assert_eq!(input[1]["encrypted_content"], "encrypted-reasoning");
     assert_eq!(input[2]["type"], "function_call");
     assert_eq!(input[2]["call_id"], "call_1");
+    assert_eq!(input[2]["arguments"], "{\n  \"path\": \"root\"\n}");
     assert_eq!(input[3]["type"], "function_call_output");
     assert_eq!(input[3]["call_id"], "call_1");
+    assert_eq!(function_call_count(input), 1);
+}
+
+fn function_call_count(input: &serde_json::Value) -> usize {
+    input
+        .as_array()
+        .expect("input array")
+        .iter()
+        .filter(|item| item["type"] == "function_call")
+        .count()
 }
 
 fn recording_http_client(

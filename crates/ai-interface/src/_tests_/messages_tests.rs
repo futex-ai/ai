@@ -25,3 +25,22 @@ fn openai_reasoning_context_serializes_with_provider_tag() {
         })
     );
 }
+
+#[test]
+fn openai_function_call_context_serializes_with_provider_tag() {
+    let item = ProviderConversationItem::OpenAiFunctionCall {
+        call_id: "call_123".to_owned(),
+        name: "memory_read".to_owned(),
+        arguments: "{\n  \"path\": \"root\"\n}".to_owned(),
+    };
+
+    assert_eq!(
+        serde_json::to_value(item).unwrap(),
+        json!({
+            "type": "openai_function_call",
+            "call_id": "call_123",
+            "name": "memory_read",
+            "arguments": "{\n  \"path\": \"root\"\n}"
+        })
+    );
+}

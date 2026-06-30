@@ -166,12 +166,14 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
             "assistant",
         )));
     }
-    items.extend(
-        message
-            .tool_calls
-            .iter()
-            .map(|call| ResponsesInputItem::FunctionCall(function_call_item(call))),
-    );
+    if !has_openai_function_call_context(message) {
+        items.extend(
+            message
+                .tool_calls
+                .iter()
+                .map(|call| ResponsesInputItem::FunctionCall(function_call_item(call))),
+        );
+    }
     items
 }
 
@@ -187,7 +189,24 @@ fn provider_context_item(item: &ProviderConversationItem) -> ResponsesInputItem 
             summary: summary.clone(),
             encrypted_content: encrypted_content.clone(),
         }),
+        ProviderConversationItem::OpenAiFunctionCall {
+            call_id,
+            name,
+            arguments,
+        } => ResponsesInputItem::FunctionCall(ResponsesFunctionCallInput {
+            kind: "function_call".to_owned(),
+            call_id: call_id.clone(),
+            name: name.clone(),
+            arguments: arguments.clone(),
+        }),
     }
+}
+
+fn has_openai_function_call_context(message: &ConversationMessage) -> bool {
+    message
+        .provider_context
+        .iter()
+        .any(|item| matches!(item, ProviderConversationItem::OpenAiFunctionCall { .. }))
 }
 
 fn message_item(message: &ConversationMessage, role: &str) -> ResponsesMessage {
