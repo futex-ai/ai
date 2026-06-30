@@ -62,6 +62,8 @@ enum ResponsesContentPart {
 struct ResponsesFunctionCallInput {
     #[serde(rename = "type")]
     kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
     call_id: String,
     name: String,
     arguments: String,
@@ -190,11 +192,13 @@ fn provider_context_item(item: &ProviderConversationItem) -> ResponsesInputItem 
             encrypted_content: encrypted_content.clone(),
         }),
         ProviderConversationItem::OpenAiFunctionCall {
+            id,
             call_id,
             name,
             arguments,
         } => ResponsesInputItem::FunctionCall(ResponsesFunctionCallInput {
             kind: "function_call".to_owned(),
+            id: id.clone(),
             call_id: call_id.clone(),
             name: name.clone(),
             arguments: arguments.clone(),
@@ -240,6 +244,7 @@ fn content_part(part: &ConversationContentPart) -> ResponsesContentPart {
 fn function_call_item(call: &ToolCall) -> ResponsesFunctionCallInput {
     ResponsesFunctionCallInput {
         kind: "function_call".to_owned(),
+        id: None,
         call_id: call.id.clone(),
         name: call.name.clone(),
         arguments: call.input.to_string(),

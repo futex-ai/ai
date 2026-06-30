@@ -86,6 +86,7 @@ fn preserves_reasoning_items_for_stateless_tool_continuation() {
                 encrypted_content: Some("encrypted-reasoning".to_owned()),
             },
             ProviderConversationItem::OpenAiFunctionCall {
+                id: None,
                 call_id: "call_1".to_owned(),
                 name: "memory_read".to_owned(),
                 arguments: "{\"path\":\"root\"}".to_owned(),
@@ -111,6 +112,7 @@ fn preserves_function_call_items_for_stateless_replay_context() {
                 },
                 {
                     "type": "function_call",
+                    "id": "fc_1",
                     "call_id": "call_1",
                     "name": "memory_read",
                     "arguments": "{\n  \"path\": \"root\"\n}"
@@ -124,6 +126,10 @@ fn preserves_function_call_items_for_stateless_replay_context() {
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
     assert_eq!(response.tool_calls.len(), 1);
     assert_eq!(
+        serde_json::to_value(&response.provider_context[1]).expect("context should serialize")["id"],
+        "fc_1"
+    );
+    assert_eq!(
         response.provider_context,
         vec![
             ProviderConversationItem::OpenAiReasoning {
@@ -135,6 +141,7 @@ fn preserves_function_call_items_for_stateless_replay_context() {
                 encrypted_content: Some("encrypted-reasoning".to_owned()),
             },
             ProviderConversationItem::OpenAiFunctionCall {
+                id: Some("fc_1".to_owned()),
                 call_id: "call_1".to_owned(),
                 name: "memory_read".to_owned(),
                 arguments: "{\n  \"path\": \"root\"\n}".to_owned(),

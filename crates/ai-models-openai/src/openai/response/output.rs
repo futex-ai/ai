@@ -40,10 +40,12 @@ pub(super) fn provider_context(output: &[ResponsesOutputItem]) -> Vec<ProviderCo
                 encrypted_content: encrypted_content.clone(),
             }),
             ResponsesOutputItem::FunctionCall {
+                id,
                 call_id,
                 name,
                 arguments,
             } => Some(ProviderConversationItem::OpenAiFunctionCall {
+                id: id.clone(),
                 call_id: call_id.clone(),
                 name: name.clone(),
                 arguments: arguments.clone(),
@@ -67,6 +69,7 @@ pub(super) fn tool_calls(
         .iter()
         .filter_map(|item| match item {
             ResponsesOutputItem::FunctionCall {
+                id: _,
                 call_id,
                 name,
                 arguments,

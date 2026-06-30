@@ -77,6 +77,9 @@ pub enum ProviderConversationItem {
     /// OpenAI Responses function-call item used for stateless tool turns.
     #[serde(rename = "openai_function_call")]
     OpenAiFunctionCall {
+        /// OpenAI function-call output item identifier.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
         /// OpenAI function-call identifier.
         call_id: String,
         /// OpenAI function name.

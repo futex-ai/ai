@@ -29,6 +29,7 @@ fn openai_reasoning_context_serializes_with_provider_tag() {
 #[test]
 fn openai_function_call_context_serializes_with_provider_tag() {
     let item = ProviderConversationItem::OpenAiFunctionCall {
+        id: Some("fc_123".to_owned()),
         call_id: "call_123".to_owned(),
         name: "memory_read".to_owned(),
         arguments: "{\n  \"path\": \"root\"\n}".to_owned(),
@@ -38,6 +39,7 @@ fn openai_function_call_context_serializes_with_provider_tag() {
         serde_json::to_value(item).unwrap(),
         json!({
             "type": "openai_function_call",
+            "id": "fc_123",
             "call_id": "call_123",
             "name": "memory_read",
             "arguments": "{\n  \"path\": \"root\"\n}"

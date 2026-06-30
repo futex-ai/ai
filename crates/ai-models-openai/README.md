@@ -33,11 +33,13 @@ runtime wrappers from neighboring crates.
 - `reasoning.encrypted_content` inclusion for reasoning models so encrypted
   reasoning items can be replayed across stateless tool-calling turns
 - raw Responses function-call item retention so stateless tool continuations
-  replay OpenAI's original argument string instead of a normalized JSON render
+  replay OpenAI's provider item id and original argument string instead of a
+  normalized JSON render
 - provider response usage extraction into normalized input, output, cached
   input, and reasoning token counts
 - status, transport, and structured-output validation failure mapping onto
-  `ai_interface::ModelError`
+  `ai_interface::ModelError`, with retryable `408`, `409`, `425`, and `5xx`
+  transcription statuses mapped to transient provider failures
 
 This crate does not load config, read environment variables, or resolve credentials on its own.
 It exports `known_models()` and typed catalog id constants (`GPT_5_5`,
@@ -60,8 +62,8 @@ the raw provider context is preferred for OpenAI request replay when present.
 `OpenAiAudioTranscriber` submits completed audio recordings to the OpenAI
 transcription endpoint using `gpt-4o-mini-transcribe` or another caller-chosen
 transcription model. It expects the caller to provide the API key and the
-uploaded audio media type, and applies a 60-second request timeout so stalled
-provider calls return through the transient transcription error path.
+uploaded audio media type. It applies a 60-second request timeout and surfaces
+retryable OpenAI transcription statuses as transient errors.
 
 ## Quick Start
 

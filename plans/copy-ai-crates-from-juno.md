@@ -278,3 +278,33 @@ continuations.
 - [x] Push the current branch.
 - [x] Confirm the GitHub CI workflow status for the pull request.
 - [x] Run `cargo xtask review` after pushing and report any findings.
+
+## Milestone 12: OpenAI Item Identity And Transcription Retry Follow-ups
+
+Address the reviewer findings selected by the user after the sixth PR review.
+At the end of this milestone, OpenAI Responses stateless replay should retain
+the provider function-call item id, and OpenAI audio transcription HTTP
+timeouts/conflicts should be surfaced as transient failures.
+
+- [x] Add regression tests for OpenAI function-call item ids and transcription
+      retryable status classification.
+- [x] Preserve OpenAI Responses function-call provider item ids in provider
+      replay context.
+- [x] Serialize preserved OpenAI function-call item ids during request replay.
+- [x] Classify OpenAI transcription `408`, `409`, and `425` statuses as
+      transient provider failures.
+- [x] Update crate READMEs with the clarified provider replay and transcription
+      retry behavior.
+- [x] Run targeted regression tests for the changed OpenAI and interface
+      crates.
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+      re-run the check.
+- [x] Run `cargo xtask rust-file-length-lint --all`.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features`.
+- [x] Run `cargo xtask check`.
+- [x] Run `git add -A`.
+- [x] Commit the follow-up work with a Conventional Commit message.
+- [x] Push the current branch.
+- [x] Confirm the GitHub CI workflow status for the pull request.
+- [x] Run `cargo xtask review` after pushing and report any findings.

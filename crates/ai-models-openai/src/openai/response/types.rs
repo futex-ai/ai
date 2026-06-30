@@ -32,6 +32,8 @@ pub(super) enum ResponsesOutputItem {
     },
     #[serde(rename = "function_call")]
     FunctionCall {
+        #[serde(default)]
+        id: Option<String>,
         call_id: String,
         name: String,
         arguments: String,

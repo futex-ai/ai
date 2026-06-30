@@ -39,6 +39,7 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
                 encrypted_content: Some("encrypted-reasoning".to_owned()),
             },
             ProviderConversationItem::OpenAiFunctionCall {
+                id: Some("fc_1".to_owned()),
                 call_id: "call_1".to_owned(),
                 name: "memory_read".to_owned(),
                 arguments: "{\n  \"path\": \"root\"\n}".to_owned(),
@@ -69,6 +70,7 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
     assert_eq!(input[1]["summary"][0]["type"], "summary_text");
     assert_eq!(input[1]["encrypted_content"], "encrypted-reasoning");
     assert_eq!(input[2]["type"], "function_call");
+    assert_eq!(input[2]["id"], "fc_1");
     assert_eq!(input[2]["call_id"], "call_1");
     assert_eq!(input[2]["arguments"], "{\n  \"path\": \"root\"\n}");
     assert_eq!(input[3]["type"], "function_call_output");

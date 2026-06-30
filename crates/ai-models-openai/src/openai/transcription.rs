@@ -101,10 +101,16 @@ fn classify_status(status: StatusCode, model_id: &str, body: String) -> Transcri
     if status == StatusCode::TOO_MANY_REQUESTS {
         return TranscriptionError::rate_limited(PROVIDER, model_id, body);
     }
-    if status.is_server_error() {
+    if is_transient_status(status) {
         return TranscriptionError::transient_provider(PROVIDER, model_id, body);
     }
     TranscriptionError::provider(PROVIDER, model_id, body)
+}
+
+fn is_transient_status(status: StatusCode) -> bool {
+    matches!(status, StatusCode::REQUEST_TIMEOUT | StatusCode::CONFLICT)
+        || status.as_u16() == 425
+        || status.is_server_error()
 }
 
 #[cfg(test)]
