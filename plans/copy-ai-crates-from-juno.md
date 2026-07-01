@@ -348,9 +348,38 @@ Quick Start example should compile against the current public API.
       replay context needs ordering.
 - [x] Run targeted regression tests for the second OpenAI replay follow-up.
 - [x] Re-run the full local verification gates after the second follow-up.
-- [ ] Commit and push the second follow-up work with a Conventional Commit
+- [x] Commit and push the second follow-up work with a Conventional Commit
       message.
-- [ ] Confirm the GitHub CI workflow status for the second follow-up.
-- [ ] Run `cargo xtask review` again after the second follow-up push.
+- [x] Confirm the GitHub CI workflow status for the second follow-up.
+- [x] Run `cargo xtask review` again after the second follow-up push.
+- [ ] Repeat recommended review findings until the reviewer returns no
+      recommended fixes or only findings the user explicitly defers.
+
+## Milestone 14: xAI Legacy Function-Call Follow-up
+
+Address the reviewer finding selected by the user after the eighth PR review.
+At the end of this milestone, xAI OpenAI-compatible legacy `function_call`
+responses should produce a normalized tool call instead of an inconsistent
+`ToolCalls` finish with no calls.
+
+- [x] Add a regression test for legacy xAI `message.function_call` responses.
+- [x] Parse legacy xAI `message.function_call` payloads into normalized
+      `ToolCall` entries when the finish reason is `function_call`.
+- [x] Update the xAI crate README with the clarified legacy tool-call parsing
+      behavior.
+- [x] Run targeted regression tests for the xAI legacy function-call follow-up.
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+      re-run the check.
+- [x] Run `cargo xtask rust-file-length-lint --all`.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features`.
+- [x] Run `cargo xtask check`.
+- [x] Review `git diff origin/main...` for accidental unrelated changes,
+      generated artifacts, missing files, and stale Juno paths.
+- [x] Run `git add -A`.
+- [x] Commit the follow-up work with a Conventional Commit message.
+- [x] Push the current branch.
+- [ ] Confirm the GitHub CI workflow status for the pull request.
+- [ ] Run `cargo xtask review` after pushing.
 - [ ] Repeat recommended review findings until the reviewer returns no
       recommended fixes or only findings the user explicitly defers.

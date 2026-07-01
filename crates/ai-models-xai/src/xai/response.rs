@@ -29,10 +29,18 @@ pub(super) fn parse_response(
         ModelError::provider(PROVIDER, provider_model_id, "xAI response had no choices")
     })?;
     let usage = parsed.usage.unwrap_or_default();
-    let assistant_message = assistant_text(choice.message.content);
+    let ChatCompletionsAssistantMessage {
+        content,
+        tool_calls,
+        function_call,
+    } = choice.message;
+    let assistant_message = assistant_text(content);
     let finish_reason = finish_reason(choice.finish_reason.as_deref());
     let tool_calls = if matches!(finish_reason, FinishReason::ToolCalls) {
-        parse_tool_calls(provider_model_id, choice.message.tool_calls)?
+        parse_tool_calls(
+            provider_model_id,
+            normalized_tool_calls(tool_calls, function_call),
+        )?
     } else {
         Vec::new()
     };
@@ -107,6 +115,8 @@ struct ChatCompletionsAssistantMessage {
     content: Option<String>,
     #[serde(default)]
     tool_calls: Vec<ChatCompletionsToolCall>,
+    #[serde(default)]
+    function_call: Option<ChatCompletionsToolFunction>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -177,4 +187,23 @@ fn parse_tool_calls(
             })
         })
         .collect()
+}
+
+fn normalized_tool_calls(
+    mut calls: Vec<ChatCompletionsToolCall>,
+    function_call: Option<ChatCompletionsToolFunction>,
+) -> Vec<ChatCompletionsToolCall> {
+    if calls.is_empty()
+        && let Some(function) = function_call
+    {
+        calls.push(legacy_tool_call(function));
+    }
+    calls
+}
+
+fn legacy_tool_call(function: ChatCompletionsToolFunction) -> ChatCompletionsToolCall {
+    ChatCompletionsToolCall {
+        id: function.name.clone(),
+        function,
+    }
 }

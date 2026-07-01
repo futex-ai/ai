@@ -14,7 +14,7 @@
 `XaiModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - xAI chat-completions request serialization
-- xAI tool-call parsing
+- xAI modern `tool_calls` and legacy `function_call` parsing
 - xAI `finish_reason` normalization into `ai_interface::FinishReason`
 - xAI tool-result continuation request serialization using `tool_call_id` and
   content without an unsupported tool-message `name` field

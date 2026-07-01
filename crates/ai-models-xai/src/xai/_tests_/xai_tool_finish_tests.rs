@@ -34,3 +34,32 @@ fn truncated_tool_call_response_does_not_parse_partial_arguments() {
     assert_eq!(response.finish_reason, FinishReason::Truncated);
     assert!(response.tool_calls.is_empty());
 }
+
+#[test]
+fn legacy_function_call_response_parses_tool_call() {
+    let response = parse_response(
+        "grok-4",
+        "grok-4",
+        ThinkingLevel::Disabled,
+        json!({
+            "choices": [{
+                "finish_reason": "function_call",
+                "message": {
+                    "content": "",
+                    "function_call": {
+                        "name": "memory_read",
+                        "arguments": "{\"path\":\"root\"}"
+                    }
+                }
+            }]
+        }),
+        None,
+    )
+    .expect("legacy xAI function-call response should parse");
+
+    assert_eq!(response.finish_reason, FinishReason::ToolCalls);
+    assert_eq!(response.tool_calls.len(), 1);
+    assert_eq!(response.tool_calls[0].id, "memory_read");
+    assert_eq!(response.tool_calls[0].name, "memory_read");
+    assert_eq!(response.tool_calls[0].input, json!({"path": "root"}));
+}
