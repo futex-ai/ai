@@ -1,6 +1,7 @@
 //! xAI chat-completions model client.
 
 mod request;
+mod request_types;
 mod response;
 
 use std::sync::Arc;

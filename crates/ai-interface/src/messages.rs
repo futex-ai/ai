@@ -94,6 +94,16 @@ pub enum ProviderConversationItem {
         /// Raw JSON argument string returned by OpenAI.
         arguments: String,
     },
+    /// xAI legacy chat-completions function call used for continuation replay.
+    #[serde(rename = "xai_legacy_function_call")]
+    XaiLegacyFunctionCall {
+        /// Runtime-local tool-call identifier used to match the tool result.
+        tool_call_id: String,
+        /// xAI legacy function name.
+        name: String,
+        /// Raw JSON argument string returned by xAI.
+        arguments: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

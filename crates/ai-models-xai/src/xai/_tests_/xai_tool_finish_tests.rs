@@ -1,6 +1,6 @@
 //! Tests for xAI tool-call terminal finish handling.
 
-use ai_interface::FinishReason;
+use ai_interface::{FinishReason, ProviderConversationItem};
 use ai_models_core::ThinkingLevel;
 use serde_json::json;
 
@@ -59,7 +59,18 @@ fn legacy_function_call_response_parses_tool_call() {
 
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
     assert_eq!(response.tool_calls.len(), 1);
-    assert_eq!(response.tool_calls[0].id, "memory_read");
+    assert_eq!(
+        response.tool_calls[0].id,
+        "xai_legacy_function_call:memory_read"
+    );
     assert_eq!(response.tool_calls[0].name, "memory_read");
     assert_eq!(response.tool_calls[0].input, json!({"path": "root"}));
+    assert_eq!(
+        response.provider_context,
+        vec![ProviderConversationItem::XaiLegacyFunctionCall {
+            tool_call_id: "xai_legacy_function_call:memory_read".to_owned(),
+            name: "memory_read".to_owned(),
+            arguments: "{\"path\":\"root\"}".to_owned(),
+        }]
+    );
 }

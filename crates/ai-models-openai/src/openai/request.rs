@@ -76,6 +76,7 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
                     items.push(provider_item);
                 }
             }
+            ProviderConversationItem::XaiLegacyFunctionCall { .. } => {}
         }
     }
     if has_message_content(message) && !assistant_message_emitted {
@@ -97,7 +98,8 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
 
 fn provider_context_item(item: &ProviderConversationItem) -> Option<ResponsesInputItem> {
     match item {
-        ProviderConversationItem::OpenAiMessage { .. } => None,
+        ProviderConversationItem::OpenAiMessage { .. }
+        | ProviderConversationItem::XaiLegacyFunctionCall { .. } => None,
         ProviderConversationItem::OpenAiReasoning {
             id,
             summary,

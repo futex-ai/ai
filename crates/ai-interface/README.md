@@ -114,6 +114,9 @@ function-call items whose provider item ids and original argument strings must
 be replayed exactly during stateless tool-calling continuations. They also use
 it for assistant message `phase` metadata so preambles and final answers keep
 their original phase when a caller manually replays Responses history.
+xAI adapters use this context to remember legacy `function_call` responses so
+later tool results can be replayed using the provider's legacy function-message
+shape instead of modern `tool_call_id` messages.
 
 Model routing is expressed separately from `ModelRequest`. Callers ask a
 `ModelRouter` to resolve a `ModelRouteRequest` containing hard requirements

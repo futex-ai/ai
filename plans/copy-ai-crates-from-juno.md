@@ -379,6 +379,39 @@ responses should produce a normalized tool call instead of an inconsistent
 - [x] Run `git add -A`.
 - [x] Commit the follow-up work with a Conventional Commit message.
 - [x] Push the current branch.
+- [x] Confirm the GitHub CI workflow status for the pull request.
+- [x] Run `cargo xtask review` after pushing.
+- [ ] Repeat recommended review findings until the reviewer returns no
+      recommended fixes or only findings the user explicitly defers.
+
+## Milestone 15: xAI Legacy Continuation Follow-up
+
+Address the reviewer finding selected by the user after the ninth PR review. At
+the end of this milestone, xAI legacy `function_call` responses should retain
+enough provider context to replay the follow-up tool result using legacy
+function-message serialization rather than a synthetic modern `tool_call_id`.
+
+- [x] Add a regression test for xAI legacy function-call continuation request
+      serialization.
+- [x] Add a typed provider-context marker for xAI legacy function calls.
+- [x] Preserve xAI legacy function-call context on parsed model responses.
+- [x] Serialize xAI legacy assistant and tool-result messages with legacy
+      `function_call` and `function` message shapes.
+- [x] Update crate READMEs with the clarified legacy continuation behavior.
+- [x] Split xAI request DTOs into a sibling module to keep changed Rust files
+      under the 300-line limit.
+- [x] Run targeted regression tests for the xAI legacy continuation follow-up.
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+      re-run the check.
+- [x] Run `cargo xtask rust-file-length-lint --all`.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features`.
+- [x] Run `cargo xtask check`.
+- [x] Review `git diff origin/main...` for accidental unrelated changes,
+      generated artifacts, missing files, and stale Juno paths.
+- [x] Run `git add -A`.
+- [x] Commit the follow-up work with a Conventional Commit message.
+- [x] Push the current branch.
 - [ ] Confirm the GitHub CI workflow status for the pull request.
 - [ ] Run `cargo xtask review` after pushing.
 - [ ] Repeat recommended review findings until the reviewer returns no

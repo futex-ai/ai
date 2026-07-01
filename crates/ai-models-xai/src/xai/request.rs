@@ -2,100 +2,16 @@
 
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, ModelRequest,
-    StructuredOutputSchema, ToolDefinition,
+    ProviderConversationItem, StructuredOutputSchema, ToolCall, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
-use serde::Serialize;
-use serde_json::Value;
 
-#[derive(Debug, Serialize)]
-pub(super) struct ChatCompletionsRequest {
-    model: String,
-    messages: Vec<ChatCompletionsMessage>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    tools: Vec<ChatCompletionsTool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_choice: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    response_format: Option<ChatCompletionsResponseFormat>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reasoning_effort: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct ChatCompletionsMessage {
-    role: String,
-    content: Option<ChatCompletionsContent>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_call_id: Option<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    tool_calls: Vec<ChatCompletionsToolCall>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
-enum ChatCompletionsContent {
-    Text(String),
-    Parts(Vec<ChatCompletionsContentPart>),
-}
-
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-enum ChatCompletionsContentPart {
-    #[serde(rename = "text")]
-    Text { text: String },
-    #[serde(rename = "image_url")]
-    ImageUrl { image_url: ChatCompletionsImageUrl },
-}
-
-#[derive(Debug, Serialize)]
-struct ChatCompletionsImageUrl {
-    url: String,
-}
-
-#[derive(Debug, Serialize)]
-struct ChatCompletionsToolCall {
-    id: String,
-    #[serde(rename = "type")]
-    kind: String,
-    function: ChatCompletionsToolFunction,
-}
-
-#[derive(Debug, Serialize)]
-struct ChatCompletionsTool {
-    #[serde(rename = "type")]
-    kind: String,
-    function: ChatCompletionsToolDefinition,
-}
-
-#[derive(Debug, Serialize)]
-struct ChatCompletionsToolDefinition {
-    name: String,
-    description: String,
-    parameters: Value,
-}
-
-#[derive(Debug, Serialize)]
-struct ChatCompletionsToolFunction {
-    name: String,
-    arguments: String,
-}
-
-#[derive(Debug, Serialize)]
-struct ChatCompletionsResponseFormat {
-    #[serde(rename = "type")]
-    kind: String,
-    json_schema: ChatCompletionsJsonSchema,
-}
-
-#[derive(Debug, Serialize)]
-struct ChatCompletionsJsonSchema {
-    name: String,
-    schema: Value,
-    strict: bool,
-}
+use super::request_types::{
+    ChatCompletionsContent, ChatCompletionsContentPart, ChatCompletionsImageUrl,
+    ChatCompletionsJsonSchema, ChatCompletionsMessage, ChatCompletionsRequest,
+    ChatCompletionsResponseFormat, ChatCompletionsTool, ChatCompletionsToolCall,
+    ChatCompletionsToolDefinition, ChatCompletionsToolFunction,
+};
 
 pub(super) fn build_request(
     model_id: &str,
@@ -108,8 +24,9 @@ pub(super) fn build_request(
         name: None,
         tool_call_id: None,
         tool_calls: Vec::new(),
+        function_call: None,
     }];
-    messages.extend(request.messages.iter().map(message));
+    messages.extend(conversation_messages(&request.messages));
 
     ChatCompletionsRequest {
         model: model_id.to_owned(),
@@ -121,26 +38,75 @@ pub(super) fn build_request(
     }
 }
 
-fn message(message: &ConversationMessage) -> ChatCompletionsMessage {
-    ChatCompletionsMessage {
-        role: match message.role {
-            ConversationRole::User => "user",
-            ConversationRole::Assistant => "assistant",
-            ConversationRole::Tool => "tool",
+#[derive(Clone, Debug)]
+struct LegacyFunctionCall {
+    tool_call_id: String,
+    name: String,
+    arguments: String,
+}
+
+fn conversation_messages(messages: &[ConversationMessage]) -> Vec<ChatCompletionsMessage> {
+    let mut legacy_calls = Vec::new();
+    let mut output = Vec::new();
+
+    for conversation_message in messages {
+        output.push(chat_message(conversation_message, &legacy_calls));
+        if let Some(function_call) = legacy_function_call(conversation_message) {
+            legacy_calls.push(function_call);
         }
-        .to_owned(),
+    }
+
+    output
+}
+
+fn chat_message(
+    message: &ConversationMessage,
+    legacy_calls: &[LegacyFunctionCall],
+) -> ChatCompletionsMessage {
+    let legacy_function_call = legacy_function_call(message);
+    let legacy_tool_name = legacy_tool_name(message, legacy_calls);
+    ChatCompletionsMessage {
+        role: message_role(message.role, legacy_tool_name.is_some()).to_owned(),
         content: message_content(message),
-        name: message_name(message),
-        tool_call_id: message.tool_call_id.clone(),
-        tool_calls: message.tool_calls.iter().map(tool_call).collect(),
+        name: message_name(message, legacy_tool_name),
+        tool_call_id: message_tool_call_id(message, legacy_tool_name),
+        tool_calls: message_tool_calls(message, legacy_function_call.is_some()),
+        function_call: legacy_function_call.map(|function_call| ChatCompletionsToolFunction {
+            name: function_call.name,
+            arguments: function_call.arguments,
+        }),
     }
 }
 
-fn message_name(message: &ConversationMessage) -> Option<String> {
+fn message_role(role: ConversationRole, is_legacy_tool_result: bool) -> &'static str {
+    if is_legacy_tool_result {
+        return "function";
+    }
+    match role {
+        ConversationRole::User => "user",
+        ConversationRole::Assistant => "assistant",
+        ConversationRole::Tool => "tool",
+    }
+}
+
+fn message_name(message: &ConversationMessage, legacy_tool_name: Option<&str>) -> Option<String> {
+    if let Some(name) = legacy_tool_name {
+        return Some(name.to_owned());
+    }
     match message.role {
         ConversationRole::Tool => None,
         ConversationRole::User | ConversationRole::Assistant => message.name.clone(),
     }
+}
+
+fn message_tool_call_id(
+    message: &ConversationMessage,
+    legacy_tool_name: Option<&str>,
+) -> Option<String> {
+    if legacy_tool_name.is_some() {
+        return None;
+    }
+    message.tool_call_id.clone()
 }
 
 fn message_content(message: &ConversationMessage) -> Option<ChatCompletionsContent> {
@@ -172,7 +138,59 @@ fn content_part(part: &ConversationContentPart) -> ChatCompletionsContentPart {
     }
 }
 
-fn tool_call(call: &ai_interface::ToolCall) -> ChatCompletionsToolCall {
+fn message_tool_calls(
+    message: &ConversationMessage,
+    has_legacy_function_call: bool,
+) -> Vec<ChatCompletionsToolCall> {
+    if has_legacy_function_call {
+        return Vec::new();
+    }
+    message.tool_calls.iter().map(tool_call).collect()
+}
+
+fn legacy_function_call(message: &ConversationMessage) -> Option<LegacyFunctionCall> {
+    if message.role != ConversationRole::Assistant {
+        return None;
+    }
+    message.provider_context.iter().find_map(|item| match item {
+        ProviderConversationItem::XaiLegacyFunctionCall {
+            tool_call_id,
+            name,
+            arguments,
+        } if message
+            .tool_calls
+            .iter()
+            .any(|call| call.id == *tool_call_id) =>
+        {
+            Some(LegacyFunctionCall {
+                tool_call_id: tool_call_id.clone(),
+                name: name.clone(),
+                arguments: arguments.clone(),
+            })
+        }
+        ProviderConversationItem::OpenAiMessage { .. }
+        | ProviderConversationItem::OpenAiReasoning { .. }
+        | ProviderConversationItem::OpenAiFunctionCall { .. }
+        | ProviderConversationItem::XaiLegacyFunctionCall { .. } => None,
+    })
+}
+
+fn legacy_tool_name<'a>(
+    message: &ConversationMessage,
+    legacy_calls: &'a [LegacyFunctionCall],
+) -> Option<&'a str> {
+    if message.role != ConversationRole::Tool {
+        return None;
+    }
+    let tool_call_id = message.tool_call_id.as_deref()?;
+    legacy_calls
+        .iter()
+        .rev()
+        .find(|call| call.tool_call_id == tool_call_id)
+        .map(|call| call.name.as_str())
+}
+
+fn tool_call(call: &ToolCall) -> ChatCompletionsToolCall {
     ChatCompletionsToolCall {
         id: call.id.clone(),
         kind: "function".to_owned(),

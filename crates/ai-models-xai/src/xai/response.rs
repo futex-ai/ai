@@ -1,7 +1,8 @@
 //! xAI chat-completions response parsing.
 
 use ai_interface::{
-    FinishReason, ModelError, ModelResponse, ModelUsage, StructuredOutputSchema, ToolCall,
+    FinishReason, ModelError, ModelResponse, ModelUsage, ProviderConversationItem,
+    StructuredOutputSchema, ToolCall,
 };
 use ai_models_core::{
     ThinkingLevel, assistant_text, parse_structured_output, parse_tool_call_arguments,
@@ -10,6 +11,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 const PROVIDER: &str = "xai";
+const LEGACY_FUNCTION_CALL_ID_PREFIX: &str = "xai_legacy_function_call:";
 
 pub(super) fn parse_response(
     catalog_model_id: &str,
@@ -36,11 +38,10 @@ pub(super) fn parse_response(
     } = choice.message;
     let assistant_message = assistant_text(content);
     let finish_reason = finish_reason(choice.finish_reason.as_deref());
+    let normalized_tool_calls = normalized_tool_calls(tool_calls, function_call);
+    let provider_context = normalized_tool_calls.provider_context;
     let tool_calls = if matches!(finish_reason, FinishReason::ToolCalls) {
-        parse_tool_calls(
-            provider_model_id,
-            normalized_tool_calls(tool_calls, function_call),
-        )?
+        parse_tool_calls(provider_model_id, normalized_tool_calls.calls)?
     } else {
         Vec::new()
     };
@@ -82,7 +83,7 @@ pub(super) fn parse_response(
         tool_calls,
         finish_reason,
         structured_output,
-        provider_context: Vec::new(),
+        provider_context,
         usage: ModelUsage {
             input_tokens,
             output_tokens,
@@ -93,6 +94,11 @@ pub(super) fn parse_response(
             cost_lines: Vec::new(),
         },
     })
+}
+
+struct NormalizedToolCalls {
+    calls: Vec<ChatCompletionsToolCall>,
+    provider_context: Vec<ProviderConversationItem>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -192,18 +198,38 @@ fn parse_tool_calls(
 fn normalized_tool_calls(
     mut calls: Vec<ChatCompletionsToolCall>,
     function_call: Option<ChatCompletionsToolFunction>,
-) -> Vec<ChatCompletionsToolCall> {
+) -> NormalizedToolCalls {
     if calls.is_empty()
         && let Some(function) = function_call
     {
-        calls.push(legacy_tool_call(function));
+        let (call, context) = legacy_tool_call(function);
+        calls.push(call);
+        return NormalizedToolCalls {
+            calls,
+            provider_context: vec![context],
+        };
     }
-    calls
+    NormalizedToolCalls {
+        calls,
+        provider_context: Vec::new(),
+    }
 }
 
-fn legacy_tool_call(function: ChatCompletionsToolFunction) -> ChatCompletionsToolCall {
-    ChatCompletionsToolCall {
-        id: function.name.clone(),
-        function,
-    }
+fn legacy_tool_call(
+    function: ChatCompletionsToolFunction,
+) -> (ChatCompletionsToolCall, ProviderConversationItem) {
+    let name = function.name.clone();
+    let arguments = function.arguments.clone();
+    let tool_call_id = format!("{LEGACY_FUNCTION_CALL_ID_PREFIX}{name}");
+    (
+        ChatCompletionsToolCall {
+            id: tool_call_id.clone(),
+            function,
+        },
+        ProviderConversationItem::XaiLegacyFunctionCall {
+            tool_call_id,
+            name,
+            arguments,
+        },
+    )
 }

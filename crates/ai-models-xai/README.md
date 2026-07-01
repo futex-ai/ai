@@ -14,7 +14,8 @@
 `XaiModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - xAI chat-completions request serialization
-- xAI modern `tool_calls` and legacy `function_call` parsing
+- xAI modern `tool_calls` and legacy `function_call` parsing, including
+  legacy continuation replay without sending synthetic `tool_call_id` fields
 - xAI `finish_reason` normalization into `ai_interface::FinishReason`
 - xAI tool-result continuation request serialization using `tool_call_id` and
   content without an unsupported tool-message `name` field
@@ -69,6 +70,7 @@ cargo clippy -p ai-models-xai --all-targets --all-features -- -D warnings
 - `src/xai/mod.rs` - `Model` implementation and request dispatch
 - `src/catalog.rs` - known xAI model ids and routing metadata
 - `src/xai/request.rs` - xAI request DTO mapping
+- `src/xai/request_types.rs` - xAI request serialization DTOs
 - `src/xai/response.rs` - xAI response parsing
 
 ### Related Docs
