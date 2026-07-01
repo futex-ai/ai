@@ -15,7 +15,8 @@
 
 - xAI chat-completions request serialization
 - xAI modern `tool_calls` and legacy `function_call` parsing, including
-  legacy continuation replay without sending synthetic `tool_call_id` fields
+  deterministic request-scoped local ids for legacy calls and legacy
+  continuation replay without sending synthetic `tool_call_id` fields
 - xAI `finish_reason` normalization into `ai_interface::FinishReason`
 - xAI tool-result continuation request serialization using `tool_call_id` and
   content without an unsupported tool-message `name` field

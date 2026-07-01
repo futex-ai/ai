@@ -12,6 +12,7 @@ fn structured_output_filter_preserves_filtered_finish_reason() {
         "gemini-2.5-pro",
         "gemini-2.5-pro",
         ThinkingLevel::Disabled,
+        "test_scope",
         json!({
             "candidates": [{
                 "finishReason": "SAFETY"
@@ -32,6 +33,7 @@ fn structured_output_truncation_preserves_truncated_finish_reason() {
         "gemini-2.5-pro",
         "gemini-2.5-pro",
         ThinkingLevel::Disabled,
+        "test_scope",
         json!({
             "candidates": [{
                 "finishReason": "MAX_TOKENS",

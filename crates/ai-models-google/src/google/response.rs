@@ -3,16 +3,18 @@
 use ai_interface::{
     FinishReason, ModelError, ModelResponse, ModelUsage, StructuredOutputSchema, ToolCall,
 };
-use ai_models_core::{ThinkingLevel, parse_structured_output};
+use ai_models_core::{ThinkingLevel, parse_structured_output, synthetic_tool_call_id};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
 const PROVIDER: &str = "google";
+const SYNTHETIC_TOOL_CALL_ID_PREFIX: &str = "google_function_call:";
 
 pub(super) fn parse_response(
     catalog_model_id: &str,
     provider_model_id: &str,
     thinking_level: ThinkingLevel,
+    synthetic_tool_call_scope: &str,
     body: Value,
     response_schema: Option<&StructuredOutputSchema>,
 ) -> std::result::Result<ModelResponse, ModelError> {
@@ -62,15 +64,27 @@ pub(super) fn parse_response(
             assistant_parts.push(text);
         }
         if let Some(function_call) = part.function_call {
+            let call_index = parsed_tool_calls.len();
+            let GoogleFunctionCall { id, name, args } = function_call;
+            let input = args.unwrap_or_else(|| Value::Object(Map::new()));
+            let (id, operation_id) = match id {
+                Some(id) => (id, None),
+                None => {
+                    let id = synthetic_tool_call_id(
+                        SYNTHETIC_TOOL_CALL_ID_PREFIX,
+                        synthetic_tool_call_scope,
+                        call_index,
+                        &name,
+                        &input.to_string(),
+                    );
+                    (id.clone(), Some(id))
+                }
+            };
             parsed_tool_calls.push(ToolCall {
-                id: function_call
-                    .id
-                    .unwrap_or_else(|| format!("call_{}", parsed_tool_calls.len() + 1)),
-                name: function_call.name,
-                input: function_call
-                    .args
-                    .unwrap_or_else(|| Value::Object(Map::new())),
-                operation_id: None,
+                id,
+                name,
+                input,
+                operation_id,
             });
         }
     }

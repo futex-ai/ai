@@ -7,7 +7,7 @@ mod response;
 use std::sync::Arc;
 
 use ai_interface::{Model, ModelError, ModelRequest, ModelResponse};
-use ai_models_core::{ThinkingLevel, classify_json_http_error};
+use ai_models_core::{ThinkingLevel, classify_json_http_error, synthetic_tool_call_scope};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 
@@ -81,6 +81,7 @@ impl Model for XaiModel {
         request: &ModelRequest,
     ) -> std::result::Result<ModelResponse, ModelError> {
         let response_schema = request.response_schema.as_ref();
+        let synthetic_tool_call_scope = synthetic_tool_call_scope(request);
         let request = self
             .http_client
             .post(&self.endpoint)
@@ -107,6 +108,7 @@ impl Model for XaiModel {
             &self.catalog_model_id,
             &self.provider_model_id,
             self.thinking_level,
+            &synthetic_tool_call_scope,
             response.body,
             response_schema,
         )
@@ -141,6 +143,10 @@ mod xai_tool_finish_tests;
 #[cfg(test)]
 #[path = "_tests_/xai_multimodal_tests.rs"]
 mod xai_multimodal_tests;
+
+#[cfg(test)]
+#[path = "_tests_/xai_operation_id_tests.rs"]
+mod xai_operation_id_tests;
 
 #[cfg(test)]
 #[path = "_tests_/xai_thinking_tests.rs"]

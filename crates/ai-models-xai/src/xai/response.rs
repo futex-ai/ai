@@ -6,6 +6,7 @@ use ai_interface::{
 };
 use ai_models_core::{
     ThinkingLevel, assistant_text, parse_structured_output, parse_tool_call_arguments,
+    synthetic_tool_call_id,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -17,6 +18,7 @@ pub(super) fn parse_response(
     catalog_model_id: &str,
     provider_model_id: &str,
     thinking_level: ThinkingLevel,
+    synthetic_tool_call_scope: &str,
     body: Value,
     response_schema: Option<&StructuredOutputSchema>,
 ) -> std::result::Result<ModelResponse, ModelError> {
@@ -38,7 +40,8 @@ pub(super) fn parse_response(
     } = choice.message;
     let assistant_message = assistant_text(content);
     let finish_reason = finish_reason(choice.finish_reason.as_deref());
-    let normalized_tool_calls = normalized_tool_calls(tool_calls, function_call);
+    let normalized_tool_calls =
+        normalized_tool_calls(tool_calls, function_call, synthetic_tool_call_scope);
     let provider_context = normalized_tool_calls.provider_context;
     let tool_calls = if matches!(finish_reason, FinishReason::ToolCalls) {
         parse_tool_calls(provider_model_id, normalized_tool_calls.calls)?
@@ -129,6 +132,8 @@ struct ChatCompletionsAssistantMessage {
 struct ChatCompletionsToolCall {
     id: String,
     function: ChatCompletionsToolFunction,
+    #[serde(skip)]
+    operation_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -189,7 +194,7 @@ fn parse_tool_calls(
                     provider_model_id,
                     &call.function.arguments,
                 )?,
-                operation_id: None,
+                operation_id: call.operation_id,
             })
         })
         .collect()
@@ -198,11 +203,12 @@ fn parse_tool_calls(
 fn normalized_tool_calls(
     mut calls: Vec<ChatCompletionsToolCall>,
     function_call: Option<ChatCompletionsToolFunction>,
+    synthetic_tool_call_scope: &str,
 ) -> NormalizedToolCalls {
     if calls.is_empty()
         && let Some(function) = function_call
     {
-        let (call, context) = legacy_tool_call(function);
+        let (call, context) = legacy_tool_call(function, synthetic_tool_call_scope);
         calls.push(call);
         return NormalizedToolCalls {
             calls,
@@ -217,14 +223,22 @@ fn normalized_tool_calls(
 
 fn legacy_tool_call(
     function: ChatCompletionsToolFunction,
+    synthetic_tool_call_scope: &str,
 ) -> (ChatCompletionsToolCall, ProviderConversationItem) {
     let name = function.name.clone();
     let arguments = function.arguments.clone();
-    let tool_call_id = format!("{LEGACY_FUNCTION_CALL_ID_PREFIX}{name}");
+    let tool_call_id = synthetic_tool_call_id(
+        LEGACY_FUNCTION_CALL_ID_PREFIX,
+        synthetic_tool_call_scope,
+        0,
+        &name,
+        &arguments,
+    );
     (
         ChatCompletionsToolCall {
             id: tool_call_id.clone(),
             function,
+            operation_id: Some(tool_call_id.clone()),
         },
         ProviderConversationItem::XaiLegacyFunctionCall {
             tool_call_id,

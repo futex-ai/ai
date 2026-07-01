@@ -8,6 +8,7 @@ mod errors;
 mod pricing;
 mod retrying;
 mod sleeper;
+mod tool_call_identity;
 
 pub use catalog::{
     CostTier, IntelligenceScore, KnownModelCatalog, KnownModelSpec, ModelFeature, ProviderKind,
@@ -23,6 +24,7 @@ pub use retrying::{RetryingModel, STANDARD_TRANSIENT_RETRY_DELAYS};
 #[cfg(any(test, doctest))]
 pub use sleeper::SleeperMock;
 pub use sleeper::{DynSleeper, Sleeper, TokioSleeper};
+pub use tool_call_identity::{synthetic_tool_call_id, synthetic_tool_call_scope};
 
 #[cfg(test)]
 #[path = "_tests_/mod.rs"]

@@ -6,7 +6,7 @@ mod response;
 use std::{collections::BTreeMap, sync::Arc};
 
 use ai_interface::{Model, ModelError, ModelRequest, ModelResponse};
-use ai_models_core::{ThinkingLevel, classify_json_http_error};
+use ai_models_core::{ThinkingLevel, classify_json_http_error, synthetic_tool_call_scope};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 
@@ -89,6 +89,7 @@ impl Model for GoogleModel {
         request: &ModelRequest,
     ) -> std::result::Result<ModelResponse, ModelError> {
         let response_schema = request.response_schema.as_ref();
+        let synthetic_tool_call_scope = synthetic_tool_call_scope(request);
         let request = self
             .http_client
             .post(&self.endpoint())
@@ -111,6 +112,7 @@ impl Model for GoogleModel {
             &self.catalog_model_id,
             &self.provider_model_id,
             self.thinking_level,
+            &synthetic_tool_call_scope,
             response.body,
             response_schema,
         )

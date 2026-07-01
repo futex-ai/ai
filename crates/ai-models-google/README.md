@@ -23,6 +23,9 @@
   normalized finish reason is `ToolCalls`
 - Gemini function-call parsing that treats omitted `args` as `{}` for no-arg
   tools
+- Gemini function-call parsing assigns deterministic request-scoped local ids
+  and operation ids when Gemini omits `functionCall.id`, preventing distinct
+  no-id calls from sharing runtime idempotency keys
 - Gemini `generationConfig.responseJsonSchema` mapping for structured outputs
 - Gemini `generationConfig.thinkingConfig.thinkingBudget` mapping from catalog
   `ThinkingLevel`

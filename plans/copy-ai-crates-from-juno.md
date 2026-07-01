@@ -412,6 +412,42 @@ function-message serialization rather than a synthetic modern `tool_call_id`.
 - [x] Run `git add -A`.
 - [x] Commit the follow-up work with a Conventional Commit message.
 - [x] Push the current branch.
+- [x] Confirm the GitHub CI workflow status for the pull request.
+- [x] Run `cargo xtask review` after pushing.
+- [x] Record the reviewer findings about repeated synthetic Gemini and legacy
+      xAI tool-call ids.
+- [ ] Repeat recommended review findings until the reviewer returns no
+      recommended fixes or only findings the user explicitly defers.
+
+## Milestone 16: Synthetic Tool-Call Identity Follow-up
+
+Address the reviewer findings selected by the user after the tenth PR review.
+At the end of this milestone, provider adapters that receive tool calls without
+provider ids should assign deterministic request-scoped ids so the tool runtime
+does not reuse idempotency keys for distinct calls.
+
+- [x] Add regression tests for repeated Gemini and legacy xAI tool calls that
+      lack provider-supplied ids.
+- [x] Add shared deterministic synthetic tool-call id helpers for provider
+      adapters.
+- [x] Use request-scoped synthetic ids for Gemini `functionCall` parts that omit
+      `id`.
+- [x] Use request-scoped synthetic ids for xAI legacy `message.function_call`
+      responses and their provider replay context.
+- [x] Update crate READMEs with the clarified synthetic id behavior.
+- [x] Run targeted regression tests for the Google, xAI, and core helper
+      changes.
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+      re-run the check.
+- [x] Run `cargo xtask rust-file-length-lint --all`.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features`.
+- [x] Run `cargo xtask check`.
+- [x] Review `git diff origin/main...` for accidental unrelated changes,
+      generated artifacts, missing files, and stale Juno paths.
+- [x] Run `git add -A`.
+- [x] Commit the follow-up work with a Conventional Commit message.
+- [x] Push the current branch.
 - [ ] Confirm the GitHub CI workflow status for the pull request.
 - [ ] Run `cargo xtask review` after pushing.
 - [ ] Repeat recommended review findings until the reviewer returns no

@@ -17,6 +17,7 @@ use super::GoogleModel;
 
 mod finish_reason_tests;
 mod multimodal_tests;
+mod operation_id_tests;
 mod request_tests;
 mod structured_finish_tests;
 

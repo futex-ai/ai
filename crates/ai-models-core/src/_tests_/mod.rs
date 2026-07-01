@@ -3,3 +3,4 @@ mod concurrency_tests;
 mod errors_tests;
 mod retrying_tests;
 mod structured_output_tests;
+mod tool_call_identity_tests;

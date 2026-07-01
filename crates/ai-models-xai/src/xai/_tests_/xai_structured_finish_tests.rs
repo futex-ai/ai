@@ -12,6 +12,7 @@ fn structured_output_filter_preserves_filtered_finish_reason() {
         "grok-4",
         "grok-4",
         ThinkingLevel::Disabled,
+        "test_scope",
         json!({
             "choices": [{
                 "finish_reason": "content_filter",
@@ -36,6 +37,7 @@ fn structured_output_truncation_preserves_truncated_finish_reason() {
         "grok-4",
         "grok-4",
         ThinkingLevel::Disabled,
+        "test_scope",
         json!({
             "choices": [{
                 "finish_reason": "length",
