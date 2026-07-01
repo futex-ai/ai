@@ -133,6 +133,7 @@ fn incomplete_function_call_response_is_not_dispatchable() {
 
     assert_eq!(response.finish_reason, FinishReason::Truncated);
     assert!(response.tool_calls.is_empty());
+    assert!(response.provider_context.is_empty());
 }
 
 #[test]

@@ -65,8 +65,9 @@ pub enum ProviderConversationItem {
     /// OpenAI Responses assistant message metadata used for stateless replay.
     #[serde(rename = "openai_message")]
     OpenAiMessage {
-        /// OpenAI assistant message phase, such as `commentary` or `final_answer`.
-        phase: String,
+        /// Optional OpenAI assistant message phase, such as `commentary` or `final_answer`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        phase: Option<String>,
     },
     /// OpenAI Responses reasoning item used for stateless reasoning turns.
     #[serde(rename = "openai_reasoning")]

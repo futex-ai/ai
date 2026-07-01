@@ -336,9 +336,21 @@ Quick Start example should compile against the current public API.
 - [x] Review `git diff origin/main...` for accidental unrelated changes,
       generated artifacts, missing files, and stale Juno paths.
 - [x] Run `git add -A`.
-- [ ] Commit the follow-up work with a Conventional Commit message.
-- [ ] Push the current branch.
-- [ ] Confirm the GitHub CI workflow status for the pull request.
-- [ ] Run `cargo xtask review` after pushing.
+- [x] Commit the follow-up work with a Conventional Commit message.
+- [x] Push the current branch.
+- [x] Confirm the GitHub CI workflow status for the pull request.
+- [x] Run `cargo xtask review` after pushing.
+- [x] Add regression tests for truncated OpenAI function-call replay context
+      and phase-less assistant message replay ordering.
+- [x] Drop OpenAI function-call replay context when the normalized finish
+      reason is not `ToolCalls`.
+- [x] Preserve phase-less OpenAI assistant message markers when tool-call
+      replay context needs ordering.
+- [x] Run targeted regression tests for the second OpenAI replay follow-up.
+- [x] Re-run the full local verification gates after the second follow-up.
+- [ ] Commit and push the second follow-up work with a Conventional Commit
+      message.
+- [ ] Confirm the GitHub CI workflow status for the second follow-up.
+- [ ] Run `cargo xtask review` again after the second follow-up push.
 - [ ] Repeat recommended review findings until the reviewer returns no
       recommended fixes or only findings the user explicitly defers.

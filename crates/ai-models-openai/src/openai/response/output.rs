@@ -26,16 +26,19 @@ pub(super) fn assistant_message(output: &[ResponsesOutputItem]) -> String {
         .join("")
 }
 
-pub(super) fn provider_context(output: &[ResponsesOutputItem]) -> Vec<ProviderConversationItem> {
+pub(super) fn provider_context(
+    output: &[ResponsesOutputItem],
+    preserve_function_calls: bool,
+) -> Vec<ProviderConversationItem> {
     output
         .iter()
         .filter_map(|item| match item {
-            ResponsesOutputItem::Message { phase, .. } => {
-                phase
-                    .as_ref()
-                    .map(|phase| ProviderConversationItem::OpenAiMessage {
-                        phase: phase.clone(),
-                    })
+            ResponsesOutputItem::Message { phase, .. }
+                if preserve_function_calls || phase.is_some() =>
+            {
+                Some(ProviderConversationItem::OpenAiMessage {
+                    phase: phase.clone(),
+                })
             }
             ResponsesOutputItem::Reasoning {
                 id,
@@ -51,12 +54,13 @@ pub(super) fn provider_context(output: &[ResponsesOutputItem]) -> Vec<ProviderCo
                 call_id,
                 name,
                 arguments,
-            } => Some(ProviderConversationItem::OpenAiFunctionCall {
+            } if preserve_function_calls => Some(ProviderConversationItem::OpenAiFunctionCall {
                 id: id.clone(),
                 call_id: call_id.clone(),
                 name: name.clone(),
                 arguments: arguments.clone(),
             }),
+            ResponsesOutputItem::FunctionCall { .. } | ResponsesOutputItem::Message { .. } => None,
             ResponsesOutputItem::Other => None,
         })
         .collect()

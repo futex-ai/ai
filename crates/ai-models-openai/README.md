@@ -37,6 +37,8 @@ runtime wrappers from neighboring crates.
   normalized JSON render
 - assistant message `phase` retention so stateless replay preserves tool
   preambles and final-answer phase metadata in the original output-item order
+- phase-less assistant message markers when function-call replay context needs
+  the original OpenAI output item order
 - provider response usage extraction into normalized input, output, cached
   input, and reasoning token counts
 - status, transport, and structured-output validation failure mapping onto

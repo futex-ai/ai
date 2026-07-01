@@ -65,7 +65,7 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
                     items.push(ResponsesInputItem::Message(message_item_with_phase(
                         message,
                         "assistant",
-                        Some(phase.clone()),
+                        phase.clone(),
                     )));
                     assistant_message_emitted = true;
                 }

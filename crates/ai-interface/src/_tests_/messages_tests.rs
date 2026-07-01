@@ -4,7 +4,7 @@ use serde_json::json;
 #[test]
 fn openai_message_context_serializes_with_provider_tag() {
     let item = ProviderConversationItem::OpenAiMessage {
-        phase: "commentary".to_owned(),
+        phase: Some("commentary".to_owned()),
     };
 
     assert_eq!(
@@ -12,6 +12,18 @@ fn openai_message_context_serializes_with_provider_tag() {
         json!({
             "type": "openai_message",
             "phase": "commentary"
+        })
+    );
+}
+
+#[test]
+fn openai_message_context_without_phase_serializes_with_provider_tag() {
+    let item = ProviderConversationItem::OpenAiMessage { phase: None };
+
+    assert_eq!(
+        serde_json::to_value(item).unwrap(),
+        json!({
+            "type": "openai_message"
         })
     );
 }

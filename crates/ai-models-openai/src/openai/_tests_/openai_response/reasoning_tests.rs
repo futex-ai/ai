@@ -185,3 +185,41 @@ fn preserves_assistant_message_phase_for_stateless_replay_context() {
     assert_eq!(provider_context[1]["type"], "openai_function_call");
     assert_eq!(response.assistant_message, "I'll inspect memory.");
 }
+
+#[test]
+fn preserves_phase_less_assistant_message_order_for_stateless_replay_context() {
+    let response = parse_response(
+        "gpt-5.5-thinking-extra-high",
+        "gpt-5.5",
+        ThinkingLevel::ExtraHigh,
+        json!({
+            "status": "completed",
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{ "type": "output_text", "text": "I'll inspect memory." }]
+                },
+                {
+                    "type": "function_call",
+                    "id": "fc_1",
+                    "call_id": "call_1",
+                    "name": "memory_read",
+                    "arguments": "{\"path\":\"root\"}"
+                }
+            ]
+        }),
+        None,
+    )
+    .expect("phase-less preamble response should parse");
+
+    let provider_context =
+        serde_json::to_value(&response.provider_context).expect("context should serialize");
+    let message_context = provider_context[0]
+        .as_object()
+        .expect("message context should serialize as an object");
+    assert_eq!(provider_context[0]["type"], "openai_message");
+    assert!(!message_context.contains_key("phase"));
+    assert_eq!(provider_context[1]["type"], "openai_function_call");
+    assert_eq!(response.assistant_message, "I'll inspect memory.");
+}

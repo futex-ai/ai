@@ -40,8 +40,11 @@ pub(super) fn parse_response(
     }
 
     let assistant_message = assistant_message(&parsed.output);
-    let provider_context = provider_context(&parsed.output);
     let finish_reason = finish_reason(&parsed, has_function_calls(&parsed.output));
+    let provider_context = provider_context(
+        &parsed.output,
+        matches!(finish_reason, FinishReason::ToolCalls),
+    );
     let tool_calls = if matches!(finish_reason, FinishReason::ToolCalls) {
         tool_calls(provider_model_id, &parsed.output)?
     } else {
