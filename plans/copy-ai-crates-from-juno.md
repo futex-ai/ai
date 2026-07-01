@@ -352,7 +352,7 @@ Quick Start example should compile against the current public API.
       message.
 - [x] Confirm the GitHub CI workflow status for the second follow-up.
 - [x] Run `cargo xtask review` again after the second follow-up push.
-- [ ] Repeat recommended review findings until the reviewer returns no
+- [x] Repeat recommended review findings until the reviewer returns no
       recommended fixes or only findings the user explicitly defers.
 
 ## Milestone 14: xAI Legacy Function-Call Follow-up
@@ -381,7 +381,7 @@ responses should produce a normalized tool call instead of an inconsistent
 - [x] Push the current branch.
 - [x] Confirm the GitHub CI workflow status for the pull request.
 - [x] Run `cargo xtask review` after pushing.
-- [ ] Repeat recommended review findings until the reviewer returns no
+- [x] Repeat recommended review findings until the reviewer returns no
       recommended fixes or only findings the user explicitly defers.
 
 ## Milestone 15: xAI Legacy Continuation Follow-up
@@ -416,7 +416,7 @@ function-message serialization rather than a synthetic modern `tool_call_id`.
 - [x] Run `cargo xtask review` after pushing.
 - [x] Record the reviewer findings about repeated synthetic Gemini and legacy
       xAI tool-call ids.
-- [ ] Repeat recommended review findings until the reviewer returns no
+- [x] Repeat recommended review findings until the reviewer returns no
       recommended fixes or only findings the user explicitly defers.
 
 ## Milestone 16: Synthetic Tool-Call Identity Follow-up
@@ -448,7 +448,7 @@ does not reuse idempotency keys for distinct calls.
 - [x] Run `git add -A`.
 - [x] Commit the follow-up work with a Conventional Commit message.
 - [x] Push the current branch.
-- [ ] Confirm the GitHub CI workflow status for the pull request.
-- [ ] Run `cargo xtask review` after pushing.
-- [ ] Repeat recommended review findings until the reviewer returns no
+- [x] Confirm the GitHub CI workflow status for the pull request.
+- [x] Run `cargo xtask review` after pushing.
+- [x] Repeat recommended review findings until the reviewer returns no
       recommended fixes or only findings the user explicitly defers.
