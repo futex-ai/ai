@@ -21,7 +21,11 @@ pub(super) struct ResponsesResponse {
 #[serde(tag = "type")]
 pub(super) enum ResponsesOutputItem {
     #[serde(rename = "message")]
-    Message { content: Vec<ResponsesContentPart> },
+    Message {
+        #[serde(default)]
+        phase: Option<String>,
+        content: Vec<ResponsesContentPart>,
+    },
     #[serde(rename = "reasoning")]
     Reasoning {
         id: String,

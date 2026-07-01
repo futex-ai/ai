@@ -6,8 +6,8 @@ milestones are finished.
 
 ## Active
 
-- None.
+- [Copy AI crates from Juno](copy-ai-crates-from-juno.md)
 
 ## Completed
 
-- [Copy AI crates from Juno](copy-ai-crates-from-juno.md)
+- None.

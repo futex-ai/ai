@@ -62,6 +62,12 @@ pub enum ConversationContentPart {
 #[serde(tag = "type", rename_all = "snake_case")]
 /// Provider-specific conversation item retained for model-specific replay.
 pub enum ProviderConversationItem {
+    /// OpenAI Responses assistant message metadata used for stateless replay.
+    #[serde(rename = "openai_message")]
+    OpenAiMessage {
+        /// OpenAI assistant message phase, such as `commentary` or `final_answer`.
+        phase: String,
+    },
     /// OpenAI Responses reasoning item used for stateless reasoning turns.
     #[serde(rename = "openai_reasoning")]
     OpenAiReasoning {

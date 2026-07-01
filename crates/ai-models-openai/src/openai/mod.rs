@@ -1,6 +1,7 @@
 //! OpenAI Responses model client.
 
 mod request;
+mod request_types;
 mod response;
 mod transcription;
 

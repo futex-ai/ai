@@ -10,7 +10,7 @@ pub(super) fn assistant_message(output: &[ResponsesOutputItem]) -> String {
     output
         .iter()
         .flat_map(|item| match item {
-            ResponsesOutputItem::Message { content } => content
+            ResponsesOutputItem::Message { content, .. } => content
                 .iter()
                 .filter_map(|part| match part {
                     ResponsesContentPart::OutputText { text } => Some(text.clone()),
@@ -30,6 +30,13 @@ pub(super) fn provider_context(output: &[ResponsesOutputItem]) -> Vec<ProviderCo
     output
         .iter()
         .filter_map(|item| match item {
+            ResponsesOutputItem::Message { phase, .. } => {
+                phase
+                    .as_ref()
+                    .map(|phase| ProviderConversationItem::OpenAiMessage {
+                        phase: phase.clone(),
+                    })
+            }
             ResponsesOutputItem::Reasoning {
                 id,
                 summary,
@@ -50,7 +57,7 @@ pub(super) fn provider_context(output: &[ResponsesOutputItem]) -> Vec<ProviderCo
                 name: name.clone(),
                 arguments: arguments.clone(),
             }),
-            ResponsesOutputItem::Message { .. } | ResponsesOutputItem::Other => None,
+            ResponsesOutputItem::Other => None,
         })
         .collect()
 }

@@ -308,3 +308,37 @@ timeouts/conflicts should be surfaced as transient failures.
 - [x] Push the current branch.
 - [x] Confirm the GitHub CI workflow status for the pull request.
 - [x] Run `cargo xtask review` after pushing and report any findings.
+
+## Milestone 13: OpenAI Phase And Quick Start Follow-ups
+
+Address the reviewer findings selected by the user after the seventh PR review.
+At the end of this milestone, OpenAI Responses stateless replay should preserve
+assistant message phase metadata for tool preambles, and the `ai-tool-calling`
+Quick Start example should compile against the current public API.
+
+- [x] Add a regression test for OpenAI assistant message phase metadata in
+      stateless replay context.
+- [x] Preserve OpenAI Responses assistant message `phase` metadata in provider
+      replay context.
+- [x] Serialize preserved assistant message `phase` metadata during OpenAI
+      request replay in the original provider-context order.
+- [x] Update the `ai-tool-calling` Quick Start example to use the current
+      conversation helper and import the turn extension trait.
+- [x] Update crate READMEs with the clarified provider replay behavior.
+- [x] Run targeted regression tests for the changed OpenAI, interface, and
+      tool-calling crates.
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+      re-run the check.
+- [x] Run `cargo xtask rust-file-length-lint --all`.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features`.
+- [x] Run `cargo xtask check`.
+- [x] Review `git diff origin/main...` for accidental unrelated changes,
+      generated artifacts, missing files, and stale Juno paths.
+- [x] Run `git add -A`.
+- [ ] Commit the follow-up work with a Conventional Commit message.
+- [ ] Push the current branch.
+- [ ] Confirm the GitHub CI workflow status for the pull request.
+- [ ] Run `cargo xtask review` after pushing.
+- [ ] Repeat recommended review findings until the reviewer returns no
+      recommended fixes or only findings the user explicitly defers.

@@ -2,6 +2,21 @@ use crate::{OpenAiReasoningSummary, ProviderConversationItem};
 use serde_json::json;
 
 #[test]
+fn openai_message_context_serializes_with_provider_tag() {
+    let item = ProviderConversationItem::OpenAiMessage {
+        phase: "commentary".to_owned(),
+    };
+
+    assert_eq!(
+        serde_json::to_value(item).unwrap(),
+        json!({
+            "type": "openai_message",
+            "phase": "commentary"
+        })
+    );
+}
+
+#[test]
 fn openai_reasoning_context_serializes_with_provider_tag() {
     let item = ProviderConversationItem::OpenAiReasoning {
         id: "rs_123".to_owned(),

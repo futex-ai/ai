@@ -111,7 +111,9 @@ items on the corresponding assistant message and pass them back in later model
 requests; callers should not render them as assistant text or tool output.
 OpenAI Responses adapters use this context for reasoning items and raw
 function-call items whose provider item ids and original argument strings must
-be replayed exactly during stateless tool-calling continuations.
+be replayed exactly during stateless tool-calling continuations. They also use
+it for assistant message `phase` metadata so preambles and final answers keep
+their original phase when a caller manually replays Responses history.
 
 Model routing is expressed separately from `ModelRequest`. Callers ask a
 `ModelRouter` to resolve a `ModelRouteRequest` containing hard requirements

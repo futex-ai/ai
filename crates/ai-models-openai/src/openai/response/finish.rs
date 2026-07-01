@@ -42,7 +42,7 @@ fn incomplete_finish_reason(response: &ResponsesResponse) -> FinishReason {
 
 fn has_refusal(output: &[ResponsesOutputItem]) -> bool {
     output.iter().any(|item| match item {
-        ResponsesOutputItem::Message { content } => content
+        ResponsesOutputItem::Message { content, .. } => content
             .iter()
             .any(|part| matches!(part, ResponsesContentPart::Refusal { .. })),
         ResponsesOutputItem::Reasoning { .. }

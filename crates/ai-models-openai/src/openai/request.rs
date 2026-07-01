@@ -2,119 +2,15 @@
 
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, ModelRequest,
-    OpenAiReasoningSummary, ProviderConversationItem, StructuredOutputSchema, ToolCall,
-    ToolDefinition,
+    ProviderConversationItem, StructuredOutputSchema, ToolCall, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
-use serde::Serialize;
-use serde_json::Value;
 
-#[derive(Debug, Serialize)]
-pub(super) struct ResponsesRequest {
-    model: String,
-    instructions: String,
-    input: Vec<ResponsesInputItem>,
-    store: bool,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    include: Vec<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    tools: Vec<ResponsesTool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_choice: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    text: Option<ResponsesText>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reasoning: Option<ResponsesReasoning>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
-enum ResponsesInputItem {
-    Message(ResponsesMessage),
-    Reasoning(ResponsesReasoningInput),
-    FunctionCall(ResponsesFunctionCallInput),
-    FunctionCallOutput(ResponsesFunctionCallOutput),
-}
-
-#[derive(Debug, Serialize)]
-struct ResponsesMessage {
-    role: String,
-    content: ResponsesMessageContent,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
-enum ResponsesMessageContent {
-    Text(String),
-    Parts(Vec<ResponsesContentPart>),
-}
-
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-enum ResponsesContentPart {
-    #[serde(rename = "input_text")]
-    InputText { text: String },
-    #[serde(rename = "input_image")]
-    InputImage { image_url: String },
-}
-
-#[derive(Debug, Serialize)]
-struct ResponsesFunctionCallInput {
-    #[serde(rename = "type")]
-    kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<String>,
-    call_id: String,
-    name: String,
-    arguments: String,
-}
-
-#[derive(Debug, Serialize)]
-struct ResponsesReasoningInput {
-    #[serde(rename = "type")]
-    kind: String,
-    id: String,
-    summary: Vec<OpenAiReasoningSummary>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    encrypted_content: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct ResponsesFunctionCallOutput {
-    #[serde(rename = "type")]
-    kind: String,
-    call_id: String,
-    output: String,
-}
-
-#[derive(Debug, Serialize)]
-struct ResponsesTool {
-    #[serde(rename = "type")]
-    kind: String,
-    name: String,
-    description: String,
-    parameters: Value,
-    strict: bool,
-}
-
-#[derive(Debug, Serialize)]
-struct ResponsesText {
-    format: ResponsesTextFormat,
-}
-
-#[derive(Debug, Serialize)]
-struct ResponsesTextFormat {
-    #[serde(rename = "type")]
-    kind: String,
-    name: String,
-    strict: bool,
-    schema: Value,
-}
-
-#[derive(Debug, Serialize)]
-struct ResponsesReasoning {
-    effort: String,
-}
+use super::request_types::{
+    ResponsesContentPart, ResponsesFunctionCallInput, ResponsesFunctionCallOutput,
+    ResponsesInputItem, ResponsesMessage, ResponsesMessageContent, ResponsesReasoning,
+    ResponsesReasoningInput, ResponsesRequest, ResponsesText, ResponsesTextFormat, ResponsesTool,
+};
 
 pub(super) fn build_request(
     model_id: &str,
@@ -161,8 +57,28 @@ fn message_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
 
 fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
     let mut items = Vec::new();
-    items.extend(message.provider_context.iter().map(provider_context_item));
-    if !message.content.trim().is_empty() || !message.content_parts.is_empty() {
+    let mut assistant_message_emitted = false;
+    for item in &message.provider_context {
+        match item {
+            ProviderConversationItem::OpenAiMessage { phase } => {
+                if has_message_content(message) && !assistant_message_emitted {
+                    items.push(ResponsesInputItem::Message(message_item_with_phase(
+                        message,
+                        "assistant",
+                        Some(phase.clone()),
+                    )));
+                    assistant_message_emitted = true;
+                }
+            }
+            ProviderConversationItem::OpenAiReasoning { .. }
+            | ProviderConversationItem::OpenAiFunctionCall { .. } => {
+                if let Some(provider_item) = provider_context_item(item) {
+                    items.push(provider_item);
+                }
+            }
+        }
+    }
+    if has_message_content(message) && !assistant_message_emitted {
         items.push(ResponsesInputItem::Message(message_item(
             message,
             "assistant",
@@ -179,30 +95,33 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
     items
 }
 
-fn provider_context_item(item: &ProviderConversationItem) -> ResponsesInputItem {
+fn provider_context_item(item: &ProviderConversationItem) -> Option<ResponsesInputItem> {
     match item {
+        ProviderConversationItem::OpenAiMessage { .. } => None,
         ProviderConversationItem::OpenAiReasoning {
             id,
             summary,
             encrypted_content,
-        } => ResponsesInputItem::Reasoning(ResponsesReasoningInput {
+        } => Some(ResponsesInputItem::Reasoning(ResponsesReasoningInput {
             kind: "reasoning".to_owned(),
             id: id.clone(),
             summary: summary.clone(),
             encrypted_content: encrypted_content.clone(),
-        }),
+        })),
         ProviderConversationItem::OpenAiFunctionCall {
             id,
             call_id,
             name,
             arguments,
-        } => ResponsesInputItem::FunctionCall(ResponsesFunctionCallInput {
-            kind: "function_call".to_owned(),
-            id: id.clone(),
-            call_id: call_id.clone(),
-            name: name.clone(),
-            arguments: arguments.clone(),
-        }),
+        } => Some(ResponsesInputItem::FunctionCall(
+            ResponsesFunctionCallInput {
+                kind: "function_call".to_owned(),
+                id: id.clone(),
+                call_id: call_id.clone(),
+                name: name.clone(),
+                arguments: arguments.clone(),
+            },
+        )),
     }
 }
 
@@ -214,10 +133,23 @@ fn has_openai_function_call_context(message: &ConversationMessage) -> bool {
 }
 
 fn message_item(message: &ConversationMessage, role: &str) -> ResponsesMessage {
+    message_item_with_phase(message, role, None)
+}
+
+fn message_item_with_phase(
+    message: &ConversationMessage,
+    role: &str,
+    phase: Option<String>,
+) -> ResponsesMessage {
     ResponsesMessage {
         role: role.to_owned(),
+        phase,
         content: message_content(message),
     }
+}
+
+fn has_message_content(message: &ConversationMessage) -> bool {
+    !message.content.trim().is_empty() || !message.content_parts.is_empty()
 }
 
 fn message_content(message: &ConversationMessage) -> ResponsesMessageContent {

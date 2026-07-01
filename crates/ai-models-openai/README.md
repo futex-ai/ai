@@ -35,6 +35,8 @@ runtime wrappers from neighboring crates.
 - raw Responses function-call item retention so stateless tool continuations
   replay OpenAI's provider item id and original argument string instead of a
   normalized JSON render
+- assistant message `phase` retention so stateless replay preserves tool
+  preambles and final-answer phase metadata in the original output-item order
 - provider response usage extraction into normalized input, output, cached
   input, and reasoning token counts
 - status, transport, and structured-output validation failure mapping onto
@@ -52,12 +54,13 @@ catalog does not define a max-thinking OpenAI variant.
 OpenAI generation uses workspace-defined function tools with `strict: false` during
 the Responses cutover. OpenAI built-in tools are intentionally not exposed by
 this crate.
-When OpenAI returns Responses `reasoning` or `function_call` output items, this
-crate stores those replay-sensitive items in `ModelResponse::provider_context`;
-runtimes should keep that context on the assistant message so later OpenAI
-requests can replay the provider items before the associated function-call
-outputs. The normalized `ToolCall` list remains the tool-dispatch contract, but
-the raw provider context is preferred for OpenAI request replay when present.
+When OpenAI returns Responses assistant message `phase`, `reasoning`, or
+`function_call` output items, this crate stores those replay-sensitive items in
+`ModelResponse::provider_context`; runtimes should keep that context on the
+assistant message so later OpenAI requests can replay the phased assistant
+message and provider items before the associated function-call outputs. The
+normalized `ToolCall` list remains the tool-dispatch contract, but the raw
+provider context is preferred for OpenAI request replay when present.
 
 `OpenAiAudioTranscriber` submits completed audio recordings to the OpenAI
 transcription endpoint using `gpt-4o-mini-transcribe` or another caller-chosen
@@ -102,8 +105,9 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 
 - `src/openai/mod.rs` - `Model` implementation and request dispatch
 - `src/catalog.rs` - known OpenAI model ids and routing metadata
-- `src/openai/request.rs` - OpenAI Responses request DTO mapping
-- `src/openai/response.rs` - OpenAI Responses response parsing
+- `src/openai/request.rs` - OpenAI Responses request mapping
+- `src/openai/request_types.rs` - OpenAI Responses request DTOs
+- `src/openai/response/mod.rs` - OpenAI Responses response parsing
 - `src/openai/transcription.rs` - OpenAI audio transcription implementation
 
 ### Related Docs

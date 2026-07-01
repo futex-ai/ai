@@ -28,8 +28,8 @@ explicit conversation mutation APIs.
 - Uses `ModelResponse::finish_reason` as the turn termination contract instead
   of inferring completion from whether the tool-call list is empty
 - Retains `ModelResponse::provider_context` on assistant messages so
-  provider-specific replay state, such as OpenAI stateless reasoning items,
-  stays available for later model calls
+  provider-specific replay state, such as OpenAI assistant message phase and
+  stateless reasoning items, stays available for later model calls
 - Records successful tool output and tool errors back into conversation state,
   always appending one tool-role message per emitted `tool_call_id` even when a
   sibling call in the same model response fails
@@ -63,18 +63,11 @@ clean assistant stop.
 ```rust
 use std::sync::Arc;
 
-use ai_interface::{ConversationMessage, ConversationRole, Model, NoopLogger, Tool};
-use ai_tool_calling::{RunOutcome, ToolCallingRuntime};
+use ai_interface::{ConversationMessage, Model, NoopLogger, Tool};
+use ai_tool_calling::{RunOutcome, ToolCallingRuntime, Turn};
 
 fn user_message(content: &str) -> ConversationMessage {
-    ConversationMessage {
-        role: ConversationRole::User,
-        content: content.to_owned(),
-        name: None,
-        tool_call_id: None,
-        tool_calls: Vec::new(),
-        provider_context: Vec::new(),
-    }
+    ConversationMessage::user(content)
 }
 
 fn build_runtime(

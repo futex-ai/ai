@@ -78,6 +78,58 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
     assert_eq!(function_call_count(input), 1);
 }
 
+#[tokio::test]
+async fn replays_assistant_message_phase_before_function_call_context() {
+    let (http_client, requests) = recording_http_client(openai_text_response("Done"));
+    let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
+    let assistant = ConversationMessage::assistant_with_provider_context(
+        "I'll inspect memory.",
+        vec![ToolCall {
+            id: "call_1".to_owned(),
+            name: "memory_read".to_owned(),
+            input: json!({"path": "root"}),
+            operation_id: None,
+        }],
+        vec![
+            ProviderConversationItem::OpenAiMessage {
+                phase: "commentary".to_owned(),
+            },
+            ProviderConversationItem::OpenAiFunctionCall {
+                id: Some("fc_1".to_owned()),
+                call_id: "call_1".to_owned(),
+                name: "memory_read".to_owned(),
+                arguments: "{\"path\":\"root\"}".to_owned(),
+            },
+        ],
+    );
+
+    model
+        .complete(&ModelRequest {
+            system_prompt: "system".to_owned(),
+            messages: vec![
+                ConversationMessage::user("start"),
+                assistant,
+                ConversationMessage::tool("{\"ok\":true}", "memory_read", "call_1"),
+            ],
+            tools: Vec::new(),
+            response_schema: None,
+        })
+        .await
+        .expect("OpenAI response should parse");
+
+    let requests = requests
+        .lock()
+        .expect("requests lock should not be poisoned");
+    let input = &requests[0].body.as_ref().expect("body present")["input"];
+    assert_eq!(input[1]["role"], "assistant");
+    assert_eq!(input[1]["phase"], "commentary");
+    assert_eq!(input[1]["content"], "I'll inspect memory.");
+    assert_eq!(input[2]["type"], "function_call");
+    assert_eq!(input[2]["id"], "fc_1");
+    assert_eq!(input[3]["type"], "function_call_output");
+    assert_eq!(function_call_count(input), 1);
+}
+
 fn function_call_count(input: &serde_json::Value) -> usize {
     input
         .as_array()
