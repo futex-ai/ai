@@ -15,6 +15,12 @@ in-memory tool-calling runtime behavior.
 - Trait-backed JSON HTTP client support through `json-http`
 - In-memory tool-calling runtime through `ai-tool-calling`
 
+## Protocols
+
+- [Tool output management](docs/protocol/tool-output-management.md) defines the
+  planned universal output-id, bounded-envelope, pagination, and raw-output
+  isolation contract for tool calls.
+
 ## Interfaces
 
 The workspace is library-first. Consumers depend on the crate matching the
@@ -64,6 +70,7 @@ cargo xtask review
 - `crates/json-http`: HTTP client abstraction used by provider crates
 - `xtask/`: local automation for checks, smoke tests, file-length lint, and
   review
+- `docs/protocol/`: normative contracts for shared runtime behavior
 - `plans/`: active and completed implementation plans.
 
 ## CI
@@ -74,4 +81,5 @@ credential-free smoke tests, and `cargo xtask check`.
 
 ## Plans
 
-See [plans/README.md](plans/README.md) for active and completed migration plans.
+See [plans/README.md](plans/README.md) for active and completed implementation
+plans.
