@@ -8,6 +8,7 @@ mod messages;
 mod mock_audio_transcriber;
 mod mock_model;
 mod model;
+pub mod output;
 mod router;
 mod tools;
 mod usage;
@@ -30,6 +31,11 @@ pub use mock_model::MockModel;
 pub use model::{
     DynModel, FinishReason, Model, ModelError, ModelRequest, ModelResponse, ModelResult,
     StructuredOutputSchema,
+};
+pub use output::{
+    ToolOutputEnvelope, ToolOutputEnvelopeError, ToolOutputEnvelopeResult, ToolOutputId,
+    ToolOutputInlineEnvelope, ToolOutputReadRequest, ToolOutputRemainderUnavailableReason,
+    ToolOutputWindowEnvelope,
 };
 pub use router::{
     DynModelRouter, ModelFeature, ModelPreference, ModelRequirement, ModelRouteRequest,

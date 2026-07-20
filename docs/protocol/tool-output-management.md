@@ -12,10 +12,10 @@ use provider or source pagination when it avoids fetching unnecessary data.
 
 ## Status
 
-This contract is planned and is not implemented on the current branch. Until
-the [Universal Tool Output Management plan](../../plans/universal-tool-output-management.md)
-is complete, `ai-tool-calling` continues to put the raw JSON value directly
-into retained tool messages.
+This contract is implemented by `ai-interface` and `ai-tool-calling`. The
+[Universal Tool Output Management plan](../../plans/universal-tool-output-management.md)
+records the milestones that delivered it; the downstream Juno migration is
+tracked in that plan's handoff section.
 
 ## Ownership
 
@@ -156,8 +156,8 @@ tool_output_read(output_id, offset?, length?)
 
 - `output_id` is required.
 - `offset` defaults to `0` and must be no greater than `total_bytes`.
-- `length` defaults to 20,000 and must be between `1` and the configured
-  maximum read length.
+- `length` defaults to 20,000; a zero length is rejected with a typed error
+  and values above the configured maximum read length are capped to it.
 - The offset must be a UTF-8 character boundary.
 - The returned end is moved backward to the nearest UTF-8 boundary when the
   requested end splits a character.

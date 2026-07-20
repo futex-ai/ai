@@ -7,33 +7,38 @@ in-memory tool-calling runtime behavior.
 ## Features
 
 - Shared `ai-interface` contracts for conversations, model calls, audio
-  transcription, tool calls, routing, logging, and usage metering
+  transcription, tool calls, routing, logging, usage metering, and bounded
+  model-visible tool output envelopes
 - Provider adapters for Anthropic, Google Gemini, OpenAI, and xAI models
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, and usage pricing
 - Ordered fallback model composition through `ai-models-multi`
 - Trait-backed JSON HTTP client support through `json-http`
-- In-memory tool-calling runtime through `ai-tool-calling`
+- In-memory tool-calling runtime through `ai-tool-calling`, including
+  universal tool output management with inline envelopes, stored output ids,
+  UTF-8-safe windows, and degraded-window fallbacks
 
 ## Protocols
 
 - [Tool output management](docs/protocol/tool-output-management.md) defines the
-  planned universal output-id, bounded-envelope, pagination, and raw-output
-  isolation contract for tool calls.
+  universal output-id, bounded-envelope, pagination, and raw-output isolation
+  contract for tool calls.
 
 ## Interfaces
 
 The workspace is library-first. Consumers depend on the crate matching the
 boundary they need:
 
-- `ai-interface`: shared DTOs, traits, mocks, and error contracts
+- `ai-interface`: shared DTOs, traits, mocks, error contracts, and
+  model-visible tool output envelopes
 - `ai-models-core`: reusable model wrappers and provider helper logic
 - `ai-models-anthropic`: Anthropic model adapter
 - `ai-models-google`: Google Gemini model adapter
 - `ai-models-openai`: OpenAI model and transcription adapters
 - `ai-models-xai`: xAI model adapter
 - `ai-models-multi`: ordered fallback model adapter
-- `ai-tool-calling`: in-memory tool-calling runtime
+- `ai-tool-calling`: in-memory tool-calling runtime with output policy, output
+  store integration, and the intrinsic `tool_output_read` reader
 - `json-http`: typed JSON and multipart HTTP client boundary
 - `xtask`: repository automation invoked with `cargo xtask ...`
 
@@ -63,14 +68,18 @@ cargo xtask review
 ## Key Code
 
 - `Cargo.toml`: workspace membership and shared internal crate dependencies
-- `crates/ai-interface`: shared AI contracts
+- `crates/ai-interface`: shared AI contracts, including
+  `src/output/` envelope DTOs
 - `crates/ai-models-core`: provider-agnostic model wrappers and helpers
 - `crates/ai-models-*`: concrete provider and fallback adapters
-- `crates/ai-tool-calling`: in-memory tool-calling runtime
+- `crates/ai-tool-calling`: in-memory tool-calling runtime, including
+  `src/policy.rs`, `src/output_store/`, and the intrinsic output reader
 - `crates/json-http`: HTTP client abstraction used by provider crates
 - `xtask/`: local automation for checks, smoke tests, file-length lint, and
   review
-- `docs/protocol/`: normative contracts for shared runtime behavior
+- `docs/protocol/tool-output-management.md`: normative universal tool output
+  management contract
+- `docs/protocol/`: other normative contracts for shared runtime behavior
 - `plans/`: active and completed implementation plans.
 
 ## CI

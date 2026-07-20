@@ -1,6 +1,6 @@
 //! Public turn outcome and handle contracts.
 
-use ai_interface::ModelResponse;
+use ai_interface::{ModelResponse, ToolOutputEnvelope, ToolOutputId};
 use async_trait::async_trait;
 
 use crate::Result;
@@ -65,8 +65,12 @@ pub struct ToolExecutionRecord {
     pub operation_id: String,
     /// Tool name associated with the output.
     pub name: String,
-    /// JSON payload returned by the tool implementation.
-    pub output: serde_json::Value,
+    /// Stored output id when the output can be read through `tool_output_read`.
+    pub output_id: Option<ToolOutputId>,
+    /// Raw JSON payload returned by the tool implementation.
+    pub raw_output: serde_json::Value,
+    /// Bounded model-visible envelope appended to conversation and logs.
+    pub model_visible_output: ToolOutputEnvelope,
 }
 
 #[unimock::unimock(api = TurnCheckpointMock)]

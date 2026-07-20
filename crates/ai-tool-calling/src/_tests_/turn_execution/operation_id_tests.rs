@@ -8,7 +8,7 @@ use parking_lot::Mutex;
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
-use crate::{StepOutcome, ToolCallingRuntime, Turn};
+use crate::{InMemoryToolOutputStore, StepOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn};
 
 use super::super::support::user_message;
 
@@ -64,6 +64,8 @@ async fn tool_dispatch_passes_operation_id_to_tool_boundary() {
                     })
                 }),
         )))],
+        Arc::new(InMemoryToolOutputStore::new()),
+        ToolOutputPolicy::default(),
     )
     .expect("runtime should build");
 

@@ -6,8 +6,9 @@ milestones are finished.
 
 ## Active
 
-- [Universal tool output management](universal-tool-output-management.md)
+None.
 
 ## Completed
 
+- [Universal tool output management](universal-tool-output-management.md)
 - [Copy AI crates from Juno](copy-ai-crates-from-juno.md)
