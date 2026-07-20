@@ -8,13 +8,13 @@ use ai_interface::ToolOutputId;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use thiserror::Error;
-use uuid::Uuid;
 
 use crate::ToolOutputPolicy;
 use crate::output_store::windowing::{prefix_window, read_window};
 use crate::output_store::{
-    ToolOutputStore, ToolOutputStoreError, ToolOutputStoreReadRequest, ToolOutputStoreResult,
-    ToolOutputStoreWindow, ToolOutputWriteRequest, ToolOutputWriteResult,
+    DynToolOutputIdGenerator, SystemToolOutputIdGenerator, ToolOutputStore, ToolOutputStoreError,
+    ToolOutputStoreReadRequest, ToolOutputStoreResult, ToolOutputStoreWindow,
+    ToolOutputWriteRequest, ToolOutputWriteResult,
 };
 
 /// Ephemeral in-memory output store scoped to one active runtime run.
@@ -24,6 +24,7 @@ pub struct InMemoryToolOutputStore {
 
 struct InMemoryToolOutputStoreInner {
     entries: Mutex<BTreeMap<ToolOutputId, StoredToolOutput>>,
+    output_id_generator: DynToolOutputIdGenerator,
     reserved_bytes: AtomicUsize,
     fail_next_write: AtomicBool,
 }
@@ -37,9 +38,22 @@ struct StoredToolOutput {
 impl InMemoryToolOutputStore {
     /// Builds an empty in-memory output store.
     pub fn new() -> Self {
+        Self::with_output_id_generator(Arc::new(SystemToolOutputIdGenerator))
+    }
+
+    /// Builds a store with a controllable output-id generator for unit tests.
+    #[cfg(test)]
+    pub(crate) fn with_output_id_generator_for_test(
+        output_id_generator: DynToolOutputIdGenerator,
+    ) -> Self {
+        Self::with_output_id_generator(output_id_generator)
+    }
+
+    fn with_output_id_generator(output_id_generator: DynToolOutputIdGenerator) -> Self {
         Self {
             inner: Arc::new(InMemoryToolOutputStoreInner {
                 entries: Mutex::new(BTreeMap::new()),
+                output_id_generator,
                 reserved_bytes: AtomicUsize::new(0),
                 fail_next_write: AtomicBool::new(false),
             }),
@@ -91,7 +105,13 @@ impl ToolOutputStore for InMemoryToolOutputStore {
                 InMemoryInjectedWriteFailure,
             ));
         }
-        let output_id = ToolOutputId::from_opaque(format!("toolout_{}", Uuid::now_v7()));
+        let output_id = match self.inner.output_id_generator.generate() {
+            Ok(output_id) => output_id,
+            Err(source) => {
+                self.rollback(total_bytes);
+                return Err(ToolOutputStoreError::write_failure(first_window, source));
+            }
+        };
         {
             let mut entries = self.inner.entries.lock();
             if entries.contains_key(&output_id) {

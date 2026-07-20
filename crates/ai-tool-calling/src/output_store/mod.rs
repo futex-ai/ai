@@ -1,6 +1,7 @@
 //! Tool output storage boundary.
 
 mod error;
+mod id_generator;
 mod memory;
 mod types;
 mod windowing;
@@ -15,6 +16,10 @@ pub use types::{
     ToolOutputStoreReadRequest, ToolOutputStoreWindow, ToolOutputWriteRequest,
     ToolOutputWriteResult,
 };
+
+pub(crate) use id_generator::{DynToolOutputIdGenerator, SystemToolOutputIdGenerator};
+#[cfg(test)]
+pub(crate) use id_generator::{OutputIdGenerationError, ToolOutputIdGeneratorMock};
 
 #[cfg_attr(
     any(test, doctest, feature = "test-support"),

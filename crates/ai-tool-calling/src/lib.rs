@@ -30,6 +30,8 @@ pub use turn::{
 
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use output_store::ToolOutputStoreMock;
+#[cfg(test)]
+pub(crate) use output_store::{OutputIdGenerationError, ToolOutputIdGeneratorMock};
 #[cfg(any(test, doctest))]
 pub use turn::TurnCheckpointMock;
 

@@ -44,6 +44,8 @@ output, and exposes explicit mutation APIs for embedding services.
     degraded `tool_output_window` with no id and a `remainder_unavailable`
     reason. The tool call is still treated as successful because side effects
     may already have happened.
+  - Clock or entropy failures during output-id generation follow that same
+    recoverable `store_unavailable` path instead of panicking the runtime.
 - Appends only bounded envelope JSON to conversation tool messages and logger
   success payloads. Raw output remains available only through current-run
   `ToolExecutionRecord::raw_output`.

@@ -145,6 +145,8 @@ reads. A degraded envelope is a successful tool result, not a turn error;
 `step()` and `run()` proceed normally. The runtime emits a `tracing`
 diagnostic so hosts can observe size and budget pressure. Failed store writes
 release any aggregate reservation and never leave a readable partial output.
+Clock or entropy failures during output-id generation are store write failures
+and follow the same reservation rollback and `store_unavailable` degradation.
 
 ## Intrinsic Output Reader
 
