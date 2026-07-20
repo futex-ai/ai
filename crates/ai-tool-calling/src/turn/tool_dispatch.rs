@@ -15,7 +15,7 @@ use crate::tool_output::{
 use crate::{Error, Result, ToolCallingRuntime, ToolOutputStoreReadRequest};
 
 use super::{
-    failures::{tool_error_log_result, tool_error_message},
+    failures::{tool_error_log_result, tool_error_message, tool_output_read_error_message},
     types::ToolExecutionRecord,
 };
 
@@ -153,7 +153,7 @@ async fn dispatch_intrinsic_output_read(
             Ok(record)
         }
         Err(Error::Tool(error)) => {
-            runtime.append_message(tool_error_message(&call, &error));
+            runtime.append_message(tool_output_read_error_message(&call, &error));
             runtime.logger.log_tool_call(&ToolCallLogEntry {
                 call,
                 tool_group: None,

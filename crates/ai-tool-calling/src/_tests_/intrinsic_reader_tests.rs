@@ -183,21 +183,41 @@ async fn replaced_output_store_makes_previous_ids_unavailable_and_run_recovers()
                     .content
                     .clone();
                 assert!(content.contains("\"ok\":false"));
-                assert!(content.contains("output is no longer available"));
+                assert!(content.contains("no longer available"));
                 assert!(content.contains("the original tool call itself succeeded"));
                 assert!(content.contains("confirm with the user"));
                 assert!(!content.contains("original tool call failed"));
+                assert!(!content.contains("[ai_interface/tool]"));
+                assert!(!content.contains("[ai_tool_calling/output_store]"));
                 Ok(stop_response("recovered"))
             }),
     )));
-    let runtime = runtime_with_logger_store_and_policy(
-        model,
-        Arc::new(ai_interface::NoopLogger),
-        Vec::new(),
-        old_store,
-        policy,
-    )
-    .expect("runtime should build");
+    let logger: Arc<dyn Logger> = Arc::new(Unimock::new((
+        LoggerMock::log_model_call
+            .each_call(matching!(_))
+            .answers(&|_, _| Ok(())),
+        LoggerMock::log_tool_activity
+            .each_call(matching!(_))
+            .answers(&|_, _| Ok(())),
+        LoggerMock::log_tool_call.next_call(matching!(_)).answers(
+            &|_, entry: &ToolCallLogEntry| {
+                assert!(matches!(
+                    &entry.result,
+                    ToolCallLogResult::Error { message, debug }
+                        if message.contains("[ai_interface/tool]")
+                            && message.contains("[ai_tool_calling/output_store]")
+                            && debug.contains("UnavailableOutput")
+                ));
+                Ok(())
+            },
+        ),
+        LoggerMock::log_turn_outcome
+            .next_call(matching!(_))
+            .returns(Ok(())),
+    )));
+    let runtime =
+        runtime_with_logger_store_and_policy(model, logger, Vec::new(), old_store, policy)
+            .expect("runtime should build");
     runtime.replace_output_store(Arc::new(InMemoryToolOutputStore::new()));
 
     let mut turn = runtime.send(user_message("start"), Some(3));

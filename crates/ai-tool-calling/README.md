@@ -30,6 +30,9 @@ output, and exposes explicit mutation APIs for embedding services.
 - Dispatches `tool_output_read` inside the runtime, reading byte windows
   directly from the injected `ToolOutputStore`. Offsets and lengths are bytes,
   not tokens.
+- Keeps intrinsic read failures actionable and free of storage internals in
+  model-visible conversation state while retaining typed error details for
+  logger callbacks.
 - Serializes each successful raw tool result once as compact UTF-8 JSON and
   applies `ToolOutputPolicy`:
   - At or below the inline limit, the model receives a complete `tool_output`
