@@ -114,14 +114,19 @@ store.
 - [ ] Extend runtime composition to require an injected
       `DynToolOutputStore` and validated `ToolOutputPolicy`; update every call
       site and test fixture.
+- [ ] Add a `replace_output_store()` runtime API mirroring `replace_tools()`
+      so hosts that reuse one runtime across successive runs can swap in a
+      fresh store at the run boundary; test that ids from the replaced store
+      become unavailable.
 - [ ] Dispatch `tool_output_read` before ordinary tool lookup and read directly
       from the output store.
 - [ ] Return a `tool_output_window` using the requested id without writing a
       second output, allocating another id, or recursively wrapping the
       response.
 - [ ] Make the unavailable-output error text state that the output is no
-      longer available, that the original tool call itself succeeded, and that
-      the model should re-run the original tool if the data is still needed;
+      longer available and that the original tool call itself succeeded,
+      advising a re-run only when the tool is read-only or otherwise safe to
+      repeat and user confirmation before repeating a side-effecting call;
       add a test asserting this wording contract.
 - [ ] Preserve existing activity lifecycle, operation-id, error-message, and
       one-result-per-provider-call behavior for the intrinsic tool.
@@ -180,8 +185,9 @@ from direct tool JSON without reading implementation code.
       runtime behavior and verification are complete.
 - [ ] Document that the default in-memory store is fresh per active run, ids
       expire with the store, a store must never be shared across runs that
-      belong to different principals, and durable ids require a host-owned
-      protected storage design.
+      belong to different principals, hosts reusing one runtime across runs
+      must call `replace_output_store()` at the run boundary, and durable ids
+      require a host-owned protected storage design.
 - [ ] Document the observability consequence: after a run ends the raw output
       is gone everywhere, normal logs only ever contain the bounded envelope,
       and hosts needing raw capture must take it from step execution records

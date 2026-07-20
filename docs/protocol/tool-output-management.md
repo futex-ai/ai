@@ -178,10 +178,11 @@ The reader's tool description must tell the model to read further windows only
 when the task requires them and to prefer narrowing the original query at its
 source. Each read consumes one model round, so hosts sizing `max_steps` must
 budget for pagination rounds. The unavailable-output error text must state
-that the output is no longer available, that the original tool call itself
-succeeded, and that the model should re-run the original tool if the data is
-still needed; it must not imply the original call failed. Tail and search read
-modes are out of scope for V1.
+that the output is no longer available and that the original tool call itself
+succeeded; it must not imply the original call failed. It must advise
+re-running the original tool only when that tool is read-only or otherwise
+safe to repeat, and confirming with the user before repeating a
+side-effecting call. Tail and search read modes are out of scope for V1.
 
 ## Raw And Model-Visible Representations
 
@@ -226,7 +227,10 @@ create a fresh instance for each active agent run and drop it when that run
 ends. Its ids do not survive a later wake, another thread, a restarted process,
 or a different store instance. Sharing one store across runs couples their
 budgets and leaks output ids between runs; a store must never be shared across
-runs that belong to different principals.
+runs that belong to different principals. A host that reuses one runtime
+across successive runs must swap in a fresh store at the run boundary through
+the runtime's store-replacement API, which makes ids from the replaced store
+unavailable.
 
 Persisted window envelopes therefore advertise reads that fail after resume.
 Hosts should avoid suspending a run while the model is mid-pagination, and may
