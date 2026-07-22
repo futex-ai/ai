@@ -64,6 +64,8 @@ cargo xtask review
 - `crates/json-http`: HTTP client abstraction used by provider crates
 - `xtask/`: local automation for checks, smoke tests, file-length lint, and
   review
+- `docs/protocol/`: approved behavior contracts for planned and implemented
+  protocol surfaces
 - `plans/`: active and completed implementation plans.
 
 ## CI
@@ -71,6 +73,10 @@ cargo xtask review
 GitHub Actions runs the same Rust verification expected locally on pull requests
 and branch pushes: formatting, Clippy, tests, Rust file-length lint,
 credential-free smoke tests, and `cargo xtask check`.
+
+## Protocol Docs
+
+- [AI MCP client and tool adapter](docs/protocol/ai-mcp.md)
 
 ## Plans
 

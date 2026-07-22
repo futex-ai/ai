@@ -6,7 +6,7 @@ milestones are finished.
 
 ## Active
 
-- None.
+- [AI MCP crate](ai-mcp-crate.md)
 
 ## Completed
 
