@@ -48,14 +48,18 @@ close the session without depending on the tool adapter.
       tool-call outcomes, and known/unknown MCP content blocks; convert raw
       JSON at the protocol boundary rather than carrying untyped envelopes
       through client logic.
-- [ ] Add failing source-adjacent unit tests for SSE event framing, multi-line
-      `data:` fields, ignored fields, JSON decoding, and incremental
-      `max_response_bytes` enforcement before implementing the parser.
+- [ ] Define the single-owner `McpEventStream` boundary and boxed dyn alias so
+      the HTTP transport can return response status and headers immediately
+      while the client pulls decoded SSE messages before EOF.
+- [ ] Add failing source-adjacent unit tests for chunk-split SSE event framing,
+      multi-line `data:` fields, ignored fields, JSON decoding, yielding a
+      completed event before EOF, and cumulative `max_response_bytes`
+      enforcement before implementing the parser.
 - [ ] Implement the trait-backed `McpHttpTransport` boundary and
-      `ReqwestMcpHttpTransport` for POST and DELETE, applying the injected
-      `JsonHttpAuth` hook on every request, normalizing response-header names,
-      accepting JSON or buffered SSE, enforcing timeouts and byte limits while
-      reading, and returning the specified payload variants.
+      `ReqwestMcpHttpTransport` for POST and DELETE, receiving completed header
+      maps from the client, normalizing response-header names, buffering capped
+      JSON bodies, returning live pull-based SSE bodies without waiting for
+      EOF, and enforcing timeouts and cumulative byte limits while reading.
 - [ ] Export Unimock-generated transport and client mocks only for tests,
       doctests, or the `test-support` feature, following the `json-http`
       pattern.
@@ -66,12 +70,15 @@ close the session without depending on the tool adapter.
 - [ ] Implement `StreamableHttpMcpClient` behind the `McpClient` trait with
       synchronized initialization/session state, collision-free request IDs,
       automatic tool-list pagination, original-name tool calls, stale-list
-      tracking, and DELETE close semantics including tolerated 405 responses.
+      tracking, and DELETE close semantics including tolerated 405 responses;
+      build protocol/session headers, apply the injected `JsonHttpAuth` hook,
+      and pass the completed map to the transport before every request.
 - [ ] Add failing unit tests and then implement SSE side-message handling:
       mark `notifications/tools/list_changed`, reply to `ping` with an empty
       result, reply to unsupported server requests with JSON-RPC `-32601`,
-      ignore other notifications, and require the response matching the
-      posted request ID.
+      ignore other notifications, complete each response POST before polling
+      the original stream again, and require the response matching the posted
+      request ID.
 - [ ] Test typed 401/403 challenges with and without RFC 9728
       `resource_metadata`, session-expiry 404 behavior only when a session
       header was sent, other HTTP statuses, malformed responses, auth-hook
@@ -148,7 +155,9 @@ review.
       `notifications/initialized`, paginated list, call, session/protocol
       headers, auth application, and close through the real reqwest transport.
 - [ ] Add the equivalent SSE-response integration flow, including interleaved
-      notifications and server requests plus the matching final response.
+      notifications and server requests; gate the matching final response and
+      EOF on receipt of the client's side-request reply so the test fails if
+      the implementation buffers the original stream to completion.
 - [ ] Add an end-to-end 401 challenge case that asserts the raw
       `WWW-Authenticate` value and extracted resource-metadata URL, plus an
       authenticated success case using `StaticHeaderAuth::bearer_token`.

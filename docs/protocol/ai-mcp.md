@@ -1,9 +1,9 @@
 # Spec: `ai-mcp` crate — MCP client + tool adapter
 
-Status: approved by Cal (22 Jul 2026). Treat this document as the user-approved
-basis for a plan under `plans/` in this repo (suggested name:
-`plans/ai-mcp-crate.md`). It is self-contained; no external product context is
-required.
+Status: approved by Cal (22 Jul 2026), with review clarifications incorporated
+23 Jul 2026. Treat this document as the user-approved basis for
+`plans/ai-mcp-crate.md` in this repo. It is self-contained; no external product
+context is required.
 
 ## Purpose
 
@@ -87,11 +87,19 @@ Required transport behavior (streamable HTTP, single endpoint URL):
     - other notifications → ignore.
 11. JSON-RPC ids: monotonically increasing `u64` per client instance.
 
-Simplification (documented tradeoff): the transport may buffer an entire SSE
-response stream to completion and return all decoded JSON-RPC messages as a
-batch to the client layer, which then picks the matching response and
-processes the rest per rule 10. No long-lived streams in v1. Enforce
-`max_response_bytes` while buffering.
+The transport may buffer only enough data to decode the next complete SSE
+event. It must return a live, pull-based event stream as soon as the HTTP status
+and headers are available; it must not wait for the response body to reach EOF.
+The client consumes JSON-RPC messages in arrival order and handles each rule 10
+message before requesting the next event. In particular, it POSTs a response
+to a server request while the original SSE response remains open, then resumes
+that stream. The call completes when the matching JSON-RPC response arrives;
+EOF before that response is `Error::MissingResponse`.
+
+No long-lived GET streams are added in v1. A POST response stream remains scoped
+to its originating request. Enforce `max_response_bytes` against cumulative raw
+response bytes as they are read, including SSE framing, and fail immediately
+when the limit is crossed.
 
 ## Crate layout
 
@@ -105,7 +113,7 @@ crates/ai-mcp/
     error.rs           # Error/Result
     protocol/          # serde DTOs: JSON-RPC envelope, initialize, tools/list,
                        # tools/call, content blocks, capabilities, versions
-    transport/         # McpHttpTransport trait, ReqwestMcpHttpTransport, SSE parser
+    transport/         # HTTP/event-stream traits, reqwest transport, SSE parser
     client.rs          # McpClient trait + StreamableHttpMcpClient
     tool_set/          # McpToolSet (impl ai_interface::Tool) + naming rules
     _tests_/           # per repo testing conventions
@@ -142,7 +150,7 @@ pub struct McpServerConfig {
     pub request_timeout: Duration,
     /// Timeout for tools/call requests. Default 120s.
     pub tool_call_timeout: Duration,
-    /// Cap on any buffered HTTP/SSE response body. Default 1 MiB.
+    /// Cap on bytes read from any HTTP response body. Default 1 MiB.
     pub max_response_bytes: usize,
     /// Optional UI activity verb applied to every exposed tool definition.
     pub activity_verb: Option<String>,
@@ -159,6 +167,16 @@ pub trait McpHttpTransport: Send + Sync {
 }
 pub type DynMcpHttpTransport = Arc<dyn McpHttpTransport>;
 
+/// Pull-based decoded SSE response scoped to one POST request.
+#[async_trait]
+pub trait McpEventStream: Send {
+    /// Returns the next JSON-RPC message as soon as its SSE event is complete.
+    ///
+    /// Returns `None` only when the response body reaches EOF.
+    async fn next_message(&mut self) -> Result<Option<Value>>;
+}
+pub type DynMcpEventStream = Box<dyn McpEventStream>;
+
 /// HTTP outcome: status, response headers, and decoded payload.
 pub struct McpHttpResponse {
     pub status: u16,
@@ -166,9 +184,9 @@ pub struct McpHttpResponse {
     pub payload: McpHttpPayload,
 }
 pub enum McpHttpPayload {
-    None,                       // e.g. 202 Accepted
-    Json(Value),                // application/json body
-    EventStream(Vec<Value>),    // all JSON-RPC messages from a buffered SSE body
+    None,                               // e.g. 202 Accepted
+    Json(Value),                        // capped application/json body
+    EventStream(DynMcpEventStream),     // live, capped SSE response body
 }
 
 /// Protocol client boundary.
@@ -190,9 +208,11 @@ pub type DynMcpClient = Arc<dyn McpClient>;
 
 `StreamableHttpMcpClient` is the single production impl:
 `new(transport: DynMcpHttpTransport, auth: DynJsonHttpAuth, config: McpServerConfig)`.
-Auth is applied by asking the hook to mutate the outgoing header map before
-every request (same pattern as `ai-models-anthropic`, which holds a
-`DynJsonHttpClient` + `DynJsonHttpAuth` pair). Callers pass
+The client builds the protocol/session header map, asks the auth hook to mutate
+that map immediately before every POST or DELETE, and passes the completed
+headers across the transport seam. `McpHttpTransport` never owns or applies
+authentication. This follows the `json-http` request-builder pattern while
+keeping the MCP transport independently mockable. Callers pass
 `StaticHeaderAuth::default()` for unauthenticated servers. Internal session
 state (`Mcp-Session-Id`, negotiated version, id counter, stale flag) lives
 behind interior mutability; the type must be `Send + Sync` and safe for
@@ -267,7 +287,7 @@ no catch-all variants, no `#[error(transparent)]`. Required typed variants
 | `JsonRpc { method: String, code: i64, message: String, data: Option<Value> }` | JSON-RPC error response |
 | `MissingResponse { method: String }` | SSE stream ended without the matching response id |
 | `HttpStatus { status: u16, body: Value }` | other non-success HTTP statuses |
-| `ResponseTooLarge { limit_bytes: usize }` | buffering exceeded the cap |
+| `ResponseTooLarge { limit_bytes: usize }` | cumulative response bytes exceeded the cap |
 | `DeserializeResponse { method: String, source: serde_json::Error }` | malformed payloads |
 | `Transport { message: String }` | reqwest/IO failures (mirrors `json_http::Error::Transport` precedent) |
 | `Auth { message: String }` | the injected `JsonHttpAuth` hook failed |
@@ -277,8 +297,9 @@ no catch-all variants, no `#[error(transparent)]`. Required typed variants
 
 Unit tests (unimock the transport / client per repo `_tests_` conventions):
 
-- SSE parser: multi-event bodies, multi-line `data:`, ignored `event:`/`id:`
-  fields, size-cap enforcement.
+- SSE parser: chunk-split and multi-event bodies, multi-line `data:`, ignored
+  `event:`/`id:` fields, yielding completed events before EOF, and cumulative
+  size-cap enforcement.
 - Handshake: version negotiation success + `UnsupportedProtocolVersion`,
   `Mcp-Session-Id` capture and replay, `MCP-Protocol-Version` header on
   follow-up requests, `notifications/initialized` gets 202.
@@ -286,8 +307,9 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
   `list_changed` inside a call's SSE stream and cleared by `list_tools`.
 - `tools/call` mapping: structured content, single-text collapse, multi-block
   array, `is_error` → `Ok` envelope, truncation envelope.
-- Server-request handling: `ping` gets an empty result reply; unsupported
-  server request gets `-32601`.
+- Server-request handling: `ping` gets an empty result reply and unsupported
+  server requests get `-32601`, with each response POST completed before the
+  client polls the original SSE stream for another event.
 - 401 with and without `resource_metadata` in `WWW-Authenticate`;
   session-expiry 404; `close()` tolerating 405.
 - Naming: sanitization, 64-char truncation, collision suffixing, dispatch
@@ -296,8 +318,11 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
 Integration tests (crate-root `tests/`, in-process axum server, real
 `ReqwestMcpHttpTransport`): one server serving JSON responses and one serving
 SSE responses through the full initialize → list → call flow, plus a 401
-challenge case. Optionally add an `#[ignore]`d live smoke test that reads a
-real server URL from an env var (e.g. `AI_MCP_SMOKE_URL`) for manual runs.
+challenge case. The SSE server must gate its matching response and EOF on
+receiving the client's reply to an interleaved server request, proving the
+client processes events incrementally without deadlock. Optionally add an
+`#[ignore]`d live smoke test that reads a real server URL from an env var
+(e.g. `AI_MCP_SMOKE_URL`) for manual runs.
 
 ## Conventions checklist (binding)
 
