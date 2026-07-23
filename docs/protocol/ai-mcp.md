@@ -49,6 +49,7 @@ Target revision **2025-06-18**; also accept servers that negotiate down to
 access, verify against the current spec before implementing:
 
 - <https://modelcontextprotocol.io/specification/2025-06-18/basic/transports>
+- <https://modelcontextprotocol.io/specification/2025-06-18/schema>
 - <https://modelcontextprotocol.io/specification/2025-06-18/server/tools>
 - <https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization>
 
@@ -280,10 +281,90 @@ pub struct McpToolCallOutcome {
     pub is_error: bool,
 }
 
-/// Wire content blocks (serde tag = "type", camelCase fields per MCP schema);
-/// include an untagged fallback variant preserving unknown block types as raw JSON.
-pub enum McpContentBlock { Text {..}, Image {..}, Audio {..}, ResourceLink {..}, EmbeddedResource {..}, Unknown(Value) }
+/// Optional content annotations.
+pub struct McpAnnotations {
+    pub audience: Option<Vec<McpRole>>,
+    pub priority: Option<serde_json::Number>,
+    pub last_modified: Option<String>,
+}
+
+/// Intended audience for annotated content.
+pub enum McpRole {
+    User,
+    Assistant,
+}
+
+/// Wire content blocks. Every known variant also carries optional
+/// `annotations` and `_meta` fields.
+pub enum McpContentBlock {
+    /// Wire type `text`.
+    Text {
+        text: String,
+        annotations: Option<McpAnnotations>,
+        meta: Option<BTreeMap<String, Value>>,
+    },
+    /// Wire type `image`; `data` is base64 encoded.
+    Image {
+        data: String,
+        mime_type: String,
+        annotations: Option<McpAnnotations>,
+        meta: Option<BTreeMap<String, Value>>,
+    },
+    /// Wire type `audio`; `data` is base64 encoded.
+    Audio {
+        data: String,
+        mime_type: String,
+        annotations: Option<McpAnnotations>,
+        meta: Option<BTreeMap<String, Value>>,
+    },
+    /// Wire type `resource_link`.
+    ResourceLink {
+        name: String,
+        title: Option<String>,
+        uri: String,
+        description: Option<String>,
+        mime_type: Option<String>,
+        annotations: Option<McpAnnotations>,
+        size: Option<serde_json::Number>,
+        meta: Option<BTreeMap<String, Value>>,
+    },
+    /// Wire type `resource`.
+    EmbeddedResource {
+        resource: McpResourceContents,
+        annotations: Option<McpAnnotations>,
+        meta: Option<BTreeMap<String, Value>>,
+    },
+    /// Any unrecognized `type`, preserved exactly for forward compatibility.
+    Unknown(Value),
+}
+
+/// Contents nested inside an embedded resource.
+pub enum McpResourceContents {
+    Text {
+        uri: String,
+        mime_type: Option<String>,
+        meta: Option<BTreeMap<String, Value>>,
+        text: String,
+    },
+    Blob {
+        uri: String,
+        mime_type: Option<String>,
+        meta: Option<BTreeMap<String, Value>>,
+        blob: String,
+    },
+}
 ```
+
+Wire serde names are `mimeType`, `lastModified`, and `_meta`; optional fields
+default to `None`. `McpRole` uses lowercase `user` and `assistant`.
+`McpResourceContents` is untagged and selected by the exclusive presence of
+`text` or `blob`; both or neither is malformed. Content-block deserialization
+uses `type` to select the five known variants (`text`, `image`, `audio`,
+`resource_link`, `resource`). An unrecognized type becomes `Unknown` with the
+original object intact, while a malformed known type returns
+`Error::DeserializeResponse`. Serialization emits the same wire shapes and
+emits an `Unknown` value unchanged. `structured_content` maps to
+`structuredContent`; omitted `isError` maps to `false`.
 
 ### `McpToolSet` (the `ai_interface::Tool` adapter)
 

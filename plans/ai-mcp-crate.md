@@ -20,10 +20,11 @@ milestone, a caller can initialize a supported MCP server, list all of its
 tools, call a tool by its original name, inspect tool-list invalidation, and
 close the session without depending on the tool adapter.
 
-- [ ] Verify the approved transport, tools, and authorization requirements
-      against the versioned official MCP 2025-06-18 specification before
-      coding; if an official requirement would change this approved contract,
-      record the discrepancy and request protocol direction first.
+- [ ] Verify the approved transport, schema, tools, and authorization
+      requirements against the versioned official MCP 2025-06-18
+      specification before coding; if an official requirement would change
+      this approved contract, record the discrepancy and request protocol
+      direction first.
 - [ ] Add `crates/ai-mcp` to the workspace members and add
       `ai-mcp = { version = "0.2.0", path = "crates/ai-mcp" }` to workspace
       dependencies.
@@ -47,9 +48,14 @@ close the session without depending on the tool adapter.
       deserialization, transport, auth-hook, and invalid-key failures.
 - [ ] Define fully typed serde DTOs for JSON-RPC envelopes, initialization,
       server capabilities and identity, tool descriptors, pagination,
-      tool-call outcomes, and known/unknown MCP content blocks; convert raw
-      JSON at the protocol boundary rather than carrying untyped envelopes
-      through client logic.
+      tool-call outcomes, annotations, embedded text/blob resources, and every
+      known MCP content block; preserve unrecognized content block objects
+      exactly, and convert raw JSON at the protocol boundary rather than
+      carrying untyped envelopes through client logic.
+- [ ] Add failing serde tests for every known content-block field and
+      camel-case wire name, optional annotations and metadata, embedded
+      text/blob resource selection, omitted `isError`, malformed known blocks,
+      and exact unknown-block round trips before implementing those DTOs.
 - [ ] Implement the public `McpServerHandshake`, `McpServerInfo`,
       `McpServerCapabilities`, and `McpToolsCapability` contract, projecting
       negotiated version, server identity, optional instructions, and the
@@ -128,8 +134,9 @@ back to the correct original MCP tool.
       owned by this adapter.
 - [ ] Add failing unit tests for unknown names, client failures, MCP
       `is_error` outcomes, structured content, single text results,
-      multi-block wire JSON, unknown block preservation, and UTF-8-safe
-      truncation envelopes before implementing `Tool::call`.
+      multi-block wire JSON retaining annotations, metadata, embedded
+      resources, and unknown blocks, plus UTF-8-safe truncation envelopes
+      before implementing `Tool::call`.
 - [ ] Implement the load/new snapshot APIs and `ai_interface::Tool` adapter
       with the exact load-bearing result precedence from the protocol spec;
       keep MCP tool-execution errors as successful model-visible envelopes and
