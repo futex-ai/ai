@@ -85,7 +85,10 @@ Required transport behavior (streamable HTTP, single endpoint URL):
     - any other server request (e.g. sampling) → POST back a JSON-RPC error
       response with code `-32601` (method not found).
     - other notifications → ignore.
-11. JSON-RPC ids: monotonically increasing `u64` per client instance.
+11. Client-generated JSON-RPC request ids are monotonically increasing `u64`
+    values per client instance. Incoming server-request ids may be JSON strings
+    or numbers; deserialize them into an untagged typed id enum and echo the
+    exact value in the response without coercion.
 
 The transport may buffer only enough data to decode the next complete SSE
 event. It must return a live, pull-based event stream as soon as the HTTP status
@@ -128,11 +131,12 @@ version/edition/license via `.workspace = true`).
 Dependencies: `ai-interface` (workspace), `json-http` (workspace; for
 `JsonHttpAuth` only), `async-trait`, `serde` (derive), `serde_json`,
 `thiserror`, `reqwest` (default-features = false, features
-`["json", "rustls", "stream"]`), `futures-util` (stream reading). Dev:
-`tokio` (macros, rt), `unimock`, `axum` (fake-server integration tests). Use
-`cargo add` for external deps per repo rules. Provide a `test-support`
-feature that exposes unimock mocks for the crate's traits, mirroring
-`json-http`.
+`["json", "rustls", "stream"]`), `futures-util` (stream reading), and optional
+`unimock`. Define `test-support = ["dep:unimock"]`; also keep `unimock` as a
+dev-dependency for ordinary tests. Other dev-dependencies are `tokio` (macros,
+rt) and `axum` (fake-server integration tests). Use `cargo add` for external
+deps per repo rules. The feature exposes unimock mocks for the crate's traits,
+mirroring `json-http`.
 
 ## Public API contract
 

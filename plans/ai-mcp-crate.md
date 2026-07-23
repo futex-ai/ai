@@ -31,7 +31,9 @@ close the session without depending on the tool adapter.
       `test-support` feature, workspace-internal `ai-interface` and
       `json-http` dependencies, and the approved external dependencies; use
       `cargo add` for every crates.io dependency and configure the required
-      `reqwest` and Tokio features.
+      `reqwest` and Tokio features. Add `unimock` as an optional normal
+      dependency wired through `test-support = ["dep:unimock"]` and as a
+      dev-dependency for ordinary tests, matching `json-http`.
 - [ ] Keep `lib.rs` as a thin documented module root, add
       `#![warn(unreachable_pub)]`, use narrow visibility, and export only the
       intentional config, error, protocol, transport, client, and adapter
@@ -65,11 +67,12 @@ close the session without depending on the tool adapter.
       JSON bodies, returning live pull-based SSE bodies without waiting for
       EOF, passing the configured response limit into both methods, and
       enforcing timeouts and cumulative byte limits while reading.
-- [ ] Export Unimock-generated transport and client mocks only for tests,
-      doctests, or the `test-support` feature, following the `json-http`
-      pattern.
+- [ ] Export Unimock-generated transport, event-stream, and client mocks only
+      for tests, doctests, or the `test-support` feature, following the
+      `json-http` pattern.
 - [ ] Add failing unit tests for initialization idempotence, supported and
       unsupported version negotiation, monotonically increasing request IDs,
+      exact preservation of string and numeric incoming server-request IDs,
       server identity/capability/instructions projection, omitted
       `listChanged` defaulting to false, session capture/replay,
       protocol-version headers, initialized notification acceptance, and safe
