@@ -48,6 +48,10 @@ close the session without depending on the tool adapter.
       tool-call outcomes, and known/unknown MCP content blocks; convert raw
       JSON at the protocol boundary rather than carrying untyped envelopes
       through client logic.
+- [ ] Implement the public `McpServerHandshake`, `McpServerInfo`,
+      `McpServerCapabilities`, and `McpToolsCapability` contract, projecting
+      negotiated version, server identity, optional instructions, and the
+      tools/list-changed capability while ignoring non-goal capabilities.
 - [ ] Define the single-owner `McpEventStream` boundary and boxed dyn alias so
       the HTTP transport can return response status and headers immediately
       while the client pulls decoded SSE messages before EOF.
@@ -59,14 +63,17 @@ close the session without depending on the tool adapter.
       `ReqwestMcpHttpTransport` for POST and DELETE, receiving completed header
       maps from the client, normalizing response-header names, buffering capped
       JSON bodies, returning live pull-based SSE bodies without waiting for
-      EOF, and enforcing timeouts and cumulative byte limits while reading.
+      EOF, passing the configured response limit into both methods, and
+      enforcing timeouts and cumulative byte limits while reading.
 - [ ] Export Unimock-generated transport and client mocks only for tests,
       doctests, or the `test-support` feature, following the `json-http`
       pattern.
 - [ ] Add failing unit tests for initialization idempotence, supported and
       unsupported version negotiation, monotonically increasing request IDs,
-      session capture/replay, protocol-version headers, initialized
-      notification acceptance, and safe concurrent calls.
+      server identity/capability/instructions projection, omitted
+      `listChanged` defaulting to false, session capture/replay,
+      protocol-version headers, initialized notification acceptance, and safe
+      concurrent calls.
 - [ ] Implement `StreamableHttpMcpClient` behind the `McpClient` trait with
       synchronized initialization/session state, collision-free request IDs,
       automatic tool-list pagination, original-name tool calls, stale-list
@@ -104,8 +111,8 @@ boundary. At the end of this milestone, `ai-tool-calling` can register the
 adapter, advertise provider-legal definitions, and dispatch model tool calls
 back to the correct original MCP tool.
 
-- [ ] Resolve the protocol's `config_view` as a borrowed `McpServerConfig` for
-      `McpToolSet::new` and `McpToolSet::load`, copying only the server key,
+- [ ] Implement `McpToolSet::new` and `McpToolSet::load` with the protocol's
+      borrowed `&McpServerConfig` signature, copying only the server key,
       activity verb, and response-size limit needed by the immutable adapter
       snapshot.
 - [ ] Add failing unit tests for deterministic `mcp__{server_key}__{tool}`

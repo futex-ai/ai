@@ -163,7 +163,8 @@ pub trait McpHttpTransport: Send + Sync {
                   body: &Value, max_response_bytes: usize, timeout: Duration)
                   -> Result<McpHttpResponse>;
     async fn delete(&self, url: &str, headers: &BTreeMap<String, String>,
-                    timeout: Duration) -> Result<McpHttpResponse>;
+                    max_response_bytes: usize, timeout: Duration)
+                    -> Result<McpHttpResponse>;
 }
 pub type DynMcpHttpTransport = Arc<dyn McpHttpTransport>;
 
@@ -204,7 +205,47 @@ pub trait McpClient: Send + Sync {
     async fn close(&self) -> Result<()>;
 }
 pub type DynMcpClient = Arc<dyn McpClient>;
+
+/// Successful initialization details exposed to callers.
+pub struct McpServerHandshake {
+    /// Protocol version selected by the server and accepted by the client.
+    pub protocol_version: String,
+    /// Server implementation identity from `serverInfo`.
+    pub server_info: McpServerInfo,
+    /// Tool-focused projection of the server's advertised capabilities.
+    pub capabilities: McpServerCapabilities,
+    /// Optional server-provided usage instructions.
+    pub instructions: Option<String>,
+}
+
+/// Server implementation identity returned during initialization.
+pub struct McpServerInfo {
+    /// Programmatic server implementation name.
+    pub name: String,
+    /// Optional human-readable server name.
+    pub title: Option<String>,
+    /// Server implementation version.
+    pub version: String,
+}
+
+/// V1 projection of server capabilities used by this tools-only client.
+pub struct McpServerCapabilities {
+    /// Advertised tools support, or `None` when the server omitted it.
+    pub tools: Option<McpToolsCapability>,
+}
+
+/// Tool-specific server capability flags.
+pub struct McpToolsCapability {
+    /// Whether the server may emit `notifications/tools/list_changed`.
+    pub list_changed: bool,
+}
 ```
+
+The initialization DTOs use MCP camel-case wire names.
+`McpServerCapabilities` intentionally projects only the `tools` capability;
+logging, prompts, resources, completions, and experimental capabilities are
+ignored because they are v1 non-goals. A missing wire `listChanged` field maps
+to `false`.
 
 `StreamableHttpMcpClient` is the single production impl:
 `new(transport: DynMcpHttpTransport, auth: DynJsonHttpAuth, config: McpServerConfig)`.
@@ -242,12 +283,13 @@ pub enum McpContentBlock { Text {..}, Image {..}, Audio {..}, ResourceLink {..},
 
 ### `McpToolSet` (the `ai_interface::Tool` adapter)
 
-- Constructor `McpToolSet::new(client: DynMcpClient, config_view, descriptors: Vec<McpToolDescriptor>) -> Result<Self>`
+- Constructor `McpToolSet::new(client: DynMcpClient, config: &McpServerConfig, descriptors: Vec<McpToolDescriptor>) -> Result<Self>`
   precomputes prefixed `ToolDefinition`s and a `BTreeMap<String, String>`
-  prefixed→original dispatch map. Convenience
-  `async fn load(client, ...) -> Result<Self>` does `list_tools` then `new`.
-  Hosts decide refresh cadence by re-`load`ing (e.g. per turn with their own
-  cache, or when `tools_list_changed()` is true).
+  prefixed→original dispatch map and copies the server key, activity verb, and
+  response-size limit it needs from `config`. Convenience
+  `async fn load(client: DynMcpClient, config: &McpServerConfig) -> Result<Self>`
+  does `list_tools` then `new`. Hosts decide refresh cadence by re-`load`ing
+  (e.g. per turn with their own cache, or when `tools_list_changed()` is true).
 - `definitions()` returns the snapshot. `ToolDefinition` mapping: `name` =
   prefixed name; `description` = descriptor description, else title, else
   original name; `input_schema` = pass-through `inputSchema`; `activity_verb`
@@ -301,8 +343,10 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
   `event:`/`id:` fields, yielding completed events before EOF, and cumulative
   size-cap enforcement.
 - Handshake: version negotiation success + `UnsupportedProtocolVersion`,
-  `Mcp-Session-Id` capture and replay, `MCP-Protocol-Version` header on
-  follow-up requests, `notifications/initialized` gets 202.
+  public handshake projection for server identity, tools capability, and
+  instructions, omitted `listChanged` defaulting to false, `Mcp-Session-Id`
+  capture and replay, `MCP-Protocol-Version` header on follow-up requests, and
+  `notifications/initialized` getting 202.
 - `tools/list` pagination across cursors; stale-flag set by
   `list_changed` inside a call's SSE stream and cleared by `list_tools`.
 - `tools/call` mapping: structured content, single-text collapse, multi-block
