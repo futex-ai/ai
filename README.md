@@ -15,6 +15,8 @@ in-memory tool-calling runtime behavior.
 - Trait-backed JSON HTTP client support through `json-http`
 - In-memory tool-calling runtime through `ai-tool-calling`
 - Streamable HTTP MCP tool discovery and dispatch through `ai-mcp`
+- Host-side MCP OAuth discovery, PKCE, refresh, and request authentication
+  through `ai-mcp-oauth`
 
 ## Interfaces
 
@@ -31,6 +33,8 @@ boundary they need:
 - `ai-tool-calling`: in-memory tool-calling runtime
 - `ai-mcp`: MCP 2025-06-18/2025-03-26 streamable HTTP client and
   `ai-interface::Tool` adapter
+- `ai-mcp-oauth`: host-side OAuth companion with injected browser, secure
+  storage, issuer-selection, clock, randomness, and transport boundaries
 - `json-http`: typed JSON and multipart HTTP client boundary
 - `xtask`: repository automation invoked with `cargo xtask ...`
 
@@ -66,6 +70,8 @@ cargo xtask review
 - `crates/ai-tool-calling`: in-memory tool-calling runtime
 - `crates/ai-mcp`: streamable HTTP MCP protocol client, authorization
   challenges, and tool adapter
+- `crates/ai-mcp-oauth`: protected-resource discovery, public-client
+  registration, PKCE authorization, token lifecycle, and MCP auth hook
 - `crates/json-http`: HTTP client abstraction used by provider crates
 - `xtask/`: local automation for checks, smoke tests, file-length lint, and
   review

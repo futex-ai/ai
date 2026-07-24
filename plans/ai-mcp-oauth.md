@@ -144,7 +144,7 @@ them without user interaction, and disconnect.
 - [x] Run `git add -A`, commit the green authorization/token milestone with a
       descriptive Conventional Commit whose title is at most 50 characters,
       and push the current branch.
-- [ ] After the push, run `cargo xtask review`; do not apply findings
+- [x] After the push, run `cargo xtask review`; do not apply findings
       automatically, and report them with severity, context, impact, lettered
       options, and a recommended option for user decision.
 
@@ -155,47 +155,47 @@ documentation and security validation. At the end of this milestone, a host can
 connect, refresh, elevate scope, and disconnect through `ai-mcp` without real
 credentials or unsafe discovery behavior.
 
-- [ ] Add in-process fake protected-resource and authorization servers covering
+- [x] Add in-process fake protected-resource and authorization servers covering
       resource metadata, RFC 8414 metadata, DCR, authorization callback, token,
       refresh, rotation, revocation, MCP 401/403, and authenticated MCP success.
-- [ ] Add an end-to-end initial connection test: unauthenticated initialize →
+- [x] Add an end-to-end initial connection test: unauthenticated initialize →
       typed challenge → discovery → DCR → injected user-agent callback → token
       storage → one host-owned initialize retry.
-- [ ] Add stored-token reuse and concurrent refresh tests proving that every
+- [x] Add stored-token reuse and concurrent refresh tests proving that every
       MCP POST, SSE side-response POST, and DELETE receives the same
       resource-bound Bearer token.
-- [ ] Add `invalid_grant` and post-refresh 401 tests proving credentials are
+- [x] Add `invalid_grant` and post-refresh 401 tests proving credentials are
       cleared safely and the host receives one actionable interaction outcome,
       with no authorization or request retry loop.
-- [ ] Add 403 `InsufficientScope` tests for explicit incremental consent,
+- [x] Add 403 `InsufficientScope` tests for explicit incremental consent,
       minimum requested scopes, granted subsets, user denial, and
       denied-scope prompt-loop suppression; other 403 responses stay denied.
-- [ ] Add adversarial tests for dangerous schemes, user info/fragments,
+- [x] Add adversarial tests for dangerous schemes, user info/fragments,
       private/reserved/link-local/metadata IPs, alternate IP encodings, DNS
       rebinding, unsafe ports, malicious authorization URLs, and redirect
       chains. Permit loopback HTTP only through explicit development policy.
-- [ ] Add log/error/debug capture tests proving access tokens, refresh tokens,
+- [x] Add log/error/debug capture tests proving access tokens, refresh tokens,
       codes, verifiers, state, and any configured credentials are always
       redacted.
-- [ ] Add a credential-free workspace smoke test using only in-process servers;
+- [x] Add a credential-free workspace smoke test using only in-process servers;
       add an ignored environment-gated live test only if a stable OAuth-enabled
       MCP test server becomes available.
-- [ ] Update the root README interface/key-code maps and both MCP crate READMEs;
+- [x] Update the root README interface/key-code maps and both MCP crate READMEs;
       reconcile this protocol, the `ai-mcp` protocol, and their plans with the
       final public behavior.
-- [ ] Audit all changed Rust for public/module documentation, trait-backed
+- [x] Audit all changed Rust for public/module documentation, trait-backed
       impure behavior, typed errors, import order, test placement, forbidden
       panic/unwrap/expect/map_err use, secret leakage, and the 300-line cap.
-- [ ] Run `cargo fmt --all -- --check`,
+- [x] Run `cargo fmt --all -- --check`,
       `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
       `cargo test --workspace --all-features`,
       `cargo xtask rust-file-length-lint --all`, credential-free smoke tests,
       and `cargo xtask check`; keep working until the test pass rate is 100%.
-- [ ] Mark every completed TODO and milestone in this plan, move its
+- [x] Mark every completed TODO and milestone in this plan, move its
       `plans/README.md` link from Active to Completed, and review
       `git diff origin/main...` plus `git status` for omissions or unrelated
       changes.
-- [ ] Run `git add -A`, commit all completed integration work with a
+- [x] Run `git add -A`, commit all completed integration work with a
       descriptive Conventional Commit whose title is at most 50 characters,
       and push the current branch.
 - [ ] After the push, run `cargo xtask review` against `origin/main`; do not

@@ -4,7 +4,9 @@ use std::{sync::Arc, time::Duration};
 
 use ai_mcp::McpAuthorizationFailure;
 use async_trait::async_trait;
+use secrecy::SecretString;
 use unimock::{MockFn, Unimock, matching};
+use url::Url;
 
 use crate::{
     Error, McpOAuthConfig, McpOAuthDiscoveryMock, McpOAuthManager, OAuthAuthorizationError,
@@ -36,9 +38,7 @@ async fn rejects_mismatched_callback_state_before_token_exchange() {
 
 #[tokio::test]
 async fn maps_callback_errors_without_exposing_callback_values() {
-    let oauth = authorization_manager_with_response(OAuthAuthorizationResponse::OAuthError {
-        error: OAuthAuthorizationError::TemporarilyUnavailable,
-    });
+    let oauth = authorization_manager_with_error(OAuthAuthorizationError::TemporarilyUnavailable);
 
     let error = oauth
         .authorize(
@@ -54,6 +54,24 @@ async fn maps_callback_errors_without_exposing_callback_values() {
             error: OAuthAuthorizationError::TemporarilyUnavailable
         }
     ));
+}
+
+#[tokio::test]
+async fn rejects_mismatched_state_on_an_error_callback() {
+    let oauth = authorization_manager_with_response(OAuthAuthorizationResponse::OAuthError {
+        error: OAuthAuthorizationError::AccessDenied,
+        state: Some(SecretString::from("wrong-state".to_owned())),
+    });
+
+    let error = oauth
+        .authorize(
+            &challenge(McpAuthorizationFailure::AuthorizationRequired, &[]),
+            &context(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, Error::StateMismatch));
 }
 
 #[tokio::test]
@@ -76,9 +94,12 @@ async fn denied_incremental_scope_is_suppressed_for_the_same_attempt() {
     let user_agent = Unimock::new(
         OAuthUserAgentMock::authorize
             .next_call(matching!(_))
-            .returns(Ok(OAuthAuthorizationResponse::OAuthError {
-                error: OAuthAuthorizationError::AccessDenied,
-            })),
+            .answers(&|_, request| {
+                Ok(OAuthAuthorizationResponse::oauth_error(
+                    OAuthAuthorizationError::AccessDenied,
+                    Some(callback_state(request)),
+                ))
+            }),
     );
     let oauth = manager(
         Unimock::new(
@@ -94,7 +115,7 @@ async fn denied_incremental_scope_is_suppressed_for_the_same_attempt() {
         Unimock::new(()),
         user_agent,
         Unimock::new(()),
-        clock(vec![100]),
+        clock(vec![100, 101]),
         random(),
         McpOAuthConfig::default(),
     );
@@ -168,6 +189,48 @@ fn authorization_manager_with_response(
         random(),
         McpOAuthConfig::default(),
     )
+}
+
+fn authorization_manager_with_error(
+    error: OAuthAuthorizationError,
+) -> crate::DefaultMcpOAuthManager {
+    manager(
+        Unimock::new(
+            McpOAuthDiscoveryMock::discover
+                .next_call(matching!(_, _))
+                .returns(Ok(discovery_result())),
+        ),
+        Unimock::new(
+            OAuthClientRegistryMock::resolve
+                .next_call(matching!(_))
+                .returns(Ok(registration())),
+        ),
+        Unimock::new(()),
+        Unimock::new(
+            OAuthUserAgentMock::authorize
+                .next_call(matching!(_))
+                .answers_arc(Arc::new(move |_, request| {
+                    Ok(OAuthAuthorizationResponse::oauth_error(
+                        error,
+                        Some(callback_state(request)),
+                    ))
+                })),
+        ),
+        Unimock::new(()),
+        clock(vec![100, 101]),
+        random(),
+        McpOAuthConfig::default(),
+    )
+}
+
+fn callback_state(request: OAuthUserAuthorizationRequest) -> String {
+    Url::parse(request.authorization_url())
+        .unwrap()
+        .query_pairs()
+        .find(|(name, _)| name == "state")
+        .unwrap()
+        .1
+        .into_owned()
 }
 
 fn random() -> Unimock {

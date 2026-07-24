@@ -87,6 +87,13 @@ For a fixed Bearer credential, replace the default auth hook with:
 let auth = Arc::new(StaticHeaderAuth::bearer_token("access-token"));
 ```
 
+For rotating MCP OAuth credentials, inject
+`ai_mcp_oauth::RefreshingMcpAuth` instead. The companion crate binds the hook to
+one canonical resource and performs only non-interactive loads/refreshes.
+Browser authorization remains an explicit host operation after this client
+returns a typed 401 or insufficient-scope 403; the host retries the interrupted
+MCP operation at most once.
+
 ## Development
 
 ```sh
@@ -117,6 +124,10 @@ environment-gated live test.
 - `tests/support/` — reusable in-process server harness
 - `tests/*_transport_tests.rs` — JSON, live SSE, and authorization integration
   flows
+
+The companion crate's `tests/oauth_integration.rs` exercises this production
+client and both production reqwest transports against one credential-free
+in-process OAuth and MCP server.
 
 ### Related Docs
 

@@ -100,17 +100,17 @@ impl DefaultMcpOAuthManager {
                 }
                 code
             }
-            OAuthAuthorizationResponse::OAuthError {
-                error: OAuthAuthorizationError::AccessDenied,
-            } => {
-                self.states.invalidate(&state_handle).await;
-                if challenge.failure == McpAuthorizationFailure::InsufficientScope {
-                    self.denied_prompts.lock().await.insert(denied_key);
+            OAuthAuthorizationResponse::OAuthError { error, state } => {
+                let callback_at = self.clock.now_unix_seconds()?;
+                self.states
+                    .consume(&state_handle, &secrets.state, state.as_ref(), callback_at)
+                    .await?;
+                if error == OAuthAuthorizationError::AccessDenied {
+                    if challenge.failure == McpAuthorizationFailure::InsufficientScope {
+                        self.denied_prompts.lock().await.insert(denied_key);
+                    }
+                    return Err(Error::UserDenied);
                 }
-                return Err(Error::UserDenied);
-            }
-            OAuthAuthorizationResponse::OAuthError { error } => {
-                self.states.invalidate(&state_handle).await;
                 return Err(Error::AuthorizationRejected { error });
             }
             OAuthAuthorizationResponse::Cancelled => {

@@ -2630,6 +2630,7 @@ version = "0.2.0"
 dependencies = [
  "ai-interface",
  "ai-mcp",
+ "ai-mcp-oauth",
  "ai-models-anthropic",
  "ai-models-google",
  "ai-models-openai",
@@ -2638,6 +2639,7 @@ dependencies = [
  "async-trait",
  "clap",
  "json-http",
+ "secrecy",
  "serde_json",
  "tempfile",
  "thiserror",

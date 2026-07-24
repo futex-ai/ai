@@ -28,4 +28,6 @@ pub(crate) enum Error {
     SmokeRuntime { source: ai_tool_calling::Error },
     #[error("[xtask/smoke] failed to build MCP tool adapter: {source}")]
     SmokeMcp { source: ai_mcp::Error },
+    #[error("[xtask/smoke] failed to build MCP OAuth boundary: {source}")]
+    SmokeMcpOAuth { source: ai_mcp_oauth::Error },
 }

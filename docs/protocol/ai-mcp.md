@@ -495,6 +495,11 @@ events incrementally without deadlock. A credential-free MCP adapter is also
 constructed by `cargo xtask smoke-test`. No ignored live test is required
 unless a stable public MCP test server becomes available.
 
+The companion `ai-mcp-oauth` integration suite additionally drives this client
+through challenge discovery, DCR, PKCE authorization, stored-token reuse,
+single-flight refresh, incremental scope consent, SSE side-response
+authentication, and DELETE using only in-process servers.
+
 ## Conventions checklist (binding)
 
 - Dyn-trait seams for all non-pure behavior; `Arc<dyn Trait + Send + Sync>`.

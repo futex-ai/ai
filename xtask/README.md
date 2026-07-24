@@ -8,8 +8,8 @@ file-length audits, or AI review.
 
 - Run the standard local verification sequence
 - Enforce the Rust file-length cap for `crates/` and `xtask/`
-- Run a credential-free smoke test for provider construction and tool-calling
-  registration
+- Run a credential-free smoke test for provider construction, tool-calling
+  registration, MCP tools, and the resource-bound MCP OAuth hook
 - Delegate local AI review to the Codex CLI
 
 ## What This Crate Does

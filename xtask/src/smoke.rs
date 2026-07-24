@@ -5,7 +5,12 @@ use std::sync::Arc;
 use ai_interface::{DynModel, MockModel, NoopLogger, Tool, ToolDefinition};
 use ai_mcp::{
     McpClient, McpContentBlock, McpServerCapabilities, McpServerConfig, McpServerHandshake,
-    McpServerInfo, McpToolCallOutcome, McpToolDescriptor, McpToolSet,
+    McpServerInfo, McpToolCallOutcome, McpToolDescriptor, McpToolSet, ReqwestMcpHttpTransport,
+    StreamableHttpMcpClient,
+};
+use ai_mcp_oauth::{
+    CanonicalMcpResource, OAuthCredentialKey, OAuthRequestTokenProvider, OAuthUrlPolicy,
+    RefreshingMcpAuth,
 };
 use ai_models_anthropic::{AnthropicModel, CLAUDE_SONNET_4_6};
 use ai_models_google::{GEMINI_2_5_PRO, GoogleModel};
@@ -29,6 +34,7 @@ pub(crate) fn run() -> Result<()> {
     let model: DynModel = Arc::new(MockModel::new("mock"));
     let tool: Arc<dyn Tool> = Arc::new(SmokeTool);
     let mcp_tool: Arc<dyn Tool> = Arc::new(build_mcp_tool()?);
+    let _oauth_mcp_client = build_oauth_mcp_client()?;
     match ToolCallingRuntime::new(
         "Use registered tools when helpful.",
         model,
@@ -37,6 +43,33 @@ pub(crate) fn run() -> Result<()> {
     ) {
         Ok(_runtime) => Ok(()),
         Err(source) => Err(Error::SmokeRuntime { source }),
+    }
+}
+
+fn build_oauth_mcp_client() -> Result<StreamableHttpMcpClient> {
+    let endpoint = "https://example.invalid/mcp";
+    let resource = match CanonicalMcpResource::parse(endpoint, &OAuthUrlPolicy::default()) {
+        Ok(resource) => resource,
+        Err(source) => return Err(Error::SmokeMcpOAuth { source }),
+    };
+    let key = OAuthCredentialKey {
+        account_id: "smoke".to_owned(),
+        resource: resource.clone(),
+        issuer: "https://auth.example.invalid".to_owned(),
+        client_id: "smoke-public-client".to_owned(),
+        redirect_uri: "https://app.example.invalid/oauth/callback".to_owned(),
+    };
+    let auth = match RefreshingMcpAuth::new(resource, key, Arc::new(EmptyTokenProvider)) {
+        Ok(auth) => Arc::new(auth),
+        Err(source) => return Err(Error::SmokeMcpOAuth { source }),
+    };
+    match StreamableHttpMcpClient::new(
+        Arc::new(ReqwestMcpHttpTransport::new()),
+        auth,
+        McpServerConfig::new("oauth_smoke", endpoint),
+    ) {
+        Ok(client) => Ok(client),
+        Err(source) => Err(Error::SmokeMcp { source }),
     }
 }
 
@@ -92,6 +125,18 @@ impl Tool for SmokeTool {
 }
 
 struct SmokeMcpClient;
+
+struct EmptyTokenProvider;
+
+#[async_trait]
+impl OAuthRequestTokenProvider for EmptyTokenProvider {
+    async fn token_for_request(
+        &self,
+        _key: &OAuthCredentialKey,
+    ) -> ai_mcp_oauth::Result<Option<secrecy::SecretString>> {
+        Ok(None)
+    }
+}
 
 #[async_trait]
 impl McpClient for SmokeMcpClient {

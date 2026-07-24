@@ -6,9 +6,10 @@ milestones are finished.
 
 ## Active
 
-- [AI MCP OAuth](ai-mcp-oauth.md)
+No active plans.
 
 ## Completed
 
+- [AI MCP OAuth](ai-mcp-oauth.md)
 - [AI MCP crate](ai-mcp-crate.md)
 - [Copy AI crates from Juno](copy-ai-crates-from-juno.md)

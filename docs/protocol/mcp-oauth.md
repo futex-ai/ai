@@ -130,7 +130,8 @@ embedded desktop/mobile secret as confidential.
   the registered value.
 - Generate state from 32 random bytes, encode it base64url without padding,
   and make it single-use for the configured 10-minute default lifetime. Reject
-  missing, expired, reused, or mismatched state.
+  missing, expired, reused, or mismatched state on both successful and OAuth
+  error callbacks.
 - Generate the RFC 7636 verifier from a separate 32 random bytes encoded
   base64url without padding and derive its `S256` challenge. `plain` is
   unsupported.
@@ -267,16 +268,20 @@ validation, issuer selection, registration precedence, DCR, PKCE vectors,
 state lifecycle, scope minimization, token parsing, expiry skew, refresh
 rotation, single-flight behavior, and redaction.
 
-Integration tests use in-process fake resource and authorization servers for:
+`tests/oauth_integration.rs` uses one in-process protected-resource,
+authorization, and MCP server with the production reqwest transports for:
 
 - initial 401 → discovery → DCR → browser callback → token → MCP retry;
-- stored-token reuse and concurrent refresh;
-- `invalid_grant` followed by explicit reauthorization;
-- 403 incremental scope consent and denial-loop prevention;
-- malicious discovery URLs, DNS/private targets, and redirect chains.
+- stored-token reuse across MCP POST, SSE side-response POST, and DELETE;
+- concurrent single-flight refresh and rotation;
+- `invalid_grant` cleanup and a post-refresh 401 without retry loops;
+- 403 incremental scope consent, granted subsets, and denial-loop prevention;
+- best-effort revocation and unconditional local cleanup.
 
-No test uses real credentials. A manual live test is ignored and environment
-gated if a stable OAuth-enabled MCP test server becomes available.
+Source-adjacent tests cover malicious discovery URLs, dangerous address forms,
+DNS rebinding, redirect chains, response bounds, and secret redaction. No test
+uses real credentials. No ignored live test is present because there is no
+stable public OAuth-enabled MCP test server.
 
 ## Acceptance criteria
 

@@ -180,22 +180,41 @@ fn schema_error(message: &'static str) -> serde_json::Error {
     <serde_json::Error as serde::de::Error>::custom(message)
 }
 
-fn sanitized_error_body(body: Value) -> Value {
-    match body {
-        Value::Object(mut object) => {
-            for name in [
-                "access_token",
-                "refresh_token",
-                "client_secret",
-                "code",
-                "code_verifier",
-            ] {
-                if object.contains_key(name) {
-                    object.insert(name.to_owned(), Value::String("[REDACTED]".to_owned()));
+fn sanitized_error_body(mut body: Value) -> Value {
+    redact_secret_fields(&mut body);
+    body
+}
+
+fn redact_secret_fields(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            for (name, value) in object {
+                if is_secret_field(name) {
+                    *value = Value::String("[REDACTED]".to_owned());
+                } else {
+                    redact_secret_fields(value);
                 }
             }
-            Value::Object(object)
         }
-        other => other,
+        Value::Array(values) => {
+            for value in values {
+                redact_secret_fields(value);
+            }
+        }
+        _ => {}
     }
+}
+
+fn is_secret_field(name: &str) -> bool {
+    [
+        "access_token",
+        "refresh_token",
+        "client_secret",
+        "client_assertion",
+        "code",
+        "code_verifier",
+        "state",
+    ]
+    .iter()
+    .any(|secret| name.eq_ignore_ascii_case(secret))
 }

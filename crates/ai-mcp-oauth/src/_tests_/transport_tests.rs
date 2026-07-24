@@ -94,6 +94,32 @@ async fn rejects_an_unsafe_redirect_before_dispatch() {
 }
 
 #[tokio::test]
+async fn enforces_the_limit_across_a_redirect_chain() {
+    let app = Router::new()
+        .route(
+            "/one",
+            get(|| async { (StatusCode::FOUND, [(LOCATION, "/two")]).into_response() }),
+        )
+        .route(
+            "/two",
+            get(|| async { (StatusCode::FOUND, [(LOCATION, "/final")]).into_response() }),
+        )
+        .route("/final", get(|| async { Json(json!({"ok": true})) }));
+    let address = serve(app).await;
+    let error = ReqwestOAuthHttpTransport::new()
+        .get_json(
+            &format!("http://{address}/one"),
+            OAuthEndpointKind::ProtectedResourceMetadata,
+            &OAuthUrlPolicy::loopback_development(),
+            limits(1, 1024),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, Error::TooManyRedirects));
+}
+
+#[tokio::test]
 async fn rejects_every_resolution_when_one_address_is_unsafe() {
     let resolver = Arc::new(Unimock::new(
         OAuthDnsResolverMock::resolve

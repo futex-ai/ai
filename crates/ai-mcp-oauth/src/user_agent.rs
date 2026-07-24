@@ -58,6 +58,8 @@ pub enum OAuthAuthorizationResponse {
     OAuthError {
         /// Typed callback error.
         error: OAuthAuthorizationError,
+        /// Secret callback state, or `None` when omitted.
+        state: Option<SecretString>,
     },
     /// User or host cancelled before an OAuth callback completed.
     Cancelled,
@@ -71,6 +73,14 @@ impl OAuthAuthorizationResponse {
             state: state.map(|state| SecretString::from(state.into())),
         }
     }
+
+    /// Builds an OAuth error callback while wrapping its state safely.
+    pub fn oauth_error(error: OAuthAuthorizationError, state: Option<impl Into<String>>) -> Self {
+        Self::OAuthError {
+            error,
+            state: state.map(|state| SecretString::from(state.into())),
+        }
+    }
 }
 
 impl std::fmt::Debug for OAuthAuthorizationResponse {
@@ -81,9 +91,10 @@ impl std::fmt::Debug for OAuthAuthorizationResponse {
                 .field("code", &"[REDACTED]")
                 .field("state", &state.as_ref().map(|_| "[REDACTED]"))
                 .finish(),
-            Self::OAuthError { error } => formatter
+            Self::OAuthError { error, state } => formatter
                 .debug_struct("OAuthError")
                 .field("error", error)
+                .field("state", &state.as_ref().map(|_| "[REDACTED]"))
                 .finish(),
             Self::Cancelled => formatter.write_str("Cancelled"),
         }

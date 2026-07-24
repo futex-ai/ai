@@ -88,10 +88,10 @@ the same canonical resource used by the MCP client:
 ```rust,no_run
 use std::sync::Arc;
 
-use ai_mcp::{McpAuthorizationChallenge, McpAuthorizationFailure};
+use ai_mcp::McpAuthorizationChallenge;
 use ai_mcp_oauth::{
-    DynMcpOAuthManager, DynOAuthRequestTokenProvider, McpOAuthManager,
-    OAuthAuthorizationContext, OAuthScopes, RefreshingMcpAuth,
+    DynMcpOAuthManager, DynOAuthRequestTokenProvider, OAuthAuthorizationContext,
+    RefreshingMcpAuth,
 };
 use json_http::{DynJsonHttpAuth, JsonHttpAuth};
 
@@ -122,8 +122,7 @@ host-controlled operations:
 ```rust,no_run
 use ai_mcp::{McpAuthorizationChallenge, McpAuthorizationFailure};
 use ai_mcp_oauth::{
-    DynMcpOAuthManager, McpOAuthManager, OAuthAuthorizationContext,
-    OAuthCredentialKey,
+    DynMcpOAuthManager, OAuthAuthorizationContext, OAuthCredentialKey,
 };
 
 async fn maintain_connection(
@@ -157,11 +156,16 @@ that wants to forget it can explicitly call
 
 ```sh
 cargo test -p ai-mcp-oauth --all-features
+cargo test -p ai-mcp-oauth --test oauth_integration
 cargo clippy -p ai-mcp-oauth --all-targets --all-features -- -D warnings
 cargo xtask rust-file-length-lint --all
+cargo xtask smoke-test
 ```
 
-Tests use injected Unimock boundaries and credential-free loopback servers.
+Unit tests use injected Unimock boundaries. The integration suite runs real
+MCP and OAuth reqwest transports against a credential-free loopback server,
+including DCR, PKCE callback, refresh, revocation, 401/403, SSE side responses,
+and DELETE authentication.
 
 ### Key Code
 
@@ -175,6 +179,8 @@ Tests use injected Unimock boundaries and credential-free loopback servers.
 - `src/resource.rs` — canonical resource identity and ordered scopes
 - `src/store.rs` — host-controlled secure persistence boundary
 - `src/error.rs` — typed, secret-safe public errors
+- `tests/oauth_integration.rs` — complete credential-free OAuth/MCP flow
+- `tests/support/` — in-memory host boundaries and loopback protocol server
 
 ### Related Docs
 

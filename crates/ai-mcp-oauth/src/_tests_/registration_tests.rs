@@ -145,7 +145,11 @@ async fn registration_rejection_redacts_secret_fields() {
                 headers: Default::default(),
                 body: json!({
                     "error": "invalid_client_metadata",
-                    "client_secret": "not-for-diagnostics"
+                    "client_secret": "not-for-diagnostics",
+                    "details": {
+                        "access_token": "nested-access-secret",
+                        "items": [{"code": "nested-code-secret"}]
+                    }
                 }),
             })),
     );
@@ -156,6 +160,8 @@ async fn registration_rejection_redacts_secret_fields() {
     let rendered = format!("{error:?}");
 
     assert!(!rendered.contains("not-for-diagnostics"));
+    assert!(!rendered.contains("nested-access-secret"));
+    assert!(!rendered.contains("nested-code-secret"));
     assert!(rendered.contains("[REDACTED]"));
 }
 
