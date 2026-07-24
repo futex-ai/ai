@@ -26,4 +26,5 @@ url = "2.5.8"
 ai-tool-calling = { workspace = true }
 axum = "0.8.9"
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "time", "sync", "net"] }
+tokio-stream = "0.1.19"
 unimock = "0.6.8"

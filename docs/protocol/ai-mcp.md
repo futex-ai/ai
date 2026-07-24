@@ -486,14 +486,14 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
 - Naming: sanitization, 64-char truncation, collision suffixing, dispatch
   strip-prefix round-trip, `InvalidServerKey`.
 
-Integration tests (crate-root `tests/`, in-process axum server, real
-`ReqwestMcpHttpTransport`): one server serving JSON responses and one serving
-SSE responses through the full initialize → list → call flow, plus a 401
-challenge case. The SSE server must gate its matching response and EOF on
-receiving the client's reply to an interleaved server request, proving the
-client processes events incrementally without deadlock. Optionally add an
-`#[ignore]`d live smoke test that reads a real server URL from an env var
-(e.g. `AI_MCP_SMOKE_URL`) for manual runs.
+Integration tests (crate-root `tests/`, in-process Axum servers, real
+`ReqwestMcpHttpTransport`) cover JSON and SSE initialize → list → call flows,
+static Bearer authentication, session close, and repeated 401/403 challenges.
+The SSE server gates its matching response and EOF on receiving the client's
+reply to an interleaved server request, proving that the client processes
+events incrementally without deadlock. A credential-free MCP adapter is also
+constructed by `cargo xtask smoke-test`. No ignored live test is required
+unless a stable public MCP test server becomes available.
 
 ## Conventions checklist (binding)
 

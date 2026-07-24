@@ -91,9 +91,18 @@ let auth = Arc::new(StaticHeaderAuth::bearer_token("access-token"));
 
 ```sh
 cargo test -p ai-mcp --all-features
+cargo test -p ai-mcp --test json_transport_tests
+cargo test -p ai-mcp --test sse_transport_tests
+cargo test -p ai-mcp --test authorization_transport_tests
 cargo clippy -p ai-mcp --all-targets --all-features -- -D warnings
 cargo xtask rust-file-length-lint --all
+cargo xtask smoke-test
 ```
+
+The integration tests start credential-free Axum servers on ephemeral loopback
+ports and exercise the production reqwest transport. No stable public
+OAuth-enabled MCP test server is currently required or assumed, so there is no
+environment-gated live test.
 
 ### Key Code
 
@@ -105,6 +114,9 @@ cargo xtask rust-file-length-lint --all
 - `src/tool_set.rs` — immutable `ai_interface::Tool` adapter
 - `src/tool_set_naming.rs` — namespacing, sanitization, and collision handling
 - `src/tool_set_result.rs` — result precedence and UTF-8-safe truncation
+- `tests/support/` — reusable in-process server harness
+- `tests/*_transport_tests.rs` — JSON, live SSE, and authorization integration
+  flows
 
 ### Related Docs
 

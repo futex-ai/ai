@@ -14,6 +14,7 @@ in-memory tool-calling runtime behavior.
 - Ordered fallback model composition through `ai-models-multi`
 - Trait-backed JSON HTTP client support through `json-http`
 - In-memory tool-calling runtime through `ai-tool-calling`
+- Streamable HTTP MCP tool discovery and dispatch through `ai-mcp`
 
 ## Interfaces
 
@@ -28,6 +29,8 @@ boundary they need:
 - `ai-models-xai`: xAI model adapter
 - `ai-models-multi`: ordered fallback model adapter
 - `ai-tool-calling`: in-memory tool-calling runtime
+- `ai-mcp`: MCP 2025-06-18/2025-03-26 streamable HTTP client and
+  `ai-interface::Tool` adapter
 - `json-http`: typed JSON and multipart HTTP client boundary
 - `xtask`: repository automation invoked with `cargo xtask ...`
 
@@ -61,6 +64,8 @@ cargo xtask review
 - `crates/ai-models-core`: provider-agnostic model wrappers and helpers
 - `crates/ai-models-*`: concrete provider and fallback adapters
 - `crates/ai-tool-calling`: in-memory tool-calling runtime
+- `crates/ai-mcp`: streamable HTTP MCP protocol client, authorization
+  challenges, and tool adapter
 - `crates/json-http`: HTTP client abstraction used by provider crates
 - `xtask/`: local automation for checks, smoke tests, file-length lint, and
   review

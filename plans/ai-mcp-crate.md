@@ -163,7 +163,7 @@ back to the correct original MCP tool.
 - [x] Run `git add -A`, commit the green tool-adapter milestone with a
       descriptive Conventional Commit whose title is at most 50 characters,
       and push the current branch.
-- [ ] After the push, run `cargo xtask review`; do not apply findings
+- [x] After the push, run `cargo xtask review`; do not apply findings
       automatically, and report them with the required severity, context,
       impact, solution options, and recommendation for user decision.
 
@@ -175,30 +175,30 @@ static auth, session handling, and tool dispatch are covered end to end; all
 workspace checks pass and the completed change is pushed for independent AI
 review.
 
-- [ ] Add crate-root Axum integration-test support with an in-process server
+- [x] Add crate-root Axum integration-test support with an in-process server
       that records headers and JSON-RPC messages without using external
       credentials or network services.
-- [ ] Add a JSON-response integration flow covering initialize,
+- [x] Add a JSON-response integration flow covering initialize,
       `notifications/initialized`, paginated list, call, session/protocol
       headers, auth application, and close through the real reqwest transport.
-- [ ] Add the equivalent SSE-response integration flow, including interleaved
+- [x] Add the equivalent SSE-response integration flow, including interleaved
       notifications and server requests; gate the matching final response and
       EOF on receipt of the client's side-request reply so the test fails if
       the implementation buffers the original stream to completion.
-- [ ] Add end-to-end 401 and 403 challenge cases that assert raw header
+- [x] Add end-to-end 401 and 403 challenge cases that assert raw header
       preservation and typed discovery/scope details, plus an authenticated
       success case using `StaticHeaderAuth::bearer_token`.
-- [ ] Add a credential-free smoke-test entry to the workspace automation; add
+- [x] Add a credential-free smoke-test entry to the workspace automation; add
       an ignored `AI_MCP_SMOKE_URL` live test only if a stable manual test
       server is available, and document exactly how to run it.
-- [ ] Audit every changed Rust module for module/public API documentation,
+- [x] Audit every changed Rust module for module/public API documentation,
       trait-backed impure boundaries, typed error propagation, production
       panic/`unwrap`/`expect`/`map_err` use, import order, test placement, and
       the 300-line hard cap.
-- [ ] Update the root README feature, interface, and key-code maps for
+- [x] Update the root README feature, interface, and key-code maps for
       `ai-mcp`; reconcile the crate README and protocol document with the
       implemented public behavior and capture any useful integration context.
-- [ ] Run `cargo fmt --all -- --check`,
+- [x] Run `cargo fmt --all -- --check`,
       `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
       `cargo test --workspace --all-features`,
       `cargo xtask rust-file-length-lint --all`, the credential-free smoke
@@ -206,7 +206,7 @@ review.
       passes with a 100% test pass rate.
 - [ ] Mark every completed TODO and milestone in this plan, then move its link
       from Active to Completed in `plans/README.md`.
-- [ ] Review `git diff origin/main...` and `git status` for unrelated changes,
+- [x] Review `git diff origin/main...` and `git status` for unrelated changes,
       missing/new untracked files, generated artifacts, and stale references.
 - [ ] Run `git add -A`, commit all completed work with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
