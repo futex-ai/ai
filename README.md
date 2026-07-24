@@ -77,6 +77,7 @@ credential-free smoke tests, and `cargo xtask check`.
 ## Protocol Docs
 
 - [AI MCP client and tool adapter](docs/protocol/ai-mcp.md)
+- [Host-side MCP OAuth](docs/protocol/mcp-oauth.md)
 
 ## Plans
 

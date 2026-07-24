@@ -1,7 +1,7 @@
 # Spec: `ai-mcp` crate — MCP client + tool adapter
 
 Status: approved by Cal (22 Jul 2026), with review clarifications incorporated
-23 Jul 2026. Treat this document as the user-approved basis for
+23–24 Jul 2026. Treat this document as the user-approved basis for
 `plans/ai-mcp-crate.md` in this repo. It is self-contained; no external product
 context is required.
 
@@ -17,7 +17,8 @@ Downstream context (for design intent only — do not implement any of it here):
 a product consumer will construct one client per configured MCP server, inject
 auth headers from its own credential store via the existing
 `json_http::JsonHttpAuth` hook, and handle OAuth flows, token refresh, and
-storage entirely on its side. This crate must stay pure protocol + adapter.
+storage through the companion [`ai-mcp-oauth`](mcp-oauth.md) boundary. This
+crate must stay pure protocol + adapter.
 
 ## Goals
 
@@ -26,14 +27,15 @@ storage entirely on its side. This crate must stay pure protocol + adapter.
 - List tools (with pagination) and call tools.
 - Expose a server's tools as `ai_interface::Tool` with collision-safe,
   provider-legal tool names.
-- Surface auth challenges (HTTP 401/403) as a typed error the caller can act
-  on. No auth flows in this crate.
+- Surface typed HTTP 401 and 403 challenges, including OAuth discovery and
+  scope hints, for a caller to act on. No auth flows in this crate.
 - Follow all repo conventions (dyn traits, unimock, thiserror enums, file-size
   caps, `_tests_` layout, crate README).
 
 ## Non-goals (v1)
 
-- OAuth flows, dynamic client registration, token storage/refresh (caller-side).
+- OAuth flows, dynamic client registration, browser interaction, and token
+  storage/refresh (owned by the companion crate and its host).
 - stdio transport and the legacy 2024-11-05 HTTP+SSE transport.
 - MCP resources, prompts, sampling, elicitation, roots, completions.
 - Server-initiated GET event stream, SSE resumability (`Last-Event-ID`),
@@ -186,7 +188,8 @@ pub type DynMcpEventStream = Box<dyn McpEventStream>;
 /// HTTP outcome: status, response headers, and decoded payload.
 pub struct McpHttpResponse {
     pub status: u16,
-    pub headers: BTreeMap<String, String>,   // lowercase header names
+    /// Lowercase names mapped to every field value in wire order.
+    pub headers: BTreeMap<String, Vec<String>>,
     pub payload: McpHttpPayload,
 }
 pub enum McpHttpPayload {
@@ -406,9 +409,40 @@ emits an `Unknown` value unchanged. `structured_content` maps to
 no catch-all variants, no `#[error(transparent)]`. Required typed variants
 (callers branch on these):
 
+```rust
+/// Actionable Bearer challenge details from one 401 or 403 response.
+pub struct McpAuthorizationChallenge {
+    pub failure: McpAuthorizationFailure,
+    pub resource_metadata_url: Option<String>,
+    pub scopes: Vec<String>,
+    pub error_description: Option<String>,
+    pub raw_www_authenticate: Vec<String>,
+}
+
+/// Typed authorization outcome inferred from status and Bearer parameters.
+pub enum McpAuthorizationFailure {
+    AuthorizationRequired,
+    InvalidRequest,
+    InvalidToken,
+    InsufficientScope,
+    Forbidden,
+}
+```
+
+Parse all `WWW-Authenticate` field values with an RFC-aware challenge parser;
+commas inside quoted values are not separators. Preserve every raw field value.
+Map the standard Bearer `error` values to the typed failure variants, split
+`scope` on ASCII spaces, deduplicate scopes in first-seen order, and accept a
+`resource_metadata` value only when all syntactically decoded occurrences
+agree. Missing,
+malformed, or conflicting optional parameters remain absent while the 401/403
+itself stays actionable. A 401 without a recognized error is
+`AuthorizationRequired`; a 403 without `insufficient_scope` is `Forbidden`.
+
 | Variant | Trigger |
 |---|---|
-| `Unauthorized { status: u16, www_authenticate: Option<String>, resource_metadata_url: Option<String> }` | HTTP 401/403. Parse `resource_metadata="..."` out of the `WWW-Authenticate` header when present (RFC 9728 pointer); keep the raw header too. This is the hook downstream auth flows key off. |
+| `AuthorizationRequired { challenge: McpAuthorizationChallenge }` | HTTP 401, including missing or invalid access tokens |
+| `Forbidden { challenge: McpAuthorizationChallenge }` | HTTP 403, including insufficient scope or denied permission |
 | `SessionExpired` | 404 on a request that carried `Mcp-Session-Id` |
 | `UnsupportedProtocolVersion { requested: String, server: String }` | negotiation failure |
 | `JsonRpc { method: String, code: i64, message: String, data: Option<Value> }` | JSON-RPC error response |
@@ -439,8 +473,10 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
 - Server-request handling: `ping` gets an empty result reply and unsupported
   server requests get `-32601`, with each response POST completed before the
   client polls the original SSE stream for another event.
-- 401 with and without `resource_metadata` in `WWW-Authenticate`;
-  session-expiry 404; `close()` tolerating 405.
+- Repeated and combined `WWW-Authenticate` fields; quoted commas; 401 failure
+  mapping; 403 insufficient-scope mapping; agreeing, missing, malformed, and
+  conflicting `resource_metadata`; scope deduplication; session-expiry 404;
+  `close()` tolerating 405.
 - Naming: sanitization, 64-char truncation, collision suffixing, dispatch
   strip-prefix round-trip, `InvalidServerKey`.
 
@@ -484,8 +520,8 @@ client processes events incrementally without deadlock. Optionally add an
   registered in `ai-tool-calling` and its tools dispatch end-to-end.
 - An unauthenticated server works with `StaticHeaderAuth::default()`; a
   Bearer-protected server works with `StaticHeaderAuth::bearer_token(...)`;
-  a 401 without credentials yields `Error::Unauthorized` carrying the
-  `resource_metadata` URL when the server provides one.
+  a 401 without credentials yields `Error::AuthorizationRequired`, and a 403
+  yields `Error::Forbidden`, each carrying raw and typed challenge details.
 - No auth flows, storage, or product policy anywhere in the crate.
 - All workspace checks pass (`cargo xtask check`), 100% test pass rate.
 
@@ -495,7 +531,7 @@ Per configured server: build `ReqwestMcpHttpTransport`, an implementation of
 `json_http::JsonHttpAuth` backed by its credential store (refreshing tokens
 before expiry inside the hook), and `StreamableHttpMcpClient` with a
 `McpServerConfig`. Per agent turn it `McpToolSet::load`s (with its own
-caching) and appends the set to the turn's tools. On `Error::Unauthorized` it
-flips the connection into a needs-authentication state and runs its OAuth
-flow (discovery via the `resource_metadata` URL, dynamic client registration,
-browser redirect), then retries. None of that is this crate's concern.
+caching) and appends the set to the turn's tools. On
+`Error::AuthorizationRequired` or an insufficient-scope `Error::Forbidden`,
+the host delegates to [`ai-mcp-oauth`](mcp-oauth.md), then retries according
+to that contract. None of the interactive flow is this crate's concern.

@@ -12,6 +12,9 @@ The approved and durable source of truth is
 keep that protocol document, the crate README, tests, and public API aligned.
 OAuth flows, credential persistence, token refresh, product policy, stdio,
 legacy HTTP+SSE, and all non-tool MCP capabilities remain out of scope.
+The follow-on [`AI MCP OAuth`](ai-mcp-oauth.md) plan consumes this crate's
+typed authorization challenges and auth hook without moving those concerns
+into `ai-mcp`.
 
 ## Milestone 1: Streamable HTTP Protocol Client
 
@@ -46,6 +49,10 @@ close the session without depending on the tool adapter.
       authorization challenges, expired sessions, unsupported versions,
       JSON-RPC errors, missing responses, HTTP failures, response-size limits,
       deserialization, transport, auth-hook, and invalid-key failures.
+- [ ] Add `McpAuthorizationChallenge` and `McpAuthorizationFailure`; expose
+      distinct `AuthorizationRequired` (401) and `Forbidden` (403) errors with
+      raw header values, agreed RFC 9728 `resource_metadata`, recognized Bearer
+      failure, description, and deduplicated scope hints.
 - [ ] Define fully typed serde DTOs for JSON-RPC envelopes, initialization,
       server capabilities and identity, tool descriptors, pagination,
       tool-call outcomes, annotations, embedded text/blob resources, and every
@@ -71,8 +78,9 @@ close the session without depending on the tool adapter.
       `ReqwestMcpHttpTransport` for POST and DELETE, receiving completed header
       maps from the client, normalizing response-header names, buffering capped
       JSON bodies, returning live pull-based SSE bodies without waiting for
-      EOF, passing the configured response limit into both methods, and
-      enforcing timeouts and cumulative byte limits while reading.
+      EOF, preserving every repeated response-header value in wire order,
+      passing the configured response limit into both methods, and enforcing
+      timeouts and cumulative byte limits while reading.
 - [ ] Export Unimock-generated transport, event-stream, and client mocks only
       for tests, doctests, or the `test-support` feature, following the
       `json-http` pattern.
@@ -95,10 +103,12 @@ close the session without depending on the tool adapter.
       ignore other notifications, complete each response POST before polling
       the original stream again, and require the response matching the posted
       request ID.
-- [ ] Test typed 401/403 challenges with and without RFC 9728
-      `resource_metadata`, session-expiry 404 behavior only when a session
-      header was sent, other HTTP statuses, malformed responses, auth-hook
-      failure, response overflow, and close success/failure paths.
+- [ ] Test repeated and combined `WWW-Authenticate` fields, quoted commas,
+      agreeing/missing/malformed/conflicting RFC 9728 `resource_metadata`,
+      401 invalid-token mapping, 403 insufficient-scope mapping, scope
+      deduplication, session-expiry 404 behavior only when a session header was
+      sent, other HTTP statuses, malformed responses, auth-hook failure,
+      response overflow, and close success/failure paths.
 - [ ] Add the crate `README.md` with the required Responsibilities, What This
       Crate Does, Quick Start, Development, Key Code, and Related Docs
       sections, including unauthenticated and bearer-auth examples.
@@ -175,9 +185,9 @@ review.
       notifications and server requests; gate the matching final response and
       EOF on receipt of the client's side-request reply so the test fails if
       the implementation buffers the original stream to completion.
-- [ ] Add an end-to-end 401 challenge case that asserts the raw
-      `WWW-Authenticate` value and extracted resource-metadata URL, plus an
-      authenticated success case using `StaticHeaderAuth::bearer_token`.
+- [ ] Add end-to-end 401 and 403 challenge cases that assert raw header
+      preservation and typed discovery/scope details, plus an authenticated
+      success case using `StaticHeaderAuth::bearer_token`.
 - [ ] Add a credential-free smoke-test entry to the workspace automation; add
       an ignored `AI_MCP_SMOKE_URL` live test only if a stable manual test
       server is available, and document exactly how to run it.
