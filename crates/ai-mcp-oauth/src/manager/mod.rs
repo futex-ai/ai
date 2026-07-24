@@ -12,8 +12,8 @@ use tokio::sync::Mutex;
 
 use crate::{
     DynMcpOAuthDiscovery, DynOAuthClientRegistry, DynOAuthClock, DynOAuthCredentialStore,
-    DynOAuthHttpTransport, DynOAuthRandom, DynOAuthUserAgent, McpOAuthConfig, OAuthCredentialKey,
-    OAuthScopes, Result, state::AuthorizationStateTracker,
+    DynOAuthDnsResolver, DynOAuthHttpTransport, DynOAuthRandom, DynOAuthUserAgent, McpOAuthConfig,
+    OAuthCredentialKey, OAuthScopes, Result, state::AuthorizationStateTracker,
 };
 
 pub use types::{OAuthAuthorizationContext, OAuthConnection};
@@ -69,6 +69,7 @@ pub struct DefaultMcpOAuthManager {
     pub(super) store: DynOAuthCredentialStore,
     pub(super) user_agent: DynOAuthUserAgent,
     pub(super) transport: DynOAuthHttpTransport,
+    pub(super) dns_resolver: DynOAuthDnsResolver,
     pub(super) clock: DynOAuthClock,
     pub(super) random: DynOAuthRandom,
     pub(super) config: McpOAuthConfig,
@@ -89,6 +90,7 @@ impl DefaultMcpOAuthManager {
         store: DynOAuthCredentialStore,
         user_agent: DynOAuthUserAgent,
         transport: DynOAuthHttpTransport,
+        dns_resolver: DynOAuthDnsResolver,
         clock: DynOAuthClock,
         random: DynOAuthRandom,
         config: McpOAuthConfig,
@@ -100,6 +102,7 @@ impl DefaultMcpOAuthManager {
             store,
             user_agent,
             transport,
+            dns_resolver,
             clock,
             random,
             config,

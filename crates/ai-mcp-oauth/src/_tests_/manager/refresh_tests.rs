@@ -164,6 +164,7 @@ async fn explicit_refresh_requires_a_stored_refresh_token() {
         Unimock::new(()),
         Unimock::new(()),
         Unimock::new(()),
+        Unimock::new(()),
         McpOAuthConfig::default(),
     );
     let error = oauth.refresh(&key("account")).await.unwrap_err();

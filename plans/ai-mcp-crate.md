@@ -239,6 +239,13 @@ within its configured byte cap.
       to the serialized empty truncation envelope.
 - [x] Have Claude Code Fable 5 inspect the completed diff and validate the
       response-limit solution.
+- [x] Add failing buffered-JSON and SSE regressions proving a scoped JSON-RPC
+      error with `id: null` preserves its code, message, and data while an
+      unrelated non-null error remains ignored.
+- [x] Surface scoped null-ID errors as the existing typed `JsonRpc` failure and
+      document the correlation behavior in the MCP protocol contract.
+- [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
+      validate the completed null-ID solution.
 - [ ] Run `git add -A`, commit the green hardening work with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.

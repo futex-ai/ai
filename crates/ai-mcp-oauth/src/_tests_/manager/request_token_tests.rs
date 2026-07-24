@@ -176,6 +176,7 @@ async fn unrelated_credential_locks_do_not_block_each_other() {
         Unimock::new(()),
         Unimock::new(()),
         Unimock::new(()),
+        Unimock::new(()),
         McpOAuthConfig::default(),
     );
     let left = oauth.refresh_lock(&key("left")).await;

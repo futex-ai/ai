@@ -15,7 +15,8 @@ use crate::{
 };
 
 use super::support::{
-    challenge, clock, context, discovery_result, manager, manager_with_user_agent, registration,
+    challenge, clock, context, discovery_result, manager, manager_with_user_agent,
+    public_dns_resolver, registration,
 };
 
 #[tokio::test]
@@ -115,6 +116,7 @@ async fn denied_incremental_scope_is_suppressed_for_the_same_attempt() {
         Unimock::new(()),
         user_agent,
         Unimock::new(()),
+        public_dns_resolver(),
         clock(vec![100, 101]),
         random(),
         McpOAuthConfig::default(),
@@ -148,6 +150,7 @@ async fn enforces_the_user_agent_timeout() {
         Unimock::new(()),
         Arc::new(PendingUserAgent),
         Unimock::new(()),
+        public_dns_resolver(),
         clock(vec![100]),
         random(),
         config,
@@ -185,6 +188,7 @@ fn authorization_manager_with_response(
                 .returns(Ok(response)),
         ),
         Unimock::new(()),
+        public_dns_resolver(),
         clock(vec![100, 101]),
         random(),
         McpOAuthConfig::default(),
@@ -217,6 +221,7 @@ fn authorization_manager_with_error(
                 })),
         ),
         Unimock::new(()),
+        public_dns_resolver(),
         clock(vec![100, 101]),
         random(),
         McpOAuthConfig::default(),

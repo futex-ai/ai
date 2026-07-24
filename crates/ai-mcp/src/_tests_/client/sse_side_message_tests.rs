@@ -5,7 +5,7 @@ use std::sync::Arc;
 use json_http::StaticHeaderAuth;
 use serde_json::json;
 
-use crate::{McpClient, McpServerConfig, StreamableHttpMcpClient};
+use crate::{Error, McpClient, McpServerConfig, StreamableHttpMcpClient};
 
 use super::{
     lifecycle_tests::initialized_response,
@@ -86,4 +86,67 @@ async fn echoes_numeric_ids_in_method_not_found_replies() {
     let reply = &transport.posts()[3].body;
     assert_eq!(reply["id"], 9);
     assert_eq!(reply["error"]["code"], -32601);
+}
+
+#[tokio::test]
+async fn surfaces_null_id_errors_from_the_scoped_sse_stream() {
+    let client = client_with_events(vec![
+        json!({"jsonrpc":"2.0","method":"notifications/tools/list_changed"}),
+        json!({
+            "jsonrpc": "2.0",
+            "id": null,
+            "error": {"code": -32700, "message": "Parse error"}
+        }),
+    ]);
+
+    let error = client.call_tool("run", json!({})).await.unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::JsonRpc {
+            method,
+            code: -32700,
+            message,
+            data: None,
+        } if method == "tools/call" && message == "Parse error"
+    ));
+    assert!(client.tools_list_changed());
+}
+
+#[tokio::test]
+async fn ignores_unrelated_non_null_errors_before_the_matching_sse_response() {
+    let client = client_with_events(vec![
+        json!({
+            "jsonrpc": "2.0",
+            "id": 999,
+            "error": {"code": -32603, "message": "Unrelated"}
+        }),
+        json!({
+            "jsonrpc":"2.0",
+            "id":2,
+            "result":{"content":[{"type":"text","text":"ok"}]}
+        }),
+    ]);
+
+    let outcome = client.call_tool("run", json!({})).await.unwrap();
+
+    assert!(!outcome.is_error);
+}
+
+fn client_with_events(events: Vec<serde_json::Value>) -> StreamableHttpMcpClient {
+    let gate = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let transport = ScriptedTransport::new_with_gate(
+        vec![
+            initialized_response(),
+            empty_response(202),
+            event_response(events, gate.clone()),
+        ],
+        gate,
+    );
+    StreamableHttpMcpClient::new(
+        transport,
+        Arc::new(StaticHeaderAuth::default()),
+        McpServerConfig::new("demo", "https://example.com/mcp"),
+    )
+    .unwrap()
 }

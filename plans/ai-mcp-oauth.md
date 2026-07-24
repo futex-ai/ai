@@ -232,6 +232,16 @@ reuses metadata forbidden by cache controls.
       ranges and document the conservative policy.
 - [x] Have Claude Code Fable 5 inspect the completed diff and validate the URL
       and cache solutions.
+- [x] Add failing manager regressions for private, mixed, empty, failed,
+      public, and development-loopback authorization-host resolutions, proving
+      unsafe destinations never reach the user agent.
+- [x] Inject the existing DNS resolver into the manager, preflight the final
+      authorization hostname before state tracking and browser handoff, and
+      retain all-address enforcement without rewriting the URL.
+- [x] Document preflight resolution and the residual browser DNS-rebinding and
+      redirect responsibility without claiming the external browser is pinned.
+- [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
+      validate the completed browser-handoff solution.
 - [ ] Run `git add -A`, commit the green hardening work with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.

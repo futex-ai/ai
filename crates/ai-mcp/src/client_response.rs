@@ -65,6 +65,12 @@ impl StreamableHttpMcpClient {
                 message: error.message,
                 data: error.data,
             }),
+            JsonRpcMessageKind::Error { id: None, error } => Err(Error::JsonRpc {
+                method: method.to_owned(),
+                code: error.code,
+                message: error.message,
+                data: error.data,
+            }),
             JsonRpcMessageKind::Request {
                 id,
                 method: server_method,

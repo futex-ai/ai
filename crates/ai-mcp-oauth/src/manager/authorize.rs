@@ -2,12 +2,12 @@
 
 use ai_mcp::{McpAuthorizationChallenge, McpAuthorizationFailure};
 use secrecy::ExposeSecret;
-use url::Url;
+use url::{Host, Url};
 
 use crate::{
     Error, OAuthAuthorizationError, OAuthAuthorizationResponse, OAuthCredentialKey,
-    OAuthEndpointKind, OAuthRegistrationRequest, OAuthScopes, OAuthUserAuthorizationRequest,
-    Result, pkce::generate_authorization_secrets,
+    OAuthEndpointKind, OAuthRegistrationRequest, OAuthScopes, OAuthUnsafeUrlReason,
+    OAuthUserAuthorizationRequest, Result, pkce::generate_authorization_secrets,
 };
 
 use super::{DefaultMcpOAuthManager, DeniedPromptKey, OAuthAuthorizationContext, OAuthConnection};
@@ -48,12 +48,6 @@ impl DefaultMcpOAuthManager {
             })
             .await?;
         let secrets = generate_authorization_secrets(self.random.as_ref())?;
-        let started_at = self.clock.now_unix_seconds()?;
-        let state_lifetime = self.config.state_lifetime.as_secs();
-        let state_handle = self
-            .states
-            .begin(&secrets.state, started_at, state_lifetime)
-            .await?;
         let authorization_url = build_authorization_url(
             &discovered.authorization_server.authorization_endpoint,
             &registration.client_id,
@@ -64,6 +58,14 @@ impl DefaultMcpOAuthManager {
             &secrets.challenge,
             &self.config,
         )?;
+        self.validate_authorization_destination(&authorization_url)
+            .await?;
+        let started_at = self.clock.now_unix_seconds()?;
+        let state_lifetime = self.config.state_lifetime.as_secs();
+        let state_handle = self
+            .states
+            .begin(&secrets.state, started_at, state_lifetime)
+            .await?;
         let response = tokio::time::timeout(
             self.config.user_agent_timeout,
             self.user_agent
@@ -151,6 +153,37 @@ impl DefaultMcpOAuthManager {
             scopes: tokens.scopes,
             expires_at: tokens.expires_at,
         })
+    }
+
+    async fn validate_authorization_destination(&self, authorization_url: &str) -> Result<()> {
+        let url = self
+            .config
+            .url_policy
+            .parse(authorization_url, OAuthEndpointKind::Authorization)?;
+        let Some(Host::Domain(domain)) = url.host() else {
+            return Ok(());
+        };
+        let Some(port) = url.port_or_known_default() else {
+            return Err(Error::InvalidUrl {
+                endpoint: OAuthEndpointKind::Authorization,
+            });
+        };
+        let addresses = self.dns_resolver.resolve(domain, port).await?;
+        if addresses.is_empty() {
+            return Err(Error::Dns);
+        }
+        if addresses.iter().any(|address| {
+            !self
+                .config
+                .url_policy
+                .address_allowed(*address, url.scheme())
+        }) {
+            return Err(Error::UnsafeUrl {
+                endpoint: OAuthEndpointKind::Authorization,
+                reason: OAuthUnsafeUrlReason::Address,
+            });
+        }
+        Ok(())
     }
 }
 

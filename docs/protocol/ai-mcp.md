@@ -88,6 +88,9 @@ Required transport behavior (streamable HTTP, single endpoint URL):
     - any other server request (e.g. sampling) → POST back a JSON-RPC error
       response with code `-32601` (method not found).
     - other notifications → ignore.
+    - a JSON-RPC error with `id: null` → fail the scoped POST with its typed
+      code, message, and data; an error with an unrelated non-null id remains
+      ignored while awaiting the matching response.
 11. Client-generated JSON-RPC request ids are monotonically increasing `u64`
     values per client instance. Incoming server-request ids may be JSON strings
     or numbers; deserialize them into an untagged typed id enum and echo the

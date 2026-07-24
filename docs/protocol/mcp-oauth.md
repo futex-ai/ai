@@ -130,6 +130,14 @@ embedded desktop/mobile secret as confidential.
 
 - Use an external user agent through `OAuthUserAgent`; never embed credentials
   or launch a URL through a shell.
+- Immediately before creating callback state and handing off the final
+  authorization URL, resolve its domain through the injected DNS boundary and
+  require every returned address to satisfy the URL policy. Empty or failed
+  resolution aborts authorization without opening the user agent.
+- This preflight is defense in depth, not connection pinning. A platform
+  browser resolves the hostname again and controls subsequent redirects, so
+  DNS-rebinding, time-of-check/time-of-use, and browser redirect enforcement
+  remain explicit host and `OAuthUserAgent` responsibilities.
 - Redirect URIs must be HTTPS or explicit loopback HTTP and must exactly match
   the registered value.
 - Generate state from 32 random bytes, encode it base64url without padding,
@@ -264,8 +272,10 @@ Errors and diagnostics never contain authorization codes or token values.
   transition ranges, and disallowed ports according to the injected URL
   policy; loopback destinations do not bypass the blocked-port list.
 - Disable automatic redirects; validate scheme, resolved destination, and
-  policy at every hop. Pin the connection to validated addresses or verify the
-  connected peer so DNS cannot change between validation and use.
+  policy at every library-owned HTTP hop. Pin those connections to validated
+  addresses or verify the connected peer so DNS cannot change between
+  validation and use. Preflight the initial browser URL as described above,
+  without claiming that the external browser connection is pinned.
 - Open authorization URLs with platform APIs, never shell execution.
 - Bound response bytes, redirect count, callback lifetime, and request time.
 - Never log, serialize to diagnostics, or expose through `Debug` any access

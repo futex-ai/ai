@@ -17,7 +17,9 @@ use crate::{
     OAuthRandomMock, OAuthTokenSet, OAuthUserAgentMock, OAuthUserAuthorizationRequest,
 };
 
-use super::support::{challenge, clock, context, discovery_result, manager, registration};
+use super::support::{
+    challenge, clock, context, discovery_result, manager, public_dns_resolver, registration,
+};
 
 #[tokio::test]
 async fn authorization_uses_pkce_resource_minimum_scopes_and_atomic_storage() {
@@ -94,6 +96,7 @@ async fn authorization_uses_pkce_resource_minimum_scopes_and_atomic_storage() {
         store,
         user_agent,
         transport,
+        public_dns_resolver(),
         clock(vec![100, 101, 102]),
         random,
         McpOAuthConfig::default(),

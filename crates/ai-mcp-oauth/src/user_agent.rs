@@ -10,7 +10,7 @@ use crate::{OAuthAuthorizationError, Result};
 /// Shared external OAuth user agent.
 pub type DynOAuthUserAgent = Arc<dyn OAuthUserAgent>;
 
-/// One validated browser authorization request supplied to the host.
+/// One validated and DNS-preflighted browser authorization request.
 pub struct OAuthUserAuthorizationRequest {
     authorization_url: SecretString,
     expires_at: u64,
@@ -106,7 +106,10 @@ impl std::fmt::Debug for OAuthAuthorizationResponse {
     unimock::unimock(api = OAuthUserAgentMock)
 )]
 #[async_trait]
-/// Opens a validated authorization URL and returns a typed callback result.
+/// Opens a preflighted authorization URL and returns a typed callback result.
+///
+/// The host remains responsible for browser DNS rebinding and redirect policy
+/// because a platform browser resolves and navigates independently.
 pub trait OAuthUserAgent: Send + Sync {
     /// Performs one explicit host-approved external user-agent interaction.
     async fn authorize(

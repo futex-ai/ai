@@ -13,7 +13,8 @@ use ai_mcp_oauth::{
     DynOAuthRandom, DynOAuthRequestTokenProvider, DynOAuthUserAgent, McpOAuthConfig,
     OAuthAuthorizationContext, OAuthClientRegistration, OAuthClientRegistrationSource,
     OAuthCredentialKey, OAuthScopes, OAuthTokenSet, OAuthTokenType, OAuthUrlPolicy,
-    RefreshingMcpAuth, ReqwestOAuthHttpTransport, SystemOAuthClock, SystemOAuthRandom,
+    RefreshingMcpAuth, ReqwestOAuthHttpTransport, SystemOAuthClock, SystemOAuthDnsResolver,
+    SystemOAuthRandom,
 };
 use json_http::{DynJsonHttpAuth, StaticHeaderAuth};
 use secrecy::SecretString;
@@ -66,6 +67,7 @@ pub(crate) fn harness(server: &FakeOAuthMcpServer) -> OAuthHarness {
             store.clone() as DynOAuthCredentialStore,
             user_agent.clone() as DynOAuthUserAgent,
             transport,
+            Arc::new(SystemOAuthDnsResolver),
             Arc::new(SystemOAuthClock) as DynOAuthClock,
             Arc::new(SystemOAuthRandom) as DynOAuthRandom,
             config.clone(),

@@ -131,6 +131,37 @@ async fn preserves_other_http_status_and_body() {
     ));
 }
 
+#[tokio::test]
+async fn surfaces_json_rpc_errors_with_null_ids() {
+    let transport = ScriptedTransport::new(vec![json_response(
+        200,
+        json!({
+            "jsonrpc": "2.0",
+            "id": null,
+            "error": {
+                "code": -32600,
+                "message": "Invalid Request",
+                "data": {"field": "params"}
+            }
+        }),
+        BTreeMap::new(),
+    )]);
+
+    let error = client(transport).ensure_initialized().await.unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::JsonRpc {
+            method,
+            code: -32600,
+            message,
+            data: Some(data),
+        } if method == "initialize"
+            && message == "Invalid Request"
+            && data == json!({"field": "params"})
+    ));
+}
+
 fn client(transport: Arc<ScriptedTransport>) -> StreamableHttpMcpClient {
     StreamableHttpMcpClient::new(
         transport,

@@ -149,6 +149,7 @@ fn disconnect_manager(
         transport,
         Unimock::new(()),
         Unimock::new(()),
+        Unimock::new(()),
         McpOAuthConfig::default(),
     )
 }

@@ -1,6 +1,10 @@
 //! Shared OAuth manager fixtures.
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    net::{IpAddr, Ipv4Addr},
+    sync::Arc,
+};
 
 use ai_mcp::{McpAuthorizationChallenge, McpAuthorizationFailure};
 use secrecy::SecretString;
@@ -10,11 +14,11 @@ use unimock::{MockFn, Unimock, matching};
 use crate::{
     AuthorizationServerMetadata, CanonicalMcpResource, DefaultMcpOAuthManager,
     DynMcpOAuthDiscovery, DynOAuthClientRegistry, DynOAuthClock, DynOAuthCredentialStore,
-    DynOAuthHttpTransport, DynOAuthRandom, DynOAuthUserAgent, McpOAuthConfig,
+    DynOAuthDnsResolver, DynOAuthHttpTransport, DynOAuthRandom, DynOAuthUserAgent, McpOAuthConfig,
     McpOAuthDiscoveryMock, OAuthAuthorizationContext, OAuthClientRegistration,
-    OAuthClientRegistrationSource, OAuthClockMock, OAuthCredentialKey, OAuthHttpResponse,
-    OAuthHttpTransportMock, OAuthScopes, OAuthTokenSet, OAuthTokenType, OAuthUrlPolicy,
-    ProtectedResourceMetadata,
+    OAuthClientRegistrationSource, OAuthClockMock, OAuthCredentialKey, OAuthDnsResolverMock,
+    OAuthHttpResponse, OAuthHttpTransportMock, OAuthScopes, OAuthTokenSet, OAuthTokenType,
+    OAuthUrlPolicy, ProtectedResourceMetadata,
 };
 
 #[expect(
@@ -27,6 +31,7 @@ pub(super) fn manager(
     store: Unimock,
     user_agent: Unimock,
     transport: Unimock,
+    dns_resolver: Unimock,
     clock: Unimock,
     random: Unimock,
     config: McpOAuthConfig,
@@ -37,6 +42,7 @@ pub(super) fn manager(
         store,
         Arc::new(user_agent) as DynOAuthUserAgent,
         transport,
+        dns_resolver,
         clock,
         random,
         config,
@@ -53,6 +59,7 @@ pub(super) fn manager_with_user_agent(
     store: Unimock,
     user_agent: DynOAuthUserAgent,
     transport: Unimock,
+    dns_resolver: Unimock,
     clock: Unimock,
     random: Unimock,
     config: McpOAuthConfig,
@@ -63,11 +70,20 @@ pub(super) fn manager_with_user_agent(
         Arc::new(store) as DynOAuthCredentialStore,
         user_agent,
         Arc::new(transport) as DynOAuthHttpTransport,
+        Arc::new(dns_resolver) as DynOAuthDnsResolver,
         Arc::new(clock) as DynOAuthClock,
         Arc::new(random) as DynOAuthRandom,
         config,
     )
     .unwrap()
+}
+
+pub(super) fn public_dns_resolver() -> Unimock {
+    Unimock::new(
+        OAuthDnsResolverMock::resolve
+            .next_call(matching!("auth.example", 443))
+            .returns(Ok(vec![IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34))])),
+    )
 }
 
 pub(super) fn clock(times: Vec<u64>) -> Unimock {
@@ -193,6 +209,7 @@ pub(super) fn refresh_manager(
         store,
         Unimock::new(()),
         transport,
+        Unimock::new(()),
         clock,
         Unimock::new(()),
         McpOAuthConfig::default(),
