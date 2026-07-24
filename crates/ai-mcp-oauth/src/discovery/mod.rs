@@ -50,6 +50,9 @@ pub trait McpOAuthDiscovery: Send + Sync {
         resource: &CanonicalMcpResource,
         challenge: &McpAuthorizationChallenge,
     ) -> Result<OAuthDiscoveryResult>;
+
+    /// Rediscovers one known issuer for refresh or disconnect after restart.
+    async fn authorization_server(&self, issuer: &str) -> Result<AuthorizationServerMetadata>;
 }
 
 /// Default discovery implementation over injected network, selection, and time.
@@ -104,27 +107,10 @@ impl DefaultMcpOAuthDiscovery {
             &protected.authorization_servers,
         )
         .await?;
-        self.config
-            .url_policy
-            .parse(&issuer, OAuthEndpointKind::AuthorizationServerMetadata)?;
-        let server_metadata_url = authorization_server_metadata_url(&issuer)?;
-        let server_response = self
-            .transport
-            .get_json(
-                &server_metadata_url,
-                OAuthEndpointKind::AuthorizationServerMetadata,
-                &self.config.url_policy,
-                self.config.http_limits(),
-            )
-            .await?;
-        require_discovery_response(
-            &server_response,
-            OAuthEndpointKind::AuthorizationServerMetadata,
-        )?;
-        let server = parse_authorization_server(&issuer, server_response.body, &self.config)?;
+        let (server, server_headers) = self.fetch_authorization_server(&issuer).await?;
         let age = cache_age_seconds(
             &protected_response.headers,
-            &server_response.headers,
+            &server_headers,
             self.config.max_metadata_cache_age.as_secs(),
         );
         Ok((
@@ -135,6 +121,28 @@ impl DefaultMcpOAuthDiscovery {
             },
             age,
         ))
+    }
+
+    async fn fetch_authorization_server(
+        &self,
+        issuer: &str,
+    ) -> Result<(AuthorizationServerMetadata, BTreeMap<String, Vec<String>>)> {
+        self.config
+            .url_policy
+            .parse(issuer, OAuthEndpointKind::AuthorizationServerMetadata)?;
+        let metadata_url = authorization_server_metadata_url(issuer)?;
+        let response = self
+            .transport
+            .get_json(
+                &metadata_url,
+                OAuthEndpointKind::AuthorizationServerMetadata,
+                &self.config.url_policy,
+                self.config.http_limits(),
+            )
+            .await?;
+        require_discovery_response(&response, OAuthEndpointKind::AuthorizationServerMetadata)?;
+        let metadata = parse_authorization_server(issuer, response.body, &self.config)?;
+        Ok((metadata, response.headers))
     }
 }
 
@@ -175,6 +183,11 @@ impl McpOAuthDiscovery for DefaultMcpOAuthDiscovery {
             );
         }
         Ok(result)
+    }
+
+    async fn authorization_server(&self, issuer: &str) -> Result<AuthorizationServerMetadata> {
+        let (metadata, _) = self.fetch_authorization_server(issuer).await?;
+        Ok(metadata)
     }
 }
 

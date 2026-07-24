@@ -48,4 +48,9 @@ impl OAuthTokenSet {
         self.expires_at
             .is_none_or(|expiry| expiry.saturating_sub(refresh_skew_seconds) > now)
     }
+
+    /// Returns whether a known expiry has already elapsed.
+    pub fn is_expired_at(&self, now: u64) -> bool {
+        self.expires_at.is_some_and(|expiry| expiry <= now)
+    }
 }

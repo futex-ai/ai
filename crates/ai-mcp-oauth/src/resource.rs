@@ -55,7 +55,7 @@ impl std::fmt::Display for CanonicalMcpResource {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 /// Deduplicated OAuth scopes retained in first-seen order.
 pub struct OAuthScopes(Vec<String>);
 

@@ -3,79 +3,10 @@
 use serde_json::Value;
 use thiserror::Error;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-/// Configuration field whose value failed validation.
-pub enum OAuthConfigField {
-    /// HTTP request timeout.
-    HttpTimeout,
-    /// User-agent callback timeout.
-    UserAgentTimeout,
-    /// Authorization state lifetime.
-    StateLifetime,
-    /// HTTP response byte limit.
-    ResponseLimit,
-    /// HTTP redirect count limit.
-    RedirectLimit,
-    /// Metadata cache lifetime.
-    MetadataCacheAge,
-    /// Access-token refresh skew.
-    RefreshSkew,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-/// OAuth endpoint being validated or requested.
-pub enum OAuthEndpointKind {
-    /// Protected-resource metadata.
-    ProtectedResourceMetadata,
-    /// Authorization-server metadata.
-    AuthorizationServerMetadata,
-    /// Browser authorization endpoint.
-    Authorization,
-    /// Token endpoint.
-    Token,
-    /// Dynamic client registration endpoint.
-    Registration,
-    /// Token revocation endpoint.
-    Revocation,
-    /// Registered callback endpoint.
-    Redirect,
-    /// Canonical MCP resource.
-    Resource,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-/// Security reason an OAuth URL was rejected.
-pub enum OAuthUnsafeUrlReason {
-    /// URL scheme is not allowed.
-    Scheme,
-    /// URL contains user information.
-    UserInfo,
-    /// URL contains a fragment.
-    Fragment,
-    /// URL has no host.
-    MissingHost,
-    /// URL uses a blocked port.
-    Port,
-    /// URL targets a private, reserved, local, or otherwise unsafe address.
-    Address,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-/// Secure-store operation that failed.
-pub enum OAuthStoreOperation {
-    /// Load a client registration.
-    LoadRegistration,
-    /// Save a client registration.
-    SaveRegistration,
-    /// Delete a client registration.
-    DeleteRegistration,
-    /// Load tokens.
-    LoadTokens,
-    /// Save tokens.
-    SaveTokens,
-    /// Delete tokens.
-    DeleteTokens,
-}
+use crate::{
+    OAuthAuthorizationError, OAuthConfigField, OAuthEndpointKind, OAuthStoreOperation,
+    OAuthTokenError, OAuthUnsafeUrlReason,
+};
 
 #[derive(Debug, Error)]
 /// Errors returned by MCP OAuth discovery and token management.
@@ -211,6 +142,82 @@ pub enum Error {
     /// An implementation detail failed without a caller-actionable category.
     #[error("[ai_mcp_oauth/internal] internal failure")]
     Internal,
+    /// Selected authorization server does not advertise S256 PKCE.
+    #[error("[ai_mcp_oauth/authorization] S256 PKCE is unsupported")]
+    PkceS256Unsupported,
+    /// The supplied MCP challenge does not permit interactive authorization.
+    #[error("[ai_mcp_oauth/authorization] challenge does not permit authorization")]
+    AuthorizationForbidden,
+    /// The resource owner denied the authorization request.
+    #[error("[ai_mcp_oauth/authorization] user denied authorization")]
+    UserDenied,
+    /// The host cancelled the external user-agent interaction.
+    #[error("[ai_mcp_oauth/authorization] user-agent interaction cancelled")]
+    UserCancelled,
+    /// The external user agent did not return before the configured deadline.
+    #[error("[ai_mcp_oauth/authorization] callback timed out")]
+    CallbackTimeout,
+    /// Authorization server returned a typed callback error.
+    #[error("[ai_mcp_oauth/authorization] callback returned {error:?}")]
+    AuthorizationRejected {
+        /// Standard authorization error.
+        error: OAuthAuthorizationError,
+    },
+    /// Authorization callback omitted its state value.
+    #[error("[ai_mcp_oauth/state] callback state is missing")]
+    StateMissing,
+    /// Authorization callback arrived after state expiry.
+    #[error("[ai_mcp_oauth/state] callback state expired")]
+    StateExpired,
+    /// Authorization state was consumed previously.
+    #[error("[ai_mcp_oauth/state] callback state was already used")]
+    StateReused,
+    /// Authorization callback state did not match the request.
+    #[error("[ai_mcp_oauth/state] callback state mismatch")]
+    StateMismatch,
+    /// Secure randomness produced a duplicate live authorization state.
+    #[error("[ai_mcp_oauth/state] duplicate authorization state")]
+    StateCollision,
+    /// Token endpoint returned a typed OAuth failure.
+    #[error("[ai_mcp_oauth/token] token request rejected with HTTP {status}: {error:?}")]
+    TokenRejected {
+        /// HTTP response status.
+        status: u16,
+        /// Standard token error.
+        error: OAuthTokenError,
+    },
+    /// Token endpoint response was malformed.
+    #[error("[ai_mcp_oauth/token] invalid token response: {source}")]
+    TokenSchema {
+        /// Underlying JSON decode failure.
+        source: serde_json::Error,
+    },
+    /// Refresh token is no longer accepted by the authorization server.
+    #[error("[ai_mcp_oauth/token] refresh token is invalid")]
+    InvalidGrant,
+    /// User interaction is required before a usable token can be obtained.
+    #[error("[ai_mcp_oauth/token] user interaction required")]
+    InteractionRequired,
+    /// Auth hook and credential key name different protected resources.
+    #[error("[ai_mcp_oauth/auth_hook] credential resource mismatch")]
+    CredentialResourceMismatch,
+    /// Best-effort token revocation failed after local credentials were removed.
+    #[error("[ai_mcp_oauth/disconnect] remote revocation failed")]
+    RevocationFailed,
+    /// Local credential deletion failed during disconnect.
+    #[error(
+        "[ai_mcp_oauth/disconnect] local token deletion failed (revocation_failed={revocation_failed})"
+    )]
+    LocalTokenDeletionFailed {
+        /// Whether remote revocation also failed.
+        revocation_failed: bool,
+    },
+    /// Required host authorization context is empty or inconsistent.
+    #[error("[ai_mcp_oauth/authorization] invalid host authorization context")]
+    InvalidAuthorizationContext,
+    /// Successful callback omitted a usable authorization code.
+    #[error("[ai_mcp_oauth/authorization] callback code is missing")]
+    AuthorizationCodeMissing,
 }
 
 /// Result alias for MCP OAuth operations.

@@ -82,10 +82,10 @@ dynamically registered public client without browser interaction.
       `cargo test -p ai-mcp-oauth --all-features`,
       `cargo xtask rust-file-length-lint --all`, and `cargo xtask check`; fix
       all failures until the milestone is green.
-- [ ] Run `git add -A`, commit the green discovery/registration milestone with
+- [x] Run `git add -A`, commit the green discovery/registration milestone with
       a descriptive Conventional Commit whose title is at most 50 characters,
       and push the current branch.
-- [ ] After the push, run `cargo xtask review`; do not apply findings
+- [x] After the push, run `cargo xtask review`; do not apply findings
       automatically, and report them with severity, context, impact, lettered
       options, and a recommended option for user decision.
 
@@ -96,52 +96,52 @@ concurrency-safe token lifecycle. At the end of this milestone, a host can
 authorize explicitly, persist tokens, inject them into MCP requests, refresh
 them without user interaction, and disconnect.
 
-- [ ] Define Unimock-enabled `OAuthUserAgent` and `McpOAuthManager` traits,
+- [x] Define Unimock-enabled `OAuthUserAgent` and `McpOAuthManager` traits,
       their dyn aliases, and the exact authorization context, browser request,
       callback response, token-set, and connection-summary DTOs; keep explicit
       authorize, forced refresh, and disconnect operations distinct.
-- [ ] Add failing deterministic tests for RFC 7636 verifier/challenge vectors,
+- [x] Add failing deterministic tests for RFC 7636 verifier/challenge vectors,
       verifier length, cryptographically random state, state expiry,
       single-use enforcement, mismatches, callback OAuth errors, cancellation,
       and timeout before implementing PKCE/state handling.
-- [ ] Build authorization URLs only from validated metadata, using S256,
+- [x] Build authorization URLs only from validated metadata, using S256,
       exact registered redirect URI, canonical `resource`, and the minimum
       host-approved plus challenge-requested scopes.
-- [ ] Implement `OAuthUserAgent` orchestration without a concrete browser:
+- [x] Implement `OAuthUserAgent` orchestration without a concrete browser:
       pass one validated URL to the host and accept only a typed callback
       result; never execute shell commands or process arbitrary callback URLs.
-- [ ] Add failing tests that require `resource` in both authorization and token
+- [x] Add failing tests that require `resource` in both authorization and token
       requests, the original verifier/redirect URI during code exchange,
       Bearer token type, absent-expiry behavior, requested/granted/refresh scope
       fallback, and secret redaction.
-- [ ] Implement one-time authorization-code exchange and atomically persist the
+- [x] Implement one-time authorization-code exchange and atomically persist the
       resulting token set under user/account, resource, issuer, client ID,
       and redirect URI; retain the granted scopes inside the token set.
-- [ ] Add failing clock/store tests for the 60-second default refresh skew,
+- [x] Add failing clock/store tests for the 60-second default refresh skew,
       configurable skew, unrelated-key concurrency, same-key single-flight,
       refresh-token rotation, omitted replacement refresh tokens,
       `invalid_grant`, transient failures, and atomic storage failure.
-- [ ] Implement non-interactive refresh so rotated tokens replace old tokens
+- [x] Implement non-interactive refresh so rotated tokens replace old tokens
       before use, explicit refresh reports `InteractionRequired` when no usable
       refresh remains, auth-hook `invalid_grant` clears credentials and omits
       the header for an authoritative MCP challenge, and transient errors
       preserve stored credentials.
-- [ ] Implement `RefreshingMcpAuth` as a resource-bound `JsonHttpAuth`: inject
+- [x] Implement `RefreshingMcpAuth` as a resource-bound `JsonHttpAuth`: inject
       fresh tokens, refresh when possible, leave headers unchanged when no
       credential exists, never invoke the user agent, and never send a token
       under a different resource identity.
-- [ ] Implement disconnect with best-effort revocation only through a
+- [x] Implement disconnect with best-effort revocation only through a
       validated advertised endpoint, followed by unconditional local deletion;
       keep network failure distinct from local deletion failure, retain cached
       registration by default, and support explicit local registration removal
       without RFC 7592 remote management.
-- [ ] Update the README with explicit authorize, hook construction, refresh,
+- [x] Update the README with explicit authorize, hook construction, refresh,
       incremental-scope, and disconnect examples using fake/in-memory host
       implementations only.
-- [ ] Run formatting, targeted Clippy with warnings denied, every crate feature
+- [x] Run formatting, targeted Clippy with warnings denied, every crate feature
       combination, targeted tests, Rust file-length lint, and
       `cargo xtask check`; fix failures until the milestone is green.
-- [ ] Run `git add -A`, commit the green authorization/token milestone with a
+- [x] Run `git add -A`, commit the green authorization/token milestone with a
       descriptive Conventional Commit whose title is at most 50 characters,
       and push the current branch.
 - [ ] After the push, run `cargo xtask review`; do not apply findings

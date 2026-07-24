@@ -82,6 +82,77 @@ The host calls discovery after `ai-mcp` returns a typed 401/403 challenge,
 shows issuer selection when needed, and supplies secure registration storage.
 It must not silently select among multiple issuers.
 
+Authorize only from an explicit host action, then bind the stored credential to
+the same canonical resource used by the MCP client:
+
+```rust,no_run
+use std::sync::Arc;
+
+use ai_mcp::{McpAuthorizationChallenge, McpAuthorizationFailure};
+use ai_mcp_oauth::{
+    DynMcpOAuthManager, DynOAuthRequestTokenProvider, McpOAuthManager,
+    OAuthAuthorizationContext, OAuthScopes, RefreshingMcpAuth,
+};
+use json_http::{DynJsonHttpAuth, JsonHttpAuth};
+
+async fn authorize_and_build_hook(
+    manager: DynMcpOAuthManager,
+    token_provider: DynOAuthRequestTokenProvider,
+    challenge: McpAuthorizationChallenge,
+    context: OAuthAuthorizationContext,
+) -> ai_mcp_oauth::Result<DynJsonHttpAuth> {
+    let connection = manager.authorize(&challenge, &context).await?;
+    let auth = RefreshingMcpAuth::new(
+        context.resource.clone(),
+        connection.key,
+        token_provider,
+    )?;
+    Ok(Arc::new(auth) as Arc<dyn JsonHttpAuth>)
+}
+```
+
+`RefreshingMcpAuth` performs only non-interactive loads and refreshes. If no
+usable token exists, it leaves the request unauthenticated so `ai-mcp` can
+return the authoritative challenge. The host owns the single retry after a
+successful authorization or refresh.
+
+Forced refresh, incremental consent, and disconnect remain separate,
+host-controlled operations:
+
+```rust,no_run
+use ai_mcp::{McpAuthorizationChallenge, McpAuthorizationFailure};
+use ai_mcp_oauth::{
+    DynMcpOAuthManager, McpOAuthManager, OAuthAuthorizationContext,
+    OAuthCredentialKey,
+};
+
+async fn maintain_connection(
+    manager: DynMcpOAuthManager,
+    key: OAuthCredentialKey,
+    context: OAuthAuthorizationContext,
+) -> ai_mcp_oauth::Result<()> {
+    manager.refresh(&key).await?;
+
+    let incremental = McpAuthorizationChallenge {
+        failure: McpAuthorizationFailure::InsufficientScope,
+        resource_metadata_url: None,
+        scopes: vec!["tools.write".to_owned()],
+        error_description: None,
+        raw_www_authenticate: Vec::new(),
+    };
+    manager.authorize(&incremental, &context).await?;
+
+    manager.disconnect(&key).await
+}
+```
+
+Examples and tests use only injected fake or in-memory stores, user agents, and
+servers. Applications must provide secure persistence and platform browser/
+callback handling. Disconnect retains the cached client registration; a host
+that wants to forget it can explicitly call
+`OAuthCredentialStore::delete_registration` with
+`OAuthCredentialKey::registration_key`. No RFC 7592 remote deletion occurs.
+
 ## Development
 
 ```sh
@@ -96,6 +167,9 @@ Tests use injected Unimock boundaries and credential-free loopback servers.
 
 - `src/discovery/` — protected-resource and authorization-server discovery
 - `src/registration.rs` — configured, cached, and dynamic client resolution
+- `src/manager/` — explicit authorization, refresh, and disconnect orchestration
+- `src/auth_hook.rs` — resource-bound non-interactive MCP authentication
+- `src/pkce.rs` and `src/state.rs` — S256 and one-time callback-state handling
 - `src/transport/` — bounded HTTP seam and DNS-pinned reqwest implementation
 - `src/url_policy.rs` — endpoint syntax and resolved-address policy
 - `src/resource.rs` — canonical resource identity and ordered scopes
