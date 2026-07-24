@@ -1,0 +1,28 @@
+[package]
+name = "ai-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[features]
+test-support = ["dep:unimock"]
+
+[dependencies]
+ai-interface = { workspace = true }
+async-trait = "0.1.91"
+bytes = "1.12.1"
+futures-util = "0.3.33"
+json-http = { workspace = true }
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls", "stream"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+thiserror = "2.0.19"
+tokio = { version = "1.53.1", features = ["sync", "time"] }
+unimock = { version = "0.6.8", optional = true }
+url = "2.5.8"
+
+[dev-dependencies]
+axum = "0.8.9"
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "time", "sync", "net"] }
+unimock = "0.6.8"

@@ -107,6 +107,12 @@ to its originating request. Enforce `max_response_bytes` against cumulative raw
 response bytes as they are read, including SSE framing, and fail immediately
 when the limit is crossed.
 
+The approved `SessionExpired` behavior deliberately leaves recovery to the
+host. MCP 2025-06-18 transport text instead says a client receiving a
+session-bound `404` must start a new session. Implementations of this contract
+must not silently change behavior; revising it requires explicit protocol
+approval because this crate's no-automatic-retry boundary is intentional.
+
 ## Crate layout
 
 ```

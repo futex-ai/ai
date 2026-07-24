@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/ai-interface",
+    "crates/ai-mcp",
     "crates/ai-models-anthropic",
     "crates/ai-models-core",
     "crates/ai-models-google",
@@ -21,6 +22,7 @@ authors = ["Futex"]
 
 [workspace.dependencies]
 ai-interface = { version = "0.2.0", path = "crates/ai-interface" }
+ai-mcp = { version = "0.2.0", path = "crates/ai-mcp" }
 ai-models-anthropic = { version = "0.2.0", path = "crates/ai-models-anthropic" }
 ai-models-core = { version = "0.2.0", path = "crates/ai-models-core" }
 ai-models-google = { version = "0.2.0", path = "crates/ai-models-google" }
