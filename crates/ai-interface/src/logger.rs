@@ -2,10 +2,9 @@
 
 use std::sync::Arc;
 
-use serde_json::Value;
 use thiserror::Error;
 
-use crate::{ModelRequest, ModelResponse, ToolCall};
+use crate::{ModelRequest, ModelResponse, ToolCall, ToolOutputEnvelope};
 
 #[derive(Clone, Debug, PartialEq)]
 /// Result observed for one model call.
@@ -40,8 +39,8 @@ pub struct ModelCallLogEntry {
 pub enum ToolCallLogResult {
     /// The tool returned JSON successfully.
     Success {
-        /// JSON payload returned by the tool.
-        output: Value,
+        /// Bounded model-visible envelope returned to the model.
+        output: ToolOutputEnvelope,
     },
     /// The tool failed and the runtime recorded an error message into conversation.
     Error {

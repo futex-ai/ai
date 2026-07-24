@@ -11,7 +11,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
-use crate::ToolCallingRuntime;
+use crate::{InMemoryToolOutputStore, ToolCallingRuntime, ToolOutputPolicy};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -89,12 +89,50 @@ pub(crate) fn runtime(model: DynModel, tools: Vec<DynTool>) -> crate::Result<Too
     runtime_with_logger(model, Arc::new(NoopLogger), tools)
 }
 
+pub(crate) fn runtime_with_store_and_policy(
+    model: DynModel,
+    tools: Vec<DynTool>,
+    output_store: crate::DynToolOutputStore,
+    output_policy: ToolOutputPolicy,
+) -> crate::Result<ToolCallingRuntime> {
+    runtime_with_logger_store_and_policy(
+        model,
+        Arc::new(NoopLogger),
+        tools,
+        output_store,
+        output_policy,
+    )
+}
+
 pub(crate) fn runtime_with_logger(
     model: DynModel,
     logger: DynLogger,
     tools: Vec<DynTool>,
 ) -> crate::Result<ToolCallingRuntime> {
-    ToolCallingRuntime::new("system prompt", model, logger, tools)
+    runtime_with_logger_store_and_policy(
+        model,
+        logger,
+        tools,
+        Arc::new(InMemoryToolOutputStore::new()),
+        ToolOutputPolicy::default(),
+    )
+}
+
+pub(crate) fn runtime_with_logger_store_and_policy(
+    model: DynModel,
+    logger: DynLogger,
+    tools: Vec<DynTool>,
+    output_store: crate::DynToolOutputStore,
+    output_policy: ToolOutputPolicy,
+) -> crate::Result<ToolCallingRuntime> {
+    ToolCallingRuntime::new(
+        "system prompt",
+        model,
+        logger,
+        tools,
+        output_store,
+        output_policy,
+    )
 }
 
 pub(crate) fn user_message(content: &str) -> ConversationMessage {

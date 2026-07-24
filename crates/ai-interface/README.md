@@ -1,133 +1,90 @@
 # ai-interface
 
-`ai-interface` is the shared contract crate for AI-facing runtime boundaries.
-Depend on it when you need the common conversation DTOs, tool, model, audio
-transcription, logging hooks, or built-in mocks without pulling in the stateful
-tool-calling runtime from `ai-tool-calling`.
+`ai-interface` is the shared contract crate for AI-facing runtime boundaries in
+this workspace. Depend on it when you need the common conversation, model, tool,
+audio transcription, routing, logging, usage, or model-visible tool output DTOs
+without taking a dependency on a stateful runtime implementation.
 
 ## Responsibilities
 
-- Own shared conversation, tool, model, audio transcription, and logger DTOs
-- Own the generic `Tool`, `Model`, `ModelRouter`, `AudioTranscriber`, and
-  `Logger` trait boundaries
-- Provide the typed model and tool error contracts used across AI crates
-- Carry public-safe tool activity metadata and lifecycle log DTOs without
-  making that metadata model-visible
-- Provide built-in mock model and audio transcriber implementations for
-  development and tests
+- Own shared DTOs for conversations, model calls, tool calls, audio
+  transcription, routing, logging, and usage metering.
+- Own the model-visible tool output DTOs used by universal output management:
+  opaque output ids, inline envelopes, window envelopes, read requests, and
+  unavailable-remainder reasons.
+- Own the generic `Model`, `Tool`, `ModelRouter`, `AudioTranscriber`, and
+  `Logger` trait boundaries plus their dyn aliases.
+- Keep individual tools pagination-agnostic: `Tool::call()` and
+  `Tool::call_with_invocation()` return raw `serde_json::Value`.
+- Define logger success payloads in terms of bounded model-visible envelopes,
+  leaving any full raw-output capture to the runtime that executed the tool.
+- Provide built-in mocks for deterministic development and tests.
 
 ## What This Crate Does
 
 - Defines `ConversationMessage`, `ConversationRole`, `ToolCall`, and
-  `ToolDefinition`
-- Defines provider replay context carried on assistant messages and model
-  responses so provider adapters can preserve opaque state needed by stateless
-  APIs without making it part of user-visible assistant text
-- Defines `ConversationContentPart::Image` for provider request payloads; image
-  parts are model-call input, not a tool-result transport or durable storage
-  contract
-- Defines `ModelRequest`, `ModelResponse`, `ModelUsage`, `FinishReason`,
-  `StructuredOutputSchema`, route request DTOs, and typed model/router errors
-- Carries normalized model usage categories and priced usage lines for
-  metering without making provider crates own pricing policy
-- Defines the generic `Tool`, `Model`, `ModelRouter`, `AudioTranscriber`, and
-  `Logger` traits plus dyn aliases
-- Defines `ToolInvocation`, the generic tool-dispatch context that carries the
-  runtime operation id/idempotency key alongside the model-visible tool name
-  and JSON input
-- Lets tools attach an optional one-word `activity_verb`; provider adapters
-  skip that field when serializing model-visible tool definitions
-- Lets tool adapters report the runtime tool group that exposed a tool so
-  logging and persistence can label dynamic app tools without hard-coded names
-- Defines `ToolActivityLogEntry` so runtimes can report public tool activity
-  separately from full tool-call input/output logs
-- Exposes `NoopLogger`, a simple `MockModel`, and `MockAudioTranscriber` for
-  deterministic local development and tests
+  `ToolDefinition`, including provider replay context on assistant messages.
+- Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
+  `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
+- Defines `ToolInvocation`, which carries the runtime operation id used as a
+  tool idempotency key alongside the model-visible tool name and JSON input.
+- Defines `ToolOutputEnvelope` as the model-visible success payload for tools.
+  Complete small outputs serialize as tagged `tool_output` envelopes. Larger or
+  degraded outputs serialize as tagged `tool_output_window` envelopes with
+  byte offsets, UTF-8 content, total byte counts, and either a next byte offset
+  or an unavailable-remainder reason.
+- Defines `ToolOutputId` as an opaque string newtype. Callers may store and
+  echo the value, but must not parse or derive meaning from `toolout_...`
+  strings.
+- Defines `ToolOutputReadRequest`, the argument DTO used by runtimes that expose
+  the intrinsic `tool_output_read` tool.
+- Defines `ToolCallLogResult::Success` with a `ToolOutputEnvelope` payload.
+  Normal logs and conversation state carry only bounded model-visible output.
+
+The raw versus model-visible boundary is intentional. A `Tool` implementation
+returns the raw JSON value it produced. Runtime crates can inspect that value in
+current-run execution records, but they serialize only `ToolOutputEnvelope`
+values into conversation tool messages and logger success entries.
 
 ## Quick Start
 
 ```rust
-use ai_interface::{ConversationMessage, Model, ModelRequest, MockModel};
+use ai_interface::{
+    ConversationMessage, Model, ModelRequest, MockModel, ToolOutputEnvelope, ToolOutputId,
+    ToolOutputReadRequest,
+};
+use serde_json::json;
 
-async fn demo() -> ai_interface::ModelResult<String> {
-    let model = MockModel::new("mock");
+async fn call_model() -> ai_interface::ModelResult<String> {
+    let model = MockModel::new("done");
     let response = model
         .complete(&ModelRequest {
             system_prompt: "You are concise.".to_owned(),
-            messages: vec![ConversationMessage::user("Summarize the build failure")],
+            messages: vec![ConversationMessage::user("Summarize the status")],
             tools: Vec::new(),
             response_schema: None,
         })
         .await?;
+
     Ok(response.assistant_message)
 }
-```
 
-Server-side speech-to-text callers use `AudioTranscriber`:
+fn serialize_inline_tool_output() -> serde_json::Result<String> {
+    let raw_output = json!({ "matches": ["alpha"] });
+    let total_bytes = serde_json::to_string(&raw_output)?.len();
+    let envelope = ToolOutputEnvelope::inline("search", raw_output, total_bytes);
 
-```rust
-use ai_interface::{AudioTranscriber, AudioTranscriptionRequest, MockAudioTranscriber};
+    serde_json::to_string(&envelope)
+}
 
-async fn transcribe_demo() -> ai_interface::TranscriptionResult<String> {
-    let transcriber = MockAudioTranscriber::new("ship it");
-    let response = transcriber
-        .transcribe(&AudioTranscriptionRequest {
-            audio: b"audio".to_vec(),
-            filename: "voice.m4a".to_owned(),
-            content_type: "audio/mp4".to_owned(),
-        })
-        .await?;
-    Ok(response.text)
+fn read_next_window(output_id: &str) -> ToolOutputReadRequest {
+    ToolOutputReadRequest {
+        output_id: ToolOutputId::from_opaque(output_id),
+        offset: Some(20_000),
+        length: None,
+    }
 }
 ```
-
-Structured responses are optional at the shared boundary. Callers can attach a
-`StructuredOutputSchema` to `ModelRequest::response_schema` and read validated
-JSON back from `ModelResponse::structured_output` when the provider returns a
-normal `Stop` response. Provider adapters preserve non-success finish reasons
-such as `Filtered` or `Truncated` without attempting schema validation.
-
-`ModelResponse::finish_reason` carries the provider stop signal normalized to
-`FinishReason`: `Stop` for natural completion, `ToolCalls` for model-requested
-tool dispatch, `Truncated` for token or context limits, `Filtered` for
-provider policy filtering/refusal, and `Other(raw)` for unrecognized provider
-values.
-`ModelResponse::model_id` is the concrete provider model id used for the
-upstream call. Provider adapters may also populate
-`ModelResponse::catalog_model_id` and `ModelResponse::thinking_level` so
-runtime logs can distinguish catalog variants that target the same provider
-model with different thinking settings.
-`ModelUsage` includes provider-normalized, non-overlapping input, output, cached
-input, and reasoning token counts. Runtime pricing wrappers can attach
-`ModelUsageCostLine` rows with unit kind, quantity, price snapshot, rate
-version, measurement state, and micro-USD cost for the usage metering ledger.
-Provider request failures that clearly indicate the input exceeded the model
-context window use `ModelError::ContextLimitExceeded` so callers can compact
-retained history and retry safely.
-
-Provider adapters can populate `ModelResponse::provider_context` with opaque
-or provider-specific replay items. Conversation runtimes should retain those
-items on the corresponding assistant message and pass them back in later model
-requests; callers should not render them as assistant text or tool output.
-OpenAI Responses adapters use this context for reasoning items and raw
-function-call items whose provider item ids and original argument strings must
-be replayed exactly during stateless tool-calling continuations. They also use
-it for assistant message `phase` metadata so preambles and final answers keep
-their original phase when a caller manually replays Responses history.
-xAI adapters use this context to remember legacy `function_call` responses so
-later tool results can be replayed using the provider's legacy function-message
-shape instead of modern `tool_call_id` messages.
-
-Model routing is expressed separately from `ModelRequest`. Callers ask a
-`ModelRouter` to resolve a `ModelRouteRequest` containing hard requirements
-and ordered preferences; the resolved `DynModel` then executes normal model
-requests. `ModelRouteRequest::default()` means deployment-priority ordering.
-Multimodal callers should populate `ConversationMessage::content_parts` with
-text and image parts only for the model call that needs pixels. Runtime crates
-remain responsible for redacting or stripping those image parts before
-persisting public conversation history, logs, or summaries.
-`ModelRequirement::ModelId` pins routing to a configured catalog model id while
-still letting the router apply credential validation and provider construction.
 
 ## Development
 
@@ -136,21 +93,29 @@ cargo test -p ai-interface
 cargo clippy -p ai-interface --all-targets --all-features -- -D warnings
 ```
 
+The crate is intentionally dependency-light. `serde` and `serde_json` are used
+for contract DTOs, while runtime policy, storage, pagination, and intrinsic
+tool dispatch live in `ai-tool-calling`.
+
 ### Key Code
 
-- `src/messages.rs` - conversation DTOs and convenience constructors
-- `src/model.rs` - model trait, request/response DTOs, and typed model errors
-- `src/router.rs` - model route request DTOs and router trait
+- `src/messages.rs` - conversation DTOs and provider replay context.
+- `src/model.rs` - model trait, request/response DTOs, finish reasons, and
+  typed model errors.
+- `src/router.rs` - model route request DTOs and router trait.
 - `src/audio_transcriber.rs` - speech-to-text trait, request/response DTOs,
-  and typed transcription errors
-- `src/tools.rs` - tool trait, tool DTOs, and tool errors
-- `src/logger.rs` - logger trait, log payloads, and `NoopLogger`
-- `src/mock_model.rs` - built-in mock model for development and tests
-- `src/mock_audio_transcriber.rs` - built-in mock transcriber for development
-  and tests
+  and typed transcription errors.
+- `src/tools.rs` - tool trait, tool DTOs, invocation context, and tool errors.
+- `src/output/` - model-visible tool output ids, envelopes, reasons, and read
+  request DTOs.
+- `src/logger.rs` - logger trait, log payloads, `ToolCallLogResult`, and
+  `NoopLogger`.
+- `src/mock_model.rs` and `src/mock_audio_transcriber.rs` - built-in mocks for
+  tests and local development.
 
 ### Related Docs
 
 - [`../ai-tool-calling/README.md`](../ai-tool-calling/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
+- [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
 - [`../../plans/README.md`](../../plans/README.md)

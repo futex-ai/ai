@@ -12,4 +12,5 @@ No active plans.
 
 - [AI MCP OAuth](ai-mcp-oauth.md)
 - [AI MCP crate](ai-mcp-crate.md)
+- [Universal tool output management](universal-tool-output-management.md)
 - [Copy AI crates from Juno](copy-ai-crates-from-juno.md)

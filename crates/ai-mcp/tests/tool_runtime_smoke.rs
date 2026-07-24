@@ -13,7 +13,9 @@ use ai_mcp::{
     McpClient, McpContentBlock, McpServerConfig, McpServerHandshake, McpToolCallOutcome,
     McpToolDescriptor, McpToolSet, Result,
 };
-use ai_tool_calling::{NoopTurnCheckpoint, RunOutcome, ToolCallingRuntime};
+use ai_tool_calling::{
+    InMemoryToolOutputStore, NoopTurnCheckpoint, RunOutcome, ToolCallingRuntime, ToolOutputPolicy,
+};
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
@@ -31,6 +33,8 @@ async fn runtime_advertises_and_dispatches_mcp_tools() {
         Arc::new(FixtureModel::default()),
         Arc::new(NoopLogger),
         vec![tool],
+        Arc::new(InMemoryToolOutputStore::new()),
+        ToolOutputPolicy::default(),
     )
     .unwrap();
 

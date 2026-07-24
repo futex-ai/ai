@@ -5,7 +5,10 @@ use std::{collections::BTreeMap, sync::Arc};
 use ai_interface::{ConversationMessage, DynLogger, DynModel, DynTool, ToolDefinition};
 use parking_lot::Mutex;
 
-use crate::{Error, Result, turn::ActiveTurn};
+use crate::intrinsic::{is_intrinsic_tool, tool_output_read_definition};
+use crate::{
+    DynToolOutputStore, Error, Result, ToolOutputPolicy, ToolOutputPolicyLimits, turn::ActiveTurn,
+};
 
 #[derive(Clone)]
 struct ToolCatalog {
@@ -24,6 +27,11 @@ impl ToolCatalog {
         let mut owners_by_name = BTreeMap::new();
         for (index, tool) in tools.iter().enumerate() {
             for definition in tool.definitions() {
+                if is_intrinsic_tool(&definition.name) {
+                    return Err(Error::ReservedToolDefinition {
+                        name: definition.name,
+                    });
+                }
                 if owners_by_name
                     .insert(definition.name.clone(), index)
                     .is_some()
@@ -41,6 +49,11 @@ impl ToolCatalog {
                 definitions.push(definition);
             }
         }
+        let intrinsic = tool_output_read_definition();
+        if let Some(activity_verb) = &intrinsic.activity_verb {
+            activity_verbs_by_name.insert(intrinsic.name.clone(), activity_verb.clone());
+        }
+        definitions.push(intrinsic);
         Ok(Self {
             activity_verbs_by_name,
             definitions,
@@ -55,6 +68,8 @@ impl ToolCatalog {
 struct RuntimeConfig {
     system_prompt: String,
     conversation: Vec<ConversationMessage>,
+    output_policy: ToolOutputPolicy,
+    output_store: DynToolOutputStore,
     tools: ToolCatalog,
 }
 
@@ -67,12 +82,14 @@ pub struct ToolCallingRuntime {
 }
 
 impl ToolCallingRuntime {
-    /// Builds a runtime from injected model, logger, and tool dependencies.
+    /// Builds a runtime from injected model, logger, tool, and output-store dependencies.
     pub fn new(
         system_prompt: impl Into<String>,
         model: DynModel,
         logger: DynLogger,
         tools: Vec<DynTool>,
+        output_store: DynToolOutputStore,
+        output_policy: ToolOutputPolicy,
     ) -> Result<Self> {
         let tools = ToolCatalog::new(tools)?;
         Ok(Self {
@@ -81,9 +98,34 @@ impl ToolCallingRuntime {
             state: Arc::new(Mutex::new(RuntimeConfig {
                 system_prompt: system_prompt.into(),
                 conversation: Vec::new(),
+                output_policy,
+                output_store,
                 tools,
             })),
         })
+    }
+
+    /// Builds a runtime after validating raw output policy limit values.
+    pub fn new_with_output_policy_limits(
+        system_prompt: impl Into<String>,
+        model: DynModel,
+        logger: DynLogger,
+        tools: Vec<DynTool>,
+        output_store: DynToolOutputStore,
+        output_limits: ToolOutputPolicyLimits,
+    ) -> Result<Self> {
+        let output_policy = match ToolOutputPolicy::from_limits(output_limits) {
+            Ok(output_policy) => output_policy,
+            Err(source) => return Err(Error::OutputPolicy { source }),
+        };
+        Self::new(
+            system_prompt,
+            model,
+            logger,
+            tools,
+            output_store,
+            output_policy,
+        )
     }
 
     /// Returns the retained conversation state.
@@ -138,6 +180,11 @@ impl ToolCallingRuntime {
         Ok(())
     }
 
+    /// Replaces the output store for future tool output reads and writes.
+    pub fn replace_output_store(&self, output_store: DynToolOutputStore) {
+        self.state.lock().output_store = output_store;
+    }
+
     /// Appends a caller-supplied message and starts a new turn handle.
     pub fn send<'a>(
         &'a self,
@@ -189,5 +236,13 @@ impl ToolCallingRuntime {
 
     pub(crate) fn tool_group_for_name(&self, name: &str) -> Option<String> {
         self.state.lock().tools.groups_by_name.get(name).cloned()
+    }
+
+    pub(crate) fn output_store(&self) -> DynToolOutputStore {
+        self.state.lock().output_store.clone()
+    }
+
+    pub(crate) fn output_policy(&self) -> ToolOutputPolicy {
+        self.state.lock().output_policy
     }
 }
