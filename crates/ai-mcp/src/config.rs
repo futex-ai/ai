@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use crate::{Error, Result};
+use crate::{Error, Result, tool_set_result::MIN_RESPONSE_BYTES};
 
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const DEFAULT_TOOL_CALL_TIMEOUT: Duration = Duration::from_secs(120);
@@ -19,7 +19,7 @@ pub struct McpServerConfig {
     pub request_timeout: Duration,
     /// Timeout for tool calls.
     pub tool_call_timeout: Duration,
-    /// Maximum bytes accepted from one HTTP response.
+    /// Maximum bytes accepted from one HTTP response or exposed tool result.
     pub max_response_bytes: usize,
     /// Optional activity label copied onto exposed tool definitions.
     pub activity_verb: Option<String>,
@@ -38,7 +38,7 @@ impl McpServerConfig {
         }
     }
 
-    /// Validates the stable server key and positive limits.
+    /// Validates the stable server key, response limit, and timeouts.
     pub fn validate(&self) -> Result<()> {
         let valid_key = !self.server_key.is_empty()
             && self.server_key.len() <= 32
@@ -50,8 +50,10 @@ impl McpServerConfig {
                 server_key: self.server_key.clone(),
             });
         }
-        if self.max_response_bytes == 0 {
-            return Err(Error::InvalidResponseLimit);
+        if self.max_response_bytes < MIN_RESPONSE_BYTES {
+            return Err(Error::InvalidResponseLimit {
+                minimum: MIN_RESPONSE_BYTES,
+            });
         }
         if self.request_timeout.is_zero() || self.tool_call_timeout.is_zero() {
             return Err(Error::InvalidTimeout);

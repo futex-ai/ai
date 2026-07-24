@@ -215,3 +215,33 @@ review.
       change review findings automatically, and report every finding with a
       number, severity, feature/codebase context, impact of doing nothing,
       lettered solution options, and a recommended option for user decision.
+
+## Milestone 4: Review-Driven Response-Limit Hardening
+
+Make every accepted adapter response limit large enough to preserve the
+explicit truncation envelope. At the end of this milestone, undersized limits
+fail during configuration and every successful model-visible result remains
+within its configured byte cap.
+
+- [x] Add a failing configuration regression test for positive response limits
+      that cannot contain the empty truncation envelope.
+- [x] Define one named minimum beside the envelope implementation, reject
+      smaller limits with a typed error carrying that minimum, and retain the
+      existing bounded runtime behavior.
+- [x] Add drift and boundary tests for the serialized empty envelope, the exact
+      minimum limit, and nearby limits.
+- [x] Update the protocol and crate README with the correctness floor and the
+      complete configuration-error contract.
+- [x] Run targeted MCP tests, formatting, workspace Clippy with warnings
+      denied, all workspace tests, Rust file-length lint, smoke tests, and
+      `cargo xtask check`.
+- [x] Document the Fable-identified invariant tying the minimum response limit
+      to the serialized empty truncation envelope.
+- [x] Have Claude Code Fable 5 inspect the completed diff and validate the
+      response-limit solution.
+- [ ] Run `git add -A`, commit the green hardening work with a descriptive
+      Conventional Commit whose title is at most 50 characters, and push the
+      current branch.
+- [ ] After the push, run `cargo xtask review` and continue the authorized
+      review-fix loop until no valid findings remain or the ten-cycle limit is
+      reached.

@@ -103,6 +103,10 @@ configurable, positive, and bounded before network or authorization work.
 - A fresh `WWW-Authenticate` resource-metadata URL invalidates cached discovery
   for that resource. Otherwise, metadata caching follows HTTP cache directives
   and is bounded by a configurable maximum age.
+- This private cache does not revalidate. `no-store`, bare or qualified
+  `no-cache`, and malformed `max-age` therefore disable reuse. When multiple
+  valid `max-age` directives or discovery responses apply, use the shortest
+  lifetime independent of directive or header order.
 
 ## Client registration
 
@@ -250,8 +254,15 @@ Errors and diagnostics never contain authorization codes or token values.
 
 - Require HTTPS for production discovery and OAuth endpoints; permit HTTP only
   for explicit loopback development.
+- Treat IPv4/IPv6 loopback literals, IPv4-mapped loopback, `localhost`,
+  `*.localhost`, and their trailing-dot forms as loopback. Reject loopback
+  HTTPS under every policy. Development HTTP requires every resolved address
+  to remain loopback, so a local-looking hostname cannot send plaintext
+  traffic off-box.
 - Reject user info, fragments, dangerous schemes, private/reserved/link-local
-  destinations, and disallowed ports according to the injected URL policy.
+  destinations, IPv4-compatible, well-known NAT64 (`64:ff9b::/96`), and 6to4
+  transition ranges, and disallowed ports according to the injected URL
+  policy; loopback destinations do not bypass the blocked-port list.
 - Disable automatic redirects; validate scheme, resolved destination, and
   policy at every hop. Pin the connection to validated addresses or verify the
   connected peer so DNS cannot change between validation and use.

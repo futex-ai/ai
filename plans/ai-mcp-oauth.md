@@ -202,3 +202,39 @@ credentials or unsafe discovery behavior.
       change findings automatically, and report every item with a number,
       severity, context, impact of doing nothing, lettered solution options,
       and a recommended option.
+
+## Milestone 4: Review-Driven URL And Cache Hardening
+
+Close the browser-facing loopback-policy gap and make metadata caching obey
+non-reuse directives independent of wire order. At the end of this milestone,
+production rejects syntactic loopback destinations, development HTTP remains
+strictly loopback-bound, blocked ports stay blocked, and discovery never
+reuses metadata forbidden by cache controls.
+
+- [x] Add failing regressions for localhost and subdomain loopback forms,
+      trailing dots, mapped loopback addresses, development-only HTTP,
+      unconditional blocked ports, and resolved-address enforcement.
+- [x] Implement consistent syntactic and resolved loopback policy without
+      allowing development HTTP to reach a public address.
+- [x] Add failing cache regressions for directive ordering, `no-store`,
+      qualified and unqualified `no-cache`, duplicate/quoted `max-age`,
+      malformed ages, multiple header values, and combined metadata responses.
+- [x] Implement conservative all-directive cache parsing and prove a
+      `no-store` discovery response is fetched again.
+- [x] Update the OAuth protocol and crate README with loopback recognition,
+      blocked-port behavior, resolved-address requirements, and non-revalidating
+      cache semantics.
+- [x] Run targeted OAuth tests, formatting, workspace Clippy with warnings
+      denied, all workspace tests, Rust file-length lint, smoke tests, and
+      `cargo xtask check`.
+- [x] Add failing regressions for IPv4-compatible, well-known NAT64, and 6to4
+      IPv6 destinations identified by Fable, then reject those transition
+      ranges and document the conservative policy.
+- [x] Have Claude Code Fable 5 inspect the completed diff and validate the URL
+      and cache solutions.
+- [ ] Run `git add -A`, commit the green hardening work with a descriptive
+      Conventional Commit whose title is at most 50 characters, and push the
+      current branch.
+- [ ] After the push, run `cargo xtask review` and continue the authorized
+      review-fix loop until no valid findings remain or the ten-cycle limit is
+      reached.

@@ -5,6 +5,9 @@ use serde_json::{Value, json};
 
 use crate::{McpContentBlock, McpToolCallOutcome};
 
+/// Serialized byte length of the empty truncation envelope.
+pub(crate) const MIN_RESPONSE_BYTES: usize = 31;
+
 pub(crate) fn map_outcome(
     tool_name: &str,
     outcome: McpToolCallOutcome,
@@ -50,7 +53,7 @@ fn truncation_envelope(
     source: &str,
     max_response_bytes: usize,
 ) -> ToolResult<Value> {
-    let empty = json!({"truncated": true, "content": ""});
+    let empty = empty_truncation_envelope();
     let baseline = serialized_len(tool_name, &empty)?;
     let available = max_response_bytes.saturating_sub(baseline);
     let mut prefix = String::new();
@@ -70,9 +73,17 @@ fn truncation_envelope(
     Ok(json!({"truncated": true, "content": prefix}))
 }
 
+fn empty_truncation_envelope() -> Value {
+    json!({"truncated": true, "content": ""})
+}
+
 fn serialized_len(tool_name: &str, value: &Value) -> ToolResult<usize> {
     match serde_json::to_vec(value) {
         Ok(serialized) => Ok(serialized.len()),
         Err(source) => Err(ToolError::execution(tool_name, source)),
     }
 }
+
+#[cfg(test)]
+#[path = "_tests_/tool_set_result_tests.rs"]
+mod tool_set_result_tests;

@@ -8,7 +8,7 @@ use unimock::{MockFn, Unimock, matching};
 
 use crate::{
     Error, McpAnnotations, McpClientMock, McpContentBlock, McpRole, McpServerConfig,
-    McpToolCallOutcome, McpToolSet,
+    McpToolCallOutcome, McpToolSet, tool_set_result::MIN_RESPONSE_BYTES,
 };
 
 use super::support::{client, descriptor, unused_client};
@@ -120,6 +120,21 @@ async fn truncation_envelope_ends_on_a_utf8_boundary() {
     assert_eq!(output["truncated"], true);
     assert!(output["content"].as_str().is_some());
     assert!(serde_json::to_vec(&output).unwrap().len() <= 80);
+}
+
+#[tokio::test]
+async fn truncation_envelope_respects_minimum_and_nearby_limits() {
+    for limit in MIN_RESPONSE_BYTES..=MIN_RESPONSE_BYTES + 4 {
+        let mut config = McpServerConfig::new("demo", "https://example.com/mcp");
+        config.max_response_bytes = limit;
+        let output = call_once_with_config(text_outcome(&"x".repeat(100)), config).await;
+
+        assert_eq!(output["truncated"], true);
+        assert!(serde_json::to_vec(&output).unwrap().len() <= limit);
+        if limit == MIN_RESPONSE_BYTES {
+            assert_eq!(output["content"], "");
+        }
+    }
 }
 
 async fn call_once(outcome: McpToolCallOutcome) -> Value {

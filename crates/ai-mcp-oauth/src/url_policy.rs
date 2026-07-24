@@ -41,13 +41,16 @@ impl OAuthUrlPolicy {
             return Err(unsafe_url(endpoint, OAuthUnsafeUrlReason::MissingHost));
         };
         let loopback_host = is_loopback_host(&host);
-        match url.scheme() {
-            "https" => {}
-            "http" if self.allow_loopback_http && loopback_host => {}
+        match (url.scheme(), loopback_host) {
+            ("https", false) => {}
+            ("https", true) => {
+                return Err(unsafe_url(endpoint, OAuthUnsafeUrlReason::Address));
+            }
+            ("http", true) if self.allow_loopback_http => {}
             _ => return Err(unsafe_url(endpoint, OAuthUnsafeUrlReason::Scheme)),
         }
         let port = url.port_or_known_default().unwrap_or(0);
-        if port == 0 || (!loopback_host && blocked_port(port)) {
+        if port == 0 || blocked_port(port) {
             return Err(unsafe_url(endpoint, OAuthUnsafeUrlReason::Port));
         }
         if let Some(address) = host_address(&host)
@@ -59,18 +62,39 @@ impl OAuthUrlPolicy {
     }
 
     pub(crate) fn address_allowed(&self, address: IpAddr, scheme: &str) -> bool {
-        if address.is_loopback() {
-            return scheme == "http" && self.allow_loopback_http;
+        match scheme {
+            "http" => self.allow_loopback_http && is_loopback_address(address),
+            "https" => is_public_address(address),
+            _ => false,
         }
-        is_public_address(address)
     }
 }
 
 fn is_loopback_host(host: &Host<&str>) -> bool {
     match host {
-        Host::Domain(domain) => domain.eq_ignore_ascii_case("localhost"),
+        Host::Domain(domain) => is_localhost_domain(domain),
         Host::Ipv4(address) => address.is_loopback(),
-        Host::Ipv6(address) => address.is_loopback(),
+        Host::Ipv6(address) => is_loopback_address(IpAddr::V6(*address)),
+    }
+}
+
+fn is_localhost_domain(domain: &str) -> bool {
+    let normalized = domain.strip_suffix('.').unwrap_or(domain);
+    normalized.eq_ignore_ascii_case("localhost")
+        || normalized
+            .rsplit_once('.')
+            .is_some_and(|(_, suffix)| suffix.eq_ignore_ascii_case("localhost"))
+}
+
+fn is_loopback_address(address: IpAddr) -> bool {
+    match address {
+        IpAddr::V4(address) => address.is_loopback(),
+        IpAddr::V6(address) => {
+            address.is_loopback()
+                || address
+                    .to_ipv4_mapped()
+                    .is_some_and(|mapped| mapped.is_loopback())
+        }
     }
 }
 
@@ -146,9 +170,19 @@ fn is_public_v6(address: Ipv6Addr) -> bool {
     !(address.is_unspecified()
         || address.is_loopback()
         || address.is_multicast()
+        || is_ipv4_transition_address(segments)
         || (segments[0] & 0xfe00) == 0xfc00
         || (segments[0] & 0xffc0) == 0xfe80
         || (segments[0] == 0x2001 && segments[1] == 0x0db8))
+}
+
+/// Detects IPv4-compatible, well-known NAT64, and 6to4 address ranges.
+fn is_ipv4_transition_address(segments: [u16; 8]) -> bool {
+    segments[..6].iter().all(|segment| *segment == 0)
+        || (segments[0] == 0x0064
+            && segments[1] == 0xff9b
+            && segments[2..6].iter().all(|segment| *segment == 0))
+        || segments[0] == 0x2002
 }
 
 fn unsafe_url(endpoint: OAuthEndpointKind, reason: OAuthUnsafeUrlReason) -> Error {

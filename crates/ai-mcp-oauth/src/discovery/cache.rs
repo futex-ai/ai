@@ -14,17 +14,43 @@ pub(super) fn cache_age_seconds(
 
 fn response_cache_age(headers: &BTreeMap<String, Vec<String>>) -> Option<u64> {
     let values = headers.get("cache-control")?;
+    let mut minimum = None;
+    let mut force_zero = false;
     for directive in values.iter().flat_map(|value| value.split(',')) {
         let directive = directive.trim();
-        if directive.eq_ignore_ascii_case("no-store") {
-            return Some(0);
+        let (name, value) = match directive.split_once('=') {
+            Some((name, value)) => (name.trim(), Some(value.trim())),
+            None => (directive, None),
+        };
+        if name.eq_ignore_ascii_case("no-store") || name.eq_ignore_ascii_case("no-cache") {
+            force_zero = true;
+            continue;
         }
-        if let Some((name, value)) = directive.split_once('=')
-            && name.trim().eq_ignore_ascii_case("max-age")
-            && let Ok(seconds) = value.trim().trim_matches('"').parse()
-        {
-            return Some(seconds);
+        if name.eq_ignore_ascii_case("max-age") {
+            let Some(seconds) = value.and_then(parse_delta_seconds) else {
+                force_zero = true;
+                continue;
+            };
+            minimum = Some(minimum.map_or(seconds, |current: u64| current.min(seconds)));
         }
     }
-    None
+    if force_zero { Some(0) } else { minimum }
 }
+
+fn parse_delta_seconds(value: &str) -> Option<u64> {
+    let value = if value.starts_with('"') && value.ends_with('"') && value.len() >= 2 {
+        &value[1..value.len() - 1]
+    } else if value.contains('"') {
+        return None;
+    } else {
+        value
+    };
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    value.parse().ok()
+}
+
+#[cfg(test)]
+#[path = "_tests_/cache_tests.rs"]
+mod cache_tests;

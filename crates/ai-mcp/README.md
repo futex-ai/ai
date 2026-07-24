@@ -26,6 +26,11 @@ collision suffixes and a 64-character limit. Hosts own refresh cadence: build a
 new snapshot when `tools_list_changed()` is true or according to product cache
 policy.
 
+`max_response_bytes` bounds both raw MCP responses and model-visible adapter
+results. Configuration below 31 bytes is rejected so even an empty explicit
+truncation envelope fits; this correctness floor is not a practical handshake
+size recommendation.
+
 HTTP authentication is injected through `json_http::JsonHttpAuth`. The crate
 surfaces typed `AuthorizationRequired` and `Forbidden` errors but never opens a
 browser, stores credentials, or retries authorization.

@@ -91,9 +91,12 @@ pub enum Error {
         /// Rejected server key.
         server_key: String,
     },
-    /// The configured response cap is zero.
-    #[error("[ai_mcp/error] response limit must be positive")]
-    InvalidResponseLimit,
+    /// The configured response cap cannot contain the truncation envelope.
+    #[error("[ai_mcp/error] response limit must be at least {minimum} bytes")]
+    InvalidResponseLimit {
+        /// Smallest supported response limit in bytes.
+        minimum: usize,
+    },
     /// A configured timeout is zero.
     #[error("[ai_mcp/error] request timeouts must be positive")]
     InvalidTimeout,

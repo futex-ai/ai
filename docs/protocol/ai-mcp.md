@@ -163,7 +163,8 @@ pub struct McpServerConfig {
     pub request_timeout: Duration,
     /// Timeout for tools/call requests. Default 120s.
     pub tool_call_timeout: Duration,
-    /// Cap on bytes read from any HTTP response body. Default 1 MiB.
+    /// Cap on bytes read from a response or exposed by a tool. Default 1 MiB;
+    /// minimum 31 bytes so the empty truncation envelope always fits.
     pub max_response_bytes: usize,
     /// Optional UI activity verb applied to every exposed tool definition.
     pub activity_verb: Option<String>,
@@ -408,6 +409,9 @@ emits an `Unknown` value unchanged. `structured_content` maps to
   6. Else → `Value::Array` of the wire-JSON content blocks.
   - If the serialized result would exceed `max_response_bytes`, return
     `json!({"truncated": true, "content": "<utf-8-safe prefix>"})`.
+  - Reject configuration below the 31-byte serialized empty truncation
+    envelope. This is a correctness floor, not a recommended operational
+    response limit; realistic MCP handshakes require more space.
 
 ## Error contract
 
@@ -459,6 +463,8 @@ itself stays actionable. A 401 without a recognized error is
 | `Transport { message: String }` | reqwest/IO failures (mirrors `json_http::Error::Transport` precedent) |
 | `Auth { message: String }` | the injected `JsonHttpAuth` hook failed |
 | `InvalidServerKey { server_key: String }` | config validation |
+| `InvalidResponseLimit { minimum: usize }` | configured response limit is smaller than the explicit truncation envelope |
+| `InvalidTimeout` | a configured request or tool-call timeout is zero |
 
 ## Testing requirements
 

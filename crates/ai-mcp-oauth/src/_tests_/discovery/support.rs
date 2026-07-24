@@ -88,6 +88,10 @@ pub(super) fn server_json(issuer: &str) -> Value {
 }
 
 pub(super) fn response(body: Value, max_age: u64) -> OAuthHttpResponse {
+    response_with_cache_control(body, &format!("max-age={max_age}"))
+}
+
+pub(super) fn response_with_cache_control(body: Value, cache_control: &str) -> OAuthHttpResponse {
     OAuthHttpResponse {
         status: 200,
         headers: BTreeMap::from([
@@ -95,10 +99,7 @@ pub(super) fn response(body: Value, max_age: u64) -> OAuthHttpResponse {
                 "content-type".to_owned(),
                 vec!["application/json; charset=utf-8".to_owned()],
             ),
-            (
-                "cache-control".to_owned(),
-                vec![format!("max-age={max_age}")],
-            ),
+            ("cache-control".to_owned(), vec![cache_control.to_owned()]),
         ]),
         body,
     }

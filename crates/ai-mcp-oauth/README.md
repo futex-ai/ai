@@ -29,7 +29,11 @@ or public-client dynamic registration in that order.
 The production transport disables automatic redirects, validates each hop
 before dispatch, checks every DNS result, pins validated addresses, and bounds
 time and bytes. HTTP loopback is available only through the explicit
-development policy. The crate does not provide a browser, callback listener,
+development policy: local hostnames and literals must resolve exclusively to
+loopback addresses, blocked ports remain blocked, and IPv4-compatible,
+well-known NAT64 (`64:ff9b::/96`), and 6to4 transition ranges are rejected.
+Metadata marked `no-store` or `no-cache`, or carrying an invalid `max-age`, is
+never reused. The crate does not provide a browser, callback listener,
 Keychain/database implementation, or product UI.
 
 ## Quick Start

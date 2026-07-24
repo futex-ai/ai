@@ -144,6 +144,34 @@ async fn rejects_every_resolution_when_one_address_is_unsafe() {
     assert!(matches!(error, Error::UnsafeUrl { .. }));
 }
 
+#[tokio::test]
+async fn development_http_rejects_a_public_resolution_for_localhost_name() {
+    let resolver = Arc::new(Unimock::new(
+        OAuthDnsResolverMock::resolve
+            .next_call(matching!("api.localhost", 8123))
+            .returns(Ok(vec!["93.184.216.34".parse::<IpAddr>().unwrap()])),
+    )) as Arc<dyn OAuthDnsResolver>;
+    let transport = ReqwestOAuthHttpTransport::with_resolver(resolver);
+
+    let error = transport
+        .get_json(
+            "http://api.localhost:8123/metadata",
+            OAuthEndpointKind::ProtectedResourceMetadata,
+            &OAuthUrlPolicy::loopback_development(),
+            limits(1, 1024),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::UnsafeUrl {
+            reason: crate::OAuthUnsafeUrlReason::Address,
+            ..
+        }
+    ));
+}
+
 fn limits(max_redirects: usize, max_response_bytes: usize) -> OAuthHttpLimits {
     OAuthHttpLimits {
         timeout: Duration::from_secs(2),
