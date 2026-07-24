@@ -198,7 +198,7 @@ credentials or unsafe discovery behavior.
 - [x] Run `git add -A`, commit all completed integration work with a
       descriptive Conventional Commit whose title is at most 50 characters,
       and push the current branch.
-- [ ] After the push, run `cargo xtask review` against `origin/main`; do not
+- [x] After the push, run `cargo xtask review` against `origin/main`; do not
       change findings automatically, and report every item with a number,
       severity, context, impact of doing nothing, lettered solution options,
       and a recommended option.
