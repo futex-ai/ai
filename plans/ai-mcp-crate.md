@@ -119,7 +119,7 @@ close the session without depending on the tool adapter.
 - [x] Run `git add -A`, commit the green protocol-client milestone with a
       descriptive Conventional Commit whose title is at most 50 characters,
       and push the current branch.
-- [ ] After the push, run `cargo xtask review`; do not apply findings
+- [x] After the push, run `cargo xtask review`; do not apply findings
       automatically, and report them with the required severity, context,
       impact, solution options, and recommendation for user decision.
 
@@ -130,37 +130,37 @@ boundary. At the end of this milestone, `ai-tool-calling` can register the
 adapter, advertise provider-legal definitions, and dispatch model tool calls
 back to the correct original MCP tool.
 
-- [ ] Implement `McpToolSet::new` and `McpToolSet::load` with the protocol's
+- [x] Implement `McpToolSet::new` and `McpToolSet::load` with the protocol's
       borrowed `&McpServerConfig` signature, copying only the server key,
       activity verb, and response-size limit needed by the immutable adapter
       snapshot.
-- [ ] Add failing unit tests for deterministic `mcp__{server_key}__{tool}`
+- [x] Add failing unit tests for deterministic `mcp__{server_key}__{tool}`
       naming, character replacement, 64-character truncation, collision
       suffixes with re-truncation, stable prefixed-to-original dispatch, and
       invalid server keys before implementing the naming helpers.
-- [ ] Build `ToolDefinition` snapshots from discovered descriptors using the
+- [x] Build `ToolDefinition` snapshots from discovered descriptors using the
       required description/title/name fallback, pass through input schemas,
       attach the optional activity verb, and report group `mcp` only for names
       owned by this adapter.
-- [ ] Add failing unit tests for unknown names, client failures, MCP
+- [x] Add failing unit tests for unknown names, client failures, MCP
       `is_error` outcomes, structured content, single text results,
       multi-block wire JSON retaining annotations, metadata, embedded
       resources, and unknown blocks, plus UTF-8-safe truncation envelopes
       before implementing `Tool::call`.
-- [ ] Implement the load/new snapshot APIs and `ai_interface::Tool` adapter
+- [x] Implement the load/new snapshot APIs and `ai_interface::Tool` adapter
       with the exact load-bearing result precedence from the protocol spec;
       keep MCP tool-execution errors as successful model-visible envelopes and
       convert only protocol/client failures into `ToolError::Execution`.
-- [ ] Add a credential-free runtime smoke test that registers `McpToolSet` as
+- [x] Add a credential-free runtime smoke test that registers `McpToolSet` as
       an `ai_interface::DynTool` in `ai-tool-calling`, advertises its
       definitions, dispatches a prefixed name, and observes the remote result.
-- [ ] Update the crate README with adapter construction, refresh ownership,
+- [x] Update the crate README with adapter construction, refresh ownership,
       naming, output mapping, and downstream runtime registration examples.
-- [ ] Run formatting, targeted Clippy with warnings denied, all `ai-mcp`
+- [x] Run formatting, targeted Clippy with warnings denied, all `ai-mcp`
       feature combinations, the targeted runtime smoke test, and the Rust
       file-length lint, followed by `cargo xtask check`; fix failures until
       this milestone is green.
-- [ ] Run `git add -A`, commit the green tool-adapter milestone with a
+- [x] Run `git add -A`, commit the green tool-adapter milestone with a
       descriptive Conventional Commit whose title is at most 50 characters,
       and push the current branch.
 - [ ] After the push, run `cargo xtask review`; do not apply findings

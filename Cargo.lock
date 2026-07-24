@@ -42,6 +42,7 @@ name = "ai-mcp"
 version = "0.2.0"
 dependencies = [
  "ai-interface",
+ "ai-tool-calling",
  "async-trait",
  "axum",
  "bytes",

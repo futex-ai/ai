@@ -10,6 +10,9 @@ mod client_response;
 mod config;
 mod error;
 mod protocol;
+mod tool_set;
+mod tool_set_naming;
+mod tool_set_result;
 mod transport;
 
 pub use authorization::{McpAuthorizationChallenge, McpAuthorizationFailure};
@@ -23,6 +26,7 @@ pub use protocol::{
     McpServerCapabilities, McpServerHandshake, McpServerInfo, McpToolCallOutcome,
     McpToolDescriptor, McpToolsCapability,
 };
+pub use tool_set::McpToolSet;
 pub use transport::{
     DynMcpEventStream, DynMcpHttpTransport, McpEventStream, McpHttpPayload, McpHttpResponse,
     McpHttpTransport, ReqwestMcpHttpTransport,

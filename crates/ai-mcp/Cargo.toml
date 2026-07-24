@@ -23,6 +23,7 @@ unimock = { version = "0.6.8", optional = true }
 url = "2.5.8"
 
 [dev-dependencies]
+ai-tool-calling = { workspace = true }
 axum = "0.8.9"
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "time", "sync", "net"] }
 unimock = "0.6.8"
