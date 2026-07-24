@@ -204,14 +204,14 @@ review.
       `cargo xtask rust-file-length-lint --all`, the credential-free smoke
       tests, and `cargo xtask check`; keep working until every required check
       passes with a 100% test pass rate.
-- [ ] Mark every completed TODO and milestone in this plan, then move its link
+- [x] Mark every completed TODO and milestone in this plan, then move its link
       from Active to Completed in `plans/README.md`.
 - [x] Review `git diff origin/main...` and `git status` for unrelated changes,
       missing/new untracked files, generated artifacts, and stale references.
-- [ ] Run `git add -A`, commit all completed work with a descriptive
+- [x] Run `git add -A`, commit all completed work with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.
-- [ ] After the push, run `cargo xtask review` against `origin/main`; do not
+- [x] After the push, run `cargo xtask review` against `origin/main`; do not
       change review findings automatically, and report every finding with a
       number, severity, feature/codebase context, impact of doing nothing,
       lettered solution options, and a recommended option for user decision.
