@@ -15,17 +15,17 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-version = "0.2.0"
+version = "0.3.0"
 license = "MIT"
 authors = ["Futex"]
 
 [workspace.dependencies]
-ai-interface = { version = "0.2.0", path = "crates/ai-interface" }
-ai-models-anthropic = { version = "0.2.0", path = "crates/ai-models-anthropic" }
-ai-models-core = { version = "0.2.0", path = "crates/ai-models-core" }
-ai-models-google = { version = "0.2.0", path = "crates/ai-models-google" }
-ai-models-multi = { version = "0.2.0", path = "crates/ai-models-multi" }
-ai-models-openai = { version = "0.2.0", path = "crates/ai-models-openai" }
-ai-models-xai = { version = "0.2.0", path = "crates/ai-models-xai" }
-ai-tool-calling = { version = "0.2.0", path = "crates/ai-tool-calling" }
-json-http = { version = "0.2.0", path = "crates/json-http" }
+ai-interface = { version = "0.3.0", path = "crates/ai-interface" }
+ai-models-anthropic = { version = "0.3.0", path = "crates/ai-models-anthropic" }
+ai-models-core = { version = "0.3.0", path = "crates/ai-models-core" }
+ai-models-google = { version = "0.3.0", path = "crates/ai-models-google" }
+ai-models-multi = { version = "0.3.0", path = "crates/ai-models-multi" }
+ai-models-openai = { version = "0.3.0", path = "crates/ai-models-openai" }
+ai-models-xai = { version = "0.3.0", path = "crates/ai-models-xai" }
+ai-tool-calling = { version = "0.3.0", path = "crates/ai-tool-calling" }
+json-http = { version = "0.3.0", path = "crates/json-http" }
