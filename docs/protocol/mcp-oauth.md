@@ -46,6 +46,12 @@ The implementation targets MCP authorization revision **2025-06-18** and:
 - <https://datatracker.ietf.org/doc/html/rfc8707>
 - <https://datatracker.ietf.org/doc/html/rfc7009>
 
+The standards audit on 24 Jul 2026 confirmed the approved discovery,
+registration, PKCE, resource-indicator, and revocation contracts. MCP and
+RFC 8414 require HTTPS for authorization-server endpoints and metadata. This
+contract's explicit loopback-HTTP policy is a deliberate development-only
+exception for local hosts and tests; production policy remains HTTPS-only.
+
 ## End-to-end flow
 
 1. The host constructs a `RefreshingMcpAuth` for one canonical MCP resource

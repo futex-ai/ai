@@ -21,64 +21,64 @@ At the end of this milestone, callers can safely turn an MCP authorization
 challenge into validated resource/server metadata and a configured or
 dynamically registered public client without browser interaction.
 
-- [ ] Re-verify the approved behavior against MCP authorization 2025-06-18,
+- [x] Re-verify the approved behavior against MCP authorization 2025-06-18,
       RFC 9728, RFC 8414, RFC 7591, RFC 7636, RFC 8707, and RFC 7009 before
       coding; record any standards discrepancy and request protocol direction
       before changing the approved contract.
-- [ ] Confirm that `ai-mcp` exports `McpAuthorizationChallenge`,
+- [x] Confirm that `ai-mcp` exports `McpAuthorizationChallenge`,
       `McpAuthorizationFailure`, distinct 401/403 errors, and all repeated
       `WWW-Authenticate` values; do not duplicate challenge parsing here.
-- [ ] Add `crates/ai-mcp-oauth` to workspace members and dependencies with
+- [x] Add `crates/ai-mcp-oauth` to workspace members and dependencies with
       workspace package metadata and internal `ai-mcp`/`json-http`
       dependencies.
-- [ ] Create the crate manifest and `test-support` feature; use `cargo add`
+- [x] Create the crate manifest and `test-support` feature; use `cargo add`
       without guessed versions for every external dependency needed for async
       traits, typed serde, URLs, HTTP, secrets, cryptographic randomness,
       SHA-256, and base64url. Add optional and dev Unimock dependencies using
       the established workspace pattern.
-- [ ] Keep `lib.rs` thin, add `#![warn(unreachable_pub)]`, use normal module
+- [x] Keep `lib.rs` thin, add `#![warn(unreachable_pub)]`, use normal module
       resolution and narrow visibility, and split config, discovery,
       registration, transport, store, user-agent, manager, auth-hook, and error
       responsibilities before any Rust file approaches 300 lines.
-- [ ] Define fully typed public DTOs for canonical resource identity,
+- [x] Define fully typed public DTOs for canonical resource identity,
       protected-resource metadata, authorization-server metadata, configured
       and dynamic client registration, registration/credential keys, scopes,
       and unknown wire metadata.
-- [ ] Add `McpOAuthConfig` validation and documented defaults for HTTP and
+- [x] Add `McpOAuthConfig` validation and documented defaults for HTTP and
       user-agent timeouts, state lifetime, response cap, validated redirects,
       metadata cache age, and refresh skew.
-- [ ] Define typed `Error`/`Result` contracts for unsafe or invalid URLs,
+- [x] Define typed `Error`/`Result` contracts for unsafe or invalid URLs,
       resource/issuer mismatch, discovery status/schema failure, issuer
       selection cancellation, missing registration, DCR rejection, store
       failure, and internal failures without including secrets in diagnostics.
-- [ ] Define Unimock-enabled `OAuthHttpTransport`,
+- [x] Define Unimock-enabled `OAuthHttpTransport`,
       `OAuthCredentialStore`, `AuthorizationServerSelector`, `OAuthClock`, and
       `OAuthRandom` traits and dyn aliases; use `Arc<dyn Trait + Send + Sync>`
       at every shared impure boundary.
-- [ ] Add failing tests for canonical URI normalization, fragment rejection,
+- [x] Add failing tests for canonical URI normalization, fragment rejection,
       RFC 9728 well-known insertion for root and path resources, exact resource
       validation, unknown metadata, and bounded response handling.
-- [ ] Implement protected-resource discovery from a challenge URL with
+- [x] Implement protected-resource discovery from a challenge URL with
       deterministic same-resource fallback when it is absent, plus cache
       invalidation when a new challenge advertises changed metadata.
-- [ ] Add failing tests for one/multiple issuer selection, exact RFC 8414
+- [x] Add failing tests for one/multiple issuer selection, exact RFC 8414
       issuer validation, missing endpoints, unsafe endpoints, redirect
       validation, and metadata cache expiry before implementing authorization
       server discovery.
-- [ ] Add failing tests for registration precedence, cache keys, public-client
+- [x] Add failing tests for registration precedence, cache keys, public-client
       DCR request/response mapping, conditional refresh-grant registration,
       unsupported public-client token authentication, ignored returned client
       secrets, unsupported registration, and redacted registration diagnostics
       before implementing configured/cached/DCR resolution.
-- [ ] Implement a production HTTP transport that disables automatic redirects,
+- [x] Implement a production HTTP transport that disables automatic redirects,
       validates every redirect target, enforces URL policy after DNS
       resolution, pins or verifies the connected peer against validated
       addresses, and caps time, redirect count, and response bytes.
-- [ ] Add the crate README with Responsibilities, What This Crate Does, Quick
+- [x] Add the crate README with Responsibilities, What This Crate Does, Quick
       Start, Development, Key Code, and Related Docs sections, documenting
       discovery and registration without suggesting that the crate owns UI or
       persistent storage.
-- [ ] Run `cargo fmt --all -- --check`, targeted Clippy with warnings denied,
+- [x] Run `cargo fmt --all -- --check`, targeted Clippy with warnings denied,
       `cargo test -p ai-mcp-oauth --all-features`,
       `cargo xtask rust-file-length-lint --all`, and `cargo xtask check`; fix
       all failures until the milestone is green.
