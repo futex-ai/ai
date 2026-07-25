@@ -6,8 +6,9 @@ use serde_json::Value;
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{
-    Error, McpOAuthConfig, McpOAuthDiscoveryMock, McpOAuthManager, OAuthCredentialStoreMock,
-    OAuthHttpResponse, OAuthHttpTransportMock, OAuthStoreOperation,
+    AuthorizationServerMetadata, DefaultMcpOAuthManager, Error, McpOAuthConfig,
+    McpOAuthDiscoveryMock, McpOAuthManager, OAuthCredentialStoreMock, OAuthHttpResponse,
+    OAuthHttpTransportMock, OAuthStoreOperation,
 };
 
 use super::support::{key, manager, server_metadata, tokens};
@@ -135,8 +136,8 @@ async fn missing_revocation_endpoint_skips_network_and_deletes_locally() {
 fn disconnect_manager(
     store: Unimock,
     transport: Unimock,
-    server: crate::AuthorizationServerMetadata,
-) -> crate::DefaultMcpOAuthManager {
+    server: AuthorizationServerMetadata,
+) -> DefaultMcpOAuthManager {
     manager(
         Unimock::new(
             McpOAuthDiscoveryMock::authorization_server

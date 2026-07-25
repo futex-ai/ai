@@ -130,6 +130,12 @@ pub enum Error {
     /// Redirect response omitted or malformed its location.
     #[error("[ai_mcp_oauth/transport] invalid redirect location")]
     InvalidRedirect,
+    /// A POST endpoint attempted to redirect its request payload.
+    #[error("[ai_mcp_oauth/transport] {endpoint:?} POST redirects are not allowed")]
+    RedirectNotAllowed {
+        /// Endpoint whose POST response attempted to redirect.
+        endpoint: OAuthEndpointKind,
+    },
     /// Response body was not valid JSON.
     #[error("[ai_mcp_oauth/transport] response body was not JSON")]
     InvalidJsonResponse,

@@ -14,7 +14,7 @@ use unimock::{MockFn, Unimock, matching};
 
 use crate::{
     Error, OAuthDnsResolver, OAuthDnsResolverMock, OAuthEndpointKind, OAuthHttpLimits,
-    OAuthHttpTransport, OAuthUrlPolicy, ReqwestOAuthHttpTransport,
+    OAuthHttpTransport, OAuthUnsafeUrlReason, OAuthUrlPolicy, ReqwestOAuthHttpTransport,
 };
 
 #[tokio::test]
@@ -188,7 +188,7 @@ async fn development_http_rejects_a_public_resolution_for_localhost_name() {
     assert!(matches!(
         error,
         Error::UnsafeUrl {
-            reason: crate::OAuthUnsafeUrlReason::Address,
+            reason: OAuthUnsafeUrlReason::Address,
             ..
         }
     ));

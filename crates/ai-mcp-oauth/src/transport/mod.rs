@@ -20,7 +20,7 @@ pub type DynOAuthDnsResolver = Arc<dyn OAuthDnsResolver>;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 /// Bounds applied to each OAuth HTTP operation.
 pub struct OAuthHttpLimits {
-    /// Maximum duration of each request hop.
+    /// Maximum duration of each request hop, including DNS and body streaming.
     pub timeout: Duration,
     /// Maximum final response size.
     pub max_response_bytes: usize,

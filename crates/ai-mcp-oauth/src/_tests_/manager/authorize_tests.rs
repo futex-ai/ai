@@ -9,9 +9,9 @@ use unimock::{MockFn, Unimock, matching};
 use url::Url;
 
 use crate::{
-    Error, McpOAuthConfig, McpOAuthDiscoveryMock, McpOAuthManager, OAuthAuthorizationError,
-    OAuthAuthorizationResponse, OAuthClientRegistryMock, OAuthRandomMock, OAuthUserAgent,
-    OAuthUserAgentMock, OAuthUserAuthorizationRequest, Result,
+    DefaultMcpOAuthManager, Error, McpOAuthConfig, McpOAuthDiscoveryMock, McpOAuthManager,
+    OAuthAuthorizationError, OAuthAuthorizationResponse, OAuthClientRegistryMock, OAuthRandomMock,
+    OAuthUserAgent, OAuthUserAgentMock, OAuthUserAuthorizationRequest, Result,
 };
 
 use super::support::{
@@ -169,7 +169,7 @@ async fn enforces_the_user_agent_timeout() {
 
 fn authorization_manager_with_response(
     response: OAuthAuthorizationResponse,
-) -> crate::DefaultMcpOAuthManager {
+) -> DefaultMcpOAuthManager {
     manager(
         Unimock::new(
             McpOAuthDiscoveryMock::discover
@@ -195,9 +195,7 @@ fn authorization_manager_with_response(
     )
 }
 
-fn authorization_manager_with_error(
-    error: OAuthAuthorizationError,
-) -> crate::DefaultMcpOAuthManager {
+fn authorization_manager_with_error(error: OAuthAuthorizationError) -> DefaultMcpOAuthManager {
     manager(
         Unimock::new(
             McpOAuthDiscoveryMock::discover

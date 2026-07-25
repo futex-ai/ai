@@ -5,7 +5,7 @@ use secrecy::ExposeSecret;
 use url::{Host, Url};
 
 use crate::{
-    Error, OAuthAuthorizationError, OAuthAuthorizationResponse, OAuthCredentialKey,
+    Error, McpOAuthConfig, OAuthAuthorizationError, OAuthAuthorizationResponse, OAuthCredentialKey,
     OAuthEndpointKind, OAuthRegistrationRequest, OAuthScopes, OAuthUnsafeUrlReason,
     OAuthUserAuthorizationRequest, Result, pkce::generate_authorization_secrets,
 };
@@ -219,7 +219,7 @@ fn build_authorization_url(
     scopes: &OAuthScopes,
     state: &str,
     challenge: &str,
-    config: &crate::McpOAuthConfig,
+    config: &McpOAuthConfig,
 ) -> Result<String> {
     let mut url = config
         .url_policy

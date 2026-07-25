@@ -252,6 +252,31 @@ reuses metadata forbidden by cache controls.
       named non-global range.
 - [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
       validate the cached-selection clarification and site-local rejection.
+- [x] Add failing production-transport regressions proving every form/JSON POST
+      redirect is rejected without contacting its target while validated GET
+      metadata redirects remain supported.
+- [x] Split the near-limit reqwest transport into a normal module family,
+      reject all POST redirects with a typed error, and align the protocol and
+      crate README.
+- [x] Add a failing deterministic regression proving a stalled injected DNS
+      resolver cannot outlive one configured HTTP-hop timeout.
+- [x] Enforce one per-hop deadline across DNS, connection, headers, and streamed
+      response bytes, and clarify the timeout contract in API/protocol docs.
+- [x] Add failing deterministic concurrency regressions for refresh-before-
+      disconnect and disconnect-before-refresh interleavings.
+- [x] Serialize disconnect load, revocation, and deletion on the existing
+      per-credential refresh lock without removing lock-map entries, and
+      document the lifecycle guarantee.
+- [x] Add a failing regression for an unrepresentable HTTP deadline and cover
+      301/302 POST responses through the shared redirect-rejection path.
+- [x] Reject deadline overflow as typed invalid configuration at both the
+      manager validation and direct transport boundaries.
+- [x] Keep the reqwest module root declaration-only and replace inline
+      `crate::` paths introduced or touched by this hardening pass.
+- [x] Replace every remaining inline `crate::` path in the new OAuth crate so
+      production and test code consistently use top-level imports.
+- [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
+      validate the redirect, timeout, and disconnect-race solutions.
 - [ ] Run `git add -A`, commit the green hardening work with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.

@@ -49,3 +49,18 @@ fn zero_bounds_fail_before_side_effects() {
         })
     ));
 }
+
+#[test]
+fn unrepresentable_http_deadline_fails_validation() {
+    let config = McpOAuthConfig {
+        http_timeout: Duration::MAX,
+        ..McpOAuthConfig::default()
+    };
+
+    assert!(matches!(
+        config.validate(),
+        Err(Error::InvalidConfig {
+            field: OAuthConfigField::HttpTimeout
+        })
+    ));
+}

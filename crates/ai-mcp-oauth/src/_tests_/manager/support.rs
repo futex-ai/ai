@@ -16,9 +16,9 @@ use crate::{
     DynMcpOAuthDiscovery, DynOAuthClientRegistry, DynOAuthClock, DynOAuthCredentialStore,
     DynOAuthDnsResolver, DynOAuthHttpTransport, DynOAuthRandom, DynOAuthUserAgent, McpOAuthConfig,
     McpOAuthDiscoveryMock, OAuthAuthorizationContext, OAuthClientRegistration,
-    OAuthClientRegistrationSource, OAuthClockMock, OAuthCredentialKey, OAuthDnsResolverMock,
-    OAuthHttpResponse, OAuthHttpTransportMock, OAuthScopes, OAuthTokenSet, OAuthTokenType,
-    OAuthUrlPolicy, ProtectedResourceMetadata,
+    OAuthClientRegistrationSource, OAuthClockMock, OAuthCredentialKey, OAuthDiscoveryResult,
+    OAuthDnsResolverMock, OAuthHttpResponse, OAuthHttpTransportMock, OAuthScopes, OAuthTokenSet,
+    OAuthTokenType, OAuthUrlPolicy, ProtectedResourceMetadata,
 };
 
 #[expect(
@@ -132,8 +132,8 @@ pub(super) fn context() -> OAuthAuthorizationContext {
     }
 }
 
-pub(super) fn discovery_result() -> crate::OAuthDiscoveryResult {
-    crate::OAuthDiscoveryResult {
+pub(super) fn discovery_result() -> OAuthDiscoveryResult {
+    OAuthDiscoveryResult {
         resource_metadata_url: "https://mcp.example/.well-known/oauth-protected-resource/api"
             .to_owned(),
         protected_resource: ProtectedResourceMetadata {

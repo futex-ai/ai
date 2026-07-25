@@ -11,9 +11,10 @@ use secrecy::SecretString;
 use tokio::sync::Mutex;
 
 use crate::{
-    DynMcpOAuthDiscovery, DynOAuthClientRegistry, DynOAuthClock, DynOAuthCredentialStore,
-    DynOAuthDnsResolver, DynOAuthHttpTransport, DynOAuthRandom, DynOAuthUserAgent, McpOAuthConfig,
-    OAuthCredentialKey, OAuthScopes, Result, state::AuthorizationStateTracker,
+    CanonicalMcpResource, DynMcpOAuthDiscovery, DynOAuthClientRegistry, DynOAuthClock,
+    DynOAuthCredentialStore, DynOAuthDnsResolver, DynOAuthHttpTransport, DynOAuthRandom,
+    DynOAuthUserAgent, McpOAuthConfig, OAuthCredentialKey, OAuthScopes, Result,
+    state::AuthorizationStateTracker,
 };
 
 pub use types::{OAuthAuthorizationContext, OAuthConnection};
@@ -145,6 +146,6 @@ impl McpOAuthManager for DefaultMcpOAuthManager {
 pub(super) struct DeniedPromptKey {
     pub(super) attempt_id: String,
     pub(super) account_id: String,
-    pub(super) resource: crate::CanonicalMcpResource,
+    pub(super) resource: CanonicalMcpResource,
     pub(super) scopes: OAuthScopes,
 }

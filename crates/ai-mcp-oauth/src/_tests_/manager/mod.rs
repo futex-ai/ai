@@ -3,6 +3,7 @@
 mod authorize_destination_tests;
 mod authorize_flow_tests;
 mod authorize_tests;
+mod disconnect_concurrency_tests;
 mod disconnect_tests;
 mod refresh_tests;
 mod request_token_tests;

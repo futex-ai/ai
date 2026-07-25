@@ -1,6 +1,6 @@
 //! Pure OAuth client configuration and defaults.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::{Error, OAuthConfigField, OAuthHttpLimits, OAuthUrlPolicy, Result};
 
@@ -15,7 +15,7 @@ const DEFAULT_REFRESH_SKEW: Duration = Duration::from_secs(60);
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// Host-independent limits and policy for MCP OAuth operations.
 pub struct McpOAuthConfig {
-    /// Timeout for discovery, registration, token, and revocation requests.
+    /// Per-hop timeout including DNS for OAuth HTTP requests.
     pub http_timeout: Duration,
     /// Maximum time allowed for one explicit user-agent authorization.
     pub user_agent_timeout: Duration,
@@ -51,7 +51,7 @@ impl Default for McpOAuthConfig {
 impl McpOAuthConfig {
     /// Validates all positive bounds before side effects occur.
     pub fn validate(&self) -> Result<()> {
-        if self.http_timeout.is_zero() {
+        if self.http_timeout.is_zero() || Instant::now().checked_add(self.http_timeout).is_none() {
             return Err(Error::InvalidConfig {
                 field: OAuthConfigField::HttpTimeout,
             });

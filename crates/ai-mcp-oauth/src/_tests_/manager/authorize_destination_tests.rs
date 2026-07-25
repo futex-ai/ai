@@ -6,9 +6,10 @@ use ai_mcp::McpAuthorizationFailure;
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{
-    Error, McpOAuthConfig, McpOAuthDiscoveryMock, McpOAuthManager, OAuthAuthorizationResponse,
-    OAuthClientRegistryMock, OAuthDnsResolverMock, OAuthRandomMock, OAuthUnsafeUrlReason,
-    OAuthUrlPolicy, OAuthUserAgentMock,
+    DefaultMcpOAuthManager, Error, McpOAuthConfig, McpOAuthDiscoveryMock, McpOAuthManager,
+    OAuthAuthorizationResponse, OAuthClientRegistryMock, OAuthConnection, OAuthDiscoveryResult,
+    OAuthDnsResolverMock, OAuthRandomMock, OAuthUnsafeUrlReason, OAuthUrlPolicy,
+    OAuthUserAgentMock, Result,
 };
 
 use super::support::{challenge, clock, context, discovery_result, manager, registration};
@@ -104,10 +105,10 @@ async fn development_loopback_resolution_reaches_the_user_agent() {
 fn authorization_manager(
     resolver: Unimock,
     user_agent: Unimock,
-    discovered: crate::OAuthDiscoveryResult,
+    discovered: OAuthDiscoveryResult,
     clock: Unimock,
     config: McpOAuthConfig,
-) -> crate::DefaultMcpOAuthManager {
+) -> DefaultMcpOAuthManager {
     manager(
         Unimock::new(
             McpOAuthDiscoveryMock::discover
@@ -129,7 +130,7 @@ fn authorization_manager(
     )
 }
 
-async fn authorize(oauth: &crate::DefaultMcpOAuthManager) -> crate::Result<crate::OAuthConnection> {
+async fn authorize(oauth: &DefaultMcpOAuthManager) -> Result<OAuthConnection> {
     oauth
         .authorize(
             &challenge(McpAuthorizationFailure::AuthorizationRequired, &[]),

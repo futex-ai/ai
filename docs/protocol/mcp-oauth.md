@@ -79,7 +79,9 @@ automatically open a browser.
 `McpOAuthConfig` defaults to a 30-second HTTP timeout, 10-minute user-agent
 timeout/state lifetime, 1 MiB response cap, three validated redirects,
 one-hour maximum metadata cache age, and 60-second refresh skew. Every value is
-configurable, positive, and bounded before network or authorization work.
+configurable, positive, and bounded before network or authorization work. An
+HTTP timeout that cannot form a platform-representable deadline is rejected as
+invalid configuration rather than panicking.
 
 ## Resource identity and discovery
 
@@ -169,6 +171,9 @@ embedded desktop/mobile secret as confidential.
 - Default refresh skew is 60 seconds and is configurable.
 - Concurrent callers for one credential share one refresh; unrelated
   credentials do not block each other.
+- Disconnect uses the same per-credential lock across load, best-effort
+  revocation, and local deletion. It cannot overlap a refresh save or leave a
+  rotated token set stored after disconnect returns.
 - A rotated refresh token atomically replaces the old token set. If a refresh
   response omits `refresh_token`, retain the previous one.
 - `invalid_grant` removes the unusable token set. An explicit refresh returns
@@ -258,8 +263,9 @@ The public `Error` uses typed variants for invalid URLs, resource/issuer
 mismatch, unsafe network targets, discovery status/schema failures, issuer
 selection cancellation, missing registration, registration rejection, user
 denial, callback timeout, state mismatch/reuse, token rejection,
-`InvalidGrant`, `InteractionRequired`, store failure, and internal failure.
-Errors and diagnostics never contain authorization codes or token values.
+`InvalidGrant`, `InteractionRequired`, store failure, DNS/transport failure,
+redirect rejection or exhaustion, response bounds, and internal failure. Errors
+and diagnostics never contain authorization codes or token values.
 
 ## Security requirements
 
@@ -275,11 +281,14 @@ Errors and diagnostics never contain authorization codes or token values.
   transition ranges, deprecated IPv6 site-local `fec0::/10`, and disallowed
   ports according to the injected URL policy; loopback destinations do not
   bypass the blocked-port list.
-- Disable automatic redirects; validate scheme, resolved destination, and
-  policy at every library-owned HTTP hop. Pin those connections to validated
-  addresses or verify the connected peer so DNS cannot change between
-  validation and use. Preflight the initial browser URL as described above,
-  without claiming that the external browser connection is pinned.
+- Disable automatic redirects. Follow redirects only for metadata GETs after
+  validating scheme, resolved destination, and policy at every library-owned
+  hop; registration, token, and revocation POST responses never redirect their
+  payloads. Pin connections to validated addresses or verify the connected
+  peer so DNS cannot change between validation and use. The per-hop timeout
+  covers DNS, connection, headers, and streamed response bytes. Preflight the
+  initial browser URL as described above, without claiming that the external
+  browser connection is pinned.
 - Open authorization URLs with platform APIs, never shell execution.
 - Bound response bytes, redirect count, callback lifetime, and request time.
 - Never log, serialize to diagnostics, or expose through `Debug` any access

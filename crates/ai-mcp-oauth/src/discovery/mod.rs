@@ -7,9 +7,9 @@ use async_trait::async_trait;
 use tokio::sync::Mutex;
 
 use crate::{
-    AuthorizationServerMetadata, CanonicalMcpResource, DynAuthorizationServerSelector,
-    DynOAuthClock, DynOAuthHttpTransport, Error, McpOAuthConfig, OAuthEndpointKind,
-    ProtectedResourceMetadata, Result,
+    AuthorizationServerMetadata, AuthorizationServerSelector, CanonicalMcpResource,
+    DynAuthorizationServerSelector, DynOAuthClock, DynOAuthHttpTransport, Error, McpOAuthConfig,
+    OAuthEndpointKind, ProtectedResourceMetadata, Result,
 };
 
 use self::{
@@ -199,7 +199,7 @@ struct CacheEntry {
 }
 
 async fn select_issuer(
-    selector: &dyn crate::AuthorizationServerSelector,
+    selector: &dyn AuthorizationServerSelector,
     resource: &CanonicalMcpResource,
     issuers: &[String],
 ) -> Result<String> {

@@ -26,12 +26,15 @@ authorization server through a host-provided `AuthorizationServerSelector`.
 `DefaultOAuthClientRegistry` then uses a configured registration, a host store,
 or public-client dynamic registration in that order.
 
-The production transport disables automatic redirects, validates each hop
-before dispatch, checks every DNS result, pins validated addresses, and bounds
-time and bytes. Before browser handoff, the manager separately resolves the
-initial authorization hostname and requires every address to satisfy the same
-policy. This preflight cannot pin an external browser's later DNS lookup or
-redirects; the host and user-agent implementation retain that responsibility.
+The production transport disables automatic redirects, follows only validated
+metadata GET redirects, and never redirects a registration, token, or
+revocation POST. Each HTTP-hop timeout covers DNS, connection, headers, and
+streamed response bytes; an unrepresentable deadline is rejected as invalid
+configuration. Validated addresses are pinned before dispatch.
+Before browser handoff, the manager separately resolves the initial
+authorization hostname and requires every address to satisfy the same policy.
+This preflight cannot pin an external browser's later DNS lookup or redirects;
+the host and user-agent implementation retain that responsibility.
 HTTP loopback is available only through the explicit development policy: local
 hostnames and literals must resolve exclusively to loopback addresses, blocked
 ports remain blocked, and IPv4-compatible, well-known NAT64
@@ -161,6 +164,8 @@ callback handling. Disconnect retains the cached client registration; a host
 that wants to forget it can explicitly call
 `OAuthCredentialStore::delete_registration` with
 `OAuthCredentialKey::registration_key`. No RFC 7592 remote deletion occurs.
+Disconnect serializes with refresh for the same credential, so a completed
+refresh cannot restore tokens after local removal.
 
 ## Development
 

@@ -10,6 +10,8 @@ mod registration_tests;
 mod resource_tests;
 mod state_tests;
 mod token_tests;
+mod transport_post_redirect_tests;
 mod transport_tests;
+mod transport_timeout_tests;
 mod url_policy_adversarial_tests;
 mod url_policy_tests;

@@ -8,6 +8,8 @@ use super::DefaultMcpOAuthManager;
 
 impl DefaultMcpOAuthManager {
     pub(super) async fn disconnect_inner(&self, key: &OAuthCredentialKey) -> Result<()> {
+        let lock = self.refresh_lock(key).await;
+        let _guard = lock.lock().await;
         let tokens = self.store.load_tokens(key).await?;
         let revocation_failed = if let Some(tokens) = tokens {
             self.revoke_if_advertised(key, &tokens).await.is_err()

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use crate::Result;
+use crate::{Error, Result};
 
 /// Shared OAuth clock implementation.
 pub type DynOAuthClock = Arc<dyn OAuthClock>;
@@ -25,7 +25,7 @@ impl OAuthClock for SystemOAuthClock {
     fn now_unix_seconds(&self) -> Result<u64> {
         let elapsed = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
             Ok(elapsed) => elapsed,
-            Err(_) => return Err(crate::Error::Clock),
+            Err(_) => return Err(Error::Clock),
         };
         Ok(elapsed.as_secs())
     }
