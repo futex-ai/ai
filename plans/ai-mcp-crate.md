@@ -271,7 +271,7 @@ within its configured byte cap.
       contract with RFC recipient tolerance.
 - [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
       validate the completed Bearer, empty-element, and fail-fast solutions.
-- [ ] Run `git add -A`, commit the green hardening work with a descriptive
+- [x] Run `git add -A`, commit the green hardening work with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.
 - [ ] After the push, run `cargo xtask review` and continue the authorized
