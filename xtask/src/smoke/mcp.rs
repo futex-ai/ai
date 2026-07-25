@@ -33,8 +33,12 @@ pub(super) fn build_oauth_mcp_client() -> Result<StreamableHttpMcpClient> {
         Ok(auth) => Arc::new(auth),
         Err(source) => return Err(Error::SmokeMcpOAuth { source }),
     };
+    let transport = match ReqwestMcpHttpTransport::new() {
+        Ok(transport) => Arc::new(transport),
+        Err(source) => return Err(Error::SmokeMcp { source }),
+    };
     match StreamableHttpMcpClient::new(
-        Arc::new(ReqwestMcpHttpTransport::new()),
+        transport,
         auth,
         McpServerConfig::new("oauth_smoke", endpoint),
     ) {

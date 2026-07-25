@@ -155,7 +155,7 @@ pub(crate) fn fresh_expiry() -> u64 {
 
 fn mcp_client(server: &FakeOAuthMcpServer, auth: DynJsonHttpAuth) -> StreamableHttpMcpClient {
     StreamableHttpMcpClient::new(
-        Arc::new(ReqwestMcpHttpTransport::new()),
+        Arc::new(ReqwestMcpHttpTransport::new().unwrap()),
         auth,
         McpServerConfig::new("oauth", &server.mcp_url),
     )

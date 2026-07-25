@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, time::Duration};
 
 use async_trait::async_trait;
 use futures_util::StreamExt;
-use reqwest::{Method, Response};
+use reqwest::{Method, Response, redirect::Policy};
 use serde_json::Value;
 
 use crate::{Error, Result};
@@ -18,17 +18,13 @@ pub struct ReqwestMcpHttpTransport {
 }
 
 impl ReqwestMcpHttpTransport {
-    /// Builds a transport using reqwest's default connection settings.
-    pub fn new() -> Self {
-        Self {
-            client: reqwest::Client::new(),
-        }
-    }
-}
-
-impl Default for ReqwestMcpHttpTransport {
-    fn default() -> Self {
-        Self::new()
+    /// Builds a transport that returns redirect responses without following them.
+    pub fn new() -> Result<Self> {
+        let client = match reqwest::Client::builder().redirect(Policy::none()).build() {
+            Ok(client) => client,
+            Err(source) => return Err(Error::transport(&source)),
+        };
+        Ok(Self { client })
     }
 }
 

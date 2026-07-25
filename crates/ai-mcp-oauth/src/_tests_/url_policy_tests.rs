@@ -192,3 +192,20 @@ fn production_rejects_ipv4_transition_ipv6_ranges() {
         );
     }
 }
+
+#[test]
+fn production_rejects_deprecated_site_local_ipv6() {
+    let policy = OAuthUrlPolicy::default();
+
+    for address in [
+        Ipv6Addr::new(0xfec0, 0, 0, 0, 0, 0, 0, 1),
+        Ipv6Addr::new(
+            0xfeff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff,
+        ),
+    ] {
+        assert!(
+            !policy.address_allowed(IpAddr::V6(address), "https"),
+            "{address} should be rejected"
+        );
+    }
+}

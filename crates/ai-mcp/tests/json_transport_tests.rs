@@ -2,15 +2,22 @@
 
 mod support;
 
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::BTreeMap,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
+    time::Duration,
+};
 
-use ai_mcp::{McpClient, McpContentBlock};
+use ai_mcp::{Error, McpClient, McpContentBlock, McpHttpTransport, ReqwestMcpHttpTransport};
 use axum::{
     Json, Router,
     extract::State,
-    http::{HeaderMap, HeaderValue, StatusCode},
+    http::{HeaderMap, HeaderValue, StatusCode, header::LOCATION},
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{any, post},
 };
 use json_http::StaticHeaderAuth;
 use serde_json::{Value, json};
@@ -80,6 +87,48 @@ async fn runs_json_session_from_initialize_through_close() {
     );
 }
 
+#[tokio::test]
+async fn post_redirects_surface_without_contacting_the_target() {
+    for status in [StatusCode::FOUND, StatusCode::TEMPORARY_REDIRECT] {
+        let (source, _target, target_hits) = redirect_server(status).await;
+        let client = client(
+            &source.endpoint,
+            Arc::new(StaticHeaderAuth::bearer_token("integration-token")),
+        );
+
+        let error = client.ensure_initialized().await.unwrap_err();
+
+        assert!(matches!(
+            error,
+            Error::HttpStatus {
+                status: actual,
+                ..
+            } if actual == status.as_u16()
+        ));
+        assert_eq!(target_hits.load(Ordering::SeqCst), 0);
+    }
+}
+
+#[tokio::test]
+async fn delete_redirects_surface_without_contacting_the_target() {
+    for status in [StatusCode::FOUND, StatusCode::TEMPORARY_REDIRECT] {
+        let (source, _target, target_hits) = redirect_server(status).await;
+        let response = ReqwestMcpHttpTransport::new()
+            .unwrap()
+            .delete(
+                &source.endpoint,
+                &BTreeMap::new(),
+                1024,
+                Duration::from_secs(2),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status, status.as_u16());
+        assert_eq!(target_hits.load(Ordering::SeqCst), 0);
+    }
+}
+
 async fn post_mcp(
     State(state): State<Arc<JsonServerState>>,
     headers: HeaderMap,
@@ -144,4 +193,35 @@ fn list_tools(id: Value, request: &Value) -> Response {
         })
     };
     Json(json!({"jsonrpc": "2.0", "id": id, "result": result})).into_response()
+}
+
+async fn redirect_server(
+    status: StatusCode,
+) -> (support::TestServer, support::TestServer, Arc<AtomicUsize>) {
+    let target_hits = Arc::new(AtomicUsize::new(0));
+    let target = spawn(Router::new().route(
+        "/mcp",
+        any({
+            let target_hits = target_hits.clone();
+            move || {
+                let target_hits = target_hits.clone();
+                async move {
+                    target_hits.fetch_add(1, Ordering::SeqCst);
+                    StatusCode::NO_CONTENT
+                }
+            }
+        }),
+    ))
+    .await;
+    let location = target.endpoint.clone();
+    let source = spawn(Router::new().route(
+        "/mcp",
+        any(move || {
+            let location = location.clone();
+            async move { (status, [(LOCATION, location)]) }
+        }),
+    ))
+    .await;
+
+    (source, target, target_hits)
 }

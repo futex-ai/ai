@@ -246,6 +246,15 @@ within its configured byte cap.
       document the correlation behavior in the MCP protocol contract.
 - [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
       validate the completed null-ID solution.
+- [x] Add failing production-transport regressions proving 302 and 307
+      responses are surfaced without contacting their redirect targets or
+      replaying POST/DELETE requests.
+- [x] Disable automatic redirects with a fallible reqwest transport
+      constructor and update every composition root and public example.
+- [x] Document that MCP 3xx responses are never followed and surface through
+      the existing typed HTTP-status error.
+- [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
+      validate the completed redirect solution.
 - [ ] Run `git add -A`, commit the green hardening work with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.

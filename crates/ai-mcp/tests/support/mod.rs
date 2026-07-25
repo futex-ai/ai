@@ -43,7 +43,7 @@ pub(crate) async fn spawn(router: Router) -> TestServer {
 /// Builds the production MCP client against an in-process endpoint.
 pub(crate) fn client(endpoint: &str, auth: Arc<dyn JsonHttpAuth>) -> StreamableHttpMcpClient {
     StreamableHttpMcpClient::new(
-        Arc::new(ReqwestMcpHttpTransport::new()),
+        Arc::new(ReqwestMcpHttpTransport::new().unwrap()),
         auth,
         ai_mcp::McpServerConfig::new("integration", endpoint),
     )

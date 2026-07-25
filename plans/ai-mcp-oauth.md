@@ -242,6 +242,16 @@ reuses metadata forbidden by cache controls.
       redirect responsibility without claiming the external browser is pinned.
 - [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
       validate the completed browser-handoff solution.
+- [x] Add a cache-hit regression and protocol clarification that one fresh
+      multi-issuer discovery result includes the host's issuer selection for
+      its cache lifetime; do not implement the invalid repeat-selection
+      recommendation.
+- [x] Add failing literal and resolved-address regressions for deprecated IPv6
+      site-local `fec0::/10` destinations.
+- [x] Reject `fec0::/10` under the production address policy and document the
+      named non-global range.
+- [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
+      validate the cached-selection clarification and site-local rejection.
 - [ ] Run `git add -A`, commit the green hardening work with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.

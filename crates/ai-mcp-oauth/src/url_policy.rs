@@ -173,6 +173,7 @@ fn is_public_v6(address: Ipv6Addr) -> bool {
         || is_ipv4_transition_address(segments)
         || (segments[0] & 0xfe00) == 0xfc00
         || (segments[0] & 0xffc0) == 0xfe80
+        || (segments[0] & 0xffc0) == 0xfec0
         || (segments[0] == 0x2001 && segments[1] == 0x0db8))
 }
 

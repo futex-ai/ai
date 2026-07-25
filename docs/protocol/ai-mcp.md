@@ -110,6 +110,12 @@ to its originating request. Enforce `max_response_bytes` against cumulative raw
 response bytes as they are read, including SSE framing, and fail immediately
 when the limit is crossed.
 
+The production transport disables automatic redirects. Return any 3xx response
+to the client unchanged so it becomes the existing typed `Error::HttpStatus`;
+never replay POST or DELETE methods, JSON-RPC bodies, authorization headers,
+session IDs, protocol headers, or custom authentication headers to a redirect
+target.
+
 The approved `SessionExpired` behavior deliberately leaves recovery to the
 host. MCP 2025-06-18 transport text instead says a client receiving a
 session-bound `404` must start a new session. Implementations of this contract

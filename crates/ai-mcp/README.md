@@ -33,7 +33,8 @@ size recommendation.
 
 HTTP authentication is injected through `json_http::JsonHttpAuth`. The crate
 surfaces typed `AuthorizationRequired` and `Forbidden` errors but never opens a
-browser, stores credentials, or retries authorization.
+browser, stores credentials, or retries authorization. The production transport
+does not follow redirects; a 3xx response is surfaced to the caller.
 
 ## Quick Start
 
@@ -49,7 +50,7 @@ use json_http::StaticHeaderAuth;
 async fn list_remote_tools() -> ai_mcp::Result<Vec<String>> {
     let config = McpServerConfig::new("calendar", "https://example.com/mcp");
     let client = Arc::new(StreamableHttpMcpClient::new(
-        Arc::new(ReqwestMcpHttpTransport::new()),
+        Arc::new(ReqwestMcpHttpTransport::new()?),
         Arc::new(StaticHeaderAuth::default()),
         config,
     )?);

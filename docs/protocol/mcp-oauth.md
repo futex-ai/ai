@@ -103,6 +103,9 @@ configurable, positive, and bounded before network or authorization work.
 - A fresh `WWW-Authenticate` resource-metadata URL invalidates cached discovery
   for that resource. Otherwise, metadata caching follows HTTP cache directives
   and is bounded by a configurable maximum age.
+- A reusable discovery cache entry includes the selected authorization server.
+  Do not ask the host to repeat an identical multi-issuer selection until that
+  entry expires or is invalidated.
 - This private cache does not revalidate. `no-store`, bare or qualified
   `no-cache`, and malformed `max-age` therefore disable reuse. When multiple
   valid `max-age` directives or discovery responses apply, use the shortest
@@ -269,8 +272,9 @@ Errors and diagnostics never contain authorization codes or token values.
   traffic off-box.
 - Reject user info, fragments, dangerous schemes, private/reserved/link-local
   destinations, IPv4-compatible, well-known NAT64 (`64:ff9b::/96`), and 6to4
-  transition ranges, and disallowed ports according to the injected URL
-  policy; loopback destinations do not bypass the blocked-port list.
+  transition ranges, deprecated IPv6 site-local `fec0::/10`, and disallowed
+  ports according to the injected URL policy; loopback destinations do not
+  bypass the blocked-port list.
 - Disable automatic redirects; validate scheme, resolved destination, and
   policy at every library-owned HTTP hop. Pin those connections to validated
   addresses or verify the connected peer so DNS cannot change between

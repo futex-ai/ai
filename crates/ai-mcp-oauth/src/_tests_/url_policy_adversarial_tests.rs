@@ -40,6 +40,7 @@ fn rejects_private_reserved_link_local_and_metadata_addresses() {
         "https://[::1]/oauth",
         "https://[fc00::1]/oauth",
         "https://[fe80::1]/oauth",
+        "https://[fec0::1]/oauth",
         "https://[2001:db8::1]/oauth",
     ] {
         assert!(

@@ -1,9 +1,9 @@
 //! Discovery cache expiry and challenge invalidation tests.
 
-use unimock::Unimock;
-
-use crate::McpOAuthDiscovery;
 use serde_json::json;
+use unimock::{MockFn, Unimock, matching};
+
+use crate::{AuthorizationServerSelectorMock, McpOAuthDiscovery};
 
 use super::support::{
     challenge, discovery, protected_json, resource, response, response_with_cache_control,
@@ -67,4 +67,43 @@ async fn no_store_after_max_age_forces_discovery_refetch() {
 
     assert_eq!(first.authorization_server.issuer, "https://auth.example");
     assert_eq!(second.authorization_server.issuer, second_issuer);
+}
+
+#[tokio::test]
+async fn cached_discovery_retains_one_multi_issuer_selection() {
+    let selected_issuer = "https://two.example";
+    let selector = Unimock::new(
+        AuthorizationServerSelectorMock::select
+            .next_call(matching!(_, _))
+            .returns(Ok(selected_issuer.to_owned())),
+    );
+    let discovery = discovery(
+        vec![
+            response(
+                json!({
+                    "resource": "https://mcp.example/api",
+                    "authorization_servers": [
+                        "https://one.example",
+                        selected_issuer
+                    ]
+                }),
+                60,
+            ),
+            response(server_json(selected_issuer), 60),
+        ],
+        selector,
+        vec![100, 101],
+    );
+
+    let first = discovery
+        .discover(&resource(), &challenge(None))
+        .await
+        .unwrap();
+    let cached = discovery
+        .discover(&resource(), &challenge(None))
+        .await
+        .unwrap();
+
+    assert_eq!(first.authorization_server.issuer, selected_issuer);
+    assert_eq!(cached.authorization_server.issuer, selected_issuer);
 }
