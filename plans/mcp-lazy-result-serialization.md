@@ -20,7 +20,7 @@ only for remote errors and multi-block fallback results.
       without changing output precedence, truncation, or typed error behavior.
 - [x] Run focused and full repository gates, then have Claude Code Fable 5
       validate the completed solution.
-- [ ] Run `git add -A`, commit the green fix with a descriptive Conventional
+- [x] Run `git add -A`, commit the green fix with a descriptive Conventional
       Commit whose title is at most 50 characters, and push the current branch.
 - [x] Record that this finding came from the tenth and final authorized
       `cargo xtask review` cycle; do not start an eleventh cycle.
