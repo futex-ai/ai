@@ -22,6 +22,7 @@ async fn unsafe_or_mixed_authorization_resolutions_never_reach_the_user_agent() 
             IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)),
             IpAddr::V4(Ipv4Addr::new(169, 254, 169, 254)),
         ],
+        vec!["100::1".parse().unwrap()],
     ] {
         let oauth = authorization_manager(
             resolver_returning(addresses),

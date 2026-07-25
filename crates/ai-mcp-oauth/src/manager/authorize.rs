@@ -146,7 +146,11 @@ impl DefaultMcpOAuthManager {
             client_id: registration.client_id,
             redirect_uri: registration.redirect_uri,
         };
-        self.store.save_tokens(&key, &tokens).await?;
+        {
+            let lock = self.refresh_lock(&key).await;
+            let _guard = lock.lock().await;
+            self.store.save_tokens(&key, &tokens).await?;
+        }
         self.denied_prompts.lock().await.remove(&denied_key);
         Ok(OAuthConnection {
             key,

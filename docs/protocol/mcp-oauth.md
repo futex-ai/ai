@@ -171,9 +171,15 @@ embedded desktop/mobile secret as confidential.
 - Default refresh skew is 60 seconds and is configurable.
 - Concurrent callers for one credential share one refresh; unrelated
   credentials do not block each other.
+- The final token write from interactive authorization uses the same
+  per-credential lock, so a newly approved grant wins over an older in-flight
+  refresh or its `invalid_grant` cleanup. The lock is not held during browser
+  interaction or token exchange.
 - Disconnect uses the same per-credential lock across load, best-effort
   revocation, and local deletion. It cannot overlap a refresh save or leave a
   rotated token set stored after disconnect returns.
+- An authorization grant that finishes after an already-completed disconnect
+  is a new user-approved connection and may store its new credentials.
 - A rotated refresh token atomically replaces the old token set. If a refresh
   response omits `refresh_token`, retain the previous one.
 - `invalid_grant` removes the unusable token set. An explicit refresh returns
@@ -277,10 +283,13 @@ and diagnostics never contain authorization codes or token values.
   to remain loopback, so a local-looking hostname cannot send plaintext
   traffic off-box.
 - Reject user info, fragments, dangerous schemes, private/reserved/link-local
-  destinations, IPv4-compatible, well-known NAT64 (`64:ff9b::/96`), and 6to4
-  transition ranges, deprecated IPv6 site-local `fec0::/10`, and disallowed
-  ports according to the injected URL policy; loopback destinations do not
-  bypass the blocked-port list.
+  destinations, IPv4-compatible, well-known and local-use NAT64
+  (`64:ff9b::/96` and `64:ff9b:1::/48`), discard/dummy
+  (`100::/64` and `100:0:0:1::/64`), IETF protocol-assignment
+  (`2001::/23`), documentation (`2001:db8::/32` and `3fff::/20`), 6to4
+  (`2002::/16`), SRv6 SID (`5f00::/16`), and deprecated IPv6 site-local
+  (`fec0::/10`) ranges. Apply the same policy to literals and every DNS result;
+  loopback destinations do not bypass the blocked-port list.
 - Disable automatic redirects. Follow redirects only for metadata GETs after
   validating scheme, resolved destination, and policy at every library-owned
   hop; registration, token, and revocation POST responses never redirect their

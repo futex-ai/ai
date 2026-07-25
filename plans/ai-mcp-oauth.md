@@ -280,6 +280,26 @@ reuses metadata forbidden by cache controls.
 - [x] Run `git add -A`, commit the green hardening work with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.
+- [x] Add failing literal, browser-preflight, and production-transport
+      regressions for currently accepted IANA non-global IPv6 ranges, with a
+      globally routable allow-control.
+- [x] Conservatively reject the missing special-purpose IPv6 prefixes at the
+      shared URL-policy boundary and align protocol/crate documentation.
+- [x] Add failing deterministic regressions for refresh-before-authorization,
+      authorization-before-refresh, and in-flight `invalid_grant` deletion
+      interleavings on one credential key.
+- [x] Serialize the final authorization token write on the existing per-key
+      lock without holding it across browser interaction, and document that a
+      newly completed grant may intentionally follow an earlier disconnect.
+- [x] Add a deterministic regression proving an authorization whose token
+      exchange overlaps a completed disconnect stores the new user-approved
+      grant afterward.
+- [x] Document the raw IANA IPv6 masks beside their security-sensitive helper
+      so future maintenance preserves the exact prefix boundaries.
+- [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
+      validate the IPv6 and authorization-write solutions.
+- [ ] Commit and push the green follow-up hardening work before the next
+      review cycle.
 - [ ] After the push, run `cargo xtask review` and continue the authorized
       review-fix loop until no valid findings remain or the ten-cycle limit is
       reached.

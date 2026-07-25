@@ -209,3 +209,41 @@ fn production_rejects_deprecated_site_local_ipv6() {
         );
     }
 }
+
+#[test]
+fn production_rejects_iana_non_global_ipv6_ranges() {
+    let policy = OAuthUrlPolicy::default();
+
+    for value in [
+        "64:ff9b:1::1",
+        "100::1",
+        "100:0:0:1::1",
+        "2001::1",
+        "2001:2::1",
+        "2001:10::1",
+        "2001:1ff::1",
+        "3fff::1",
+        "5f00::1",
+    ] {
+        let address = value.parse::<Ipv6Addr>().unwrap();
+        assert!(
+            !policy.address_allowed(IpAddr::V6(address), "https"),
+            "{value} should be rejected"
+        );
+        assert!(matches!(
+            policy.parse(
+                &format!("https://[{value}]/oauth"),
+                OAuthEndpointKind::Authorization
+            ),
+            Err(Error::UnsafeUrl {
+                reason: OAuthUnsafeUrlReason::Address,
+                ..
+            })
+        ));
+    }
+
+    let global = "2606:4700:4700::1111".parse::<Ipv6Addr>().unwrap();
+    assert!(policy.address_allowed(IpAddr::V6(global), "https"));
+    let immediately_after_ietf_assignments = "2001:200::1".parse::<Ipv6Addr>().unwrap();
+    assert!(policy.address_allowed(IpAddr::V6(immediately_after_ietf_assignments), "https"));
+}

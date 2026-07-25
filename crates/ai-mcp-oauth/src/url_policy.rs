@@ -171,19 +171,32 @@ fn is_public_v6(address: Ipv6Addr) -> bool {
         || address.is_loopback()
         || address.is_multicast()
         || is_ipv4_transition_address(segments)
+        || is_special_purpose_v6(segments)
         || (segments[0] & 0xfe00) == 0xfc00
         || (segments[0] & 0xffc0) == 0xfe80
-        || (segments[0] & 0xffc0) == 0xfec0
-        || (segments[0] == 0x2001 && segments[1] == 0x0db8))
+        || (segments[0] & 0xffc0) == 0xfec0)
 }
 
-/// Detects IPv4-compatible, well-known NAT64, and 6to4 address ranges.
+/// Detects IPv4-compatible, NAT64, and 6to4 address ranges.
 fn is_ipv4_transition_address(segments: [u16; 8]) -> bool {
     segments[..6].iter().all(|segment| *segment == 0)
         || (segments[0] == 0x0064
             && segments[1] == 0xff9b
             && segments[2..6].iter().all(|segment| *segment == 0))
+        || (segments[0] == 0x0064 && segments[1] == 0xff9b && segments[2] == 0x0001)
         || segments[0] == 0x2002
+}
+
+/// Detects the remaining non-global IANA special-purpose IPv6 ranges.
+///
+/// Covers discard and dummy `/64` prefixes, the IETF protocol-assignment
+/// `/23`, both documentation prefixes, and the SRv6 SID `/16`.
+fn is_special_purpose_v6(segments: [u16; 8]) -> bool {
+    (segments[0] == 0x0100 && segments[1] == 0 && segments[2] == 0 && matches!(segments[3], 0 | 1))
+        || (segments[0] == 0x2001 && (segments[1] & 0xfe00) == 0)
+        || (segments[0] == 0x2001 && segments[1] == 0x0db8)
+        || (segments[0] == 0x3fff && (segments[1] & 0xf000) == 0)
+        || segments[0] == 0x5f00
 }
 
 fn unsafe_url(endpoint: OAuthEndpointKind, reason: OAuthUnsafeUrlReason) -> Error {
