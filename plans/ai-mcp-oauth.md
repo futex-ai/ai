@@ -300,6 +300,6 @@ reuses metadata forbidden by cache controls.
       validate the IPv6 and authorization-write solutions.
 - [x] Commit and push the green follow-up hardening work before the next
       review cycle.
-- [ ] After the push, run `cargo xtask review` and continue the authorized
+- [x] After the push, run `cargo xtask review` and continue the authorized
       review-fix loop until no valid findings remain or the ten-cycle limit is
       reached.
