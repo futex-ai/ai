@@ -36,13 +36,13 @@ pub(super) fn manager(
     random: Unimock,
     config: McpOAuthConfig,
 ) -> DefaultMcpOAuthManager {
-    manager_with_user_agent(
+    manager_with_boundaries(
         discovery,
         registry,
         store,
         Arc::new(user_agent) as DynOAuthUserAgent,
         transport,
-        dns_resolver,
+        Arc::new(dns_resolver) as DynOAuthDnsResolver,
         clock,
         random,
         config,
@@ -64,13 +64,69 @@ pub(super) fn manager_with_user_agent(
     random: Unimock,
     config: McpOAuthConfig,
 ) -> DefaultMcpOAuthManager {
+    manager_with_boundaries(
+        discovery,
+        registry,
+        store,
+        user_agent,
+        transport,
+        Arc::new(dns_resolver) as DynOAuthDnsResolver,
+        clock,
+        random,
+        config,
+    )
+}
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "test fixture mirrors the production composition root"
+)]
+pub(super) fn manager_with_dns_resolver(
+    discovery: Unimock,
+    registry: Unimock,
+    store: Unimock,
+    user_agent: Unimock,
+    transport: Unimock,
+    dns_resolver: DynOAuthDnsResolver,
+    clock: Unimock,
+    random: Unimock,
+    config: McpOAuthConfig,
+) -> DefaultMcpOAuthManager {
+    manager_with_boundaries(
+        discovery,
+        registry,
+        store,
+        Arc::new(user_agent) as DynOAuthUserAgent,
+        transport,
+        dns_resolver,
+        clock,
+        random,
+        config,
+    )
+}
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "test fixture mirrors the production composition root"
+)]
+fn manager_with_boundaries(
+    discovery: Unimock,
+    registry: Unimock,
+    store: Unimock,
+    user_agent: DynOAuthUserAgent,
+    transport: Unimock,
+    dns_resolver: DynOAuthDnsResolver,
+    clock: Unimock,
+    random: Unimock,
+    config: McpOAuthConfig,
+) -> DefaultMcpOAuthManager {
     DefaultMcpOAuthManager::new(
         Arc::new(discovery) as DynMcpOAuthDiscovery,
         Arc::new(registry) as DynOAuthClientRegistry,
         Arc::new(store) as DynOAuthCredentialStore,
         user_agent,
         Arc::new(transport) as DynOAuthHttpTransport,
-        Arc::new(dns_resolver) as DynOAuthDnsResolver,
+        dns_resolver,
         Arc::new(clock) as DynOAuthClock,
         Arc::new(random) as DynOAuthRandom,
         config,

@@ -32,7 +32,8 @@ revocation POST. Each HTTP-hop timeout covers DNS, connection, headers, and
 streamed response bytes; an unrepresentable deadline is rejected as invalid
 configuration. Validated addresses are pinned before dispatch.
 Before browser handoff, the manager separately resolves the initial
-authorization hostname and requires every address to satisfy the same policy.
+authorization hostname within the same HTTP timeout and requires every address
+to satisfy the same policy. A stalled lookup surfaces as a typed DNS failure.
 This preflight cannot pin an external browser's later DNS lookup or redirects;
 the host and user-agent implementation retain that responsibility.
 HTTP loopback is available only through the explicit development policy: local

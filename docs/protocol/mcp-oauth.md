@@ -137,8 +137,10 @@ embedded desktop/mobile secret as confidential.
   or launch a URL through a shell.
 - Immediately before creating callback state and handing off the final
   authorization URL, resolve its domain through the injected DNS boundary and
-  require every returned address to satisfy the URL policy. Empty or failed
-  resolution aborts authorization without opening the user agent.
+  require every returned address to satisfy the URL policy. The lookup is
+  bounded by the configured HTTP timeout. Empty, failed, or timed-out
+  resolution aborts authorization with the typed DNS failure without opening
+  the user agent.
 - This preflight is defense in depth, not connection pinning. A platform
   browser resolves the hostname again and controls subsequent redirects, so
   DNS-rebinding, time-of-check/time-of-use, and browser redirect enforcement
@@ -299,8 +301,9 @@ and diagnostics never contain authorization codes or token values.
   hop; registration, token, and revocation POST responses never redirect their
   payloads. Pin connections to validated addresses or verify the connected
   peer so DNS cannot change between validation and use. The per-hop timeout
-  covers DNS, connection, headers, and streamed response bytes. Preflight the
-  initial browser URL as described above, without claiming that the external
+  covers DNS, connection, headers, and streamed response bytes. The same
+  configured HTTP timeout bounds the initial browser-URL DNS preflight.
+  Preflight that URL as described above, without claiming that the external
   browser connection is pinned.
 - Open authorization URLs with platform APIs, never shell execution.
 - Bound response bytes, redirect count, callback lifetime, and request time.
@@ -326,9 +329,9 @@ authorization, and MCP server with the production reqwest transports for:
 - best-effort revocation and unconditional local cleanup.
 
 Source-adjacent tests cover malicious discovery URLs, dangerous address forms,
-DNS rebinding, redirect chains, response bounds, and secret redaction. No test
-uses real credentials. No ignored live test is present because there is no
-stable public OAuth-enabled MCP test server.
+DNS rebinding, stalled browser-handoff DNS preflight, redirect chains, response
+bounds, and secret redaction. No test uses real credentials. No ignored live
+test is present because there is no stable public OAuth-enabled MCP test server.
 
 ## Acceptance criteria
 

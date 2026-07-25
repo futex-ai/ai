@@ -15,7 +15,7 @@ const DEFAULT_REFRESH_SKEW: Duration = Duration::from_secs(60);
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// Host-independent limits and policy for MCP OAuth operations.
 pub struct McpOAuthConfig {
-    /// Per-hop timeout including DNS for OAuth HTTP requests.
+    /// Per-hop timeout including DNS for OAuth HTTP requests and browser preflight.
     pub http_timeout: Duration,
     /// Maximum time allowed for one explicit user-agent authorization.
     pub user_agent_timeout: Duration,

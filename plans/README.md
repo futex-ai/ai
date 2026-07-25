@@ -7,6 +7,7 @@ milestones are finished.
 ## Active
 
 - [AI MCP OAuth](ai-mcp-oauth.md)
+- [OAuth authorization DNS timeout](oauth-authorization-dns-timeout.md)
 
 ## Completed
 

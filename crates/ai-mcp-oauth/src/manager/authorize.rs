@@ -2,6 +2,7 @@
 
 use ai_mcp::{McpAuthorizationChallenge, McpAuthorizationFailure};
 use secrecy::ExposeSecret;
+use tokio::time::timeout;
 use url::{Host, Url};
 
 use crate::{
@@ -172,7 +173,15 @@ impl DefaultMcpOAuthManager {
                 endpoint: OAuthEndpointKind::Authorization,
             });
         };
-        let addresses = self.dns_resolver.resolve(domain, port).await?;
+        let addresses = match timeout(
+            self.config.http_timeout,
+            self.dns_resolver.resolve(domain, port),
+        )
+        .await
+        {
+            Ok(addresses) => addresses?,
+            Err(_) => return Err(Error::Dns),
+        };
         if addresses.is_empty() {
             return Err(Error::Dns);
         }
