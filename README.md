@@ -20,6 +20,9 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [Kimi model provider](docs/protocol/kimi-model-provider.md) defines the
+  planned Kimi K3 catalog, request, replay, tool-calling, structured-output,
+  usage, and error contract.
 - [Tool output management](docs/protocol/tool-output-management.md) defines the
   universal output-id, bounded-envelope, pagination, and raw-output isolation
   contract for tool calls.

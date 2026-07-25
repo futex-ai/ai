@@ -6,7 +6,7 @@ milestones are finished.
 
 ## Active
 
-None.
+- [Add Kimi model provider](add-kimi-model-provider.md)
 
 ## Completed
 
