@@ -22,7 +22,7 @@ never creates callback state or opens the user agent after timeout.
       verification coverage with the browser-handoff DNS timeout.
 - [x] Run focused and full repository gates, then have Claude Code Fable 5
       validate the completed timeout solution.
-- [ ] Run `git add -A`, commit the green timeout fix with a descriptive
+- [x] Run `git add -A`, commit the green timeout fix with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.
 - [ ] After the push, run the final authorized `cargo xtask review` cycle and
