@@ -136,7 +136,7 @@ pub enum Error {
         /// Endpoint whose POST response attempted to redirect.
         endpoint: OAuthEndpointKind,
     },
-    /// Response body was not valid JSON.
+    /// A successful non-revocation response body was not valid JSON.
     #[error("[ai_mcp_oauth/transport] response body was not JSON")]
     InvalidJsonResponse,
     /// Random byte generation failed.

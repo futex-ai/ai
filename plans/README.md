@@ -8,6 +8,8 @@ milestones are finished.
 
 - [AI MCP OAuth](ai-mcp-oauth.md)
 - [OAuth authorization DNS timeout](oauth-authorization-dns-timeout.md)
+- [MCP lazy result serialization](mcp-lazy-result-serialization.md)
+- [OAuth transport status-aware JSON](oauth-transport-status-aware-json.md)
 
 ## Completed
 

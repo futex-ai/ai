@@ -68,8 +68,11 @@ async fn post_refresh_unauthorized_is_not_retried_or_interactive() {
 }
 
 #[tokio::test]
-async fn disconnect_revokes_refresh_token_and_removes_local_tokens() {
+async fn disconnect_accepts_plain_text_revocation_and_removes_local_tokens() {
     let server = FakeOAuthMcpServer::spawn().await;
+    server
+        .configure(|behavior| behavior.revocation_plain_text_success = true)
+        .await;
     let harness = harness(&server);
     let key = credential_key(&server);
     harness

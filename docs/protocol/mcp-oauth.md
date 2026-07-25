@@ -195,10 +195,12 @@ embedded desktop/mobile secret as confidential.
 - Disconnect best-effort revokes tokens only when a validated endpoint is
   available, then always removes local tokens. Cached dynamic registration is
   retained by default and may be removed locally through explicit host policy;
-  v1 does not remotely manage registrations. Local deletion is not contingent
-  on network success. A token-load failure skips remote revocation but still
-  triggers key-based local deletion. If deletion succeeds, disconnect returns
-  the original typed load error. If deletion also fails,
+  v1 does not remotely manage registrations. Any 2xx revocation status is
+  successful and its response body is ignored as required by RFC 7009. Local
+  deletion is not contingent on network success. A token-load failure skips
+  remote revocation but still triggers key-based local deletion. If deletion
+  succeeds, disconnect returns the original typed load error. If deletion also
+  fails,
   `LocalTokenDeletionFailed` takes precedence with `revocation_failed = true`
   because remote revocation could not be attempted.
 
@@ -254,8 +256,14 @@ pub trait AuthorizationServerSelector: Send + Sync {
 ```
 
 `OAuthHttpTransport` separately models bounded GET JSON, POST JSON, and POST
-form requests. `OAuthClock` and `OAuthRandom` abstract time and
-cryptographically secure bytes. Production implementations are injected into
+form requests. The production decoder retains valid JSON at every status.
+Non-empty, non-JSON bodies fail successful discovery, registration, and token
+requests. For non-success responses they become `null` so endpoint consumers
+retain the typed HTTP status; revocation bodies become `null` at any status
+because only the status is meaningful. Empty bodies are also represented as
+`null`, and response-size limits apply before this decoding decision.
+`OAuthClock` and `OAuthRandom` abstract time and cryptographically secure
+bytes. Production implementations are injected into
 `DefaultMcpOAuthManager`, which implements `McpOAuthManager`.
 
 `RefreshingMcpAuth` is bound to a canonical resource and credential identity
@@ -326,12 +334,14 @@ authorization, and MCP server with the production reqwest transports for:
 - concurrent single-flight refresh and rotation;
 - `invalid_grant` cleanup and a post-refresh 401 without retry loops;
 - 403 incremental scope consent, granted subsets, and denial-loop prevention;
-- best-effort revocation and unconditional local cleanup.
+- best-effort revocation, including non-JSON 2xx bodies, and unconditional
+  local cleanup.
 
 Source-adjacent tests cover malicious discovery URLs, dangerous address forms,
 DNS rebinding, stalled browser-handoff DNS preflight, redirect chains, response
-bounds, and secret redaction. No test uses real credentials. No ignored live
-test is present because there is no stable public OAuth-enabled MCP test server.
+bounds, status-aware JSON decoding, and secret redaction. No test uses real
+credentials. No ignored live test is present because there is no stable public
+OAuth-enabled MCP test server.
 
 ## Acceptance criteria
 

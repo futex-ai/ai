@@ -5,11 +5,12 @@ use std::collections::BTreeMap;
 use futures_util::StreamExt;
 use serde_json::Value;
 
-use crate::{Error, OAuthHttpResponse, Result};
+use crate::{Error, OAuthEndpointKind, OAuthHttpResponse, Result};
 
 pub(super) async fn bounded_response(
     response: reqwest::Response,
     limit: usize,
+    endpoint: OAuthEndpointKind,
 ) -> Result<OAuthHttpResponse> {
     let status = response.status().as_u16();
     let headers = normalized_headers(response.headers());
@@ -30,6 +31,11 @@ pub(super) async fn bounded_response(
     } else {
         match serde_json::from_slice(&bytes) {
             Ok(body) => body,
+            Err(_)
+                if !(200..300).contains(&status) || endpoint == OAuthEndpointKind::Revocation =>
+            {
+                Value::Null
+            }
             Err(_) => return Err(Error::InvalidJsonResponse),
         }
     };

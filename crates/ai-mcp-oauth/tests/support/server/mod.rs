@@ -18,6 +18,7 @@ pub(crate) struct ServerBehavior {
     pub(crate) granted_scope: Option<String>,
     pub(crate) refresh_invalid_grant: bool,
     pub(crate) refresh_delay: Duration,
+    pub(crate) revocation_plain_text_success: bool,
     pub(crate) reject_authorized: bool,
     pub(crate) insufficient_scope: bool,
     pub(crate) forbidden: bool,

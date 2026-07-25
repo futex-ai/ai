@@ -13,15 +13,15 @@ pub(crate) fn map_outcome(
     outcome: McpToolCallOutcome,
     max_response_bytes: usize,
 ) -> ToolResult<Value> {
-    let content = serialize_content(tool_name, &outcome.content)?;
     let mapped = if outcome.is_error {
+        let content = serialize_content(tool_name, &outcome.content)?;
         json!({"is_error": true, "content": content})
     } else if let Some(structured) = outcome.structured_content {
         structured
     } else if let [McpContentBlock::Text { text, .. }] = outcome.content.as_slice() {
         Value::String(text.clone())
     } else {
-        content
+        serialize_content(tool_name, &outcome.content)?
     };
     bound_result(tool_name, mapped, max_response_bytes)
 }

@@ -111,7 +111,7 @@ impl ReqwestOAuthHttpTransport {
         }
         match timeout_at(
             deadline,
-            bounded_response(response, limits.max_response_bytes),
+            bounded_response(response, limits.max_response_bytes, endpoint),
         )
         .await
         {

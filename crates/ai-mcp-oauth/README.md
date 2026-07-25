@@ -30,7 +30,10 @@ The production transport disables automatic redirects, follows only validated
 metadata GET redirects, and never redirects a registration, token, or
 revocation POST. Each HTTP-hop timeout covers DNS, connection, headers, and
 streamed response bytes; an unrepresentable deadline is rejected as invalid
-configuration. Validated addresses are pinned before dispatch.
+configuration. Validated addresses are pinned before dispatch. Valid JSON is
+retained at every status. Non-JSON error bodies preserve their status with a
+`null` body, successful discovery, registration, and token responses require
+JSON, and RFC 7009 revocation success is determined only by status.
 Before browser handoff, the manager separately resolves the initial
 authorization hostname within the same HTTP timeout and requires every address
 to satisfy the same policy. A stalled lookup surfaces as a typed DNS failure.
@@ -173,7 +176,8 @@ grant that finishes after an already-completed disconnect is treated as a new
 connection. If loading stored tokens fails, disconnect skips remote revocation
 but still attempts key-based local deletion. Successful deletion preserves the
 typed load error; if deletion also fails, `LocalTokenDeletionFailed` takes
-precedence with `revocation_failed = true`.
+precedence with `revocation_failed = true`. Any 2xx revocation status counts as
+success regardless of an empty, JSON, or non-JSON response body.
 
 ## Development
 
@@ -188,7 +192,8 @@ cargo xtask smoke-test
 Unit tests use injected Unimock boundaries. The integration suite runs real
 MCP and OAuth reqwest transports against a credential-free loopback server,
 including DCR, PKCE callback, refresh, revocation, 401/403, SSE side responses,
-and DELETE authentication.
+and DELETE authentication. Revocation coverage includes a successful
+plain-text response body.
 
 ### Key Code
 

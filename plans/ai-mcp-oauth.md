@@ -324,6 +324,6 @@ preserving explicit compound-failure precedence.
 - [x] Run `git add -A`, commit the green disconnect fix with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.
-- [ ] After the push, run `cargo xtask review` and continue the authorized
+- [x] After the push, run `cargo xtask review` and continue the authorized
       review-fix loop until no valid findings remain or the ten-cycle limit is
       reached.

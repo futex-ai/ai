@@ -128,6 +128,9 @@ pub(super) async fn revoke(
     Form(form): Form<BTreeMap<String, String>>,
 ) -> Response {
     state.records.lock().await.revocation_forms.push(form);
+    if state.behavior.lock().await.revocation_plain_text_success {
+        return (StatusCode::OK, "OK").into_response();
+    }
     StatusCode::OK.into_response()
 }
 

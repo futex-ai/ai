@@ -35,7 +35,7 @@ pub struct OAuthHttpResponse {
     pub status: u16,
     /// Lowercase response-header names mapped to wire-order values.
     pub headers: BTreeMap<String, Vec<String>>,
-    /// Parsed JSON response, or `null` for an empty body.
+    /// Parsed JSON response, or `null` for an empty or ignorable non-JSON body.
     pub body: Value,
 }
 

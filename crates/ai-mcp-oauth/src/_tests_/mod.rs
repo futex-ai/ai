@@ -10,6 +10,7 @@ mod registration_tests;
 mod resource_tests;
 mod state_tests;
 mod token_tests;
+mod transport_body_tests;
 mod transport_post_redirect_tests;
 mod transport_tests;
 mod transport_timeout_tests;

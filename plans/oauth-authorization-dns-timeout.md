@@ -25,5 +25,5 @@ never creates callback state or opens the user agent after timeout.
 - [x] Run `git add -A`, commit the green timeout fix with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.
-- [ ] After the push, run the final authorized `cargo xtask review` cycle and
+- [x] After the push, run the final authorized `cargo xtask review` cycle and
       record all findings or the clean result.
