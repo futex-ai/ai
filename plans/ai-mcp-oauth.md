@@ -303,3 +303,27 @@ reuses metadata forbidden by cache controls.
 - [x] After the push, run `cargo xtask review` and continue the authorized
       review-fix loop until no valid findings remain or the ten-cycle limit is
       reached.
+
+## Milestone 5: Unconditional Disconnect Cleanup
+
+Ensure a corrupt or unreadable token record cannot prevent key-based local
+credential deletion. At the end of this milestone, disconnect still reports
+the underlying load failure while guaranteeing the deletion attempt and
+preserving explicit compound-failure precedence.
+
+- [x] Add failing strict-mock regressions proving token deletion is attempted
+      after a load failure, remote discovery and revocation are skipped, and a
+      simultaneous deletion failure takes precedence.
+- [x] Preserve the typed load error when deletion succeeds; when both
+      operations fail, return `LocalTokenDeletionFailed` with
+      `revocation_failed = true` under the existing per-key lock.
+- [x] Broaden the compound-error field documentation and align the protocol
+      and crate README with the deletion guarantee and error precedence.
+- [x] Run targeted and full repository gates, then have Claude Code Fable 5
+      validate the completed disconnect solution.
+- [ ] Run `git add -A`, commit the green disconnect fix with a descriptive
+      Conventional Commit whose title is at most 50 characters, and push the
+      current branch.
+- [ ] After the push, run `cargo xtask review` and continue the authorized
+      review-fix loop until no valid findings remain or the ten-cycle limit is
+      reached.

@@ -169,7 +169,10 @@ refresh cannot restore tokens after local removal. Interactive authorization
 uses the same lock only for its final token write, so the newly approved grant
 wins over an older in-flight refresh without blocking browser interaction. A
 grant that finishes after an already-completed disconnect is treated as a new
-connection.
+connection. If loading stored tokens fails, disconnect skips remote revocation
+but still attempts key-based local deletion. Successful deletion preserves the
+typed load error; if deletion also fails, `LocalTokenDeletionFailed` takes
+precedence with `revocation_failed = true`.
 
 ## Development
 

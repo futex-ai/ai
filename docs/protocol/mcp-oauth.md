@@ -194,7 +194,11 @@ embedded desktop/mobile secret as confidential.
   available, then always removes local tokens. Cached dynamic registration is
   retained by default and may be removed locally through explicit host policy;
   v1 does not remotely manage registrations. Local deletion is not contingent
-  on network success.
+  on network success. A token-load failure skips remote revocation but still
+  triggers key-based local deletion. If deletion succeeds, disconnect returns
+  the original typed load error. If deletion also fails,
+  `LocalTokenDeletionFailed` takes precedence with `revocation_failed = true`
+  because remote revocation could not be attempted.
 
 ## Public boundaries
 

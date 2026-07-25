@@ -10,7 +10,17 @@ impl DefaultMcpOAuthManager {
     pub(super) async fn disconnect_inner(&self, key: &OAuthCredentialKey) -> Result<()> {
         let lock = self.refresh_lock(key).await;
         let _guard = lock.lock().await;
-        let tokens = self.store.load_tokens(key).await?;
+        let tokens = match self.store.load_tokens(key).await {
+            Ok(tokens) => tokens,
+            Err(load_error) => {
+                if self.store.delete_tokens(key).await.is_err() {
+                    return Err(Error::LocalTokenDeletionFailed {
+                        revocation_failed: true,
+                    });
+                }
+                return Err(load_error);
+            }
+        };
         let revocation_failed = if let Some(tokens) = tokens {
             self.revoke_if_advertised(key, &tokens).await.is_err()
         } else {

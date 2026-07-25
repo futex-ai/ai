@@ -215,7 +215,7 @@ pub enum Error {
         "[ai_mcp_oauth/disconnect] local token deletion failed (revocation_failed={revocation_failed})"
     )]
     LocalTokenDeletionFailed {
-        /// Whether remote revocation also failed.
+        /// Whether remote revocation failed or could not be attempted.
         revocation_failed: bool,
     },
     /// Required host authorization context is empty or inconsistent.

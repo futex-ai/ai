@@ -115,6 +115,76 @@ async fn local_deletion_failure_remains_distinct() {
 }
 
 #[tokio::test]
+async fn load_failure_still_attempts_local_deletion() {
+    let store = Unimock::new((
+        OAuthCredentialStoreMock::load_tokens
+            .next_call(matching!(_))
+            .returns(Err(Error::Store {
+                operation: OAuthStoreOperation::LoadTokens,
+            })),
+        OAuthCredentialStoreMock::delete_tokens
+            .next_call(matching!(_))
+            .returns(Ok(())),
+    ));
+    let oauth = manager(
+        Unimock::new(()),
+        Unimock::new(()),
+        store,
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        McpOAuthConfig::default(),
+    );
+
+    let error = oauth.disconnect(&key("account")).await.unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::Store {
+            operation: OAuthStoreOperation::LoadTokens
+        }
+    ));
+}
+
+#[tokio::test]
+async fn deletion_failure_takes_precedence_over_load_failure() {
+    let store = Unimock::new((
+        OAuthCredentialStoreMock::load_tokens
+            .next_call(matching!(_))
+            .returns(Err(Error::Store {
+                operation: OAuthStoreOperation::LoadTokens,
+            })),
+        OAuthCredentialStoreMock::delete_tokens
+            .next_call(matching!(_))
+            .returns(Err(Error::Store {
+                operation: OAuthStoreOperation::DeleteTokens,
+            })),
+    ));
+    let oauth = manager(
+        Unimock::new(()),
+        Unimock::new(()),
+        store,
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        McpOAuthConfig::default(),
+    );
+
+    let error = oauth.disconnect(&key("account")).await.unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::LocalTokenDeletionFailed {
+            revocation_failed: true
+        }
+    ));
+}
+
+#[tokio::test]
 async fn missing_revocation_endpoint_skips_network_and_deletes_locally() {
     let store = Unimock::new((
         OAuthCredentialStoreMock::load_tokens
