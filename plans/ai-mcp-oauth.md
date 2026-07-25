@@ -298,7 +298,7 @@ reuses metadata forbidden by cache controls.
       so future maintenance preserves the exact prefix boundaries.
 - [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
       validate the IPv6 and authorization-write solutions.
-- [ ] Commit and push the green follow-up hardening work before the next
+- [x] Commit and push the green follow-up hardening work before the next
       review cycle.
 - [ ] After the push, run `cargo xtask review` and continue the authorized
       review-fix loop until no valid findings remain or the ten-cycle limit is
