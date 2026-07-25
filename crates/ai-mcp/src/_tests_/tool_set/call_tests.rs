@@ -35,6 +35,15 @@ async fn load_snapshots_descriptors_and_dispatches_to_original_name() {
 }
 
 #[tokio::test]
+async fn load_validates_config_before_contacting_client() {
+    let config = McpServerConfig::new("Bad Key", "https://example.com/mcp");
+
+    let result = McpToolSet::load(unused_client(), &config).await;
+
+    assert!(matches!(result, Err(Error::InvalidServerKey { .. })));
+}
+
+#[tokio::test]
 async fn unknown_names_fail_before_client_dispatch() {
     let set = McpToolSet::new(
         unused_client(),

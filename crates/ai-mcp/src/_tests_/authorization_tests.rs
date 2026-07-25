@@ -56,3 +56,72 @@ fn defaults_failure_from_status_when_bearer_error_is_absent() {
         McpAuthorizationFailure::Forbidden
     );
 }
+
+#[test]
+fn accepts_bad_whitespace_around_bearer_parameter_equals() {
+    let metadata_url = "https://example.com/.well-known/oauth-protected-resource";
+    let challenge = authorization_challenge(
+        401,
+        &[format!(
+            "Bearer error = \"invalid_token\", resource_metadata = \"{metadata_url}\", scope = \"read write\", error_description = \"expired, retry\""
+        )],
+    );
+
+    assert_eq!(challenge.failure, McpAuthorizationFailure::InvalidToken);
+    assert_eq!(
+        challenge.resource_metadata_url.as_deref(),
+        Some(metadata_url)
+    );
+    assert_eq!(challenge.scopes, ["read", "write"]);
+    assert_eq!(
+        challenge.error_description.as_deref(),
+        Some("expired, retry")
+    );
+}
+
+#[test]
+fn whitespace_parameter_does_not_end_the_bearer_challenge() {
+    let metadata_url = "https://example.com/meta";
+    let challenge = authorization_challenge(
+        401,
+        &[format!(
+            "Bearer scope=\"read\", resource_metadata\t= \"{metadata_url}\", error=\"invalid_token\""
+        )],
+    );
+
+    assert_eq!(challenge.failure, McpAuthorizationFailure::InvalidToken);
+    assert_eq!(
+        challenge.resource_metadata_url.as_deref(),
+        Some(metadata_url)
+    );
+    assert_eq!(challenge.scopes, ["read"]);
+}
+
+#[test]
+fn empty_list_elements_do_not_end_the_bearer_challenge() {
+    let challenge = authorization_challenge(
+        401,
+        &[
+            "Bearer error=\"invalid_token\",, scope=\"read\", , error_description=\"expired\""
+                .to_owned(),
+        ],
+    );
+
+    assert_eq!(challenge.failure, McpAuthorizationFailure::InvalidToken);
+    assert_eq!(challenge.scopes, ["read"]);
+    assert_eq!(challenge.error_description.as_deref(), Some("expired"));
+}
+
+#[test]
+fn later_schemes_do_not_bleed_parameters_into_bearer() {
+    let challenge = authorization_challenge(
+        401,
+        &[
+            "Bearer scope=\"read\", Basic realm = \"legacy\", scope=\"admin\"".to_owned(),
+            "Bearer error=\"invalid_token\", Negotiate YWJjZGVmZw==, scope=\"ignored\"".to_owned(),
+        ],
+    );
+
+    assert_eq!(challenge.failure, McpAuthorizationFailure::InvalidToken);
+    assert_eq!(challenge.scopes, ["read"]);
+}

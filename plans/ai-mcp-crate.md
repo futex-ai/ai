@@ -255,6 +255,22 @@ within its configured byte cap.
       the existing typed HTTP-status error.
 - [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
       validate the completed redirect solution.
+- [x] Add failing Bearer regressions for space/tab `BWS` around `=`, parameter
+      ordering, quoted commas, mixed schemes, and token68 boundaries.
+- [x] Parse later Bearer auth-params with optional whitespace before `=`
+      without allowing parameters from another challenge to bleed through, and
+      align the protocol contract.
+- [x] Add a failing strict-mock regression proving invalid tool configuration
+      never calls the MCP client.
+- [x] Validate tool configuration before remote discovery while retaining the
+      independently validated direct constructor, and correct the documented
+      load ordering.
+- [x] Add a failing regression proving empty `WWW-Authenticate` list elements
+      do not terminate an active Bearer challenge.
+- [x] Ignore empty list elements during Bearer parsing and align the protocol
+      contract with RFC recipient tolerance.
+- [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
+      validate the completed Bearer, empty-element, and fail-fast solutions.
 - [ ] Run `git add -A`, commit the green hardening work with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.

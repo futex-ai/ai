@@ -62,6 +62,9 @@ fn parse_bearer_fields(fields: &[String]) -> ParsedBearer {
         let mut in_bearer = false;
         for segment in split_unquoted_commas(field) {
             let trimmed = segment.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
             if let Some(remainder) = challenge_remainder(trimmed, "Bearer") {
                 in_bearer = true;
                 parse_parameter(remainder, &mut parsed);
@@ -112,10 +115,12 @@ fn challenge_remainder<'a>(segment: &'a str, scheme: &str) -> Option<&'a str> {
 }
 
 fn starts_challenge(segment: &str) -> bool {
-    let token = segment
-        .split_once(char::is_whitespace)
-        .map_or(segment, |(token, _)| token);
-    !token.contains('=')
+    match segment.split_once(char::is_whitespace) {
+        None => !segment.contains('='),
+        Some((token, remainder)) => {
+            !token.contains('=') && !remainder.trim_start().starts_with('=')
+        }
+    }
 }
 
 fn parse_parameter(segment: &str, parsed: &mut ParsedBearer) {

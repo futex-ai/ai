@@ -80,7 +80,8 @@ async fn load_adapter(
 ```
 
 Register the returned `Arc<dyn Tool>` in
-`ai_tool_calling::ToolCallingRuntime`. Structured MCP results pass through,
+`ai_tool_calling::ToolCallingRuntime`. `McpToolSet::load` validates local
+configuration before remote discovery. Structured MCP results pass through,
 single text blocks collapse to strings, multi-block results retain their MCP
 wire JSON, and remote `isError` results remain successful model-visible error
 envelopes. Protocol and transport failures become `ToolError::Execution`.

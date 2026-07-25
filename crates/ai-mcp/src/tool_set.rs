@@ -53,6 +53,7 @@ impl McpToolSet {
 
     /// Discovers all tools and builds a new immutable adapter snapshot.
     pub async fn load(client: DynMcpClient, config: &McpServerConfig) -> Result<Self> {
+        config.validate()?;
         let descriptors = client.list_tools().await?;
         Self::new(client, config, descriptors)
     }

@@ -392,8 +392,9 @@ emits an `Unknown` value unchanged. `structured_content` maps to
   prefixed→original dispatch map and copies the server key, activity verb, and
   response-size limit it needs from `config`. Convenience
   `async fn load(client: DynMcpClient, config: &McpServerConfig) -> Result<Self>`
-  does `list_tools` then `new`. Hosts decide refresh cadence by re-`load`ing
-  (e.g. per turn with their own cache, or when `tools_list_changed()` is true).
+  validates `config` before side effects, then does `list_tools` and `new`.
+  Hosts decide refresh cadence by re-`load`ing (e.g. per turn with their own
+  cache, or when `tools_list_changed()` is true).
 - `definitions()` returns the snapshot. `ToolDefinition` mapping: `name` =
   prefixed name; `description` = descriptor description, else title, else
   original name; `input_schema` = pass-through `inputSchema`; `activity_verb`
@@ -449,11 +450,13 @@ pub enum McpAuthorizationFailure {
 ```
 
 Parse all `WWW-Authenticate` field values with an RFC-aware challenge parser;
-commas inside quoted values are not separators. Preserve every raw field value.
-Map the standard Bearer `error` values to the typed failure variants, split
-`scope` on ASCII spaces, deduplicate scopes in first-seen order, and accept a
-`resource_metadata` value only when all syntactically decoded occurrences
-agree. Missing,
+commas inside quoted values are not separators, and recipients accept optional
+bad whitespace around an auth-parameter `=` without treating the parameter as
+a new challenge. Ignore empty list elements without terminating the surrounding
+challenge. Preserve every raw field value. Map the standard Bearer `error`
+values to the typed failure variants, split `scope` on ASCII spaces, deduplicate
+scopes in first-seen order, and accept a `resource_metadata` value only when all
+syntactically decoded occurrences agree. Missing,
 malformed, or conflicting optional parameters remain absent while the 401/403
 itself stays actionable. A 401 without a recognized error is
 `AuthorizationRequired`; a 403 without `insufficient_scope` is `Forbidden`.
@@ -494,10 +497,11 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
 - Server-request handling: `ping` gets an empty result reply and unsupported
   server requests get `-32601`, with each response POST completed before the
   client polls the original SSE stream for another event.
-- Repeated and combined `WWW-Authenticate` fields; quoted commas; 401 failure
-  mapping; 403 insufficient-scope mapping; agreeing, missing, malformed, and
-  conflicting `resource_metadata`; scope deduplication; session-expiry 404;
-  `close()` tolerating 405.
+- Repeated and combined `WWW-Authenticate` fields; optional bad whitespace;
+  empty list elements; quoted commas; mixed challenge schemes and token68; 401
+  failure mapping; 403 insufficient-scope mapping; agreeing, missing,
+  malformed, and conflicting `resource_metadata`; scope deduplication;
+  session-expiry 404; `close()` tolerating 405.
 - Naming: sanitization, 64-char truncation, collision suffixing, dispatch
   strip-prefix round-trip, `InvalidServerKey`.
 
