@@ -277,7 +277,7 @@ reuses metadata forbidden by cache controls.
       production and test code consistently use top-level imports.
 - [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
       validate the redirect, timeout, and disconnect-race solutions.
-- [ ] Run `git add -A`, commit the green hardening work with a descriptive
+- [x] Run `git add -A`, commit the green hardening work with a descriptive
       Conventional Commit whose title is at most 50 characters, and push the
       current branch.
 - [ ] After the push, run `cargo xtask review` and continue the authorized
