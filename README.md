@@ -20,6 +20,9 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [MiniMax model provider](docs/protocol/minimax-model-provider.md) defines the
+  planned provider identity, catalog, request/replay, response, usage, and
+  error-normalization contract.
 - [Tool output management](docs/protocol/tool-output-management.md) defines the
   universal output-id, bounded-envelope, pagination, and raw-output isolation
   contract for tool calls.

@@ -6,7 +6,7 @@ milestones are finished.
 
 ## Active
 
-None.
+- [MiniMax model provider](minimax-model-provider.md)
 
 ## Completed
 
