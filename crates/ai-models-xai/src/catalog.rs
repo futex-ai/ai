@@ -5,7 +5,16 @@ use ai_models_core::{
     ThinkingLevel,
 };
 
-/// xAI reasoning model id used by default workspace deployments.
+/// xAI frontier model id used by default workspace deployments.
+pub const GROK_4_5: &str = "grok-4.5";
+
+/// xAI Grok 4.5 model id with low reasoning effort.
+pub const GROK_4_5_THINKING_LOW: &str = "grok-4.5-thinking-low";
+
+/// xAI Grok 4.5 model id with medium reasoning effort.
+pub const GROK_4_5_THINKING_MEDIUM: &str = "grok-4.5-thinking-medium";
+
+/// Previous-generation xAI reasoning model id.
 pub const GROK_4_20_REASONING: &str = "grok-4.20-reasoning";
 
 /// xAI general-purpose model id without the dedicated reasoning track.
@@ -16,6 +25,14 @@ pub const GROK_4_20_MINI: &str = "grok-4.20-mini";
 
 /// xAI general-purpose model id with high reasoning effort.
 pub const GROK_4_20_THINKING_HIGH: &str = "grok-4.20-thinking-high";
+
+const GROK_4_5_FEATURES: &[ModelFeature] = &[
+    ModelFeature::ToolCalling,
+    ModelFeature::StructuredOutput,
+    ModelFeature::Vision,
+    ModelFeature::LongContext,
+    ModelFeature::Reasoning,
+];
 
 const GROK_4_20_REASONING_FEATURES: &[ModelFeature] = &[
     ModelFeature::ToolCalling,
@@ -38,6 +55,24 @@ const GROK_4_20_MINI_FEATURES: &[ModelFeature] =
 /// Returns xAI models known to this provider crate.
 pub fn known_models() -> Vec<KnownModelSpec> {
     vec![
+        grok_4_5_variant(
+            GROK_4_5,
+            SpeedTier::Medium,
+            CostTier::High,
+            ThinkingLevel::High,
+        ),
+        grok_4_5_variant(
+            GROK_4_5_THINKING_LOW,
+            SpeedTier::Fast,
+            CostTier::Medium,
+            ThinkingLevel::Low,
+        ),
+        grok_4_5_variant(
+            GROK_4_5_THINKING_MEDIUM,
+            SpeedTier::Medium,
+            CostTier::High,
+            ThinkingLevel::Medium,
+        ),
         KnownModelSpec {
             provider: ProviderKind::Xai,
             id: GROK_4_20_REASONING,
@@ -83,6 +118,25 @@ pub fn known_models() -> Vec<KnownModelSpec> {
             features: GROK_4_20_MINI_FEATURES,
         },
     ]
+}
+
+fn grok_4_5_variant(
+    id: &'static str,
+    speed: SpeedTier,
+    cost: CostTier,
+    thinking_level: ThinkingLevel,
+) -> KnownModelSpec {
+    KnownModelSpec {
+        provider: ProviderKind::Xai,
+        id,
+        provider_model_id: GROK_4_5,
+        context_window_tokens: 500_000,
+        intelligence_score: IntelligenceScore::Ten,
+        speed,
+        cost,
+        thinking_level,
+        features: GROK_4_5_FEATURES,
+    }
 }
 
 #[cfg(test)]

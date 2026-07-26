@@ -7,6 +7,8 @@ use ai_models_core::ThinkingLevel;
 use serde::Serialize;
 use serde_json::Value;
 
+use super::thinking::{GoogleThinkingConfig, thinking_config};
+
 #[derive(Debug, Serialize)]
 pub(super) struct GoogleRequest {
     #[serde(rename = "systemInstruction")]
@@ -92,17 +94,12 @@ struct GoogleGenerationConfig {
     thinking_config: Option<GoogleThinkingConfig>,
 }
 
-#[derive(Debug, Serialize)]
-struct GoogleThinkingConfig {
-    #[serde(rename = "thinkingBudget")]
-    thinking_budget: i32,
-}
-
 pub(super) fn build_request(
+    model_id: &str,
     request: &ModelRequest,
     thinking_level: ThinkingLevel,
 ) -> GoogleRequest {
-    let generation_config = generation_config(request, thinking_level);
+    let generation_config = generation_config(model_id, request, thinking_level);
 
     GoogleRequest {
         system_instruction: GoogleInstruction {
@@ -126,6 +123,7 @@ pub(super) fn build_request(
 }
 
 fn generation_config(
+    model_id: &str,
     request: &ModelRequest,
     thinking_level: ThinkingLevel,
 ) -> Option<GoogleGenerationConfig> {
@@ -133,8 +131,7 @@ fn generation_config(
         .response_schema
         .as_ref()
         .map(|response_schema| response_schema.schema.clone());
-    let thinking_config = thinking_budget(thinking_level)
-        .map(|thinking_budget| GoogleThinkingConfig { thinking_budget });
+    let thinking_config = thinking_config(model_id, thinking_level);
     if response_schema.is_none() && thinking_config.is_none() {
         return None;
     }
@@ -145,17 +142,6 @@ fn generation_config(
         response_json_schema: response_schema,
         thinking_config,
     })
-}
-
-fn thinking_budget(thinking_level: ThinkingLevel) -> Option<i32> {
-    match thinking_level {
-        ThinkingLevel::Disabled => None,
-        ThinkingLevel::Low => Some(1024),
-        ThinkingLevel::Medium => Some(4096),
-        ThinkingLevel::High => Some(8192),
-        ThinkingLevel::ExtraHigh => Some(16_384),
-        ThinkingLevel::Max => Some(32_768),
-    }
 }
 
 fn google_contents(messages: &[ConversationMessage]) -> Vec<GoogleContent> {

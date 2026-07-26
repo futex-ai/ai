@@ -7,6 +7,6 @@ mod catalog;
 
 pub use anthropic::AnthropicModel;
 pub use catalog::{
-    CLAUDE_HAIKU_4_5, CLAUDE_OPUS_4_7, CLAUDE_OPUS_4_7_THINKING_MAX, CLAUDE_SONNET_4_6,
-    known_models,
+    CLAUDE_FABLE_5, CLAUDE_HAIKU_4_5, CLAUDE_OPUS_4_7, CLAUDE_OPUS_4_7_THINKING_MAX, CLAUDE_OPUS_5,
+    CLAUDE_OPUS_5_THINKING_MAX, CLAUDE_SONNET_4_6, CLAUDE_SONNET_5, known_models,
 };

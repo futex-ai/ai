@@ -212,7 +212,8 @@ fn reasoning(thinking_level: ThinkingLevel) -> Option<ResponsesReasoning> {
         ThinkingLevel::Low => "low",
         ThinkingLevel::Medium => "medium",
         ThinkingLevel::High => "high",
-        ThinkingLevel::ExtraHigh | ThinkingLevel::Max => "xhigh",
+        ThinkingLevel::ExtraHigh => "xhigh",
+        ThinkingLevel::Max => "max",
     };
     Some(ResponsesReasoning {
         effort: effort.to_owned(),

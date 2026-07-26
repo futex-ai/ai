@@ -26,8 +26,8 @@ use ai_models_multi::MultiModel;
 
 fn build_model() -> MultiModel {
     MultiModel::new(vec![
-        Arc::new(MockModel::with_provider("openai", "gpt-5.5")) as DynModel,
-        Arc::new(MockModel::with_provider("anthropic", "claude-sonnet-4-6")) as DynModel,
+        Arc::new(MockModel::with_provider("openai", "gpt-5.6-sol")) as DynModel,
+        Arc::new(MockModel::with_provider("anthropic", "claude-sonnet-5")) as DynModel,
     ])
 }
 ```
