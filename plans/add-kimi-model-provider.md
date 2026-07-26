@@ -174,12 +174,12 @@ to assess without automatic fixes.
       stale documentation, untracked files, credentials, and generated
       artifacts.
 - [x] Run `git add -A`.
-- [ ] Commit the completed implementation with a Conventional Commit message
+- [x] Commit the completed implementation with a Conventional Commit message
       whose title is at most 50 characters and whose body summarizes behavior
       and verification.
-- [ ] Push the current branch without renaming it.
-- [ ] Run `cargo xtask review` after the push so the AI reviewer checks the
+- [x] Push the current branch without renaming it.
+- [x] Run `cargo xtask review` after the push so the AI reviewer checks the
       committed diff against `origin/main`.
-- [ ] Report every review finding without automatically fixing it; number each
+- [x] Report every review finding without automatically fixing it; number each
       item, assign severity, explain provider/codebase context and impact of
       doing nothing, give lettered solution options, and recommend one option.
