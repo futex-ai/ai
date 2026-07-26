@@ -199,8 +199,8 @@ user to assess.
 - [x] Commit the completed work using a Conventional Commit title no longer
       than 50 characters and a descriptive body.
 - [x] Push the current branch.
-- [ ] Run `cargo xtask review` after the push so review compares the complete
+- [x] Run `cargo xtask review` after the push so review compares the complete
       branch with `origin/main`.
-- [ ] Do not auto-fix review findings; report each item with a number, severity,
+- [x] Do not auto-fix review findings; report each item with a number, severity,
       codebase context, impact of doing nothing, lettered solution options, and
       a recommended option.
