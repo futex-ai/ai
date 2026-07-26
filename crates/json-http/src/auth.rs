@@ -9,6 +9,10 @@ use crate::Result;
 /// Shared dynamic auth hook alias.
 pub type DynJsonHttpAuth = Arc<dyn JsonHttpAuth>;
 
+#[cfg_attr(
+    any(test, doctest, feature = "test-support"),
+    unimock::unimock(api = JsonHttpAuthMock)
+)]
 #[async_trait]
 /// Applies request headers before a JSON HTTP request is dispatched.
 pub trait JsonHttpAuth: Send + Sync {

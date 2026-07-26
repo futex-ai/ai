@@ -42,6 +42,12 @@ fn provider_kind_round_trips_config_strings() {
         ProviderKind::from_config_str("anthropic"),
         Some(ProviderKind::Anthropic)
     );
+    assert_eq!(
+        ProviderKind::from_config_str("kimi"),
+        Some(ProviderKind::Kimi)
+    );
+    assert_eq!(ProviderKind::Kimi.as_str(), "kimi");
+    assert_eq!(ProviderKind::Kimi.to_string(), "kimi");
     assert_eq!(ProviderKind::Xai.as_str(), "xai");
     assert_eq!(ProviderKind::from_config_str("unknown"), None);
 }
@@ -57,4 +63,17 @@ fn openai_provider_serializes_with_config_identifier() {
         ProviderKind::OpenAi
     );
     assert!(serde_json::from_value::<ProviderKind>(json!("open_ai")).is_err());
+}
+
+#[test]
+fn kimi_provider_serializes_with_config_identifier() {
+    assert_eq!(
+        serde_json::to_value(ProviderKind::Kimi).unwrap(),
+        json!("kimi")
+    );
+    assert_eq!(
+        serde_json::from_value::<ProviderKind>(json!("kimi")).unwrap(),
+        ProviderKind::Kimi
+    );
+    assert!(serde_json::from_value::<ProviderKind>(json!("moonshot")).is_err());
 }

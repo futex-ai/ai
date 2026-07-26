@@ -8,9 +8,10 @@ output, routing, usage, and error contracts.
 
 ## Status
 
-This contract is planned but not yet implemented. The
-[Add Kimi Model Provider plan](../../plans/add-kimi-model-provider.md) defines
-the implementation milestones.
+This contract is implemented by `ai-models-kimi`, with shared routing and
+replay types in `ai-interface`. The
+[Add Kimi Model Provider plan](../../plans/add-kimi-model-provider.md) records
+the completed implementation milestones.
 
 ## Scope
 
@@ -145,13 +146,21 @@ When `response_schema` is present, the request sends:
     "type": "json_schema",
     "json_schema": {
       "name": "<schema name>",
-      "schema": {},
+      "schema": {
+        "type": "object",
+        "properties": {
+          "answer": { "type": "string" }
+        },
+        "required": ["answer"]
+      },
       "strict": false
     }
   }
 }
 ```
 
+The `schema` object is copied verbatim from
+`ModelRequest::response_schema.schema`; the object above is illustrative.
 Kimi recommends strict mode, but strict mode accepts the narrower Moonshot
 Flavored JSON Schema contract. The workspace accepts general JSON Schema, so
 the adapter uses non-strict provider generation and always applies the shared

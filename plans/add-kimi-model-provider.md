@@ -32,24 +32,24 @@ Extend shared types before adding provider runtime behavior. At the end of
 this milestone, downstream code can represent Kimi routes and losslessly
 retain a Kimi assistant message without affecting existing providers.
 
-- [ ] Add failing `ai-interface` tests for `ProviderKind::Kimi` config parsing,
+- [x] Add failing `ai-interface` tests for `ProviderKind::Kimi` config parsing,
       display, JSON serialization, and JSON deserialization.
-- [ ] Add `ProviderKind::Kimi` with stable config value `kimi` and update all
+- [x] Add `ProviderKind::Kimi` with stable config value `kimi` and update all
       exhaustive provider matches.
-- [ ] Add failing serde tests for the Kimi assistant replay item, including
+- [x] Add failing serde tests for the Kimi assistant replay item, including
       nullable content, nullable reasoning content, ordered parallel raw tool
       calls, and omitted optional fields.
-- [ ] Add a documented Kimi raw tool-call DTO and
+- [x] Add a documented Kimi raw tool-call DTO and
       `ProviderConversationItem::KimiAssistantMessage` at the real
       `ai-interface` owner path.
-- [ ] Extend synthetic tool-call scope hashing with every Kimi replay field and
+- [x] Extend synthetic tool-call scope hashing with every Kimi replay field and
       add regression coverage proving context changes alter the scope.
-- [ ] Update OpenAI and xAI request mappers to ignore Kimi-owned context, with
+- [x] Update OpenAI and xAI request mappers to ignore Kimi-owned context, with
       regression coverage that existing provider replay remains unchanged.
-- [ ] Update `ai-interface/README.md` with the Kimi replay boundary and the
+- [x] Update `ai-interface/README.md` with the Kimi replay boundary and the
       requirement that provider reasoning is retained but not surfaced as
       assistant text.
-- [ ] Run `cargo fmt --all -- --check`,
+- [x] Run `cargo fmt --all -- --check`,
       `cargo test -p ai-interface`, and
       `cargo test -p ai-models-core`.
 
@@ -60,42 +60,42 @@ output, catalog, and usage behavior. At the end of this milestone, a caller
 can construct a Kimi K3 model and complete non-tool requests through the shared
 `Model` trait.
 
-- [ ] Scaffold `crates/ai-models-kimi` with a thin `lib.rs`, cohesive catalog,
+- [x] Scaffold `crates/ai-models-kimi` with a thin `lib.rs`, cohesive catalog,
       client, request, request-type, response, and source-adjacent `_tests_`
       modules; keep every Rust file under 300 lines.
-- [ ] Add `ai-models-kimi` to workspace members and workspace dependencies
+- [x] Add `ai-models-kimi` to workspace members and workspace dependencies
       without introducing duplicated external dependency versions.
-- [ ] Add failing catalog tests for the exact K3 catalog ids, shared provider
+- [x] Add failing catalog tests for the exact K3 catalog ids, shared provider
       id, 1,000,000-token context window, feature flags, intelligence, speed,
       cost, provider model id, and low/high/max thinking metadata.
-- [ ] Implement `KIMI_K3`, `KIMI_K3_THINKING_HIGH`,
+- [x] Implement `KIMI_K3`, `KIMI_K3_THINKING_HIGH`,
       `KIMI_K3_THINKING_LOW`, and `known_models()` exactly as specified.
-- [ ] Add failing construction tests for the injected HTTP/auth boundaries and
+- [x] Add failing construction tests for the injected HTTP/auth boundaries and
       rejection of unsupported provider model ids or thinking levels.
-- [ ] Implement `KimiModel` behind `ai_interface::Model`, using explicit
+- [x] Implement `KimiModel` behind `ai_interface::Model`, using explicit
       credentials and the fixed Moonshot Chat Completions endpoint without
       reading ambient config or environment variables.
-- [ ] Add failing request tests for the leading system message, every shared
+- [x] Add failing request tests for the leading system message, every shared
       conversation role, optional names, plain content, image data URLs,
       foreign provider-context isolation, and exact low/high/max
       `reasoning_effort` mapping.
-- [ ] Serialize K3 requests without fixed sampling parameters, K2 `thinking`,
+- [x] Serialize K3 requests without fixed sampling parameters, K2 `thinking`,
       streaming, partial, file, video, or unsupported platform fields.
-- [ ] Add failing structured-output tests for the non-strict
+- [x] Add failing structured-output tests for the non-strict
       `response_format` request, successful local JSON Schema validation,
       invalid JSON, schema mismatch, and non-stop finish handling.
-- [ ] Add failing response tests for nullable content, missing choices,
+- [x] Add failing response tests for nullable content, missing choices,
       malformed payloads, all normalized finish reasons, catalog/provider ids,
       and suppression of reasoning content from normalized assistant text.
-- [ ] Add failing usage tests for cached-input subtraction, missing usage,
+- [x] Add failing usage tests for cached-input subtraction, missing usage,
       missing provider totals, saturating arithmetic, and the absence of a
       separately reported reasoning-token quantity.
-- [ ] Implement response and usage mapping without adding mutable price tables
+- [x] Implement response and usage mapping without adding mutable price tables
       to the provider crate.
-- [ ] Add `crates/ai-models-kimi/README.md` with the required crate README
+- [x] Add `crates/ai-models-kimi/README.md` with the required crate README
       sections, a compiling K3 Quick Start, supported behavior, exclusions,
       key code, and related docs.
-- [ ] Run `cargo fmt --all -- --check`,
+- [x] Run `cargo fmt --all -- --check`,
       `cargo test -p ai-models-kimi`, and
       `cargo clippy -p ai-models-kimi --all-targets --all-features`.
 
@@ -105,28 +105,28 @@ Add complete agent-loop behavior after basic completions work. At the end of
 this milestone, Kimi can issue parallel custom tool calls and continue from
 their results with its exact prior assistant reasoning and raw calls intact.
 
-- [ ] Add failing request tests for custom function definitions,
+- [x] Add failing request tests for custom function definitions,
       `tool_choice: "auto"`, omitted provider strict mode, multiple normalized
       assistant tool calls, and tool-result messages that contain
       `tool_call_id` but omit `name`.
-- [ ] Add failing response tests for ordered parallel tool calls, raw JSON
+- [x] Add failing response tests for ordered parallel tool calls, raw JSON
       argument preservation, invalid argument JSON, provider ids, and
       `finish_reason: "tool_calls"`.
-- [ ] Parse and expose calls only for `FinishReason::ToolCalls`; add regression
+- [x] Parse and expose calls only for `FinishReason::ToolCalls`; add regression
       tests proving stop, length, content-filter, custom, and missing finish
       reasons suppress otherwise valid tool payloads.
-- [ ] Capture nullable raw assistant content, raw reasoning content, and raw
+- [x] Capture nullable raw assistant content, raw reasoning content, and raw
       tool calls in `ProviderConversationItem::KimiAssistantMessage`.
-- [ ] Add continuation tests that round-trip the exact Kimi assistant item
+- [x] Add continuation tests that round-trip the exact Kimi assistant item
       before every matching tool result, including whitespace-sensitive raw
       argument strings and multiple calls.
-- [ ] Prefer Kimi replay context for provider-produced assistant messages,
+- [x] Prefer Kimi replay context for provider-produced assistant messages,
       fall back to normalized fields for caller-authored messages, and ignore
       replay items owned by other providers.
-- [ ] Verify the tool-calling runtime retains the Kimi provider context on
+- [x] Verify the tool-calling runtime retains the Kimi provider context on
       assistant conversation messages without exposing reasoning as visible
       text or tool output.
-- [ ] Run Kimi request/response/continuation tests,
+- [x] Run Kimi request/response/continuation tests,
       `cargo test -p ai-tool-calling`, and existing OpenAI and xAI replay
       regression tests.
 
@@ -137,24 +137,24 @@ surfaces. At the end of this milestone, Kimi construction is covered by the
 credential-free smoke test and consumers can discover and use the crate from
 the public documentation.
 
-- [ ] Add mocked transport tests for bearer auth, the exact endpoint, 429 rate
+- [x] Add mocked transport tests for bearer auth, the exact endpoint, 429 rate
       limits, transient statuses, ordinary provider statuses, transport/auth
       failures, request serialization failures, and malformed responses;
       assert credentials never appear in errors.
-- [ ] Use shared HTTP error classification and structured parsing helpers
+- [x] Use shared HTTP error classification and structured parsing helpers
       without matching behavior on provider error-message substrings.
-- [ ] Add `ai-models-kimi` to `xtask` and construct `KIMI_K3` in the
+- [x] Add `ai-models-kimi` to `xtask` and construct `KIMI_K3` in the
       credential-free smoke test without making a live API request.
-- [ ] Update the workspace `README.md` feature list, interface map, key-code
+- [x] Update the workspace `README.md` feature list, interface map, key-code
       pointers, and protocol links for Kimi.
-- [ ] Update neighboring crate READMEs where the supported provider or replay
+- [x] Update neighboring crate READMEs where the supported provider or replay
       boundary changes.
-- [ ] Change the Kimi protocol status from planned to implemented only after
+- [x] Change the Kimi protocol status from planned to implemented only after
       all contract behavior is present.
-- [ ] Review all changed public Rust items for rustdoc, all changed modules for
+- [x] Review all changed public Rust items for rustdoc, all changed modules for
       module-level docs, import ordering, narrow visibility, typed errors, and
       trait-backed side-effect boundaries.
-- [ ] Run `cargo xtask smoke-test` and confirm it remains credential-free.
+- [x] Run `cargo xtask smoke-test` and confirm it remains credential-free.
 
 ## Milestone 5: Workspace Verification, Commit, And Review
 
@@ -162,18 +162,18 @@ Validate and publish the completed change. At the end of this milestone, all
 checks pass, the branch is pushed, and review findings are ready for the user
 to assess without automatic fixes.
 
-- [ ] Update `plans/README.md` to move this plan from active to completed.
-- [ ] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+- [x] Update `plans/README.md` to move this plan from active to completed.
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
       repeat the check.
-- [ ] Run `cargo xtask rust-file-length-lint --all`.
-- [ ] Run `cargo clippy --workspace --all-targets --all-features`.
-- [ ] Run `cargo test --workspace --all-features` and require a 100% pass rate.
-- [ ] Run `cargo xtask smoke-test`.
-- [ ] Run `cargo xtask check` and fix failures until it passes.
-- [ ] Review `git diff origin/main...` for unrelated changes, missing tests,
+- [x] Run `cargo xtask rust-file-length-lint --all`.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features` and require a 100% pass rate.
+- [x] Run `cargo xtask smoke-test`.
+- [x] Run `cargo xtask check` and fix failures until it passes.
+- [x] Review `git diff origin/main...` for unrelated changes, missing tests,
       stale documentation, untracked files, credentials, and generated
       artifacts.
-- [ ] Run `git add -A`.
+- [x] Run `git add -A`.
 - [ ] Commit the completed implementation with a Conventional Commit message
       whose title is at most 50 characters and whose body summarizes behavior
       and verification.

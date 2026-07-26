@@ -3,8 +3,8 @@
 use std::sync::{Arc, Mutex};
 
 use ai_interface::{
-    ConversationMessage, Model, ModelRequest, OpenAiReasoningSummary, ProviderConversationItem,
-    ToolCall,
+    ConversationMessage, KimiToolCallContext, Model, ModelRequest, OpenAiReasoningSummary,
+    ProviderConversationItem, ToolCall,
 };
 use json_http::{
     JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
@@ -30,6 +30,15 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
             operation_id: None,
         }],
         vec![
+            ProviderConversationItem::KimiAssistantMessage {
+                content: None,
+                reasoning_content: Some("Kimi-owned context".to_owned()),
+                tool_calls: vec![KimiToolCallContext {
+                    id: "kimi_call".to_owned(),
+                    name: "ignored".to_owned(),
+                    arguments: "{}".to_owned(),
+                }],
+            },
             ProviderConversationItem::OpenAiReasoning {
                 id: "rs_1".to_owned(),
                 summary: vec![OpenAiReasoningSummary {

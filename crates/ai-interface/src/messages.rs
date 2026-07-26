@@ -104,6 +104,30 @@ pub enum ProviderConversationItem {
         /// Raw JSON argument string returned by xAI.
         arguments: String,
     },
+    /// Kimi Chat Completions assistant message retained for exact continuation replay.
+    #[serde(rename = "kimi_assistant_message")]
+    KimiAssistantMessage {
+        /// Nullable assistant content returned by Kimi.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        content: Option<String>,
+        /// Nullable provider reasoning retained for replay but hidden from visible text.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reasoning_content: Option<String>,
+        /// Ordered raw Kimi tool calls retained exactly as returned.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        tool_calls: Vec<KimiToolCallContext>,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+/// One raw Kimi function call retained for lossless assistant replay.
+pub struct KimiToolCallContext {
+    /// Provider-issued tool-call identifier.
+    pub id: String,
+    /// Function name returned by Kimi.
+    pub name: String,
+    /// Raw JSON argument string returned by Kimi.
+    pub arguments: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

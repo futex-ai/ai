@@ -20,6 +20,8 @@ pub enum ProviderKind {
     Anthropic,
     /// Google Gemini model provider.
     Google,
+    /// Moonshot AI Kimi model provider.
+    Kimi,
     /// xAI/Grok model provider.
     Xai,
 }
@@ -32,6 +34,7 @@ impl ProviderKind {
             "openai" => Some(Self::OpenAi),
             "anthropic" => Some(Self::Anthropic),
             "google" => Some(Self::Google),
+            "kimi" => Some(Self::Kimi),
             "xai" => Some(Self::Xai),
             _ => None,
         }
@@ -44,6 +47,7 @@ impl ProviderKind {
             Self::OpenAi => "openai",
             Self::Anthropic => "anthropic",
             Self::Google => "google",
+            Self::Kimi => "kimi",
             Self::Xai => "xai",
         }
     }

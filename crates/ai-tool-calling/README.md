@@ -55,6 +55,10 @@ output, and exposes explicit mutation APIs for embedding services.
   Intrinsic reads use the returned window as both raw and model-visible output.
 - Appends exactly one tool-role message per provider tool-call id, including
   multi-call rounds where sibling calls fail or degrade.
+- Retains provider-owned assistant replay items unchanged. For Kimi, raw
+  assistant content, reasoning content, and ordered tool calls survive the
+  tool round while reasoning remains absent from visible assistant and tool
+  output.
 
 Output store ownership is part of the host contract. Use a fresh
 `InMemoryToolOutputStore` for each active run. Output ids expire when that
@@ -171,5 +175,6 @@ cargo clippy -p ai-tool-calling --all-targets --all-features -- -D warnings
 ### Related Docs
 
 - [`../ai-interface/README.md`](../ai-interface/README.md)
+- [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
 - [`../../plans/README.md`](../../plans/README.md)

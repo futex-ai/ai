@@ -9,7 +9,7 @@ in-memory tool-calling runtime behavior.
 - Shared `ai-interface` contracts for conversations, model calls, audio
   transcription, tool calls, routing, logging, usage metering, and bounded
   model-visible tool output envelopes
-- Provider adapters for Anthropic, Google Gemini, OpenAI, and xAI models
+- Provider adapters for Anthropic, Google Gemini, Kimi, OpenAI, and xAI models
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, and usage pricing
 - Ordered fallback model composition through `ai-models-multi`
@@ -21,8 +21,8 @@ in-memory tool-calling runtime behavior.
 ## Protocols
 
 - [Kimi model provider](docs/protocol/kimi-model-provider.md) defines the
-  planned Kimi K3 catalog, request, replay, tool-calling, structured-output,
-  usage, and error contract.
+  implemented Kimi K3 catalog, request, replay, tool-calling,
+  structured-output, usage, and error contract.
 - [Tool output management](docs/protocol/tool-output-management.md) defines the
   universal output-id, bounded-envelope, pagination, and raw-output isolation
   contract for tool calls.
@@ -37,6 +37,7 @@ boundary they need:
 - `ai-models-core`: reusable model wrappers and provider helper logic
 - `ai-models-anthropic`: Anthropic model adapter
 - `ai-models-google`: Google Gemini model adapter
+- `ai-models-kimi`: Kimi K3 model adapter
 - `ai-models-openai`: OpenAI model and transcription adapters
 - `ai-models-xai`: xAI model adapter
 - `ai-models-multi`: ordered fallback model adapter
@@ -74,7 +75,9 @@ cargo xtask review
 - `crates/ai-interface`: shared AI contracts, including
   `src/output/` envelope DTOs
 - `crates/ai-models-core`: provider-agnostic model wrappers and helpers
-- `crates/ai-models-*`: concrete provider and fallback adapters
+- `crates/ai-models-kimi`: Kimi K3 catalog, client, request, replay, response,
+  and usage mapping
+- `crates/ai-models-*`: other concrete provider and fallback adapters
 - `crates/ai-tool-calling`: in-memory tool-calling runtime, including
   `src/policy.rs`, `src/output_store/`, and the intrinsic output reader
 - `crates/json-http`: HTTP client abstraction used by provider crates
@@ -82,6 +85,7 @@ cargo xtask review
   review
 - `docs/protocol/tool-output-management.md`: normative universal tool output
   management contract
+- `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract
 - `docs/protocol/`: other normative contracts for shared runtime behavior
 - `plans/`: active and completed implementation plans.
 

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationRole, FinishReason, Logger, LoggerMock, Model, ModelMock, ModelRequest,
-    ModelResponse, ModelUsage, OpenAiReasoningSummary, ProviderConversationItem,
+    ConversationRole, FinishReason, KimiToolCallContext, Logger, LoggerMock, Model, ModelMock,
+    ModelRequest, ModelResponse, ModelUsage, OpenAiReasoningSummary, ProviderConversationItem,
     ToolActivityLogEntry, ToolActivityPhase, ToolCall, ToolCallLogEntry, ToolCallLogResult,
 };
 use serde_json::json;
@@ -109,6 +109,60 @@ async fn provider_context_is_retained_with_assistant_tool_calls() {
         .find(|message| message.role == ConversationRole::Assistant)
         .expect("assistant message should be retained");
     assert_eq!(assistant.provider_context, provider_context);
+}
+
+#[tokio::test]
+async fn kimi_reasoning_is_retained_without_becoming_visible_output() {
+    let reasoning = "private Kimi reasoning";
+    let provider_context = vec![ProviderConversationItem::KimiAssistantMessage {
+        content: Some("calling echo".to_owned()),
+        reasoning_content: Some(reasoning.to_owned()),
+        tool_calls: vec![KimiToolCallContext {
+            id: "call-1".to_owned(),
+            name: "echo".to_owned(),
+            arguments: "{\"message\":\"hello\"}".to_owned(),
+        }],
+    }];
+    let model: Arc<dyn Model> = Arc::new(Unimock::new(
+        ModelMock::complete
+            .next_call(matching!(_))
+            .returns(Ok(ModelResponse {
+                provider: "kimi".to_owned(),
+                model_id: "kimi-k3".to_owned(),
+                catalog_model_id: Some("kimi-k3".to_owned()),
+                thinking_level: Some("max".to_owned()),
+                assistant_message: "calling echo".to_owned(),
+                tool_calls: vec![ToolCall {
+                    id: "call-1".to_owned(),
+                    name: "echo".to_owned(),
+                    input: json!({"message": "hello"}),
+                    operation_id: None,
+                }],
+                finish_reason: FinishReason::ToolCalls,
+                structured_output: None,
+                provider_context: provider_context.clone(),
+                usage: ModelUsage::default(),
+            })),
+    ));
+    let tool = TypedEchoTool::succeeding();
+    let runtime = runtime(model, vec![tool.tool()]).expect("runtime should build");
+    let mut turn = runtime.send(user_message("start"), Some(1));
+
+    turn.step().await.expect("step should succeed");
+
+    let conversation = runtime.conversation();
+    let assistant = conversation
+        .iter()
+        .find(|message| message.role == ConversationRole::Assistant)
+        .expect("assistant message should be retained");
+    let tool_result = conversation
+        .iter()
+        .find(|message| message.role == ConversationRole::Tool)
+        .expect("tool result should be retained");
+    assert_eq!(assistant.content, "calling echo");
+    assert_eq!(assistant.provider_context, provider_context);
+    assert!(!assistant.content.contains(reasoning));
+    assert!(!tool_result.content.contains(reasoning));
 }
 
 #[tokio::test]

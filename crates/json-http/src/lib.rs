@@ -7,6 +7,8 @@ mod client;
 mod error;
 mod request;
 
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub use auth::JsonHttpAuthMock;
 pub use auth::{DynJsonHttpAuth, JsonHttpAuth, StaticHeaderAuth};
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use client::JsonHttpTransportMock;

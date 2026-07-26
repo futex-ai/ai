@@ -17,6 +17,8 @@ The crate ships with:
 - `ReqwestJsonHttpClient` for real transport
 - `TransportBackedJsonHttpClient` for tests or alternate transports
 - `StaticHeaderAuth` for simple header-based auth injection
+- feature-gated `JsonHttpTransportMock` and `JsonHttpAuthMock` boundaries for
+  credential-free provider tests
 - `JsonHttpMultipartField` for small multipart upload calls that still use the
   same auth hooks and response handling
 - per-request transport timeouts with a 60-second default
@@ -60,6 +62,9 @@ async fn call_api() -> json_http::Result<bool> {
 cargo test -p json-http
 cargo clippy -p json-http --all-targets --all-features -- -D warnings
 ```
+
+Downstream tests can enable the `test-support` feature to use the generated
+transport and auth mocks.
 
 ### Key Code
 

@@ -24,6 +24,9 @@ without taking a dependency on a stateful runtime implementation.
 
 - Defines `ConversationMessage`, `ConversationRole`, `ToolCall`, and
   `ToolDefinition`, including provider replay context on assistant messages.
+  Kimi replay items retain nullable assistant content, provider reasoning, and
+  ordered raw tool calls so a later Kimi turn can reproduce the original
+  assistant message exactly.
 - Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
@@ -45,6 +48,11 @@ The raw versus model-visible boundary is intentional. A `Tool` implementation
 returns the raw JSON value it produced. Runtime crates can inspect that value in
 current-run execution records, but they serialize only `ToolOutputEnvelope`
 values into conversation tool messages and logger success entries.
+
+Provider replay context follows the same separation. Kimi reasoning content is
+retained as provider-owned context for continuation requests, but it is never
+copied into normalized assistant text or exposed as tool output. Other model
+providers ignore Kimi-owned replay items.
 
 ## Quick Start
 
@@ -118,4 +126,5 @@ tool dispatch live in `ai-tool-calling`.
 - [`../ai-tool-calling/README.md`](../ai-tool-calling/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
+- [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../plans/README.md`](../../plans/README.md)
