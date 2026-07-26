@@ -33,20 +33,20 @@ Extend the shared interface without changing existing provider behavior. At
 the end of this milestone, routing and conversation state can represent
 MiniMax explicitly, and every existing crate still builds and tests.
 
-- [ ] Add failing `ai-interface` tests for the `minimax` config identifier,
+- [x] Add failing `ai-interface` tests for the `minimax` config identifier,
       display value, serde representation, and unknown-provider rejection.
-- [ ] Add `ProviderKind::MiniMax` with stable snake-case config and serde value
+- [x] Add `ProviderKind::MiniMax` with stable snake-case config and serde value
       `minimax`; update exhaustive provider matches without fallback arms.
-- [ ] Add failing serde tests for MiniMax assistant replay context containing
+- [x] Add failing serde tests for MiniMax assistant replay context containing
       `reasoning_content` and complete ordered `reasoning_details`.
-- [ ] Add typed MiniMax reasoning-detail and provider-conversation DTOs with
+- [x] Add typed MiniMax reasoning-detail and provider-conversation DTOs with
       rustdoc on every public item and optional field.
-- [ ] Update existing provider request mappers to ignore MiniMax context that
+- [x] Update existing provider request mappers to ignore MiniMax context that
       they do not own while preserving their current replay behavior.
-- [ ] Update `ai-interface` README responsibilities, public behavior, Quick
+- [x] Update `ai-interface` README responsibilities, public behavior, Quick
       Start example, and key-code map for MiniMax provider identity and replay
       context.
-- [ ] Run `cargo fmt --all -- --check` and
+- [x] Run `cargo fmt --all -- --check` and
       `cargo test -p ai-interface --all-features`.
 
 ## Milestone 2: Provider Crate, Catalog, And Text Calls
@@ -55,35 +55,35 @@ Create a usable provider with catalog routing and basic text completion. At the
 end of this milestone, callers can construct MiniMax models and perform
 non-streaming text calls with typed transport behavior.
 
-- [ ] Add `crates/ai-models-minimax` with a thin `lib.rs`, module-level docs,
+- [x] Add `crates/ai-models-minimax` with a thin `lib.rs`, module-level docs,
       `#![warn(unreachable_pub)]`, and focused catalog/client/request/response
       modules that remain below the Rust file-size limit.
-- [ ] Add the crate to workspace members and workspace dependencies using
+- [x] Add the crate to workspace members and workspace dependencies using
       internal `{ workspace = true }` references; add external dependencies
       with `cargo add` without guessing versions.
-- [ ] Add failing catalog tests for `MiniMax-M3`,
+- [x] Add failing catalog tests for `MiniMax-M3`,
       `MiniMax-M3-thinking-disabled`, `MiniMax-M2.7`, and
       `MiniMax-M2.7-highspeed`, including provider ids, context windows,
       features, thinking levels, and routing tiers.
-- [ ] Implement exported catalog constants and `known_models()` exactly as
+- [x] Implement exported catalog constants and `known_models()` exactly as
       defined by the protocol, excluding legacy models.
-- [ ] Add failing model tests for the international Chat Completions endpoint,
+- [x] Add failing model tests for the international Chat Completions endpoint,
       bearer authentication, injected authentication, provider/catalog ids,
       system and plain conversation messages, empty optional fields, and a
       stopped text response.
-- [ ] Implement `MiniMaxModel` behind `ai_interface::Model`, with `new`,
+- [x] Implement `MiniMaxModel` behind `ai_interface::Model`, with `new`,
       `with_auth`, and `with_catalog_auth` constructors and injected
       `DynJsonHttpClient` / `DynJsonHttpAuth` collaborators.
-- [ ] Implement typed request and response DTOs for non-streaming text calls;
+- [x] Implement typed request and response DTOs for non-streaming text calls;
       do not load configuration, inspect environment variables, or make
       ambient credential decisions.
-- [ ] Reuse shared HTTP status classification and map transport/auth failures
+- [x] Reuse shared HTTP status classification and map transport/auth failures
       to transient errors while keeping local serialization/deserialization
       failures internal.
-- [ ] Create the crate `README.md` with the required ordered sections,
+- [x] Create the crate `README.md` with the required ordered sections,
       accurate public behavior, compiling Quick Start, development commands,
       key code, and related docs.
-- [ ] Run `cargo metadata --format-version 1 --no-deps`,
+- [x] Run `cargo metadata --format-version 1 --no-deps`,
       `cargo fmt --all -- --check`,
       `cargo clippy -p ai-models-minimax --all-targets --all-features`, and
       `cargo test -p ai-models-minimax --all-features`.
@@ -94,27 +94,27 @@ Add the agentic path without exposing private reasoning. At the end of this
 milestone, multi-round MiniMax tool conversations retain the provider's full
 reasoning context and work through the shared tool runtime.
 
-- [ ] Add failing request tests for tool definitions, assistant tool-call
+- [x] Add failing request tests for tool definitions, assistant tool-call
       history, tool results, multiple calls, omitted tool names, and modern
       `tool_calls` only.
-- [ ] Add failing thinking tests for M3 disabled/adaptive mapping, enabled M2.7
+- [x] Add failing thinking tests for M3 disabled/adaptive mapping, enabled M2.7
       catalog entries, and unconditional `reasoning_split: true`.
-- [ ] Add failing response tests for visible content, multiple tool calls,
+- [x] Add failing response tests for visible content, multiple tool calls,
       JSON arguments, provider ids, operation ids, and malformed arguments.
-- [ ] Add failing replay tests proving `reasoning_content` and every populated
+- [x] Add failing replay tests proving `reasoning_content` and every populated
       reasoning-detail field survive response parsing, shared serde, and the
       next assistant request unchanged.
-- [ ] Add a non-disclosure regression test proving reasoning text is absent
+- [x] Add a non-disclosure regression test proving reasoning text is absent
       from normalized `assistant_message`.
-- [ ] Serialize normalized tools and modern assistant/tool continuation
+- [x] Serialize normalized tools and modern assistant/tool continuation
       messages with the provider's original tool-call ids.
-- [ ] Map `ThinkingLevel::Disabled` to MiniMax `disabled`, every enabled level
+- [x] Map `ThinkingLevel::Disabled` to MiniMax `disabled`, every enabled level
       to `adaptive`, and record the selected normalized level in responses.
-- [ ] Parse MiniMax reasoning into typed provider context, attach it to the
+- [x] Parse MiniMax reasoning into typed provider context, attach it to the
       response, and replay only MiniMax-owned context on later turns.
-- [ ] Parse tool arguments through shared helpers and expose calls only for
+- [x] Parse tool arguments through shared helpers and expose calls only for
       `FinishReason::ToolCalls`.
-- [ ] Run the MiniMax test suite plus targeted
+- [x] Run the MiniMax test suite plus targeted
       `ai-tool-calling` conversation/operation-id tests, formatting, and
       provider Clippy.
 
@@ -124,30 +124,30 @@ Complete provider behavior and edge-case safety. At the end of this milestone,
 the catalog's advertised capabilities and normalized failure/usage contracts
 are covered by regression tests.
 
-- [ ] Add failing finish tests for `stop`, `tool_calls`, `length`,
+- [x] Add failing finish tests for `stop`, `tool_calls`, `length`,
       `content_filter`, unknown, and missing reasons, including suppression of
       tool payloads on every non-tool finish.
-- [ ] Add failing response-shape tests for no choices, null/empty content,
+- [x] Add failing response-shape tests for no choices, null/empty content,
       absent usage, and malformed typed fields.
-- [ ] Add failing usage tests for prompt, completion, total, cached, and
+- [x] Add failing usage tests for prompt, completion, total, cached, and
       reasoning tokens, including saturating non-overlapping buckets and
       total reconstruction.
-- [ ] Add failing `base_resp` tests for zero/missing success and documented
+- [x] Add failing `base_resp` tests for zero/missing success and documented
       rate-limit, transient, context-limit, auth, balance, parameter, and
       content-policy failure classes on HTTP-success responses.
-- [ ] Implement MiniMax provider-code classification while retaining the
+- [x] Implement MiniMax provider-code classification while retaining the
       numeric code and provider message; continue using the shared classifier
       for HTTP failures.
-- [ ] Add failing structured-output tests for schema instructions, successful
+- [x] Add failing structured-output tests for schema instructions, successful
       local validation, invalid JSON, schema mismatch, and no parsing on
       tool/terminal finishes.
-- [ ] Implement schema prompting and shared local JSON Schema validation
+- [x] Implement schema prompting and shared local JSON Schema validation
       without claiming native provider schema enforcement.
-- [ ] Add failing multimodal tests for ordered text/image parts and base64 data
+- [x] Add failing multimodal tests for ordered text/image parts and base64 data
       URLs; implement shared image serialization and keep video outside V1.
-- [ ] Confirm M3 advertises vision while M2.7 entries do not, and that every
+- [x] Confirm M3 advertises vision while M2.7 entries do not, and that every
       model advertises only capabilities exercised by the adapter tests.
-- [ ] Run all provider, interface, core error/structured-output, and relevant
+- [x] Run all provider, interface, core error/structured-output, and relevant
       tool-runtime tests with a 100% pass rate.
 
 ## Milestone 5: Workspace Integration And Documentation
@@ -156,21 +156,21 @@ Make MiniMax discoverable and exercise construction in the standard developer
 workflow. At the end of this milestone, a downstream composition root can
 find, construct, wrap, and validate the provider without reading source.
 
-- [ ] Export the provider crate and catalog API from their real owner modules;
+- [x] Export the provider crate and catalog API from their real owner modules;
       do not add pass-through compatibility modules.
-- [ ] Construct a MiniMax model with a placeholder credential in
+- [x] Construct a MiniMax model with a placeholder credential in
       `cargo xtask smoke-test` without performing a live API request.
-- [ ] Update xtask smoke imports/dependencies and its README provider list.
-- [ ] Update the root README feature list, interface map, key-code jumping
+- [x] Update xtask smoke imports/dependencies and its README provider list.
+- [x] Update the root README feature list, interface map, key-code jumping
       points, protocol links, and credential-free check description.
-- [ ] Review every changed crate README and protocol statement against the
+- [x] Review every changed crate README and protocol statement against the
       implemented public API, model ids, endpoint, replay behavior, and known
       limitations.
-- [ ] Change the MiniMax protocol status from planned to implemented only after
+- [x] Change the MiniMax protocol status from planned to implemented only after
       all behavior and verification are complete.
-- [ ] Move this plan from active to completed in `plans/README.md` only after
+- [x] Move this plan from active to completed in `plans/README.md` only after
       every earlier milestone and final verification item is complete.
-- [ ] Run `cargo xtask smoke-test` and confirm it requires no provider
+- [x] Run `cargo xtask smoke-test` and confirm it requires no provider
       credentials or network calls.
 
 ## Milestone 6: Full Verification, Commit, Push, And Review
@@ -179,21 +179,26 @@ Validate and publish the complete provider. At the end of this milestone, the
 branch is pushed with all checks passing and review findings are ready for the
 user to assess.
 
-- [ ] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
       repeat the check.
-- [ ] Run `cargo xtask rust-file-length-lint --all`.
-- [ ] Run `cargo clippy --workspace --all-targets --all-features`.
-- [ ] Run `cargo test --workspace --all-features` and require a 100% pass rate.
-- [ ] Run `cargo xtask smoke-test`.
-- [ ] Run `cargo xtask check` and fix failures until it passes.
-- [ ] Review `git diff origin/main...` for unrelated changes, missing new
+- [x] Run `cargo xtask rust-file-length-lint --all`.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features` and require a 100% pass rate.
+- [x] Run `cargo xtask smoke-test`.
+- [x] Run `cargo xtask check` and fix failures until it passes.
+- [x] Add a regression test and omit unavailable MiniMax message content
+      instead of serializing a JSON `null`.
+- [x] Clarify the protocol boundary between provider-semantic response errors
+      and internal typed-deserialization failures.
+- [x] Re-run `cargo xtask check` after the final diff-audit fixes.
+- [x] Review `git diff origin/main...` for unrelated changes, missing new
       files, reasoning leakage, stale provider names, undocumented public API,
       and generated/lockfile drift.
-- [ ] Run `git add -A` so every source, test, README, protocol, plan, and
+- [x] Run `git add -A` so every source, test, README, protocol, plan, and
       lockfile change is tracked.
-- [ ] Commit the completed work using a Conventional Commit title no longer
+- [x] Commit the completed work using a Conventional Commit title no longer
       than 50 characters and a descriptive body.
-- [ ] Push the current branch.
+- [x] Push the current branch.
 - [ ] Run `cargo xtask review` after the push so review compares the complete
       branch with `origin/main`.
 - [ ] Do not auto-fix review findings; report each item with a number, severity,

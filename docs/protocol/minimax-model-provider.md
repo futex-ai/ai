@@ -9,9 +9,9 @@ interleaved-thinking context, error codes, model metadata, and usage details.
 
 ## Status
 
-Planned. The
-[MiniMax model provider plan](../../plans/minimax-model-provider.md) tracks the
-implementation.
+Implemented. The
+[completed MiniMax model provider plan](../../plans/minimax-model-provider.md)
+records the implementation and verification milestones.
 
 ## Ownership
 
@@ -145,8 +145,10 @@ filtered, truncated, tool-calling, missing, or unknown finish.
 
 ## Response Mapping
 
-The adapter consumes the first response choice. A response with no choices or
-an invalid response shape is a provider failure.
+The adapter consumes the first response choice. A successfully decoded
+response with no choices is a provider failure. Wire fields that cannot be
+decoded into the typed response DTO are internal deserialization failures, as
+defined under Error Handling.
 
 Finish reasons normalize as follows:
 
