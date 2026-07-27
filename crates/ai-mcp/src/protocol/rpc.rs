@@ -1,7 +1,7 @@
 //! JSON-RPC message construction and classification.
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(untagged)]
@@ -36,6 +36,13 @@ pub(crate) enum JsonRpcMessageKind {
     Notification {
         method: String,
     },
+    Invalid,
+}
+
+enum JsonRpcIdState {
+    Absent,
+    Null,
+    Valid(McpRequestId),
     Invalid,
 }
 
@@ -75,34 +82,53 @@ pub(crate) fn classify_message(value: &Value) -> JsonRpcMessageKind {
     if object.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
         return JsonRpcMessageKind::Invalid;
     }
-    let id = object
-        .get("id")
-        .and_then(|value| serde_json::from_value(value.clone()).ok());
+    let id = classify_id(object);
     if let Some(result) = object.get("result") {
-        return id.map_or(JsonRpcMessageKind::Invalid, |id| {
-            JsonRpcMessageKind::Response {
+        return match id {
+            JsonRpcIdState::Valid(id) => JsonRpcMessageKind::Response {
                 id,
                 result: result.clone(),
+            },
+            JsonRpcIdState::Absent | JsonRpcIdState::Null | JsonRpcIdState::Invalid => {
+                JsonRpcMessageKind::Invalid
             }
-        });
+        };
     }
     if let Some(raw_error) = object.get("error") {
-        return match serde_json::from_value(raw_error.clone()) {
-            Ok(error) => JsonRpcMessageKind::Error { id, error },
-            Err(_) => JsonRpcMessageKind::Invalid,
+        let Ok(error) = serde_json::from_value(raw_error.clone()) else {
+            return JsonRpcMessageKind::Invalid;
+        };
+        return match id {
+            JsonRpcIdState::Valid(id) => JsonRpcMessageKind::Error {
+                id: Some(id),
+                error,
+            },
+            JsonRpcIdState::Null => JsonRpcMessageKind::Error { id: None, error },
+            JsonRpcIdState::Absent | JsonRpcIdState::Invalid => JsonRpcMessageKind::Invalid,
         };
     }
     let Some(method) = object.get("method").and_then(Value::as_str) else {
         return JsonRpcMessageKind::Invalid;
     };
-    if let Some(id) = id {
-        JsonRpcMessageKind::Request {
+    match id {
+        JsonRpcIdState::Valid(id) => JsonRpcMessageKind::Request {
             id,
             method: method.to_owned(),
-        }
-    } else {
-        JsonRpcMessageKind::Notification {
+        },
+        JsonRpcIdState::Absent => JsonRpcMessageKind::Notification {
             method: method.to_owned(),
-        }
+        },
+        JsonRpcIdState::Null | JsonRpcIdState::Invalid => JsonRpcMessageKind::Invalid,
+    }
+}
+
+fn classify_id(object: &Map<String, Value>) -> JsonRpcIdState {
+    match object.get("id") {
+        None => JsonRpcIdState::Absent,
+        Some(Value::Null) => JsonRpcIdState::Null,
+        Some(value) => match serde_json::from_value(value.clone()) {
+            Ok(id) => JsonRpcIdState::Valid(id),
+            Err(_) => JsonRpcIdState::Invalid,
+        },
     }
 }

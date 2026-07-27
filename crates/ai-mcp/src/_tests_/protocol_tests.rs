@@ -168,6 +168,100 @@ fn rejects_missing_or_invalid_json_rpc_versions_for_every_message_kind() {
     }
 }
 
+#[test]
+fn classifies_method_json_rpc_ids_by_presence_and_type() {
+    let message = json!({"jsonrpc": "2.0", "method": "ping"});
+
+    assert!(matches!(
+        classify_message(&message),
+        JsonRpcMessageKind::Notification { method } if method == "ping"
+    ));
+    for id in [json!("server-1"), json!(7), json!(1.5)] {
+        assert!(matches!(
+            classify_message(&with_json_rpc_id(&message, id.clone())),
+            JsonRpcMessageKind::Request {
+                id: actual,
+                method,
+            } if method == "ping" && serde_json::to_value(&actual).unwrap() == id
+        ));
+    }
+    for id in invalid_request_ids() {
+        assert!(matches!(
+            classify_message(&with_json_rpc_id(&message, id)),
+            JsonRpcMessageKind::Invalid
+        ));
+    }
+}
+
+#[test]
+fn classifies_success_response_json_rpc_ids_by_presence_and_type() {
+    let message = json!({"jsonrpc": "2.0", "result": {"ok": true}});
+
+    assert!(matches!(
+        classify_message(&message),
+        JsonRpcMessageKind::Invalid
+    ));
+    for id in [json!("server-1"), json!(7), json!(1.5)] {
+        assert!(matches!(
+            classify_message(&with_json_rpc_id(&message, id.clone())),
+            JsonRpcMessageKind::Response {
+                id: actual,
+                result,
+            } if result == json!({"ok": true})
+                && serde_json::to_value(&actual).unwrap() == id
+        ));
+    }
+    for id in invalid_request_ids() {
+        assert!(matches!(
+            classify_message(&with_json_rpc_id(&message, id)),
+            JsonRpcMessageKind::Invalid
+        ));
+    }
+}
+
+#[test]
+fn classifies_error_response_json_rpc_ids_by_presence_and_type() {
+    let message = json!({
+        "jsonrpc": "2.0",
+        "error": {"code": -32603, "message": "failure"}
+    });
+
+    assert!(matches!(
+        classify_message(&message),
+        JsonRpcMessageKind::Invalid
+    ));
+    for id in [json!("server-1"), json!(7), json!(1.5)] {
+        assert!(matches!(
+            classify_message(&with_json_rpc_id(&message, id.clone())),
+            JsonRpcMessageKind::Error {
+                id: Some(actual),
+                error,
+            } if error.code == -32603
+                && serde_json::to_value(&actual).unwrap() == id
+        ));
+    }
+    assert!(matches!(
+        classify_message(&with_json_rpc_id(&message, Value::Null)),
+        JsonRpcMessageKind::Error { id: None, error } if error.code == -32603
+    ));
+    for id in [json!(true), json!({}), json!([])] {
+        assert!(matches!(
+            classify_message(&with_json_rpc_id(&message, id)),
+            JsonRpcMessageKind::Invalid
+        ));
+    }
+}
+
+fn invalid_request_ids() -> [Value; 4] {
+    [Value::Null, json!(true), json!({}), json!([])]
+}
+
+fn with_json_rpc_id(message: &Value, id: Value) -> Value {
+    let mut message = message.clone();
+    message.as_object_mut().unwrap().insert("id".to_owned(), id);
+    message
+}
+
 fn assert_invalid_versions(message: &Value) {
     for version in [None, Some(json!("1.0")), Some(json!(2)), Some(Value::Null)] {
         let mut candidate = message.clone();

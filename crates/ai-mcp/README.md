@@ -41,7 +41,11 @@ parameters. Missing or unsupported JSON response media types return
 `UnsupportedContentType`; empty `202`, DELETE success, and non-success response
 bodies retain their status-specific behavior. Every inbound JSON or SSE
 message must declare `jsonrpc: "2.0"`; malformed responses and side messages
-fail the scoped request before their message-specific behavior runs.
+fail the scoped request before their message-specific behavior runs. Only a
+method-bearing message that omits `id` is a notification; requests and success
+responses require string or number ids, while error responses additionally
+allow explicit null. Missing response ids and null or wrong-typed request ids
+fail before any notification or server-request side effect.
 
 ## Quick Start
 

@@ -15,6 +15,7 @@ milestones are finished.
 - [OAuth token-grant error mapping](oauth-token-grant-error-mapping.md)
 - [MCP JSON-RPC version validation](mcp-json-rpc-version-validation.md)
 - [OAuth transient invalid-grant preservation](oauth-transient-invalid-grant-preservation.md)
+- [MCP JSON-RPC identifier validation](mcp-json-rpc-id-validation.md)
 
 ## Completed
 

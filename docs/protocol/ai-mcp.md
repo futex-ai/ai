@@ -97,9 +97,13 @@ Required transport behavior (streamable HTTP, single endpoint URL):
       code, message, and data; an error with an unrelated non-null id remains
       ignored while awaiting the matching response.
 11. Client-generated JSON-RPC request ids are monotonically increasing `u64`
-    values per client instance. Incoming server-request ids may be JSON strings
-    or numbers; deserialize them into an untagged typed id enum and echo the
-    exact value in the response without coercion.
+    values per client instance. Only a method-bearing message with no `id`
+    member is a notification. An incoming server request requires a JSON string
+    or number id; deserialize it into an untagged typed id enum and echo the
+    exact value in the response without coercion. A success response likewise
+    requires a string or number id. An error response requires a string,
+    number, or explicit null id; null represents an unknown request id. A
+    missing response id or any Boolean, object, or array id is malformed.
 
 The transport may buffer only enough data to decode the next complete SSE
 event. It must return a live, pull-based event stream as soon as the HTTP status
@@ -110,7 +114,9 @@ to a server request while the original SSE response remains open, then resumes
 that stream. The call completes when the matching JSON-RPC response arrives;
 EOF before that response is `Error::MissingResponse`. A malformed SSE side
 message fails its scoped POST as `Error::DeserializeResponse` before the client
-applies that message's notification or server-request side effect.
+applies that message's notification or server-request side effect. This
+includes method-bearing messages with an explicit null or wrong-typed id,
+which must never be treated as notifications.
 
 No long-lived GET streams are added in v1. A POST response stream remains scoped
 to its originating request. Enforce `max_response_bytes` against cumulative raw
