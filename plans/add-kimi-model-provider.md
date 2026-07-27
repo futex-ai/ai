@@ -209,5 +209,5 @@ rejected when Kimi marks them as dispatchable.
       workspace tests, smoke tests, and `cargo xtask check`.
 - [x] Commit the review fix with a Conventional Commit message and push the
       current branch.
-- [ ] Repeat `cargo xtask review` and resolve every remaining valid finding
+- [x] Repeat `cargo xtask review` and resolve every remaining valid finding
       within the review-cycle limit.
