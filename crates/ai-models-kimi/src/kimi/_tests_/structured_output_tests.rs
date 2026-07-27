@@ -68,7 +68,6 @@ fn non_stop_response_preserves_finish_without_parsing_partial_json() {
         ("length", FinishReason::Truncated),
         ("content_filter", FinishReason::Filtered),
         ("custom", FinishReason::Other("custom".to_owned())),
-        ("tool_calls", FinishReason::ToolCalls),
     ] {
         let response = structured_response(finish, Some("{"), &status_schema())
             .expect("non-stop response should not parse structured output");
@@ -76,6 +75,38 @@ fn non_stop_response_preserves_finish_without_parsing_partial_json() {
         assert_eq!(response.finish_reason, expected);
         assert_eq!(response.structured_output, None);
     }
+}
+
+#[test]
+fn tool_call_finish_skips_partial_structured_output() {
+    let response = parse_response(
+        KIMI_K3,
+        KIMI_K3,
+        ThinkingLevel::Max,
+        json!({
+            "choices": [{
+                "finish_reason": "tool_calls",
+                "message": {
+                    "content": "{",
+                    "reasoning_content": "hidden",
+                    "tool_calls": [{
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {
+                            "name": "memory_read",
+                            "arguments": "{\"path\":\"root\"}"
+                        }
+                    }]
+                }
+            }]
+        }),
+        Some(&status_schema()),
+    )
+    .expect("valid tool-call response should not parse structured output");
+
+    assert_eq!(response.finish_reason, FinishReason::ToolCalls);
+    assert_eq!(response.tool_calls.len(), 1);
+    assert_eq!(response.structured_output, None);
 }
 
 fn structured_response(

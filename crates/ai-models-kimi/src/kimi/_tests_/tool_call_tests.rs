@@ -139,6 +139,24 @@ fn structurally_partial_dispatchable_tool_calls_fail_as_provider_error() {
 }
 
 #[test]
+fn empty_dispatchable_tool_call_payloads_fail_as_provider_error() {
+    for message in [
+        json!({"content": null}),
+        json!({"content": null, "tool_calls": null}),
+        json!({"content": null, "tool_calls": []}),
+    ] {
+        let result = parse(json!({
+            "choices": [{
+                "finish_reason": "tool_calls",
+                "message": message
+            }]
+        }));
+
+        assert!(matches!(result, Err(ModelError::Provider { .. })));
+    }
+}
+
+#[test]
 fn non_tool_finishes_suppress_and_do_not_replay_tool_payloads() {
     for finish_reason in [
         Some("stop"),

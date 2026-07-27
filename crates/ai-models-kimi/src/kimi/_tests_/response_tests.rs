@@ -88,12 +88,25 @@ fn parse(body: Value) -> Result<ai_interface::ModelResponse, ModelError> {
 }
 
 fn response_body(finish_reason: Option<&str>) -> Value {
+    let tool_calls = if matches!(finish_reason, Some("tool_calls")) {
+        json!([{
+            "id": "call_1",
+            "type": "function",
+            "function": {
+                "name": "memory_read",
+                "arguments": "{\"path\":\"root\"}"
+            }
+        }])
+    } else {
+        Value::Null
+    };
     json!({
         "choices": [{
             "finish_reason": finish_reason,
             "message": {
                 "content": "Done",
-                "reasoning_content": "hidden"
+                "reasoning_content": "hidden",
+                "tool_calls": tool_calls
             }
         }]
     })

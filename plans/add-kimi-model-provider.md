@@ -197,6 +197,14 @@ rejected when Kimi marks them as dispatchable.
       handling, then decode them only for `FinishReason::ToolCalls`.
 - [x] Add regression coverage proving structurally partial dispatchable calls
       remain typed provider errors.
+- [x] Add a failing regression test for dispatchable responses with omitted,
+      null, or empty tool-call payloads.
+- [x] Reject empty dispatchable tool-call responses at the provider boundary
+      while retaining non-dispatchable suppression.
+- [x] Keep structured-output finish handling covered with a valid tool-call
+      response instead of an internally inconsistent empty response.
+- [x] Keep finish-reason normalization coverage internally consistent by
+      attaching a valid call to the `tool_calls` case.
 - [x] Run focused Kimi tests, formatting, file-length lint, Clippy, full
       workspace tests, smoke tests, and `cargo xtask check`.
 - [x] Commit the review fix with a Conventional Commit message and push the

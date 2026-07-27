@@ -154,16 +154,30 @@ fn dispatchable_tool_calls(
         return Ok(Vec::new());
     }
     let Some(raw_tool_calls) = raw_tool_calls else {
-        return Ok(Vec::new());
-    };
-    match serde_json::from_value(raw_tool_calls) {
-        Ok(tool_calls) => Ok(tool_calls),
-        Err(_) => Err(ModelError::provider(
+        return Err(ModelError::provider(
             PROVIDER,
             model_id,
-            "invalid Kimi tool-call payload",
-        )),
+            "Kimi tool-call response had no tool calls",
+        ));
+    };
+    let tool_calls: Vec<ChatCompletionsToolCall> = match serde_json::from_value(raw_tool_calls) {
+        Ok(tool_calls) => tool_calls,
+        Err(_) => {
+            return Err(ModelError::provider(
+                PROVIDER,
+                model_id,
+                "invalid Kimi tool-call payload",
+            ));
+        }
+    };
+    if tool_calls.is_empty() {
+        return Err(ModelError::provider(
+            PROVIDER,
+            model_id,
+            "Kimi tool-call response had no tool calls",
+        ));
     }
+    Ok(tool_calls)
 }
 
 fn parse_tool_calls(
