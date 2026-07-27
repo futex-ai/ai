@@ -6,9 +6,10 @@ milestones are finished.
 
 ## Active
 
-None.
+No active plans.
 
 ## Completed
 
+- [MiniMax model provider](minimax-model-provider.md)
 - [Universal tool output management](universal-tool-output-management.md)
 - [Copy AI crates from Juno](copy-ai-crates-from-juno.md)

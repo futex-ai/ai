@@ -20,6 +20,9 @@ pub enum ProviderKind {
     Anthropic,
     /// Google Gemini model provider.
     Google,
+    /// MiniMax model provider.
+    #[serde(rename = "minimax")]
+    MiniMax,
     /// xAI/Grok model provider.
     Xai,
 }
@@ -32,6 +35,7 @@ impl ProviderKind {
             "openai" => Some(Self::OpenAi),
             "anthropic" => Some(Self::Anthropic),
             "google" => Some(Self::Google),
+            "minimax" => Some(Self::MiniMax),
             "xai" => Some(Self::Xai),
             _ => None,
         }
@@ -44,6 +48,7 @@ impl ProviderKind {
             Self::OpenAi => "openai",
             Self::Anthropic => "anthropic",
             Self::Google => "google",
+            Self::MiniMax => "minimax",
             Self::Xai => "xai",
         }
     }
