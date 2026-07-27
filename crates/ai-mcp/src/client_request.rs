@@ -32,7 +32,7 @@ impl StreamableHttpMcpClient {
         if response.status == 202 {
             return Ok(());
         }
-        Err(self.http_error(response, context.session_id.is_some()))
+        Err(self.scoped_http_error(response, context).await)
     }
 
     pub(crate) async fn authenticated_headers(

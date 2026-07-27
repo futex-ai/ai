@@ -48,6 +48,11 @@ allow explicit null. Missing response ids and null or wrong-typed request ids
 fail before any notification or server-request side effect. A response must
 contain exactly one of `result` or `error`; both members together fail as a
 malformed response regardless of their values or identifier.
+When a session-bound request returns 404, the client surfaces
+`SessionExpired` without replaying that operation and invalidates only the
+matching expired state. When invalidation occurs, the client marks the tool
+snapshot stale. A later host-initiated operation initializes a fresh session;
+a delayed response from the old session cannot erase a newer one.
 
 ## Quick Start
 

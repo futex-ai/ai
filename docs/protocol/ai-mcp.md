@@ -79,8 +79,11 @@ Required transport behavior (streamable HTTP, single endpoint URL):
    `notifications/initialized` notification.
 5. Session: if the initialize HTTP response includes an `Mcp-Session-Id`
    header, include that header on every subsequent request. A `404` on a
-   request that carried a session id means the session expired
-   (`Error::SessionExpired`; do not silently re-initialize in v1).
+   request that carried a session id means the session expired. If the cached
+   handshake and session still match that request, invalidate them and mark
+   the tool snapshot stale. Return `Error::SessionExpired` without replaying
+   the failed operation. A later host-initiated operation starts a new session
+   through the normal initialization path without the expired id.
 6. After negotiation, send `MCP-Protocol-Version: <negotiated>` as an HTTP
    header on every subsequent request.
 7. `close()` sends HTTP DELETE with the session header; a `405` response is
@@ -138,11 +141,15 @@ bodies remain valid, DELETE success ignores its body, and non-success bodies
 remain leniently decoded so `Error::HttpStatus` can retain JSON or textual
 diagnostics.
 
-The approved `SessionExpired` behavior deliberately leaves recovery to the
-host. MCP 2025-06-18 transport text instead says a client receiving a
-session-bound `404` must start a new session. Implementations of this contract
-must not silently change behavior; revising it requires explicit protocol
-approval because this crate's no-automatic-retry boundary is intentional.
+The approved `SessionExpired` behavior leaves retry timing to the host while
+permitting the MCP 2025-06-18 required new session. The operation that receives
+the `404` always fails without an automatic replay or reinitialization. Once
+that error is returned, the host may retry, and the next operation initializes
+a session without the expired id. In-flight responses compare their request
+session with current state before invalidating it, so a late `404` for an old
+session cannot erase a replacement session established concurrently. The same
+rule covers ordinary request responses, server-message response POSTs, and
+session DELETE.
 
 ## Crate layout
 
@@ -531,7 +538,9 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
   empty list elements; quoted commas; mixed challenge schemes and token68; 401
   failure mapping; 403 insufficient-scope mapping; agreeing, missing,
   malformed, and conflicting `resource_metadata`; scope deduplication;
-  session-expiry 404; `close()` tolerating 405.
+  session-expiry 404 invalidation and host-triggered recovery; stale
+  old-session 404 protection; side-response and DELETE expiry; initialized
+  notification expiry; `close()` tolerating 405.
 - Naming: sanitization, 64-char truncation, collision suffixing, dispatch
   strip-prefix round-trip, `InvalidServerKey`.
 

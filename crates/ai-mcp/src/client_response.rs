@@ -1,5 +1,7 @@
 //! HTTP and JSON-RPC response handling for the MCP client.
 
+use std::sync::atomic::Ordering;
+
 use serde_json::{Value, json};
 
 use crate::{
@@ -19,7 +21,7 @@ impl StreamableHttpMcpClient {
         context: &RequestContext,
     ) -> Result<Value> {
         if !(200..300).contains(&response.status) {
-            return Err(self.http_error(response, context.session_id.is_some()));
+            return Err(self.scoped_http_error(response, context).await);
         }
         let content_type = first(&response.headers).map(str::to_owned);
         let is_json = matches(&response.headers, APPLICATION_JSON);
@@ -94,8 +96,7 @@ impl StreamableHttpMcpClient {
                 method: server_method,
             } => {
                 if server_method == "notifications/tools/list_changed" {
-                    self.tools_stale
-                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                    self.tools_stale.store(true, Ordering::SeqCst);
                 }
                 Ok(None)
             }
@@ -104,7 +105,32 @@ impl StreamableHttpMcpClient {
         }
     }
 
-    pub(crate) fn http_error(&self, response: McpHttpResponse, had_session: bool) -> Error {
+    pub(crate) async fn scoped_http_error(
+        &self,
+        response: McpHttpResponse,
+        context: &RequestContext,
+    ) -> Error {
+        let expired_session = if response.status == 404 {
+            context.session_id.as_deref()
+        } else {
+            None
+        };
+        let error = self.http_error(response, context.session_id.is_some());
+        if let Some(expired_session) = expired_session {
+            self.invalidate_expired_session(expired_session).await;
+        }
+        error
+    }
+
+    async fn invalidate_expired_session(&self, expired_session: &str) {
+        let mut state = self.state.lock().await;
+        if state.session_id.as_deref() == Some(expired_session) {
+            *state = Default::default();
+            self.tools_stale.store(true, Ordering::SeqCst);
+        }
+    }
+
+    fn http_error(&self, response: McpHttpResponse, had_session: bool) -> Error {
         let status = response.status;
         if status == 401 || status == 403 {
             let raw = response

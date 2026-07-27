@@ -149,7 +149,7 @@ impl McpClient for StreamableHttpMcpClient {
             )
             .await?;
         if !(200..300).contains(&response.status) && response.status != 405 {
-            return Err(self.http_error(response, true));
+            return Err(self.scoped_http_error(response, &context).await);
         }
         *self.state.lock().await = ClientState::default();
         Ok(())
