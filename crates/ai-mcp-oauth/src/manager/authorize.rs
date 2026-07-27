@@ -23,6 +23,9 @@ impl DefaultMcpOAuthManager {
         if challenge.failure == McpAuthorizationFailure::Forbidden {
             return Err(Error::AuthorizationForbidden);
         }
+        if challenge.failure == McpAuthorizationFailure::InvalidRequest {
+            return Err(Error::AuthorizationInvalidRequest);
+        }
         let requested_scopes = context
             .baseline_scopes
             .union(&OAuthScopes::new(challenge.scopes.clone()));

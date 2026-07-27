@@ -34,7 +34,12 @@ size recommendation.
 HTTP authentication is injected through `json_http::JsonHttpAuth`. The crate
 surfaces typed `AuthorizationRequired` and `Forbidden` errors but never opens a
 browser, stores credentials, or retries authorization. The production transport
-does not follow redirects; a 3xx response is surfaced to the caller.
+does not follow redirects; a 3xx response is surfaced to the caller. Successful
+non-empty request responses require `application/json` or
+`text/event-stream`, with case-insensitive media-type matching and optional
+parameters. Missing or unsupported JSON response media types return
+`UnsupportedContentType`; empty `202`, DELETE success, and non-success response
+bodies retain their status-specific behavior.
 
 ## Quick Start
 

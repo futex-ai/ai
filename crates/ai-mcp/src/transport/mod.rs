@@ -7,6 +7,7 @@ use serde_json::Value;
 
 use crate::Result;
 
+pub(crate) mod content_type;
 mod reqwest;
 pub(crate) mod sse;
 

@@ -1,10 +1,36 @@
 //! Invalid-grant, post-refresh denial, and revocation integration coverage.
 
-use ai_mcp::{Error as McpError, McpClient};
-use ai_mcp_oauth::McpOAuthManager;
+use ai_mcp::{Error as McpError, McpAuthorizationChallenge, McpAuthorizationFailure, McpClient};
+use ai_mcp_oauth::{Error as OAuthError, McpOAuthManager};
 use secrecy::ExposeSecret;
 
 use super::support::{FakeOAuthMcpServer, authenticated_client, credential_key, harness, tokens};
+
+#[tokio::test]
+async fn invalid_request_challenge_is_rejected_without_oauth_side_effects() {
+    let server = FakeOAuthMcpServer::spawn().await;
+    let harness = harness(&server);
+    let challenge = McpAuthorizationChallenge {
+        failure: McpAuthorizationFailure::InvalidRequest,
+        resource_metadata_url: None,
+        scopes: Vec::new(),
+        error_description: None,
+        raw_www_authenticate: Vec::new(),
+    };
+
+    let error = harness
+        .manager
+        .authorize(&challenge, &harness.context)
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, OAuthError::AuthorizationInvalidRequest));
+    assert_eq!(harness.user_agent.call_count(), 0);
+    let records = server.records().await;
+    assert!(records.authorization_queries.is_empty());
+    assert!(records.registrations.is_empty());
+    assert!(records.token_forms.is_empty());
+}
 
 #[tokio::test]
 async fn invalid_grant_clears_tokens_and_surfaces_one_challenge() {

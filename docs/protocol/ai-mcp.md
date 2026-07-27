@@ -65,6 +65,9 @@ Required transport behavior (streamable HTTP, single endpoint URL):
    `text/event-stream` (SSE events whose `data:` payloads are JSON-RPC
    messages; the stream contains the response for the posted request and may
    also contain server notifications/requests, then closes).
+   Compare media-type essences case-insensitively and allow parameters such as
+   `charset`; a successful non-empty JSON payload with a missing or unsupported
+   `Content-Type` is `Error::UnsupportedContentType`.
 3. For a client *notification* (e.g. `notifications/initialized`) or a client
    *response*, the server replies `202 Accepted` with no body.
 4. `initialize` request params:
@@ -115,6 +118,12 @@ to the client unchanged so it becomes the existing typed `Error::HttpStatus`;
 never replay POST or DELETE methods, JSON-RPC bodies, authorization headers,
 session IDs, protocol headers, or custom authentication headers to a redirect
 target.
+
+Content-type enforcement applies when the client consumes a successful,
+non-empty JSON-RPC request response. Empty `202` notification and side-response
+bodies remain valid, DELETE success ignores its body, and non-success bodies
+remain leniently decoded so `Error::HttpStatus` can retain JSON or textual
+diagnostics.
 
 The approved `SessionExpired` behavior deliberately leaves recovery to the
 host. MCP 2025-06-18 transport text instead says a client receiving a
@@ -477,6 +486,7 @@ itself stays actionable. A 401 without a recognized error is
 | `InvalidServerKey { server_key: String }` | config validation |
 | `InvalidResponseLimit { minimum: usize }` | configured response limit is smaller than the explicit truncation envelope |
 | `InvalidTimeout` | a configured request or tool-call timeout is zero |
+| `UnsupportedContentType { content_type: Option<String> }` | a successful non-empty JSON response omitted `Content-Type` or used a media type other than `application/json` |
 
 ## Testing requirements
 

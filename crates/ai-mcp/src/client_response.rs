@@ -7,6 +7,7 @@ use crate::{
     authorization::authorization_challenge,
     client::RequestContext,
     protocol::{JsonRpcMessageKind, classify_message, error_response, success_response},
+    transport::content_type::{APPLICATION_JSON, first, matches},
 };
 
 impl StreamableHttpMcpClient {
@@ -20,14 +21,20 @@ impl StreamableHttpMcpClient {
         if !(200..300).contains(&response.status) {
             return Err(self.http_error(response, context.session_id.is_some()));
         }
+        let content_type = first(&response.headers).map(str::to_owned);
+        let is_json = matches(&response.headers, APPLICATION_JSON);
         let expected_id = McpRequestId::Number(request_id.into());
         match response.payload {
-            McpHttpPayload::Json(message) => self
-                .handle_message(method, &expected_id, message, context)
-                .await?
-                .ok_or_else(|| Error::MissingResponse {
-                    method: method.to_owned(),
-                }),
+            McpHttpPayload::Json(message) => {
+                if !is_json {
+                    return Err(Error::UnsupportedContentType { content_type });
+                }
+                self.handle_message(method, &expected_id, message, context)
+                    .await?
+                    .ok_or_else(|| Error::MissingResponse {
+                        method: method.to_owned(),
+                    })
+            }
             McpHttpPayload::EventStream(mut stream) => loop {
                 let Some(message) = stream.next_message().await? else {
                     return Err(Error::MissingResponse {

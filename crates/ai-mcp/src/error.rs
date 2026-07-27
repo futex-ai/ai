@@ -104,10 +104,10 @@ pub enum Error {
     #[error("[ai_mcp/error] JSON-RPC request id space exhausted")]
     RequestIdExhausted,
     /// A response used an unsupported content type.
-    #[error("[ai_mcp/error] unsupported response content type `{content_type}`")]
+    #[error("[ai_mcp/error] unsupported response content type {content_type:?}")]
     UnsupportedContentType {
-        /// Returned content type.
-        content_type: String,
+        /// Returned content type, or `None` when the header was absent.
+        content_type: Option<String>,
     },
 }
 

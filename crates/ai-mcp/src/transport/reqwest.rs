@@ -9,7 +9,11 @@ use serde_json::Value;
 
 use crate::{Error, Result};
 
-use super::{McpHttpPayload, McpHttpResponse, McpHttpTransport, sse::ReqwestEventStream};
+use super::{
+    McpHttpPayload, McpHttpResponse, McpHttpTransport,
+    content_type::{EVENT_STREAM, matches},
+    sse::ReqwestEventStream,
+};
 
 #[derive(Clone, Debug)]
 /// Production MCP HTTP transport backed by reqwest and rustls.
@@ -83,14 +87,7 @@ async fn send(builder: reqwest::RequestBuilder) -> Result<Response> {
 async fn decode_response(response: Response, limit_bytes: usize) -> Result<McpHttpResponse> {
     let status = response.status().as_u16();
     let headers = response_headers(&response);
-    let content_type = headers
-        .get("content-type")
-        .and_then(|values| values.first())
-        .map(|value| value.to_ascii_lowercase());
-    if content_type
-        .as_deref()
-        .is_some_and(|value| value.starts_with("text/event-stream"))
-    {
+    if matches(&headers, EVENT_STREAM) {
         return Ok(McpHttpResponse {
             status,
             headers,

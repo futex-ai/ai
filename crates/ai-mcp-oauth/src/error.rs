@@ -157,6 +157,9 @@ pub enum Error {
     /// The supplied MCP challenge does not permit interactive authorization.
     #[error("[ai_mcp_oauth/authorization] challenge does not permit authorization")]
     AuthorizationForbidden,
+    /// The MCP server reported a malformed request that authorization cannot repair.
+    #[error("[ai_mcp_oauth/authorization] invalid MCP request cannot be authorized")]
+    AuthorizationInvalidRequest,
     /// The resource owner denied the authorization request.
     #[error("[ai_mcp_oauth/authorization] user denied authorization")]
     UserDenied,

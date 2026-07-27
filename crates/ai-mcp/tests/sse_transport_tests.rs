@@ -142,7 +142,7 @@ fn live_call_response(state: Arc<SseServerState>, id: Value) -> Response {
             .unwrap();
     });
     Response::builder()
-        .header(CONTENT_TYPE, "text/event-stream")
+        .header(CONTENT_TYPE, "text/event-stream; charset=utf-8")
         .body(Body::from_stream(ReceiverStream::new(receiver)))
         .unwrap()
 }

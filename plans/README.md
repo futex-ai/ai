@@ -8,6 +8,8 @@ milestones are finished.
 
 - [OAuth unrefreshable token expiry window](oauth-unrefreshable-token-expiry-window.md)
 - [OAuth grant-type metadata validation](oauth-grant-type-metadata-validation.md)
+- [MCP response content-type validation](mcp-response-content-type-validation.md)
+- [OAuth invalid-request challenge rejection](oauth-invalid-request-challenge-rejection.md)
 
 ## Completed
 

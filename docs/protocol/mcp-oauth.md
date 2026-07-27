@@ -63,7 +63,11 @@ exception for local hosts and tests; production policy remains HTTPS-only.
 4. On a 401 with an existing credential, the host may call
    `McpOAuthManager::refresh` once. A new connection, unusable refresh, or
    explicit insufficient-scope consent uses `McpOAuthManager::authorize`.
-   Interactive work never runs from `JsonHttpAuth::apply_headers`.
+   Interactive work never runs from `JsonHttpAuth::apply_headers`. A
+   `Forbidden` challenge returns `AuthorizationForbidden`, while
+   `InvalidRequest` returns `AuthorizationInvalidRequest` because a new grant
+   cannot repair the malformed MCP request; both fail before discovery or
+   browser work.
 5. The manager stores the resulting token set atomically.
 6. The host retries the interrupted MCP operation once. Further 401/403
    responses are surfaced; no unbounded authorization or retry loop is allowed.
@@ -136,6 +140,10 @@ embedded desktop/mobile secret as confidential.
 
 - Use an external user agent through `OAuthUserAgent`; never embed credentials
   or launch a URL through a shell.
+- Treat only `AuthorizationRequired`, `InvalidToken`, and
+  `InsufficientScope` as authorizable challenge classes. Reject `Forbidden`
+  and `InvalidRequest` immediately with distinct typed errors before
+  discovery, registration, DNS, state, or user-agent side effects.
 - Treat omitted `grant_types_supported` metadata as RFC 8414's default support
   for `authorization_code`. When a non-empty advertised list excludes
   `authorization_code`, return `AuthorizationCodeGrantUnsupported` before
@@ -290,11 +298,12 @@ wire boundary.
 The public `Error` uses typed variants for invalid URLs, resource/issuer
 mismatch, unsafe network targets, discovery status/schema failures, issuer
 selection cancellation, missing registration, registration rejection, user
-denial, unsupported authorization-code grants, callback timeout, state
-mismatch/reuse, token rejection, `InvalidGrant`, `InteractionRequired`, store
-failure, DNS/transport failure, redirect rejection or exhaustion, response
-bounds, and internal failure. Errors and diagnostics never contain
-authorization codes or token values.
+denial, forbidden and invalid-request challenge rejection, unsupported
+authorization-code grants, callback timeout, state mismatch/reuse, token
+rejection, `InvalidGrant`, `InteractionRequired`, store failure, DNS/transport
+failure, redirect rejection or exhaustion, response bounds, and internal
+failure. Errors and diagnostics never contain authorization codes or token
+values.
 
 ## Security requirements
 

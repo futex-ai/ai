@@ -99,8 +99,11 @@ impl McpHttpTransport for ScriptedTransport {
 pub(super) fn json_response(
     status: u16,
     body: Value,
-    headers: BTreeMap<String, Vec<String>>,
+    mut headers: BTreeMap<String, Vec<String>>,
 ) -> McpHttpResponse {
+    headers
+        .entry("content-type".to_owned())
+        .or_insert_with(|| vec!["application/json".to_owned()]);
     McpHttpResponse {
         status,
         headers,
@@ -119,7 +122,10 @@ pub(super) fn empty_response(status: u16) -> McpHttpResponse {
 pub(super) fn event_response(events: Vec<Value>, gate: Arc<AtomicBool>) -> McpHttpResponse {
     McpHttpResponse {
         status: 200,
-        headers: BTreeMap::new(),
+        headers: BTreeMap::from([(
+            "content-type".to_owned(),
+            vec!["text/event-stream".to_owned()],
+        )]),
         payload: McpHttpPayload::EventStream(Box::new(ScriptedEventStream {
             events: events.into(),
             gate,

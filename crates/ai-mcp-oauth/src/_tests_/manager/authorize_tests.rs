@@ -20,6 +20,31 @@ use super::support::{
 };
 
 #[tokio::test]
+async fn rejects_invalid_request_before_side_effects() {
+    let oauth = manager(
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        McpOAuthConfig::default(),
+    );
+
+    let error = oauth
+        .authorize(
+            &challenge(McpAuthorizationFailure::InvalidRequest, &[]),
+            &context(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, Error::AuthorizationInvalidRequest));
+}
+
+#[tokio::test]
 async fn rejects_mismatched_callback_state_before_token_exchange() {
     let oauth = authorization_manager_with_response(OAuthAuthorizationResponse::authorized(
         "code",

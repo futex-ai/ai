@@ -6,12 +6,99 @@ use async_trait::async_trait;
 use json_http::{JsonHttpAuth, StaticHeaderAuth};
 use serde_json::json;
 
-use crate::{Error, McpAuthorizationFailure, McpClient, McpServerConfig, StreamableHttpMcpClient};
+use crate::{
+    Error, McpAuthorizationFailure, McpClient, McpServerConfig, StreamableHttpMcpClient,
+    client::RequestContext,
+};
 
 use super::{
     lifecycle_tests::initialized_response,
     support::{ScriptedTransport, empty_response, json_response},
 };
+
+#[tokio::test]
+async fn rejects_unsupported_success_content_type() {
+    let response = json_response(
+        200,
+        json!({"jsonrpc":"2.0","id":1,"result":{"ok":true}}),
+        BTreeMap::from([("content-type".to_owned(), vec!["text/plain".to_owned()])]),
+    );
+
+    let error = client(ScriptedTransport::new(Vec::new()))
+        .response_result(
+            "tools/call",
+            1,
+            response,
+            &RequestContext {
+                session_id: None,
+                protocol_version: Some("2025-06-18".to_owned()),
+            },
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::UnsupportedContentType {
+            content_type: Some(content_type)
+        } if content_type == "text/plain"
+    ));
+}
+
+#[tokio::test]
+async fn rejects_missing_success_content_type() {
+    let mut response = json_response(
+        200,
+        json!({"jsonrpc":"2.0","id":1,"result":{"ok":true}}),
+        BTreeMap::new(),
+    );
+    response.headers.remove("content-type");
+
+    let error = client(ScriptedTransport::new(Vec::new()))
+        .response_result(
+            "tools/call",
+            1,
+            response,
+            &RequestContext {
+                session_id: None,
+                protocol_version: Some("2025-06-18".to_owned()),
+            },
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::UnsupportedContentType { content_type: None }
+    ));
+}
+
+#[tokio::test]
+async fn accepts_parameterized_json_content_type() {
+    let response = json_response(
+        200,
+        json!({"jsonrpc":"2.0","id":1,"result":{"ok":true}}),
+        BTreeMap::from([(
+            "content-type".to_owned(),
+            vec!["Application/JSON ; charset=utf-8".to_owned()],
+        )]),
+    );
+
+    let result = client(ScriptedTransport::new(Vec::new()))
+        .response_result(
+            "tools/call",
+            1,
+            response,
+            &RequestContext {
+                session_id: None,
+                protocol_version: Some("2025-06-18".to_owned()),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(result, json!({"ok":true}));
+}
 
 #[tokio::test]
 async fn maps_repeated_authorization_challenges() {
@@ -120,7 +207,7 @@ async fn preserves_other_http_status_and_body() {
     let transport = ScriptedTransport::new(vec![json_response(
         429,
         json!({"retry":"later"}),
-        BTreeMap::new(),
+        BTreeMap::from([("content-type".to_owned(), vec!["text/html".to_owned()])]),
     )]);
 
     let error = client(transport).ensure_initialized().await.unwrap_err();

@@ -15,7 +15,10 @@ use ai_mcp::{Error, McpClient, McpContentBlock, McpHttpTransport, ReqwestMcpHttp
 use axum::{
     Json, Router,
     extract::State,
-    http::{HeaderMap, HeaderValue, StatusCode, header::LOCATION},
+    http::{
+        HeaderMap, HeaderValue, StatusCode,
+        header::{CONTENT_TYPE, LOCATION},
+    },
     response::{IntoResponse, Response},
     routing::{any, post},
 };
@@ -28,6 +31,21 @@ use support::{RecordedRequest, client, header, spawn};
 struct JsonServerState {
     posts: Mutex<Vec<RecordedRequest>>,
     deletes: Mutex<Vec<RecordedRequest>>,
+}
+
+#[tokio::test]
+async fn rejects_json_body_with_unsupported_content_type() {
+    let server = spawn(Router::new().route("/mcp", post(plain_text_json))).await;
+    let client = client(&server.endpoint, Arc::new(StaticHeaderAuth::default()));
+
+    let error = client.ensure_initialized().await.unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::UnsupportedContentType {
+            content_type: Some(content_type)
+        } if content_type == "text/plain"
+    ));
 }
 
 #[tokio::test]
@@ -129,6 +147,26 @@ async fn delete_redirects_surface_without_contacting_the_target() {
     }
 }
 
+async fn plain_text_json(Json(body): Json<Value>) -> Response {
+    if body.get("method").and_then(Value::as_str) != Some("initialize") {
+        return StatusCode::ACCEPTED.into_response();
+    }
+    let mut response = Json(json!({
+        "jsonrpc": "2.0",
+        "id": body["id"],
+        "result": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "serverInfo": {"name": "plain-json", "version": "1"}
+        }
+    }))
+    .into_response();
+    response
+        .headers_mut()
+        .insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
+    response
+}
+
 async fn post_mcp(
     State(state): State<Arc<JsonServerState>>,
     headers: HeaderMap,
@@ -160,7 +198,7 @@ async fn delete_mcp(State(state): State<Arc<JsonServerState>>, headers: HeaderMa
         headers,
         body: Value::Null,
     });
-    StatusCode::NO_CONTENT.into_response()
+    (StatusCode::OK, "closed").into_response()
 }
 
 fn initialized(id: Value) -> Response {

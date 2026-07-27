@@ -28,6 +28,10 @@ or public-client dynamic registration in that order.
 Before registry or browser work, interactive authorization rejects a non-empty
 `grant_types_supported` list that excludes `authorization_code`; omitted grant
 metadata retains the RFC 8414 authorization-code default.
+Only authorization-required, invalid-token, and insufficient-scope challenges
+can start authorization. Forbidden and invalid-request challenges return
+distinct typed errors before discovery or any other side effect because a new
+grant cannot repair those outcomes.
 
 The production transport disables automatic redirects, follows only validated
 metadata GET redirects, and never redirects a registration, token, or
@@ -100,7 +104,10 @@ let registry = DefaultOAuthClientRegistry::new(transport, store, config)?;
 
 The host calls discovery after `ai-mcp` returns a typed 401/403 challenge,
 shows issuer selection when needed, and supplies secure registration storage.
-It must not silently select among multiple issuers.
+It must not silently select among multiple issuers. Call
+`McpOAuthManager::authorize` only for authorization-required, invalid-token, or
+insufficient-scope challenges; `InvalidRequest` and `Forbidden` are rejected
+without opening a browser.
 
 Authorize only from an explicit host action, then bind the stored credential to
 the same canonical resource used by the MCP client:
