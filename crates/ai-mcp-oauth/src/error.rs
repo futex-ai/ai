@@ -190,7 +190,7 @@ pub enum Error {
     /// Secure randomness produced a duplicate live authorization state.
     #[error("[ai_mcp_oauth/state] duplicate authorization state")]
     StateCollision,
-    /// Token endpoint returned a typed OAuth failure.
+    /// Token endpoint returned a typed OAuth failure with its status preserved.
     #[error("[ai_mcp_oauth/token] token request rejected with HTTP {status}: {error:?}")]
     TokenRejected {
         /// HTTP response status.
@@ -204,9 +204,6 @@ pub enum Error {
         /// Underlying JSON decode failure.
         source: serde_json::Error,
     },
-    /// Refresh token is no longer accepted by the authorization server.
-    #[error("[ai_mcp_oauth/token] refresh token is invalid")]
-    InvalidGrant,
     /// User interaction is required before a usable token can be obtained.
     #[error("[ai_mcp_oauth/token] user interaction required")]
     InteractionRequired,

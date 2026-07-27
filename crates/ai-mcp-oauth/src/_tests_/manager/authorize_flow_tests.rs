@@ -12,9 +12,10 @@ use unimock::{MockFn, Unimock, matching};
 use url::Url;
 
 use crate::{
-    McpOAuthConfig, McpOAuthDiscoveryMock, McpOAuthManager, OAuthAuthorizationResponse,
+    Error, McpOAuthConfig, McpOAuthDiscoveryMock, McpOAuthManager, OAuthAuthorizationResponse,
     OAuthClientRegistryMock, OAuthCredentialStoreMock, OAuthHttpResponse, OAuthHttpTransportMock,
-    OAuthRandomMock, OAuthTokenSet, OAuthUserAgentMock, OAuthUserAuthorizationRequest,
+    OAuthRandomMock, OAuthTokenError, OAuthTokenSet, OAuthUserAgentMock,
+    OAuthUserAuthorizationRequest,
 };
 
 use super::support::{
@@ -141,6 +142,76 @@ async fn authorization_uses_pkce_resource_minimum_scopes_and_atomic_storage() {
     assert_eq!(saved.expires_at, None);
     assert_eq!(saved.scopes.as_slice(), &["read", "write"]);
     assert_eq!(connection.scopes.as_slice(), &["read", "write"]);
+}
+
+#[tokio::test]
+async fn authorization_code_invalid_grant_does_not_mutate_credentials() {
+    let discovery = Unimock::new(
+        McpOAuthDiscoveryMock::discover
+            .next_call(matching!(_, _))
+            .returns(Ok(discovery_result())),
+    );
+    let registry = Unimock::new(
+        OAuthClientRegistryMock::resolve
+            .next_call(matching!(_))
+            .returns(Ok(registration())),
+    );
+    let user_agent = Unimock::new(
+        OAuthUserAgentMock::authorize
+            .next_call(matching!(_))
+            .answers(&|_, request: OAuthUserAuthorizationRequest| {
+                let url = Url::parse(request.authorization_url()).unwrap();
+                let state = query(&url)["state"].clone();
+                Ok(OAuthAuthorizationResponse::authorized(
+                    "expired-code",
+                    Some(state),
+                ))
+            }),
+    );
+    let transport = Unimock::new(
+        OAuthHttpTransportMock::post_form
+            .next_call(matching!(_, _, _, _, _))
+            .returns(Ok(OAuthHttpResponse {
+                status: 400,
+                headers: BTreeMap::new(),
+                body: json!({"error": "invalid_grant"}),
+            })),
+    );
+    let random = Unimock::new((
+        OAuthRandomMock::bytes
+            .next_call(matching!(32))
+            .returns(Ok(vec![1; 32])),
+        OAuthRandomMock::bytes
+            .next_call(matching!(32))
+            .returns(Ok(vec![2; 32])),
+    ));
+    let oauth = manager(
+        discovery,
+        registry,
+        Unimock::new(()),
+        user_agent,
+        transport,
+        public_dns_resolver(),
+        clock(vec![100, 101]),
+        random,
+        McpOAuthConfig::default(),
+    );
+
+    let error = oauth
+        .authorize(
+            &challenge(McpAuthorizationFailure::AuthorizationRequired, &[]),
+            &context(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::TokenRejected {
+            status: 400,
+            error: OAuthTokenError::InvalidGrant,
+        }
+    ));
 }
 
 fn query(url: &Url) -> BTreeMap<String, String> {

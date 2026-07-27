@@ -3,7 +3,7 @@
 use secrecy::{ExposeSecret, SecretString};
 use serde_json::json;
 
-use crate::{Error, OAuthHttpResponse, OAuthScopes, OAuthTokenType};
+use crate::{Error, OAuthHttpResponse, OAuthScopes, OAuthTokenError, OAuthTokenType};
 
 use super::parse_token_response;
 
@@ -75,6 +75,29 @@ fn empty_refresh_token_retains_previous_credentials() {
     .unwrap();
 
     assert_eq!(tokens.refresh_token.unwrap().expose_secret(), "old-refresh");
+}
+
+#[test]
+fn invalid_grant_preserves_token_rejection_status() {
+    let error = parse_token_response(
+        OAuthHttpResponse {
+            status: 400,
+            headers: Default::default(),
+            body: json!({"error": "invalid_grant"}),
+        },
+        0,
+        &OAuthScopes::new(["read"]),
+        None,
+    )
+    .unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::TokenRejected {
+            status: 400,
+            error: OAuthTokenError::InvalidGrant,
+        }
+    ));
 }
 
 fn response(body: serde_json::Value) -> OAuthHttpResponse {

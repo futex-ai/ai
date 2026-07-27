@@ -174,6 +174,10 @@ embedded desktop/mobile secret as confidential.
   Bearer access token and parse optional refresh token, expiry, and granted
   scope without logging secrets. Because RFC 6749 requires a non-empty refresh
   token, treat an empty response value exactly like an omitted field.
+- Preserve any token endpoint rejection, including authorization-code
+  `invalid_grant`, as `TokenRejected` with its HTTP status and typed OAuth
+  error. A rejected code exchange does not read, replace, or delete stored
+  credentials.
 - If `expires_in` is absent, do not invent an expiry; use the token until a
   challenge or explicit refresh. If `scope` is absent, retain the requested
   scopes, and on refresh retain the prior scopes unless replacements are
@@ -202,11 +206,11 @@ embedded desktop/mobile secret as confidential.
 - A rotated non-empty refresh token atomically replaces the old token set. If
   a refresh response omits `refresh_token` or returns an empty value, retain
   the previous one.
-- `invalid_grant` removes the unusable token set. An explicit refresh returns
+- Within a refresh request only, a `TokenRejected` carrying `invalid_grant`
+  removes the unusable token set. An explicit refresh returns
   `InteractionRequired`; an auth-hook refresh leaves the header absent so the
-  MCP server can return an authoritative typed challenge. Transient
-  discovery/token errors preserve credentials and do not send a known-expired
-  token.
+  MCP server can return an authoritative typed challenge. Transient discovery
+  or token errors preserve credentials and do not send a known-expired token.
 - A 401 after one successful refresh or interactive authorization is surfaced
   to the host. A denied incremental scope is cached by its semantic,
   order-insensitive scope set for the current connection attempt to prevent
@@ -303,10 +307,9 @@ mismatch, unsafe network targets, discovery status/schema failures, issuer
 selection cancellation, missing registration, registration rejection, user
 denial, forbidden and invalid-request challenge rejection, unsupported
 authorization-code grants, callback timeout, state mismatch/reuse, token
-rejection, `InvalidGrant`, `InteractionRequired`, store failure, DNS/transport
-failure, redirect rejection or exhaustion, response bounds, and internal
-failure. Errors and diagnostics never contain authorization codes or token
-values.
+rejection, `InteractionRequired`, store failure, DNS/transport failure,
+redirect rejection or exhaustion, response bounds, and internal failure.
+Errors and diagnostics never contain authorization codes or token values.
 
 ## Security requirements
 
@@ -346,6 +349,8 @@ Unit tests cover canonicalization, well-known path insertion, metadata
 validation, issuer selection, registration precedence, DCR, PKCE vectors,
 state lifecycle, scope minimization, token parsing, expiry skew, refresh
 rotation, single-flight behavior, and redaction.
+Token tests distinguish status-preserving authorization-code `invalid_grant`
+from refresh-only stale-credential cleanup.
 
 `tests/oauth_integration.rs` uses one in-process protected-resource,
 authorization, and MCP server with the production reqwest transports for:

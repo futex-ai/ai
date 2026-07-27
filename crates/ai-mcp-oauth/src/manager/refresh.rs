@@ -4,7 +4,9 @@ use async_trait::async_trait;
 use secrecy::{ExposeSecret, SecretString};
 use sha2::{Digest, Sha256};
 
-use crate::{Error, OAuthCredentialKey, OAuthRequestTokenProvider, OAuthTokenSet, Result};
+use crate::{
+    Error, OAuthCredentialKey, OAuthRequestTokenProvider, OAuthTokenError, OAuthTokenSet, Result,
+};
 
 use super::{DefaultMcpOAuthManager, OAuthConnection};
 
@@ -27,7 +29,10 @@ impl DefaultMcpOAuthManager {
         }
         match self.refresh_current(key, current).await {
             Ok(tokens) => Ok(connection(key, tokens)),
-            Err(Error::InvalidGrant) => {
+            Err(Error::TokenRejected {
+                error: OAuthTokenError::InvalidGrant,
+                ..
+            }) => {
                 self.store.delete_tokens(key).await?;
                 Err(Error::InteractionRequired)
             }
@@ -88,7 +93,10 @@ impl DefaultMcpOAuthManager {
                 let now = self.clock.now_unix_seconds()?;
                 usable_access_token(refreshed, now)
             }
-            Err(Error::InvalidGrant) => {
+            Err(Error::TokenRejected {
+                error: OAuthTokenError::InvalidGrant,
+                ..
+            }) => {
                 self.store.delete_tokens(key).await?;
                 Ok(None)
             }

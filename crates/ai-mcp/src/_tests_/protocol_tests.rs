@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 
 use crate::{
     McpAnnotations, McpContentBlock, McpResourceContents, McpRole, McpToolCallOutcome,
-    protocol::{InitializeResult, ListToolsResult},
+    protocol::{InitializeResult, JsonRpcMessageKind, ListToolsResult, classify_message},
 };
 
 #[test]
@@ -152,4 +152,35 @@ fn content_serialization_retains_annotations_and_metadata() {
 
     assert_eq!(value["annotations"]["lastModified"], "now");
     assert_eq!(value["_meta"]["source"], true);
+}
+
+#[test]
+fn rejects_missing_or_invalid_json_rpc_versions_for_every_message_kind() {
+    let messages = [
+        json!({"id": 1, "result": {"ok": true}}),
+        json!({"id": 1, "error": {"code": -32603, "message": "failure"}}),
+        json!({"id": "server-1", "method": "ping"}),
+        json!({"method": "notifications/tools/list_changed"}),
+    ];
+
+    for message in messages {
+        assert_invalid_versions(&message);
+    }
+}
+
+fn assert_invalid_versions(message: &Value) {
+    for version in [None, Some(json!("1.0")), Some(json!(2)), Some(Value::Null)] {
+        let mut candidate = message.clone();
+        if let Some(version) = version {
+            candidate
+                .as_object_mut()
+                .unwrap()
+                .insert("jsonrpc".to_owned(), version);
+        }
+
+        assert!(matches!(
+            classify_message(&candidate),
+            JsonRpcMessageKind::Invalid
+        ));
+    }
 }

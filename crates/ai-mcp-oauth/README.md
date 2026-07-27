@@ -145,7 +145,10 @@ successful authorization or refresh. A token without a refresh token remains
 usable through its actual expiry, including inside the configured refresh
 skew; a known-expired token is never sent. An empty refresh token in a token
 response is treated as absent, retaining the prior refresh token during
-rotation when one exists.
+rotation when one exists. Token endpoint rejections retain their HTTP status
+and typed OAuth error. In particular, a rejected authorization code does not
+mutate stored credentials, while refresh `invalid_grant` cleanup remains
+confined to the refresh path.
 
 Forced refresh, incremental consent, and disconnect remain separate,
 host-controlled operations:

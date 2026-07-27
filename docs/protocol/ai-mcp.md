@@ -67,7 +67,9 @@ Required transport behavior (streamable HTTP, single endpoint URL):
    also contain server notifications/requests, then closes).
    Compare media-type essences case-insensitively and allow parameters such as
    `charset`; a successful non-empty JSON payload with a missing or unsupported
-   `Content-Type` is `Error::UnsupportedContentType`.
+   `Content-Type` is `Error::UnsupportedContentType`. Every inbound JSON or
+   SSE message must contain a string `jsonrpc` member exactly equal to `"2.0"`;
+   a missing, non-string, or different value is a malformed payload.
 3. For a client *notification* (e.g. `notifications/initialized`) or a client
    *response*, the server replies `202 Accepted` with no body.
 4. `initialize` request params:
@@ -106,7 +108,9 @@ The client consumes JSON-RPC messages in arrival order and handles each rule 10
 message before requesting the next event. In particular, it POSTs a response
 to a server request while the original SSE response remains open, then resumes
 that stream. The call completes when the matching JSON-RPC response arrives;
-EOF before that response is `Error::MissingResponse`.
+EOF before that response is `Error::MissingResponse`. A malformed SSE side
+message fails its scoped POST as `Error::DeserializeResponse` before the client
+applies that message's notification or server-request side effect.
 
 No long-lived GET streams are added in v1. A POST response stream remains scoped
 to its originating request. Enforce `max_response_bytes` against cumulative raw
@@ -507,6 +511,10 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
 - Server-request handling: `ping` gets an empty result reply and unsupported
   server requests get `-32601`, with each response POST completed before the
   client polls the original SSE stream for another event.
+- JSON-RPC version validation: missing, non-string, and non-`"2.0"` versions
+  are rejected for success/error responses, server requests, and
+  notifications; JSON and SSE client paths use `DeserializeResponse`, and a
+  malformed side message causes no reply or invalidation side effect.
 - Repeated and combined `WWW-Authenticate` fields; optional bad whitespace;
   empty list elements; quoted commas; mixed challenge schemes and token68; 401
   failure mapping; 403 insufficient-scope mapping; agreeing, missing,

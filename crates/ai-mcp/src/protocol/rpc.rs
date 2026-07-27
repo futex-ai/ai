@@ -72,6 +72,9 @@ pub(crate) fn classify_message(value: &Value) -> JsonRpcMessageKind {
     let Some(object) = value.as_object() else {
         return JsonRpcMessageKind::Invalid;
     };
+    if object.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
+        return JsonRpcMessageKind::Invalid;
+    }
     let id = object
         .get("id")
         .and_then(|value| serde_json::from_value(value.clone()).ok());

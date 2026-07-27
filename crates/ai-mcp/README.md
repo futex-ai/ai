@@ -39,7 +39,9 @@ non-empty request responses require `application/json` or
 `text/event-stream`, with case-insensitive media-type matching and optional
 parameters. Missing or unsupported JSON response media types return
 `UnsupportedContentType`; empty `202`, DELETE success, and non-success response
-bodies retain their status-specific behavior.
+bodies retain their status-specific behavior. Every inbound JSON or SSE
+message must declare `jsonrpc: "2.0"`; malformed responses and side messages
+fail the scoped request before their message-specific behavior runs.
 
 ## Quick Start
 

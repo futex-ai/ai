@@ -133,6 +133,43 @@ async fn ignores_unrelated_non_null_errors_before_the_matching_sse_response() {
     assert!(!outcome.is_error);
 }
 
+#[tokio::test]
+async fn rejects_versionless_sse_side_message_without_replying() {
+    let gate = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let transport = ScriptedTransport::new_with_gate(
+        vec![
+            initialized_response(),
+            empty_response(202),
+            event_response(
+                vec![
+                    json!({"id":"server-1","method":"ping"}),
+                    json!({
+                        "jsonrpc":"2.0",
+                        "id":2,
+                        "result":{"content":[{"type":"text","text":"ok"}]}
+                    }),
+                ],
+                gate.clone(),
+            ),
+        ],
+        gate,
+    );
+    let client = StreamableHttpMcpClient::new(
+        transport.clone(),
+        Arc::new(StaticHeaderAuth::default()),
+        McpServerConfig::new("demo", "https://example.com/mcp"),
+    )
+    .unwrap();
+
+    let error = client.call_tool("run", json!({})).await.unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::DeserializeResponse { method, .. } if method == "tools/call"
+    ));
+    assert_eq!(transport.posts().len(), 3);
+}
+
 fn client_with_events(events: Vec<serde_json::Value>) -> StreamableHttpMcpClient {
     let gate = Arc::new(std::sync::atomic::AtomicBool::new(true));
     let transport = ScriptedTransport::new_with_gate(

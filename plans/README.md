@@ -12,6 +12,8 @@ milestones are finished.
 - [OAuth invalid-request challenge rejection](oauth-invalid-request-challenge-rejection.md)
 - [OAuth empty refresh token handling](oauth-empty-refresh-token-handling.md)
 - [OAuth denied-prompt scope order](oauth-denied-prompt-scope-order.md)
+- [OAuth token-grant error mapping](oauth-token-grant-error-mapping.md)
+- [MCP JSON-RPC version validation](mcp-json-rpc-version-validation.md)
 
 ## Completed
 

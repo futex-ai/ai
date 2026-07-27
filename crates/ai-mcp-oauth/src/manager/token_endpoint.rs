@@ -58,9 +58,6 @@ fn parse_token_response(
 ) -> Result<OAuthTokenSet> {
     if !(200..300).contains(&response.status) {
         let error = decode_token_error(response.body);
-        if error == OAuthTokenError::InvalidGrant {
-            return Err(Error::InvalidGrant);
-        }
         return Err(Error::TokenRejected {
             status: response.status,
             error,
