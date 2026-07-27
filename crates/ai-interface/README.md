@@ -9,6 +9,9 @@ without taking a dependency on a stateful runtime implementation.
 
 - Own shared DTOs for conversations, model calls, tool calls, audio
   transcription, routing, logging, and usage metering.
+- Represent provider identity and provider-owned replay state, including Kimi
+  and MiniMax reasoning context that remains separate from visible assistant
+  text.
 - Own the model-visible tool output DTOs used by universal output management:
   opaque output ids, inline envelopes, window envelopes, read requests, and
   unavailable-remainder reasons.
@@ -27,6 +30,9 @@ without taking a dependency on a stateful runtime implementation.
   Kimi replay items retain nullable assistant content, provider reasoning, and
   ordered raw tool calls so a later Kimi turn can reproduce the original
   assistant message exactly.
+- Defines `ProviderKind::MiniMax` with the stable deployment and serde value
+  `minimax`, plus typed MiniMax reasoning details for lossless continuation
+  replay.
 - Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
@@ -49,17 +55,17 @@ returns the raw JSON value it produced. Runtime crates can inspect that value in
 current-run execution records, but they serialize only `ToolOutputEnvelope`
 values into conversation tool messages and logger success entries.
 
-Provider replay context follows the same separation. Kimi reasoning content is
-retained as provider-owned context for continuation requests, but it is never
-copied into normalized assistant text or exposed as tool output. Other model
-providers ignore Kimi-owned replay items.
+Provider replay context follows the same separation. Kimi and MiniMax reasoning
+content is retained as provider-owned context for continuation requests, but it
+is never copied into normalized assistant text or exposed as tool output. Other
+model providers ignore replay items they do not own.
 
 ## Quick Start
 
 ```rust
 use ai_interface::{
-    ConversationMessage, Model, ModelRequest, MockModel, ToolOutputEnvelope, ToolOutputId,
-    ToolOutputReadRequest,
+    ConversationMessage, MiniMaxReasoningDetail, Model, ModelRequest, MockModel, ProviderKind,
+    ToolOutputEnvelope, ToolOutputId, ToolOutputReadRequest,
 };
 use serde_json::json;
 
@@ -92,6 +98,19 @@ fn read_next_window(output_id: &str) -> ToolOutputReadRequest {
         length: None,
     }
 }
+
+fn minimax_replay_detail(text: &str) -> (ProviderKind, MiniMaxReasoningDetail) {
+    (
+        ProviderKind::MiniMax,
+        MiniMaxReasoningDetail {
+            kind: Some("reasoning.text".to_owned()),
+            id: None,
+            format: None,
+            index: Some(0),
+            text: Some(text.to_owned()),
+        },
+    )
+}
 ```
 
 ## Development
@@ -107,7 +126,8 @@ tool dispatch live in `ai-tool-calling`.
 
 ### Key Code
 
-- `src/messages.rs` - conversation DTOs and provider replay context.
+- `src/messages.rs` - conversation DTOs, Kimi and MiniMax reasoning details,
+  and provider replay context.
 - `src/model.rs` - model trait, request/response DTOs, finish reasons, and
   typed model errors.
 - `src/router.rs` - model route request DTOs and router trait.
@@ -125,6 +145,7 @@ tool dispatch live in `ai-tool-calling`.
 
 - [`../ai-tool-calling/README.md`](../ai-tool-calling/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
+- [`../../docs/protocol/minimax-model-provider.md`](../../docs/protocol/minimax-model-provider.md)
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../plans/README.md`](../../plans/README.md)

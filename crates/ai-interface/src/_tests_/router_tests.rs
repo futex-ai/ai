@@ -48,6 +48,12 @@ fn provider_kind_round_trips_config_strings() {
     );
     assert_eq!(ProviderKind::Kimi.as_str(), "kimi");
     assert_eq!(ProviderKind::Kimi.to_string(), "kimi");
+    assert_eq!(
+        ProviderKind::from_config_str("minimax"),
+        Some(ProviderKind::MiniMax)
+    );
+    assert_eq!(ProviderKind::MiniMax.as_str(), "minimax");
+    assert_eq!(ProviderKind::MiniMax.to_string(), "minimax");
     assert_eq!(ProviderKind::Xai.as_str(), "xai");
     assert_eq!(ProviderKind::from_config_str("unknown"), None);
 }
@@ -76,4 +82,17 @@ fn kimi_provider_serializes_with_config_identifier() {
         ProviderKind::Kimi
     );
     assert!(serde_json::from_value::<ProviderKind>(json!("moonshot")).is_err());
+}
+
+#[test]
+fn minimax_provider_serializes_with_config_identifier() {
+    assert_eq!(
+        serde_json::to_value(ProviderKind::MiniMax).unwrap(),
+        json!("minimax")
+    );
+    assert_eq!(
+        serde_json::from_value::<ProviderKind>(json!("minimax")).unwrap(),
+        ProviderKind::MiniMax
+    );
+    assert!(serde_json::from_value::<ProviderKind>(json!("mini_max")).is_err());
 }

@@ -76,8 +76,9 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
                     items.push(provider_item);
                 }
             }
-            ProviderConversationItem::XaiLegacyFunctionCall { .. }
-            | ProviderConversationItem::KimiAssistantMessage { .. } => {}
+            ProviderConversationItem::KimiAssistantMessage { .. }
+            | ProviderConversationItem::MiniMaxAssistant { .. }
+            | ProviderConversationItem::XaiLegacyFunctionCall { .. } => {}
         }
     }
     if has_message_content(message) && !assistant_message_emitted {
@@ -100,8 +101,9 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
 fn provider_context_item(item: &ProviderConversationItem) -> Option<ResponsesInputItem> {
     match item {
         ProviderConversationItem::OpenAiMessage { .. }
-        | ProviderConversationItem::XaiLegacyFunctionCall { .. }
-        | ProviderConversationItem::KimiAssistantMessage { .. } => None,
+        | ProviderConversationItem::KimiAssistantMessage { .. }
+        | ProviderConversationItem::MiniMaxAssistant { .. }
+        | ProviderConversationItem::XaiLegacyFunctionCall { .. } => None,
         ProviderConversationItem::OpenAiReasoning {
             id,
             summary,

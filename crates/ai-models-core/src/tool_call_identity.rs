@@ -134,6 +134,27 @@ impl StableHasher {
                 self.write_str(name);
                 self.write_str(arguments);
             }
+            ProviderConversationItem::MiniMaxAssistant {
+                reasoning_content,
+                reasoning_details,
+            } => {
+                self.write_str("minimax_assistant");
+                self.write_optional_str(reasoning_content.as_deref());
+                self.write_usize(reasoning_details.len());
+                for detail in reasoning_details {
+                    self.write_optional_str(detail.kind.as_deref());
+                    self.write_optional_str(detail.id.as_deref());
+                    self.write_optional_str(detail.format.as_deref());
+                    match detail.index {
+                        Some(index) => {
+                            self.write_bool(true);
+                            self.write_u64(u64::from(index));
+                        }
+                        None => self.write_bool(false),
+                    }
+                    self.write_optional_str(detail.text.as_deref());
+                }
+            }
             ProviderConversationItem::XaiLegacyFunctionCall {
                 tool_call_id,
                 name,

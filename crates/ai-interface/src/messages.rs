@@ -94,6 +94,16 @@ pub enum ProviderConversationItem {
         /// Raw JSON argument string returned by OpenAI.
         arguments: String,
     },
+    /// MiniMax assistant reasoning state required for interleaved-thinking replay.
+    #[serde(rename = "minimax_assistant")]
+    MiniMaxAssistant {
+        /// Private reasoning content retained only for provider replay.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reasoning_content: Option<String>,
+        /// Ordered MiniMax reasoning-detail records retained for provider replay.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        reasoning_details: Vec<MiniMaxReasoningDetail>,
+    },
     /// xAI legacy chat-completions function call used for continuation replay.
     #[serde(rename = "xai_legacy_function_call")]
     XaiLegacyFunctionCall {
@@ -128,6 +138,26 @@ pub struct KimiToolCallContext {
     pub name: String,
     /// Raw JSON argument string returned by Kimi.
     pub arguments: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+/// One MiniMax reasoning-detail record retained for interleaved-thinking replay.
+pub struct MiniMaxReasoningDetail {
+    /// Provider reasoning-detail type.
+    #[serde(default, rename = "type", skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    /// Provider reasoning-detail identifier.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    /// Provider reasoning-detail wire format.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
+    /// Zero-based provider ordering index.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index: Option<u32>,
+    /// Private reasoning text retained only for provider replay.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

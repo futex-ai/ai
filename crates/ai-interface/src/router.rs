@@ -22,6 +22,9 @@ pub enum ProviderKind {
     Google,
     /// Moonshot AI Kimi model provider.
     Kimi,
+    /// MiniMax model provider.
+    #[serde(rename = "minimax")]
+    MiniMax,
     /// xAI/Grok model provider.
     Xai,
 }
@@ -35,6 +38,7 @@ impl ProviderKind {
             "anthropic" => Some(Self::Anthropic),
             "google" => Some(Self::Google),
             "kimi" => Some(Self::Kimi),
+            "minimax" => Some(Self::MiniMax),
             "xai" => Some(Self::Xai),
             _ => None,
         }
@@ -48,6 +52,7 @@ impl ProviderKind {
             Self::Anthropic => "anthropic",
             Self::Google => "google",
             Self::Kimi => "kimi",
+            Self::MiniMax => "minimax",
             Self::Xai => "xai",
         }
     }

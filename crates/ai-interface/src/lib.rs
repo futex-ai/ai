@@ -24,7 +24,7 @@ pub use logger::{
 };
 pub use messages::{
     ConversationContentPart, ConversationMessage, ConversationRole, KimiToolCallContext,
-    OpenAiReasoningSummary, ProviderConversationItem,
+    MiniMaxReasoningDetail, OpenAiReasoningSummary, ProviderConversationItem,
 };
 pub use mock_audio_transcriber::MockAudioTranscriber;
 pub use mock_model::MockModel;

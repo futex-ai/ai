@@ -49,6 +49,9 @@ output, and exposes explicit mutation APIs for embedding services.
 - Appends only bounded envelope JSON to conversation tool messages and logger
   success payloads. Raw output remains available only through current-run
   `ToolExecutionRecord::raw_output`.
+- Gives model-call loggers safe request and response copies with private
+  MiniMax replay context removed. Requests sent to the model and retained
+  conversation state keep the complete provider context required for replay.
 - Records `ToolExecutionRecord::output_id`,
   `ToolExecutionRecord::raw_output`, and
   `ToolExecutionRecord::model_visible_output` for successful tool executions.

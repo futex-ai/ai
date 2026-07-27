@@ -11,7 +11,7 @@ use crate::{ModelRequest, ModelResponse, ToolCall, ToolOutputEnvelope};
 pub enum ModelCallLogResult {
     /// The model returned a normal response.
     Success {
-        /// Response returned by the model.
+        /// Log-safe response copy; private provider replay state may be removed.
         response: Box<ModelResponse>,
     },
     /// The model call failed before a response was produced.
@@ -26,7 +26,7 @@ pub enum ModelCallLogResult {
 #[derive(Clone, Debug, PartialEq)]
 /// Combined model-call log payload.
 pub struct ModelCallLogEntry {
-    /// Request sent to the model.
+    /// Log-safe request copy; private provider replay state may be removed.
     pub request: ModelRequest,
     /// Result returned by the model boundary.
     pub result: ModelCallLogResult,
@@ -126,7 +126,7 @@ pub type LoggerResult<T> = std::result::Result<T, LoggerError>;
 )]
 /// Logging hook boundary for runtime orchestration.
 pub trait Logger: Send + Sync {
-    /// Records one combined model request/response event.
+    /// Records one combined log-safe model request/response event.
     fn log_model_call(&self, entry: &ModelCallLogEntry) -> LoggerResult<()>;
 
     /// Records one tool call event.
