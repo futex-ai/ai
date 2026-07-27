@@ -57,9 +57,9 @@ pub trait McpOAuthManager: Send + Sync {
     unimock::unimock(api = OAuthRequestTokenProviderMock)
 )]
 #[async_trait]
-/// Supplies a fresh request token without invoking a user agent.
+/// Supplies a usable request token without invoking a user agent.
 pub trait OAuthRequestTokenProvider: Send + Sync {
-    /// Returns a fresh resource-bound token, or `None` when interaction is needed.
+    /// Returns a usable resource-bound token, or `None` when interaction is needed.
     async fn token_for_request(&self, key: &OAuthCredentialKey) -> Result<Option<SecretString>>;
 }
 

@@ -81,7 +81,7 @@ impl DefaultMcpOAuthManager {
             return usable_access_token(current, now);
         }
         if current.refresh_token.is_none() {
-            return Ok(None);
+            return usable_access_token(current, now);
         }
         match self.refresh_current(key, current).await {
             Ok(refreshed) => {

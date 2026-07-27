@@ -151,6 +151,9 @@ pub enum Error {
     /// Selected authorization server does not advertise S256 PKCE.
     #[error("[ai_mcp_oauth/authorization] S256 PKCE is unsupported")]
     PkceS256Unsupported,
+    /// Selected authorization server explicitly excludes authorization-code grants.
+    #[error("[ai_mcp_oauth/authorization] authorization-code grant is unsupported")]
+    AuthorizationCodeGrantUnsupported,
     /// The supplied MCP challenge does not permit interactive authorization.
     #[error("[ai_mcp_oauth/authorization] challenge does not permit authorization")]
     AuthorizationForbidden,

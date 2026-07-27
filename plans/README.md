@@ -6,7 +6,8 @@ milestones are finished.
 
 ## Active
 
-No active plans.
+- [OAuth unrefreshable token expiry window](oauth-unrefreshable-token-expiry-window.md)
+- [OAuth grant-type metadata validation](oauth-grant-type-metadata-validation.md)
 
 ## Completed
 

@@ -25,6 +25,9 @@ retaining control of browser UX and secure persistence.
 authorization server through a host-provided `AuthorizationServerSelector`.
 `DefaultOAuthClientRegistry` then uses a configured registration, a host store,
 or public-client dynamic registration in that order.
+Before registry or browser work, interactive authorization rejects a non-empty
+`grant_types_supported` list that excludes `authorization_code`; omitted grant
+metadata retains the RFC 8414 authorization-code default.
 
 The production transport disables automatic redirects, follows only validated
 metadata GET redirects, and never redirects a registration, token, or
@@ -131,7 +134,9 @@ async fn authorize_and_build_hook(
 `RefreshingMcpAuth` performs only non-interactive loads and refreshes. If no
 usable token exists, it leaves the request unauthenticated so `ai-mcp` can
 return the authoritative challenge. The host owns the single retry after a
-successful authorization or refresh.
+successful authorization or refresh. A token without a refresh token remains
+usable through its actual expiry, including inside the configured refresh
+skew; a known-expired token is never sent.
 
 Forced refresh, incremental consent, and disconnect remain separate,
 host-controlled operations:

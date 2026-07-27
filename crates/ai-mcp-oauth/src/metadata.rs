@@ -45,6 +45,18 @@ pub struct AuthorizationServerMetadata {
 }
 
 impl AuthorizationServerMetadata {
+    /// Returns whether authorization-code grants are supported.
+    ///
+    /// RFC 8414 defaults omitted grant metadata to authorization-code support;
+    /// omission is represented by an empty list in this DTO.
+    pub fn supports_authorization_code(&self) -> bool {
+        self.grant_types_supported.is_empty()
+            || self
+                .grant_types_supported
+                .iter()
+                .any(|grant| grant == "authorization_code")
+    }
+
     /// Returns whether the server supports an unauthenticated public client.
     pub fn supports_public_clients(&self) -> bool {
         self.token_endpoint_auth_methods_supported

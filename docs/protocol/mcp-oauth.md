@@ -56,7 +56,7 @@ exception for local hosts and tests; production policy remains HTTPS-only.
 
 1. The host constructs a `RefreshingMcpAuth` for one canonical MCP resource
    URI and injects it into `StreamableHttpMcpClient`.
-2. The hook injects a fresh stored token, refreshes one non-interactively, or
+2. The hook injects a usable stored token, refreshes one non-interactively, or
    sends no Authorization header when no usable credential exists.
 3. A protected server returns `Error::AuthorizationRequired` (401) or
    `Error::Forbidden` (403) with `McpAuthorizationChallenge`.
@@ -68,7 +68,8 @@ exception for local hosts and tests; production policy remains HTTPS-only.
 6. The host retries the interrupted MCP operation once. Further 401/403
    responses are surfaced; no unbounded authorization or retry loop is allowed.
 7. Later requests refresh within the configured expiry skew under a
-   per-credential single-flight lock.
+   per-credential single-flight lock. If no refresh token exists, an
+   unexpired access token remains usable until its actual expiry.
 
 For a 403 with `InsufficientScope`, authorization is incremental and requires
 explicit host consent. Other 403 responses remain denied and do not
@@ -135,6 +136,10 @@ embedded desktop/mobile secret as confidential.
 
 - Use an external user agent through `OAuthUserAgent`; never embed credentials
   or launch a URL through a shell.
+- Treat omitted `grant_types_supported` metadata as RFC 8414's default support
+  for `authorization_code`. When a non-empty advertised list excludes
+  `authorization_code`, return `AuthorizationCodeGrantUnsupported` before
+  client registration or browser work.
 - Immediately before creating callback state and handing off the final
   authorization URL, resolve its domain through the injected DNS boundary and
   require every returned address to satisfy the URL policy. The lookup is
@@ -171,6 +176,9 @@ embedded desktop/mobile secret as confidential.
 ## Refresh, retry, and disconnect
 
 - Default refresh skew is 60 seconds and is configurable.
+- Refresh within that skew when a refresh token exists. Without one, continue
+  sending an unexpired access token until its actual expiry; never send a
+  known-expired token.
 - Concurrent callers for one credential share one refresh; unrelated
   credentials do not block each other.
 - The final token write from interactive authorization uses the same
@@ -282,10 +290,11 @@ wire boundary.
 The public `Error` uses typed variants for invalid URLs, resource/issuer
 mismatch, unsafe network targets, discovery status/schema failures, issuer
 selection cancellation, missing registration, registration rejection, user
-denial, callback timeout, state mismatch/reuse, token rejection,
-`InvalidGrant`, `InteractionRequired`, store failure, DNS/transport failure,
-redirect rejection or exhaustion, response bounds, and internal failure. Errors
-and diagnostics never contain authorization codes or token values.
+denial, unsupported authorization-code grants, callback timeout, state
+mismatch/reuse, token rejection, `InvalidGrant`, `InteractionRequired`, store
+failure, DNS/transport failure, redirect rejection or exhaustion, response
+bounds, and internal failure. Errors and diagnostics never contain
+authorization codes or token values.
 
 ## Security requirements
 

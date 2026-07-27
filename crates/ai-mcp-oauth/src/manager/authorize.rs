@@ -39,6 +39,12 @@ impl DefaultMcpOAuthManager {
         if !discovered.authorization_server.supports_s256() {
             return Err(Error::PkceS256Unsupported);
         }
+        if !discovered
+            .authorization_server
+            .supports_authorization_code()
+        {
+            return Err(Error::AuthorizationCodeGrantUnsupported);
+        }
         let registration = self
             .registry
             .resolve(&OAuthRegistrationRequest {

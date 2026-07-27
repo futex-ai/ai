@@ -86,6 +86,76 @@ async fn auth_hook_transient_failure_does_not_send_an_expired_token() {
     assert!(matches!(error, Error::Transport));
 }
 
+#[tokio::test]
+async fn auth_hook_uses_unrefreshable_token_until_actual_expiry() {
+    let stored = tokens("usable-access", None, Some(100));
+    let store = Unimock::new((
+        OAuthCredentialStoreMock::load_tokens
+            .next_call(matching!(_))
+            .returns(Ok(Some(stored.clone()))),
+        OAuthCredentialStoreMock::load_tokens
+            .next_call(matching!(_))
+            .returns(Ok(Some(stored))),
+    ));
+    let repeated_clock = Unimock::new(
+        OAuthClockMock::now_unix_seconds
+            .each_call(matching!())
+            .answers(&|_| Ok(50)),
+    );
+    let oauth = manager(
+        Unimock::new(()),
+        Unimock::new(()),
+        store,
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        repeated_clock,
+        Unimock::new(()),
+        McpOAuthConfig::default(),
+    );
+
+    let token = oauth
+        .token_for_request(&key("account"))
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(token.expose_secret(), "usable-access");
+}
+
+#[tokio::test]
+async fn auth_hook_suppresses_expired_unrefreshable_token() {
+    let stored = tokens("expired-access", None, Some(100));
+    let store = Unimock::new((
+        OAuthCredentialStoreMock::load_tokens
+            .next_call(matching!(_))
+            .returns(Ok(Some(stored.clone()))),
+        OAuthCredentialStoreMock::load_tokens
+            .next_call(matching!(_))
+            .returns(Ok(Some(stored))),
+    ));
+    let repeated_clock = Unimock::new(
+        OAuthClockMock::now_unix_seconds
+            .each_call(matching!())
+            .answers(&|_| Ok(100)),
+    );
+    let oauth = manager(
+        Unimock::new(()),
+        Unimock::new(()),
+        store,
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        repeated_clock,
+        Unimock::new(()),
+        McpOAuthConfig::default(),
+    );
+
+    let token = oauth.token_for_request(&key("account")).await.unwrap();
+
+    assert!(token.is_none());
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn same_key_concurrent_callers_share_one_refresh() {
     let current = Arc::new(Mutex::new(tokens(
