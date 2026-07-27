@@ -136,6 +136,7 @@ fn minimax_context(message: &ConversationMessage) -> (Option<String>, Vec<MiniMa
             ProviderConversationItem::OpenAiMessage { .. }
             | ProviderConversationItem::OpenAiReasoning { .. }
             | ProviderConversationItem::OpenAiFunctionCall { .. }
+            | ProviderConversationItem::KimiAssistantMessage { .. }
             | ProviderConversationItem::XaiLegacyFunctionCall { .. } => None,
         })
         .unwrap_or_default()

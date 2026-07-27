@@ -4,6 +4,7 @@ members = [
     "crates/ai-models-anthropic",
     "crates/ai-models-core",
     "crates/ai-models-google",
+    "crates/ai-models-kimi",
     "crates/ai-models-minimax",
     "crates/ai-models-multi",
     "crates/ai-models-openai",
@@ -25,6 +26,7 @@ ai-interface = { version = "0.3.0", path = "crates/ai-interface" }
 ai-models-anthropic = { version = "0.3.0", path = "crates/ai-models-anthropic" }
 ai-models-core = { version = "0.3.0", path = "crates/ai-models-core" }
 ai-models-google = { version = "0.3.0", path = "crates/ai-models-google" }
+ai-models-kimi = { version = "0.3.0", path = "crates/ai-models-kimi" }
 ai-models-minimax = { version = "0.3.0", path = "crates/ai-models-minimax" }
 ai-models-multi = { version = "0.3.0", path = "crates/ai-models-multi" }
 ai-models-openai = { version = "0.3.0", path = "crates/ai-models-openai" }

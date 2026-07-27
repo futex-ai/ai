@@ -1,0 +1,178 @@
+//! Shared request-to-Kimi Chat Completions mapping.
+
+use super::client::KimiReasoningEffort;
+use super::request_types::{
+    ChatCompletionsContent, ChatCompletionsContentPart, ChatCompletionsImageUrl,
+    ChatCompletionsJsonSchema, ChatCompletionsMessage, ChatCompletionsRequest,
+    ChatCompletionsResponseFormat, ChatCompletionsTool, ChatCompletionsToolCall,
+    ChatCompletionsToolDefinition, ChatCompletionsToolFunction,
+};
+use ai_interface::{
+    ConversationContentPart, ConversationMessage, ConversationRole, KimiToolCallContext,
+    ModelRequest, ProviderConversationItem, StructuredOutputSchema, ToolCall, ToolDefinition,
+};
+
+pub(super) fn build_request(
+    model_id: &str,
+    reasoning_effort: KimiReasoningEffort,
+    request: &ModelRequest,
+) -> ChatCompletionsRequest {
+    let mut messages = vec![ChatCompletionsMessage {
+        role: "system".to_owned(),
+        content: Some(ChatCompletionsContent::Text(request.system_prompt.clone())),
+        name: None,
+        tool_call_id: None,
+        reasoning_content: None,
+        tool_calls: Vec::new(),
+    }];
+    messages.extend(request.messages.iter().map(message));
+    ChatCompletionsRequest {
+        model: model_id.to_owned(),
+        messages,
+        tools: request.tools.iter().map(tool).collect(),
+        tool_choice: (!request.tools.is_empty()).then(|| "auto".to_owned()),
+        response_format: request.response_schema.as_ref().map(response_format),
+        reasoning_effort: reasoning_effort.as_str().to_owned(),
+    }
+}
+
+fn message(message: &ConversationMessage) -> ChatCompletionsMessage {
+    if message.role == ConversationRole::Assistant
+        && let Some(replay) = kimi_replay(message)
+    {
+        return replay_message(replay);
+    }
+    ChatCompletionsMessage {
+        role: role(message.role).to_owned(),
+        content: message_content(message),
+        name: message_name(message),
+        tool_call_id: message.tool_call_id.clone(),
+        reasoning_content: None,
+        tool_calls: if message.role == ConversationRole::Assistant {
+            message.tool_calls.iter().map(tool_call).collect()
+        } else {
+            Vec::new()
+        },
+    }
+}
+
+fn kimi_replay(message: &ConversationMessage) -> Option<&ProviderConversationItem> {
+    message
+        .provider_context
+        .iter()
+        .find(|item| matches!(item, ProviderConversationItem::KimiAssistantMessage { .. }))
+}
+
+fn replay_message(item: &ProviderConversationItem) -> ChatCompletionsMessage {
+    let ProviderConversationItem::KimiAssistantMessage {
+        content,
+        reasoning_content,
+        tool_calls,
+    } = item
+    else {
+        return ChatCompletionsMessage {
+            role: "assistant".to_owned(),
+            content: None,
+            name: None,
+            tool_call_id: None,
+            reasoning_content: None,
+            tool_calls: Vec::new(),
+        };
+    };
+    ChatCompletionsMessage {
+        role: "assistant".to_owned(),
+        content: content.clone().map(ChatCompletionsContent::Text),
+        name: None,
+        tool_call_id: None,
+        reasoning_content: reasoning_content.clone(),
+        tool_calls: tool_calls.iter().map(raw_tool_call).collect(),
+    }
+}
+
+fn role(role: ConversationRole) -> &'static str {
+    match role {
+        ConversationRole::User => "user",
+        ConversationRole::Assistant => "assistant",
+        ConversationRole::Tool => "tool",
+    }
+}
+
+fn message_name(message: &ConversationMessage) -> Option<String> {
+    match message.role {
+        ConversationRole::User | ConversationRole::Assistant => message.name.clone(),
+        ConversationRole::Tool => None,
+    }
+}
+
+fn message_content(message: &ConversationMessage) -> Option<ChatCompletionsContent> {
+    if !message.content_parts.is_empty() {
+        return Some(ChatCompletionsContent::Parts(
+            message.content_parts.iter().map(content_part).collect(),
+        ));
+    }
+    if message.role == ConversationRole::Assistant && message.content.is_empty() {
+        None
+    } else {
+        Some(ChatCompletionsContent::Text(message.content.clone()))
+    }
+}
+
+fn content_part(part: &ConversationContentPart) -> ChatCompletionsContentPart {
+    match part {
+        ConversationContentPart::Text { text } => {
+            ChatCompletionsContentPart::Text { text: text.clone() }
+        }
+        ConversationContentPart::Image {
+            mime_type,
+            data_base64,
+        } => ChatCompletionsContentPart::ImageUrl {
+            image_url: ChatCompletionsImageUrl {
+                url: format!("data:{mime_type};base64,{data_base64}"),
+            },
+        },
+    }
+}
+
+fn tool_call(call: &ToolCall) -> ChatCompletionsToolCall {
+    ChatCompletionsToolCall {
+        id: call.id.clone(),
+        kind: "function".to_owned(),
+        function: ChatCompletionsToolFunction {
+            name: call.name.clone(),
+            arguments: call.input.to_string(),
+        },
+    }
+}
+
+fn raw_tool_call(call: &KimiToolCallContext) -> ChatCompletionsToolCall {
+    ChatCompletionsToolCall {
+        id: call.id.clone(),
+        kind: "function".to_owned(),
+        function: ChatCompletionsToolFunction {
+            name: call.name.clone(),
+            arguments: call.arguments.clone(),
+        },
+    }
+}
+
+fn tool(tool: &ToolDefinition) -> ChatCompletionsTool {
+    ChatCompletionsTool {
+        kind: "function".to_owned(),
+        function: ChatCompletionsToolDefinition {
+            name: tool.name.clone(),
+            description: tool.description.clone(),
+            parameters: tool.input_schema.clone(),
+        },
+    }
+}
+
+fn response_format(schema: &StructuredOutputSchema) -> ChatCompletionsResponseFormat {
+    ChatCompletionsResponseFormat {
+        kind: "json_schema".to_owned(),
+        json_schema: ChatCompletionsJsonSchema {
+            name: schema.name.clone(),
+            schema: schema.schema.clone(),
+            strict: false,
+        },
+    }
+}

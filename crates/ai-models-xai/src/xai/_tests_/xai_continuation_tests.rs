@@ -2,7 +2,10 @@
 
 use std::sync::{Arc, Mutex};
 
-use ai_interface::{ConversationMessage, Model, ModelRequest, ProviderConversationItem, ToolCall};
+use ai_interface::{
+    ConversationMessage, KimiToolCallContext, Model, ModelRequest, ProviderConversationItem,
+    ToolCall,
+};
 use json_http::{
     JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
     TransportBackedJsonHttpClient,
@@ -76,11 +79,22 @@ async fn serializes_legacy_function_call_continuation_messages() {
                         input: json!({"path": "root"}),
                         operation_id: None,
                     }],
-                    vec![ProviderConversationItem::XaiLegacyFunctionCall {
-                        tool_call_id: legacy_call_id.to_owned(),
-                        name: "memory_read".to_owned(),
-                        arguments: "{\"path\":\"root\"}".to_owned(),
-                    }],
+                    vec![
+                        ProviderConversationItem::KimiAssistantMessage {
+                            content: None,
+                            reasoning_content: Some("Kimi-owned context".to_owned()),
+                            tool_calls: vec![KimiToolCallContext {
+                                id: "kimi_call".to_owned(),
+                                name: "ignored".to_owned(),
+                                arguments: "{}".to_owned(),
+                            }],
+                        },
+                        ProviderConversationItem::XaiLegacyFunctionCall {
+                            tool_call_id: legacy_call_id.to_owned(),
+                            name: "memory_read".to_owned(),
+                            arguments: "{\"path\":\"root\"}".to_owned(),
+                        },
+                    ],
                 ),
                 ConversationMessage::tool("{\"ok\":true}", "memory_read", legacy_call_id),
             ],
