@@ -11,6 +11,7 @@ milestones are finished.
 
 ## Completed
 
+- [MiniMax model provider](minimax-model-provider.md)
 - [OAuth transport status-aware JSON](oauth-transport-status-aware-json.md)
 - [MCP lazy result serialization](mcp-lazy-result-serialization.md)
 - [OAuth authorization DNS timeout](oauth-authorization-dns-timeout.md)

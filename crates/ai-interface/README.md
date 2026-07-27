@@ -9,6 +9,9 @@ without taking a dependency on a stateful runtime implementation.
 
 - Own shared DTOs for conversations, model calls, tool calls, audio
   transcription, routing, logging, and usage metering.
+- Represent provider identity and provider-owned replay state, including
+  MiniMax interleaved-thinking context that remains separate from visible
+  assistant text.
 - Own the model-visible tool output DTOs used by universal output management:
   opaque output ids, inline envelopes, window envelopes, read requests, and
   unavailable-remainder reasons.
@@ -24,6 +27,9 @@ without taking a dependency on a stateful runtime implementation.
 
 - Defines `ConversationMessage`, `ConversationRole`, `ToolCall`, and
   `ToolDefinition`, including provider replay context on assistant messages.
+- Defines `ProviderKind::MiniMax` with the stable deployment and serde value
+  `minimax`, plus typed MiniMax reasoning details for lossless continuation
+  replay.
 - Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
@@ -50,8 +56,8 @@ values into conversation tool messages and logger success entries.
 
 ```rust
 use ai_interface::{
-    ConversationMessage, Model, ModelRequest, MockModel, ToolOutputEnvelope, ToolOutputId,
-    ToolOutputReadRequest,
+    ConversationMessage, MiniMaxReasoningDetail, Model, ModelRequest, MockModel, ProviderKind,
+    ToolOutputEnvelope, ToolOutputId, ToolOutputReadRequest,
 };
 use serde_json::json;
 
@@ -84,6 +90,19 @@ fn read_next_window(output_id: &str) -> ToolOutputReadRequest {
         length: None,
     }
 }
+
+fn minimax_replay_detail(text: &str) -> (ProviderKind, MiniMaxReasoningDetail) {
+    (
+        ProviderKind::MiniMax,
+        MiniMaxReasoningDetail {
+            kind: Some("reasoning.text".to_owned()),
+            id: None,
+            format: None,
+            index: Some(0),
+            text: Some(text.to_owned()),
+        },
+    )
+}
 ```
 
 ## Development
@@ -99,7 +118,8 @@ tool dispatch live in `ai-tool-calling`.
 
 ### Key Code
 
-- `src/messages.rs` - conversation DTOs and provider replay context.
+- `src/messages.rs` - conversation DTOs, MiniMax reasoning details, and
+  provider replay context.
 - `src/model.rs` - model trait, request/response DTOs, finish reasons, and
   typed model errors.
 - `src/router.rs` - model route request DTOs and router trait.
@@ -117,5 +137,6 @@ tool dispatch live in `ai-tool-calling`.
 
 - [`../ai-tool-calling/README.md`](../ai-tool-calling/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
+- [`../../docs/protocol/minimax-model-provider.md`](../../docs/protocol/minimax-model-provider.md)
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
 - [`../../plans/README.md`](../../plans/README.md)

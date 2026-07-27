@@ -20,6 +20,7 @@ mod multimodal_tests;
 mod operation_id_tests;
 mod request_tests;
 mod structured_finish_tests;
+mod thinking_tests;
 
 type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 

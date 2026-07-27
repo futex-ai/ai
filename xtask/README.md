@@ -18,6 +18,11 @@ The crate exposes the `check`, `rust-file-length-lint`, `smoke-test`, and
 `review` commands. `check` runs formatting, Clippy, tests, the file-length lint,
 and the smoke test in the same order expected by CI.
 
+`smoke-test` constructs the Anthropic, Google Gemini, MiniMax, OpenAI, and xAI
+model adapters plus the OpenAI transcriber with placeholder credentials. It
+also runs an in-memory tool-output pagination flow. Provider construction does
+not send network requests or require real credentials.
+
 ## Quick Start
 
 ```sh

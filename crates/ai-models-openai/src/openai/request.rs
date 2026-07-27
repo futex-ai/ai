@@ -76,7 +76,8 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
                     items.push(provider_item);
                 }
             }
-            ProviderConversationItem::XaiLegacyFunctionCall { .. } => {}
+            ProviderConversationItem::MiniMaxAssistant { .. }
+            | ProviderConversationItem::XaiLegacyFunctionCall { .. } => {}
         }
     }
     if has_message_content(message) && !assistant_message_emitted {
@@ -99,6 +100,7 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
 fn provider_context_item(item: &ProviderConversationItem) -> Option<ResponsesInputItem> {
     match item {
         ProviderConversationItem::OpenAiMessage { .. }
+        | ProviderConversationItem::MiniMaxAssistant { .. }
         | ProviderConversationItem::XaiLegacyFunctionCall { .. } => None,
         ProviderConversationItem::OpenAiReasoning {
             id,
@@ -212,7 +214,8 @@ fn reasoning(thinking_level: ThinkingLevel) -> Option<ResponsesReasoning> {
         ThinkingLevel::Low => "low",
         ThinkingLevel::Medium => "medium",
         ThinkingLevel::High => "high",
-        ThinkingLevel::ExtraHigh | ThinkingLevel::Max => "xhigh",
+        ThinkingLevel::ExtraHigh => "xhigh",
+        ThinkingLevel::Max => "max",
     };
     Some(ResponsesReasoning {
         effort: effort.to_owned(),
