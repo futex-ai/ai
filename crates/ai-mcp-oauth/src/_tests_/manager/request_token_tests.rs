@@ -14,7 +14,7 @@ use unimock::{MockFn, Unimock, matching};
 
 use crate::{
     Error, McpOAuthConfig, OAuthClockMock, OAuthCredentialStoreMock, OAuthHttpResponse,
-    OAuthHttpTransportMock, OAuthRequestTokenProvider, OAuthTokenSet,
+    OAuthHttpTransportMock, OAuthRequestTokenProvider, OAuthTokenError, OAuthTokenSet,
 };
 
 use super::support::{key, manager, refresh_manager, tokens};
@@ -84,6 +84,46 @@ async fn auth_hook_transient_failure_does_not_send_an_expired_token() {
         .unwrap_err();
 
     assert!(matches!(error, Error::Transport));
+}
+
+#[tokio::test]
+async fn auth_hook_transient_invalid_grant_preserves_stored_credentials() {
+    let old = tokens("expired-access", Some("refresh"), Some(100));
+    let store = Unimock::new((
+        OAuthCredentialStoreMock::load_tokens
+            .next_call(matching!(_))
+            .returns(Ok(Some(old.clone()))),
+        OAuthCredentialStoreMock::load_tokens
+            .next_call(matching!(_))
+            .returns(Ok(Some(old))),
+    ));
+    let transport = Unimock::new(
+        OAuthHttpTransportMock::post_form
+            .next_call(matching!(_, _, _, _, _))
+            .returns(Ok(OAuthHttpResponse {
+                status: 503,
+                headers: Default::default(),
+                body: json!({"error": "invalid_grant"}),
+            })),
+    );
+    let repeated_clock = Unimock::new(
+        OAuthClockMock::now_unix_seconds
+            .each_call(matching!())
+            .answers(&|_| Ok(200)),
+    );
+
+    let error = refresh_manager(store, transport, repeated_clock)
+        .token_for_request(&key("account"))
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::TokenRejected {
+            status: 503,
+            error: OAuthTokenError::InvalidGrant
+        }
+    ));
 }
 
 #[tokio::test]

@@ -30,8 +30,8 @@ impl DefaultMcpOAuthManager {
         match self.refresh_current(key, current).await {
             Ok(tokens) => Ok(connection(key, tokens)),
             Err(Error::TokenRejected {
+                status: 400,
                 error: OAuthTokenError::InvalidGrant,
-                ..
             }) => {
                 self.store.delete_tokens(key).await?;
                 Err(Error::InteractionRequired)
@@ -94,8 +94,8 @@ impl DefaultMcpOAuthManager {
                 usable_access_token(refreshed, now)
             }
             Err(Error::TokenRejected {
+                status: 400,
                 error: OAuthTokenError::InvalidGrant,
-                ..
             }) => {
                 self.store.delete_tokens(key).await?;
                 Ok(None)

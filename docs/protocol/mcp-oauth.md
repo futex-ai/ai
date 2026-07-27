@@ -206,8 +206,10 @@ embedded desktop/mobile secret as confidential.
 - A rotated non-empty refresh token atomically replaces the old token set. If
   a refresh response omits `refresh_token` or returns an empty value, retain
   the previous one.
-- Within a refresh request only, a `TokenRejected` carrying `invalid_grant`
-  removes the unusable token set. An explicit refresh returns
+- Within a refresh request only, an HTTP 400 `TokenRejected` carrying
+  `invalid_grant` removes the unusable token set. The status requirement
+  prevents a transient or non-conforming response body from deleting local
+  credentials. An explicit refresh returns
   `InteractionRequired`; an auth-hook refresh leaves the header absent so the
   MCP server can return an authoritative typed challenge. Transient discovery
   or token errors preserve credentials and do not send a known-expired token.

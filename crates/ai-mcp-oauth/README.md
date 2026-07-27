@@ -147,8 +147,8 @@ skew; a known-expired token is never sent. An empty refresh token in a token
 response is treated as absent, retaining the prior refresh token during
 rotation when one exists. Token endpoint rejections retain their HTTP status
 and typed OAuth error. In particular, a rejected authorization code does not
-mutate stored credentials, while refresh `invalid_grant` cleanup remains
-confined to the refresh path.
+mutate stored credentials, while only an RFC-compliant HTTP 400
+`invalid_grant` triggers stale-credential cleanup in the refresh path.
 
 Forced refresh, incremental consent, and disconnect remain separate,
 host-controlled operations:

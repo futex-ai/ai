@@ -14,6 +14,7 @@ milestones are finished.
 - [OAuth denied-prompt scope order](oauth-denied-prompt-scope-order.md)
 - [OAuth token-grant error mapping](oauth-token-grant-error-mapping.md)
 - [MCP JSON-RPC version validation](mcp-json-rpc-version-validation.md)
+- [OAuth transient invalid-grant preservation](oauth-transient-invalid-grant-preservation.md)
 
 ## Completed
 

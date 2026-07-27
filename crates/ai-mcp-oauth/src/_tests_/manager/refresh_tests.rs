@@ -8,7 +8,7 @@ use unimock::{MockFn, Unimock, matching};
 
 use crate::{
     Error, McpOAuthConfig, McpOAuthManager, OAuthCredentialStoreMock, OAuthHttpResponse,
-    OAuthHttpTransportMock, OAuthStoreOperation, OAuthTokenSet,
+    OAuthHttpTransportMock, OAuthStoreOperation, OAuthTokenError, OAuthTokenSet,
 };
 
 use super::support::{clock, key, manager, refresh_manager, successful_refresh_transport, tokens};
@@ -195,6 +195,41 @@ async fn transient_refresh_failure_preserves_stored_credentials() {
         .unwrap_err();
 
     assert!(matches!(error, Error::Transport));
+}
+
+#[tokio::test]
+async fn transient_invalid_grant_preserves_stored_credentials() {
+    let old = tokens("old-access", Some("old-refresh"), Some(100));
+    let store = Unimock::new((
+        OAuthCredentialStoreMock::load_tokens
+            .next_call(matching!(_))
+            .returns(Ok(Some(old.clone()))),
+        OAuthCredentialStoreMock::load_tokens
+            .next_call(matching!(_))
+            .returns(Ok(Some(old))),
+    ));
+    let transport = Unimock::new(
+        OAuthHttpTransportMock::post_form
+            .next_call(matching!(_, _, _, _, _))
+            .returns(Ok(OAuthHttpResponse {
+                status: 503,
+                headers: Default::default(),
+                body: json!({"error": "invalid_grant"}),
+            })),
+    );
+
+    let error = refresh_manager(store, transport, Unimock::new(()))
+        .refresh(&key("account"))
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::TokenRejected {
+            status: 503,
+            error: OAuthTokenError::InvalidGrant
+        }
+    ));
 }
 
 #[tokio::test]
