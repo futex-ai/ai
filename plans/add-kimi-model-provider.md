@@ -232,7 +232,7 @@ Chat Completions strings.
 - [x] Run focused regressions, formatting, file-length lint, strict workspace
       Clippy, full all-feature workspace tests, the credential-free smoke test,
       and `cargo xtask check`.
-- [ ] Commit the review fixes with a Conventional Commit message and push the
+- [x] Commit the review fixes with a Conventional Commit message and push the
       current branch.
-- [ ] Repeat `cargo xtask review` and resolve every remaining valid finding
+- [x] Repeat `cargo xtask review` and resolve every remaining valid finding
       within the review-cycle limit.
