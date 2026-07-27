@@ -5,7 +5,28 @@ use ai_models_core::{
     ThinkingLevel,
 };
 
-/// OpenAI flagship model id used by default workspace deployments.
+/// OpenAI frontier model id used by default workspace deployments.
+pub const GPT_5_6_SOL: &str = "gpt-5.6-sol";
+
+/// OpenAI balanced GPT-5.6 model id.
+pub const GPT_5_6_TERRA: &str = "gpt-5.6-terra";
+
+/// OpenAI low-latency GPT-5.6 model id.
+pub const GPT_5_6_LUNA: &str = "gpt-5.6-luna";
+
+/// OpenAI GPT-5.6 Sol model id with explicit low reasoning effort.
+pub const GPT_5_6_SOL_THINKING_LOW: &str = "gpt-5.6-sol-thinking-low";
+
+/// OpenAI GPT-5.6 Sol model id with explicit high reasoning effort.
+pub const GPT_5_6_SOL_THINKING_HIGH: &str = "gpt-5.6-sol-thinking-high";
+
+/// OpenAI GPT-5.6 Sol model id with explicit extra-high reasoning effort.
+pub const GPT_5_6_SOL_THINKING_EXTRA_HIGH: &str = "gpt-5.6-sol-thinking-extra-high";
+
+/// OpenAI GPT-5.6 Sol model id with maximum reasoning effort.
+pub const GPT_5_6_SOL_THINKING_MAX: &str = "gpt-5.6-sol-thinking-max";
+
+/// Previous-generation OpenAI flagship model id.
 pub const GPT_5_5: &str = "gpt-5.5";
 
 /// OpenAI mid-tier model id with a balanced speed/cost profile.
@@ -22,6 +43,14 @@ pub const GPT_5_5_THINKING_HIGH: &str = "gpt-5.5-thinking-high";
 
 /// OpenAI flagship model id with explicit extra-high reasoning effort.
 pub const GPT_5_5_THINKING_EXTRA_HIGH: &str = "gpt-5.5-thinking-extra-high";
+
+const GPT_5_6_FEATURES: &[ModelFeature] = &[
+    ModelFeature::ToolCalling,
+    ModelFeature::StructuredOutput,
+    ModelFeature::Vision,
+    ModelFeature::LongContext,
+    ModelFeature::Reasoning,
+];
 
 const GPT_5_5_FEATURES: &[ModelFeature] = &[
     ModelFeature::ToolCalling,
@@ -44,6 +73,58 @@ const GPT_5_5_NANO_FEATURES: &[ModelFeature] =
 /// Returns OpenAI models known to this provider crate.
 pub fn known_models() -> Vec<KnownModelSpec> {
     vec![
+        gpt_5_6_sol_variant(
+            GPT_5_6_SOL,
+            SpeedTier::Medium,
+            CostTier::Premium,
+            ThinkingLevel::Medium,
+        ),
+        KnownModelSpec {
+            provider: ProviderKind::OpenAi,
+            id: GPT_5_6_TERRA,
+            provider_model_id: GPT_5_6_TERRA,
+            context_window_tokens: 1_050_000,
+            intelligence_score: IntelligenceScore::Nine,
+            speed: SpeedTier::Fast,
+            cost: CostTier::High,
+            thinking_level: ThinkingLevel::Medium,
+            features: GPT_5_6_FEATURES,
+        },
+        KnownModelSpec {
+            provider: ProviderKind::OpenAi,
+            id: GPT_5_6_LUNA,
+            provider_model_id: GPT_5_6_LUNA,
+            context_window_tokens: 1_050_000,
+            intelligence_score: IntelligenceScore::Eight,
+            speed: SpeedTier::VeryFast,
+            cost: CostTier::Medium,
+            thinking_level: ThinkingLevel::Medium,
+            features: GPT_5_6_FEATURES,
+        },
+        gpt_5_6_sol_variant(
+            GPT_5_6_SOL_THINKING_LOW,
+            SpeedTier::Fast,
+            CostTier::High,
+            ThinkingLevel::Low,
+        ),
+        gpt_5_6_sol_variant(
+            GPT_5_6_SOL_THINKING_HIGH,
+            SpeedTier::Slow,
+            CostTier::Premium,
+            ThinkingLevel::High,
+        ),
+        gpt_5_6_sol_variant(
+            GPT_5_6_SOL_THINKING_EXTRA_HIGH,
+            SpeedTier::Slow,
+            CostTier::Premium,
+            ThinkingLevel::ExtraHigh,
+        ),
+        gpt_5_6_sol_variant(
+            GPT_5_6_SOL_THINKING_MAX,
+            SpeedTier::Slow,
+            CostTier::Premium,
+            ThinkingLevel::Max,
+        ),
         gpt_5_5_variant(
             GPT_5_5,
             SpeedTier::Medium,
@@ -93,6 +174,25 @@ pub fn known_models() -> Vec<KnownModelSpec> {
     ]
 }
 
+fn gpt_5_6_sol_variant(
+    id: &'static str,
+    speed: SpeedTier,
+    cost: CostTier,
+    thinking_level: ThinkingLevel,
+) -> KnownModelSpec {
+    KnownModelSpec {
+        provider: ProviderKind::OpenAi,
+        id,
+        provider_model_id: GPT_5_6_SOL,
+        context_window_tokens: 1_050_000,
+        intelligence_score: IntelligenceScore::Ten,
+        speed,
+        cost,
+        thinking_level,
+        features: GPT_5_6_FEATURES,
+    }
+}
+
 fn gpt_5_5_variant(
     id: &'static str,
     speed: SpeedTier,
@@ -111,3 +211,7 @@ fn gpt_5_5_variant(
         features: GPT_5_5_FEATURES,
     }
 }
+
+#[cfg(test)]
+#[path = "_tests_/catalog_tests.rs"]
+mod catalog_tests;

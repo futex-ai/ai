@@ -27,35 +27,36 @@
   and operation ids when Gemini omits `functionCall.id`, preventing distinct
   no-id calls from sharing runtime idempotency keys
 - Gemini `generationConfig.responseJsonSchema` mapping for structured outputs
-- Gemini `generationConfig.thinkingConfig.thinkingBudget` mapping from catalog
-  `ThinkingLevel`
+- Gemini 3 `generationConfig.thinkingConfig.thinkingLevel` mapping from catalog
+  `ThinkingLevel`, while retaining Gemini 2.5 `thinkingBudget` mapping
 - provider response usage extraction into normalized input, output, cached
   input, and thinking token counts
 - status, transport, and structured-output validation failure mapping onto
   `ai_interface::ModelError`
 
-This crate does not load config, read environment variables, or resolve credentials on its own.
-It exports `known_models()` and typed catalog id constants
-(`GEMINI_2_5_PRO`, `GEMINI_2_5_PRO_THINKING_HIGH`,
-`GEMINI_2_5_PRO_THINKING_MAX`, `GEMINI_2_5_FLASH`,
-`GEMINI_2_5_FLASH_LITE`) so composition roots can validate deployment config
-and sort routes without duplicating Google model metadata. The Pro thinking
-variants send provider model id `gemini-2.5-pro` with a fixed
-`thinkingBudget`; response parts marked as provider thoughts are ignored and
-are not surfaced as assistant text.
+This crate does not load config, read environment variables, or resolve
+credentials on its own. It exports `known_models()` and typed catalog id
+constants for Gemini 3.6 Flash and Gemini 3.5 Flash-Lite.
+`GEMINI_3_6_FLASH` is the first catalog entry and the default used by workspace
+examples. Its high-thinking variant sends provider model id
+`gemini-3.6-flash` with `thinkingLevel: "high"`. Gemini 3.5 Flash-Lite leaves
+the thinking control unset so the provider uses its minimal default. All
+existing Gemini 2.5 entries remain available and continue to use fixed
+`thinkingBudget` values. Response parts marked as provider thoughts are
+ignored and are not surfaced as assistant text.
 
 ## Quick Start
 
 ```rust
 use std::sync::Arc;
 
-use ai_models_google::{GEMINI_2_5_PRO, GoogleModel, known_models};
+use ai_models_google::{GEMINI_3_6_FLASH, GoogleModel, known_models};
 use json_http::ReqwestJsonHttpClient;
 
 fn build_model() -> GoogleModel {
     GoogleModel::new(
         Arc::new(ReqwestJsonHttpClient::new()),
-        GEMINI_2_5_PRO,
+        GEMINI_3_6_FLASH,
         "google-demo",
     )
 }
@@ -81,6 +82,7 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [Latest Gemini models](https://ai.google.dev/gemini-api/docs/latest-model)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
