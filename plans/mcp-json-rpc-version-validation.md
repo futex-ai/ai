@@ -38,7 +38,7 @@ side-message handling, while every valid existing message behaves unchanged.
       tests, Rust file-length lint, smoke tests, and `cargo xtask check`.
 - [x] Review the complete diff for omissions, unrelated changes, Markdown
       errors, and untracked files.
-- [ ] Run `git add -A`, commit with a Conventional Commit title no longer than
+- [x] Run `git add -A`, commit with a Conventional Commit title no longer than
       50 characters, and push the current branch.
 - [ ] After the push, run `cargo xtask review` against `origin/main` and
       investigate every finding under the active review workflow.
