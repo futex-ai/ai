@@ -103,7 +103,9 @@ Required transport behavior (streamable HTTP, single endpoint URL):
     exact value in the response without coercion. A success response likewise
     requires a string or number id. An error response requires a string,
     number, or explicit null id; null represents an unknown request id. A
-    missing response id or any Boolean, object, or array id is malformed.
+    missing response id or any Boolean, object, or array id is malformed. Every
+    response must contain exactly one of `result` or `error`; both members
+    together are malformed regardless of their values or the response id.
 
 The transport may buffer only enough data to decode the next complete SSE
 event. It must return a live, pull-based event stream as soon as the HTTP status
@@ -112,11 +114,12 @@ The client consumes JSON-RPC messages in arrival order and handles each rule 10
 message before requesting the next event. In particular, it POSTs a response
 to a server request while the original SSE response remains open, then resumes
 that stream. The call completes when the matching JSON-RPC response arrives;
-EOF before that response is `Error::MissingResponse`. A malformed SSE side
-message fails its scoped POST as `Error::DeserializeResponse` before the client
-applies that message's notification or server-request side effect. This
-includes method-bearing messages with an explicit null or wrong-typed id,
-which must never be treated as notifications.
+EOF before that response is `Error::MissingResponse`. A malformed buffered
+JSON response or SSE side message fails its scoped POST as
+`Error::DeserializeResponse` before the client applies that message's
+notification or server-request side effect. This includes responses containing
+both `result` and `error`, and method-bearing messages with an explicit null or
+wrong-typed id, which must never be treated as notifications.
 
 No long-lived GET streams are added in v1. A POST response stream remains scoped
 to its originating request. Enforce `max_response_bytes` against cumulative raw
@@ -521,6 +524,9 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
   are rejected for success/error responses, server requests, and
   notifications; JSON and SSE client paths use `DeserializeResponse`, and a
   malformed side message causes no reply or invalidation side effect.
+- JSON-RPC response validation: `result` and `error` are mutually exclusive by
+  member presence; mixed buffered JSON and SSE responses use
+  `DeserializeResponse` regardless of member values or identifier state.
 - Repeated and combined `WWW-Authenticate` fields; optional bad whitespace;
   empty list elements; quoted commas; mixed challenge schemes and token68; 401
   failure mapping; 403 insufficient-scope mapping; agreeing, missing,

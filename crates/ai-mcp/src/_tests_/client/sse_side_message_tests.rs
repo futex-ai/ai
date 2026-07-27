@@ -212,6 +212,41 @@ async fn rejects_null_id_tool_list_notification_without_side_effects() {
     assert_eq!(transport.posts().len(), 3);
 }
 
+#[tokio::test]
+async fn rejects_mixed_result_error_sse_response() {
+    let gate = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let transport = ScriptedTransport::new_with_gate(
+        vec![
+            initialized_response(),
+            empty_response(202),
+            event_response(
+                vec![json!({
+                    "jsonrpc":"2.0",
+                    "id":2,
+                    "result":{"content":[{"type":"text","text":"ok"}]},
+                    "error":{"code":-32603,"message":"failure"}
+                })],
+                gate.clone(),
+            ),
+        ],
+        gate,
+    );
+    let client = StreamableHttpMcpClient::new(
+        transport.clone(),
+        Arc::new(StaticHeaderAuth::default()),
+        McpServerConfig::new("demo", "https://example.com/mcp"),
+    )
+    .unwrap();
+
+    let error = client.call_tool("run", json!({})).await.unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::DeserializeResponse { method, .. } if method == "tools/call"
+    ));
+    assert_eq!(transport.posts().len(), 3);
+}
+
 fn client_with_events(events: Vec<serde_json::Value>) -> StreamableHttpMcpClient {
     let gate = Arc::new(std::sync::atomic::AtomicBool::new(true));
     let transport = ScriptedTransport::new_with_gate(

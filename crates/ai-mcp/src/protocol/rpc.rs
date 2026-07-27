@@ -82,6 +82,9 @@ pub(crate) fn classify_message(value: &Value) -> JsonRpcMessageKind {
     if object.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
         return JsonRpcMessageKind::Invalid;
     }
+    if object.contains_key("result") && object.contains_key("error") {
+        return JsonRpcMessageKind::Invalid;
+    }
     let id = classify_id(object);
     if let Some(result) = object.get("result") {
         return match id {

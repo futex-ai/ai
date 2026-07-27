@@ -45,7 +45,9 @@ fail the scoped request before their message-specific behavior runs. Only a
 method-bearing message that omits `id` is a notification; requests and success
 responses require string or number ids, while error responses additionally
 allow explicit null. Missing response ids and null or wrong-typed request ids
-fail before any notification or server-request side effect.
+fail before any notification or server-request side effect. A response must
+contain exactly one of `result` or `error`; both members together fail as a
+malformed response regardless of their values or identifier.
 
 ## Quick Start
 
