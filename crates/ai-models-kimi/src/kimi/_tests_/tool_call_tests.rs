@@ -118,6 +118,27 @@ fn invalid_dispatchable_tool_arguments_fail_as_provider_error() {
 }
 
 #[test]
+fn structurally_partial_dispatchable_tool_calls_fail_as_provider_error() {
+    let result = parse(json!({
+        "choices": [{
+            "finish_reason": "tool_calls",
+            "message": {
+                "content": null,
+                "tool_calls": [{
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {
+                        "name": "memory_read"
+                    }
+                }]
+            }
+        }]
+    }));
+
+    assert!(matches!(result, Err(ModelError::Provider { .. })));
+}
+
+#[test]
 fn non_tool_finishes_suppress_and_do_not_replay_tool_payloads() {
     for finish_reason in [
         Some("stop"),
@@ -131,6 +152,43 @@ fn non_tool_finishes_suppress_and_do_not_replay_tool_payloads() {
             vec![raw_call("call_1", "memory_read", "{\"path\":")],
         ))
         .expect("terminal tool payload should not be parsed");
+
+        assert!(response.tool_calls.is_empty());
+        let ProviderConversationItem::KimiAssistantMessage { tool_calls, .. } =
+            &response.provider_context[0]
+        else {
+            unreachable!("Kimi response should retain Kimi context")
+        };
+        assert!(tool_calls.is_empty());
+    }
+}
+
+#[test]
+fn non_tool_finishes_ignore_structurally_partial_tool_calls() {
+    for finish_reason in [
+        Some("stop"),
+        Some("length"),
+        Some("content_filter"),
+        Some("custom"),
+        None,
+    ] {
+        let response = parse(json!({
+            "choices": [{
+                "finish_reason": finish_reason,
+                "message": {
+                    "content": "Partial response",
+                    "reasoning_content": "Retain this reasoning.",
+                    "tool_calls": [{
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {
+                            "name": "memory_read"
+                        }
+                    }]
+                }
+            }]
+        }))
+        .expect("terminal partial tool payload should be ignored");
 
         assert!(response.tool_calls.is_empty());
         let ProviderConversationItem::KimiAssistantMessage { tool_calls, .. } =

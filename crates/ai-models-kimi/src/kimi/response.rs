@@ -37,14 +37,16 @@ pub(super) fn parse_response(
         ));
     };
     let finish_reason = finish_reason(choice.finish_reason.as_deref());
-    let raw_message = choice.message;
-    let assistant_message = assistant_text(raw_message.content.clone());
+    let ChatCompletionsAssistantMessage {
+        content,
+        reasoning_content,
+        tool_calls: raw_tool_call_payload,
+    } = choice.message;
+    let assistant_message = assistant_text(content.clone());
     let dispatchable_calls = matches!(finish_reason, FinishReason::ToolCalls);
-    let tool_calls = if dispatchable_calls {
-        parse_tool_calls(provider_model_id, &raw_message.tool_calls)?
-    } else {
-        Vec::new()
-    };
+    let parsed_tool_calls =
+        dispatchable_tool_calls(provider_model_id, raw_tool_call_payload, dispatchable_calls)?;
+    let tool_calls = parse_tool_calls(provider_model_id, &parsed_tool_calls)?;
     let structured_output = response_schema
         .filter(|_| matches!(finish_reason, FinishReason::Stop) && tool_calls.is_empty())
         .map(|schema| {
@@ -59,11 +61,7 @@ pub(super) fn parse_response(
     } else {
         assistant_message
     };
-    let replay_tool_calls = if dispatchable_calls {
-        raw_tool_calls(&raw_message.tool_calls)
-    } else {
-        Vec::new()
-    };
+    let replay_tool_calls = raw_tool_calls(&parsed_tool_calls);
     Ok(ModelResponse {
         provider: PROVIDER.to_owned(),
         model_id: provider_model_id.to_owned(),
@@ -74,8 +72,8 @@ pub(super) fn parse_response(
         finish_reason,
         structured_output,
         provider_context: vec![ProviderConversationItem::KimiAssistantMessage {
-            content: raw_message.content,
-            reasoning_content: raw_message.reasoning_content,
+            content,
+            reasoning_content,
             tool_calls: replay_tool_calls,
         }],
         usage: usage(parsed.usage.unwrap_or_default()),
@@ -103,7 +101,7 @@ struct ChatCompletionsAssistantMessage {
     #[serde(default)]
     reasoning_content: Option<String>,
     #[serde(default)]
-    tool_calls: Vec<ChatCompletionsToolCall>,
+    tool_calls: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -144,6 +142,27 @@ fn finish_reason(value: Option<&str>) -> FinishReason {
         Some("content_filter") => FinishReason::Filtered,
         Some(raw) => FinishReason::Other(raw.to_owned()),
         None => FinishReason::Other("missing".to_owned()),
+    }
+}
+
+fn dispatchable_tool_calls(
+    model_id: &str,
+    raw_tool_calls: Option<Value>,
+    dispatchable: bool,
+) -> std::result::Result<Vec<ChatCompletionsToolCall>, ModelError> {
+    if !dispatchable {
+        return Ok(Vec::new());
+    }
+    let Some(raw_tool_calls) = raw_tool_calls else {
+        return Ok(Vec::new());
+    };
+    match serde_json::from_value(raw_tool_calls) {
+        Ok(tool_calls) => Ok(tool_calls),
+        Err(_) => Err(ModelError::provider(
+            PROVIDER,
+            model_id,
+            "invalid Kimi tool-call payload",
+        )),
     }
 }
 

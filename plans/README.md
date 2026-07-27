@@ -6,8 +6,9 @@ milestones are finished.
 
 ## Active
 
+- [Add Kimi model provider](add-kimi-model-provider.md)
+
 ## Completed
 
-- [Add Kimi model provider](add-kimi-model-provider.md)
 - [Universal tool output management](universal-tool-output-management.md)
 - [Copy AI crates from Juno](copy-ai-crates-from-juno.md)

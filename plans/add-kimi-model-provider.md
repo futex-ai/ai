@@ -183,3 +183,23 @@ to assess without automatic fixes.
 - [x] Report every review finding without automatically fixing it; number each
       item, assign severity, explain provider/codebase context and impact of
       doing nothing, give lettered solution options, and recommend one option.
+
+## Milestone 6: Review-Hardened Terminal Tool Suppression
+
+Address the valid post-implementation review finding without weakening strict
+validation for dispatchable calls. At the end of this milestone, structurally
+partial Kimi tool payloads are ignored for terminal finish reasons and still
+rejected when Kimi marks them as dispatchable.
+
+- [x] Add a failing regression test proving terminal responses suppress a
+      structurally partial tool call before strict tool-call decoding.
+- [x] Retain Kimi tool calls as raw response-boundary data until finish-reason
+      handling, then decode them only for `FinishReason::ToolCalls`.
+- [x] Add regression coverage proving structurally partial dispatchable calls
+      remain typed provider errors.
+- [x] Run focused Kimi tests, formatting, file-length lint, Clippy, full
+      workspace tests, smoke tests, and `cargo xtask check`.
+- [ ] Commit the review fix with a Conventional Commit message and push the
+      current branch.
+- [ ] Repeat `cargo xtask review` and resolve every remaining valid finding
+      within the review-cycle limit.
