@@ -36,8 +36,8 @@ different scope sets and different attempts retain independent behavior.
       errors, and untracked files.
 - [x] Run `git add -A`, commit the checked work with a Conventional Commit
       title no longer than 50 characters, and push the current branch.
-- [ ] After the push, run `cargo xtask review` against `origin/main` and
-      investigate every finding under the active review workflow.
-- [ ] Once review has no valid findings, mark this plan completed in
-      `plans/README.md`, commit and push the plan bookkeeping, and run the
-      final post-push review.
+- [x] Complete the authorized post-push `cargo xtask review` workflow against
+      `origin/main` and investigate every finding.
+- [x] Once every authorized review finding is resolved, mark this plan
+      completed in `plans/README.md` and commit and push the final bookkeeping
+      without exceeding the ten-cycle review limit.

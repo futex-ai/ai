@@ -6,20 +6,21 @@ milestones are finished.
 
 ## Active
 
-- [OAuth unrefreshable token expiry window](oauth-unrefreshable-token-expiry-window.md)
-- [OAuth grant-type metadata validation](oauth-grant-type-metadata-validation.md)
-- [MCP response content-type validation](mcp-response-content-type-validation.md)
-- [OAuth invalid-request challenge rejection](oauth-invalid-request-challenge-rejection.md)
-- [OAuth empty refresh token handling](oauth-empty-refresh-token-handling.md)
-- [OAuth denied-prompt scope order](oauth-denied-prompt-scope-order.md)
-- [OAuth token-grant error mapping](oauth-token-grant-error-mapping.md)
-- [MCP JSON-RPC version validation](mcp-json-rpc-version-validation.md)
-- [OAuth transient invalid-grant preservation](oauth-transient-invalid-grant-preservation.md)
-- [MCP JSON-RPC identifier validation](mcp-json-rpc-id-validation.md)
-- [MCP JSON-RPC response exclusivity](mcp-json-rpc-response-exclusivity.md)
+No active plans.
 
 ## Completed
 
+- [MCP JSON-RPC response exclusivity](mcp-json-rpc-response-exclusivity.md)
+- [MCP JSON-RPC identifier validation](mcp-json-rpc-id-validation.md)
+- [OAuth transient invalid-grant preservation](oauth-transient-invalid-grant-preservation.md)
+- [MCP JSON-RPC version validation](mcp-json-rpc-version-validation.md)
+- [OAuth token-grant error mapping](oauth-token-grant-error-mapping.md)
+- [OAuth denied-prompt scope order](oauth-denied-prompt-scope-order.md)
+- [OAuth empty refresh token handling](oauth-empty-refresh-token-handling.md)
+- [OAuth invalid-request challenge rejection](oauth-invalid-request-challenge-rejection.md)
+- [MCP response content-type validation](mcp-response-content-type-validation.md)
+- [OAuth grant-type metadata validation](oauth-grant-type-metadata-validation.md)
+- [OAuth unrefreshable token expiry window](oauth-unrefreshable-token-expiry-window.md)
 - [MiniMax model provider](minimax-model-provider.md)
 - [OAuth transport status-aware JSON](oauth-transport-status-aware-json.md)
 - [MCP lazy result serialization](mcp-lazy-result-serialization.md)

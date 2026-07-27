@@ -46,8 +46,9 @@ retaining explicit-null JSON-RPC error handling.
       errors, and untracked files.
 - [x] Run `git add -A`, commit with a Conventional Commit title no longer than
       50 characters, and push the current branch.
-- [ ] After the push, run the tenth and final authorized `cargo xtask review`
+- [x] After the push, run the tenth and final authorized `cargo xtask review`
       cycle against `origin/main` and investigate every finding.
-- [ ] Once the final review has no valid findings, mark this and all remaining
-      review-fix plans completed in `plans/README.md`, then commit and push the
-      final bookkeeping without starting an eleventh review cycle.
+- [x] Once every final-review finding is resolved and Fable passes, mark this
+      and all remaining review-fix plans completed in `plans/README.md`, then
+      commit and push the final bookkeeping without starting an eleventh
+      review cycle.

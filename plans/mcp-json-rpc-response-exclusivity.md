@@ -43,10 +43,10 @@ classification remains unchanged.
       tests, Rust file-length lint, smoke tests, and `cargo xtask check`.
 - [x] Review the complete diff for omissions, unrelated changes, Markdown
       errors, and untracked files.
-- [ ] Run `git add -A`, commit with a Conventional Commit title no longer than
+- [x] Run `git add -A`, commit with a Conventional Commit title no longer than
       50 characters, and push the current branch.
 - [x] Record cycle 10 as the final authorized `cargo xtask review`; do not
       start an eleventh review cycle.
-- [ ] Once the cycle-10 finding is resolved and Fable passes, mark this and all
+- [x] Once the cycle-10 finding is resolved and Fable passes, mark this and all
       remaining review-fix plans completed in `plans/README.md`, then commit and
       push the final bookkeeping without starting an eleventh review cycle.
