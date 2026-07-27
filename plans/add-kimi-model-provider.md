@@ -211,3 +211,28 @@ rejected when Kimi marks them as dispatchable.
       current branch.
 - [x] Repeat `cargo xtask review` and resolve every remaining valid finding
       within the review-cycle limit.
+
+## Milestone 7: Private Logging And Empty Content
+
+Close the valid review gaps found after merging the latest target branch. At
+the end of this milestone, Kimi replay reasoning stays available to the model
+without entering model-call logs, and empty user/tool messages remain valid
+Chat Completions strings.
+
+- [x] Add failing success- and error-path regression tests proving Kimi replay
+      context reaches the model and retained conversation but is removed from
+      every model-call logger copy.
+- [x] Generalize the model-call logging redaction boundary to remove private
+      Kimi and MiniMax replay items without mutating live conversation state.
+- [x] Add failing request regressions for empty user and tool content.
+- [x] Serialize empty user and tool content as strings while preserving
+      nullable content for Kimi assistant replay.
+- [x] Clarify the Kimi protocol and tool-calling README logging/content
+      contracts.
+- [x] Run focused regressions, formatting, file-length lint, strict workspace
+      Clippy, full all-feature workspace tests, the credential-free smoke test,
+      and `cargo xtask check`.
+- [ ] Commit the review fixes with a Conventional Commit message and push the
+      current branch.
+- [ ] Repeat `cargo xtask review` and resolve every remaining valid finding
+      within the review-cycle limit.

@@ -110,7 +110,7 @@ fn message_content(message: &ConversationMessage) -> Option<ChatCompletionsConte
             message.content_parts.iter().map(content_part).collect(),
         ));
     }
-    if message.content.is_empty() {
+    if message.role == ConversationRole::Assistant && message.content.is_empty() {
         None
     } else {
         Some(ChatCompletionsContent::Text(message.content.clone()))

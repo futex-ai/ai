@@ -42,19 +42,25 @@ pub(super) async fn complete_model_request(
 
 fn model_request_for_logging(mut request: ModelRequest) -> ModelRequest {
     for message in &mut request.messages {
-        remove_minimax_replay_context(&mut message.provider_context);
+        remove_private_replay_context(&mut message.provider_context);
     }
     request
 }
 
 fn model_response_for_logging(response: &ModelResponse) -> ModelResponse {
     let mut response = response.clone();
-    remove_minimax_replay_context(&mut response.provider_context);
+    remove_private_replay_context(&mut response.provider_context);
     response
 }
 
-fn remove_minimax_replay_context(context: &mut Vec<ProviderConversationItem>) {
-    context.retain(|item| !matches!(item, ProviderConversationItem::MiniMaxAssistant { .. }));
+fn remove_private_replay_context(context: &mut Vec<ProviderConversationItem>) {
+    context.retain(|item| {
+        !matches!(
+            item,
+            ProviderConversationItem::KimiAssistantMessage { .. }
+                | ProviderConversationItem::MiniMaxAssistant { .. }
+        )
+    });
 }
 
 pub(super) fn validate_response_contract(response: &ModelResponse) -> Result<()> {

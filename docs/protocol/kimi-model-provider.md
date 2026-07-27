@@ -85,7 +85,8 @@ K3 request mapping must:
 - omit fixed K3 parameters such as `temperature`, `top_p`, `n`, presence
   penalty, and frequency penalty;
 - serialize plain content as a string and typed text/image parts as content
-  arrays, using base64 data URLs for images;
+  arrays, using base64 data URLs for images; empty user and tool content
+  remains an empty string, while unavailable assistant content may be null;
 - serialize user and assistant names only when present and supported;
 - ignore provider context owned by other providers;
 - send no streaming, partial, file, video, or K2 `thinking` fields.
@@ -112,6 +113,9 @@ for caller-authored messages without Kimi context.
 
 Provider reasoning is replay-only data. It must not be appended to normalized
 assistant text, parsed as structured output, or exposed as a tool call.
+The tool-calling runtime removes the complete Kimi replay item from request
+and response copies passed to model-call loggers while preserving it in the
+actual model request and retained conversation.
 Kimi replay context participates in the shared synthetic tool-call scope hash
 so distinct retained conversations cannot derive the same scope accidentally.
 
@@ -129,9 +133,10 @@ order and ids. Invalid arguments fail the model call before any tool is
 dispatched.
 
 Tool results serialize as `role: "tool"` with matching `tool_call_id` and
-string content. They do not send a `name` field. The preceding assistant
-message must replay its Kimi raw tool calls and reasoning context so every
-tool result remains paired with the provider call that produced it.
+string content, including an empty string for an empty result. They do not send
+a `name` field. The preceding assistant message must replay its Kimi raw tool
+calls and reasoning context so every tool result remains paired with the
+provider call that produced it.
 
 Tool-call payloads returned with terminal, truncated, filtered, unknown, or
 missing finish reasons are neither dispatched nor replayed.

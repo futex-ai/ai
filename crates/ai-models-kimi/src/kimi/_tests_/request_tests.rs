@@ -42,6 +42,27 @@ fn serializes_leading_system_and_every_shared_role() {
 }
 
 #[test]
+fn serializes_empty_user_and_tool_content_as_strings() {
+    let request = ModelRequest {
+        system_prompt: "system".to_owned(),
+        messages: vec![
+            ConversationMessage::user(""),
+            ConversationMessage::tool("", "memory_read", "call_1"),
+        ],
+        tools: Vec::new(),
+        response_schema: None,
+    };
+    let body = request_json(&request, KimiReasoningEffort::Max);
+    let messages = body["messages"].as_array().expect("messages array");
+
+    assert_eq!(messages[1]["role"], "user");
+    assert_eq!(messages[1]["content"], "");
+    assert_eq!(messages[2]["role"], "tool");
+    assert_eq!(messages[2]["content"], "");
+    assert_eq!(messages[2]["tool_call_id"], "call_1");
+}
+
+#[test]
 fn serializes_text_and_image_content_parts_as_data_urls() {
     let request = ModelRequest {
         system_prompt: "system".to_owned(),
