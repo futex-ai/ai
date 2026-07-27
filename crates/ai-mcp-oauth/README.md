@@ -37,10 +37,12 @@ The production transport disables automatic redirects, follows only validated
 metadata GET redirects, and never redirects a registration, token, or
 revocation POST. Each HTTP-hop timeout covers DNS, connection, headers, and
 streamed response bytes; an unrepresentable deadline is rejected as invalid
-configuration. Validated addresses are pinned before dispatch. Valid JSON is
-retained at every status. Non-JSON error bodies preserve their status with a
-`null` body, successful discovery, registration, and token responses require
-JSON, and RFC 7009 revocation success is determined only by status.
+configuration. Validated addresses are pinned before dispatch. Environment and
+system proxies are ignored so they cannot bypass those pins; proxy-only egress
+therefore fails closed as a transport error. Valid JSON is retained at every
+status. Non-JSON error bodies preserve their status with a `null` body,
+successful discovery, registration, and token responses require JSON, and RFC
+7009 revocation success is determined only by status.
 Before browser handoff, the manager separately resolves the initial
 authorization hostname within the same HTTP timeout and requires every address
 to satisfy the same policy. A stalled lookup surfaces as a typed DNS failure.

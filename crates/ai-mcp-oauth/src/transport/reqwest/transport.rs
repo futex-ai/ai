@@ -135,7 +135,7 @@ impl ReqwestOAuthHttpTransport {
             Some(port) => port,
             None => return Err(Error::InvalidUrl { endpoint }),
         };
-        let mut builder = Client::builder().redirect(Policy::none());
+        let mut builder = Client::builder().redirect(Policy::none()).no_proxy();
         if let Host::Domain(domain) = host {
             let addresses = self.resolver.resolve(domain, port).await?;
             if addresses

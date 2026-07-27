@@ -334,11 +334,13 @@ Errors and diagnostics never contain authorization codes or token values.
   validating scheme, resolved destination, and policy at every library-owned
   hop; registration, token, and revocation POST responses never redirect their
   payloads. Pin connections to validated addresses or verify the connected
-  peer so DNS cannot change between validation and use. The per-hop timeout
-  covers DNS, connection, headers, and streamed response bytes. The same
-  configured HTTP timeout bounds the initial browser-URL DNS preflight.
-  Preflight that URL as described above, without claiming that the external
-  browser connection is pinned.
+  peer so DNS cannot change between validation and use. Disable environment
+  and system proxies for library-owned OAuth requests so proxy routing cannot
+  bypass those pins; deployments with proxy-only egress fail closed. The
+  per-hop timeout covers DNS, connection, headers, and streamed response bytes.
+  The same configured HTTP timeout bounds the initial browser-URL DNS
+  preflight. Preflight that URL as described above, without claiming that the
+  external browser connection is pinned.
 - Open authorization URLs with platform APIs, never shell execution.
 - Bound response bytes, redirect count, callback lifetime, and request time.
 - Never log, serialize to diagnostics, or expose through `Debug` any access
