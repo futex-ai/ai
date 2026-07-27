@@ -143,7 +143,9 @@ usable token exists, it leaves the request unauthenticated so `ai-mcp` can
 return the authoritative challenge. The host owns the single retry after a
 successful authorization or refresh. A token without a refresh token remains
 usable through its actual expiry, including inside the configured refresh
-skew; a known-expired token is never sent.
+skew; a known-expired token is never sent. An empty refresh token in a token
+response is treated as absent, retaining the prior refresh token during
+rotation when one exists.
 
 Forced refresh, incremental consent, and disconnect remain separate,
 host-controlled operations:

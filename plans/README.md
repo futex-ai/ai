@@ -10,6 +10,8 @@ milestones are finished.
 - [OAuth grant-type metadata validation](oauth-grant-type-metadata-validation.md)
 - [MCP response content-type validation](mcp-response-content-type-validation.md)
 - [OAuth invalid-request challenge rejection](oauth-invalid-request-challenge-rejection.md)
+- [OAuth empty refresh token handling](oauth-empty-refresh-token-handling.md)
+- [OAuth denied-prompt scope order](oauth-denied-prompt-scope-order.md)
 
 ## Completed
 

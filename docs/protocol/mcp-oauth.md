@@ -172,7 +172,8 @@ embedded desktop/mobile secret as confidential.
   challenge. Never request the entire advertised scope catalog by default.
 - Exchange the code once with the same redirect URI and verifier. Require a
   Bearer access token and parse optional refresh token, expiry, and granted
-  scope without logging secrets.
+  scope without logging secrets. Because RFC 6749 requires a non-empty refresh
+  token, treat an empty response value exactly like an omitted field.
 - If `expires_in` is absent, do not invent an expiry; use the token until a
   challenge or explicit refresh. If `scope` is absent, retain the requested
   scopes, and on refresh retain the prior scopes unless replacements are
@@ -198,16 +199,18 @@ embedded desktop/mobile secret as confidential.
   rotated token set stored after disconnect returns.
 - An authorization grant that finishes after an already-completed disconnect
   is a new user-approved connection and may store its new credentials.
-- A rotated refresh token atomically replaces the old token set. If a refresh
-  response omits `refresh_token`, retain the previous one.
+- A rotated non-empty refresh token atomically replaces the old token set. If
+  a refresh response omits `refresh_token` or returns an empty value, retain
+  the previous one.
 - `invalid_grant` removes the unusable token set. An explicit refresh returns
   `InteractionRequired`; an auth-hook refresh leaves the header absent so the
   MCP server can return an authoritative typed challenge. Transient
   discovery/token errors preserve credentials and do not send a known-expired
   token.
 - A 401 after one successful refresh or interactive authorization is surfaced
-  to the host. A denied incremental scope is cached for the current connection
-  attempt to prevent prompt loops.
+  to the host. A denied incremental scope is cached by its semantic,
+  order-insensitive scope set for the current connection attempt to prevent
+  prompt loops.
 - Disconnect best-effort revokes tokens only when a validated endpoint is
   available, then always removes local tokens. Cached dynamic registration is
   retained by default and may be removed locally through explicit host policy;

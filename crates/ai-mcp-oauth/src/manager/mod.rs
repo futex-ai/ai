@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 use crate::{
     CanonicalMcpResource, DynMcpOAuthDiscovery, DynOAuthClientRegistry, DynOAuthClock,
     DynOAuthCredentialStore, DynOAuthDnsResolver, DynOAuthHttpTransport, DynOAuthRandom,
-    DynOAuthUserAgent, McpOAuthConfig, OAuthCredentialKey, OAuthScopes, Result,
+    DynOAuthUserAgent, McpOAuthConfig, OAuthCredentialKey, Result,
     state::AuthorizationStateTracker,
 };
 
@@ -147,5 +147,5 @@ pub(super) struct DeniedPromptKey {
     pub(super) attempt_id: String,
     pub(super) account_id: String,
     pub(super) resource: CanonicalMcpResource,
-    pub(super) scopes: OAuthScopes,
+    pub(super) scope_set: BTreeSet<String>,
 }

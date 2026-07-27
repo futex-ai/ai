@@ -225,7 +225,7 @@ fn denied_key(context: &OAuthAuthorizationContext, scopes: &OAuthScopes) -> Deni
         attempt_id: context.authorization_attempt_id.clone(),
         account_id: context.account_id.clone(),
         resource: context.resource.clone(),
-        scopes: scopes.clone(),
+        scope_set: scopes.as_slice().iter().cloned().collect(),
     }
 }
 

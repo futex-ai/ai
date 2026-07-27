@@ -43,6 +43,40 @@ fn retains_requested_scopes_and_refresh_without_inventing_expiry() {
     assert_eq!(tokens.refresh_token.unwrap().expose_secret(), "old-refresh");
 }
 
+#[test]
+fn empty_refresh_token_is_absent_without_previous_credentials() {
+    let tokens = parse_token_response(
+        response(json!({
+            "access_token": "new-access",
+            "refresh_token": "",
+            "token_type": "Bearer"
+        })),
+        500,
+        &OAuthScopes::new(["read"]),
+        None,
+    )
+    .unwrap();
+
+    assert!(tokens.refresh_token.is_none());
+}
+
+#[test]
+fn empty_refresh_token_retains_previous_credentials() {
+    let tokens = parse_token_response(
+        response(json!({
+            "access_token": "new-access",
+            "refresh_token": "",
+            "token_type": "Bearer"
+        })),
+        500,
+        &OAuthScopes::new(["read"]),
+        Some(SecretString::from("old-refresh".to_owned())),
+    )
+    .unwrap();
+
+    assert_eq!(tokens.refresh_token.unwrap().expose_secret(), "old-refresh");
+}
+
 fn response(body: serde_json::Value) -> OAuthHttpResponse {
     OAuthHttpResponse {
         status: 200,

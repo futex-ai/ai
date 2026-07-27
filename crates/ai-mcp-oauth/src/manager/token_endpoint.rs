@@ -82,6 +82,7 @@ fn parse_token_response(
         .unwrap_or_else(|| fallback_scopes.clone());
     let refresh_token = wire
         .refresh_token
+        .filter(|token| !token.is_empty())
         .map(SecretString::from)
         .or(previous_refresh);
     Ok(OAuthTokenSet {

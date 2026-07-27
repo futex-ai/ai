@@ -116,46 +116,6 @@ async fn maps_host_cancellation_without_token_exchange() {
 }
 
 #[tokio::test]
-async fn denied_incremental_scope_is_suppressed_for_the_same_attempt() {
-    let user_agent = Unimock::new(
-        OAuthUserAgentMock::authorize
-            .next_call(matching!(_))
-            .answers(&|_, request| {
-                Ok(OAuthAuthorizationResponse::oauth_error(
-                    OAuthAuthorizationError::AccessDenied,
-                    Some(callback_state(request)),
-                ))
-            }),
-    );
-    let oauth = manager(
-        Unimock::new(
-            McpOAuthDiscoveryMock::discover
-                .next_call(matching!(_, _))
-                .returns(Ok(discovery_result())),
-        ),
-        Unimock::new(
-            OAuthClientRegistryMock::resolve
-                .next_call(matching!(_))
-                .returns(Ok(registration())),
-        ),
-        Unimock::new(()),
-        user_agent,
-        Unimock::new(()),
-        public_dns_resolver(),
-        clock(vec![100, 101]),
-        random(),
-        McpOAuthConfig::default(),
-    );
-    let scope_challenge = challenge(McpAuthorizationFailure::InsufficientScope, &["write"]);
-
-    let first = oauth.authorize(&scope_challenge, &context()).await;
-    let second = oauth.authorize(&scope_challenge, &context()).await;
-
-    assert!(matches!(first, Err(Error::UserDenied)));
-    assert!(matches!(second, Err(Error::UserDenied)));
-}
-
-#[tokio::test]
 async fn enforces_the_user_agent_timeout() {
     let config = McpOAuthConfig {
         user_agent_timeout: Duration::from_millis(5),

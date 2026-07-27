@@ -55,7 +55,7 @@ async fn insufficient_scope_requests_minimum_scopes_and_accepts_granted_subset()
 }
 
 #[tokio::test]
-async fn denied_incremental_scope_is_not_prompted_twice_for_one_attempt() {
+async fn reordered_denied_scope_is_not_prompted_twice_for_one_attempt() {
     let server = FakeOAuthMcpServer::spawn().await;
     let mut harness = harness(&server);
     let key = credential_key(&server);
@@ -79,8 +79,11 @@ async fn denied_incremental_scope_is_not_prompted_twice_for_one_attempt() {
             behavior.deny_authorization = true;
         })
         .await;
-    let challenge =
+    let mut challenge =
         insufficient_scope_challenge(client.call_tool("echo", json!({})).await.unwrap_err());
+    challenge.scopes.push("admin".to_owned());
+    let mut reordered_challenge = challenge.clone();
+    reordered_challenge.scopes.reverse();
     harness.context.configured_registration = Some(configured_registration());
 
     let first = harness
@@ -89,7 +92,7 @@ async fn denied_incremental_scope_is_not_prompted_twice_for_one_attempt() {
         .await;
     let second = harness
         .manager
-        .authorize(&challenge, &harness.context)
+        .authorize(&reordered_challenge, &harness.context)
         .await;
 
     assert!(matches!(first, Err(Error::UserDenied)));
