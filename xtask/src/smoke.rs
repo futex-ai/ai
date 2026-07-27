@@ -10,12 +10,12 @@ use ai_interface::{
     ModelResponse, ModelResult, ModelUsage, NoopLogger, Tool, ToolCall, ToolDefinition,
     ToolOutputEnvelope,
 };
-use ai_models_anthropic::{AnthropicModel, CLAUDE_SONNET_4_6};
-use ai_models_google::{GEMINI_2_5_PRO, GoogleModel};
+use ai_models_anthropic::{AnthropicModel, CLAUDE_SONNET_5};
+use ai_models_google::{GEMINI_3_6_FLASH, GoogleModel};
 use ai_models_kimi::KimiModel;
 use ai_models_minimax::{MINIMAX_M3, MiniMaxModel};
-use ai_models_openai::{GPT_5_5, OpenAiAudioTranscriber, OpenAiModel};
-use ai_models_xai::{GROK_4_20_REASONING, XaiModel};
+use ai_models_openai::{GPT_5_6_SOL, OpenAiAudioTranscriber, OpenAiModel};
+use ai_models_xai::{GROK_4_5, XaiModel};
 use ai_tool_calling::{
     InMemoryToolOutputStore, RunOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn,
 };
@@ -28,12 +28,12 @@ use crate::error::{Error, Result};
 
 pub(crate) fn run() -> Result<()> {
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
-    let _anthropic = AnthropicModel::new(client.clone(), CLAUDE_SONNET_4_6, "anthropic-key");
-    let _google = GoogleModel::new(client.clone(), GEMINI_2_5_PRO, "google-key");
+    let _anthropic = AnthropicModel::new(client.clone(), CLAUDE_SONNET_5, "anthropic-key");
+    let _google = GoogleModel::new(client.clone(), GEMINI_3_6_FLASH, "google-key");
     let _kimi = KimiModel::new(client.clone(), "kimi-key");
     let _minimax = MiniMaxModel::new(client.clone(), MINIMAX_M3, "minimax-key");
-    let _openai = OpenAiModel::new(client.clone(), GPT_5_5, "openai-key");
-    let _xai = XaiModel::new(client, GROK_4_20_REASONING, "xai-key");
+    let _openai = OpenAiModel::new(client.clone(), GPT_5_6_SOL, "openai-key");
+    let _xai = XaiModel::new(client, GROK_4_5, "xai-key");
     let _transcriber = OpenAiAudioTranscriber::new("gpt-4o-mini-transcribe", "openai-key");
 
     let model: DynModel = Arc::new(SmokePaginationModel::new());

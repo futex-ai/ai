@@ -47,14 +47,13 @@ runtime wrappers from neighboring crates.
   `ai_interface::ModelError`, with retryable `408`, `409`, `425`, and `5xx`
   transcription statuses mapped to transient provider failures
 
-This crate does not load config, read environment variables, or resolve credentials on its own.
-It exports `known_models()` and typed catalog id constants (`GPT_5_5`,
-`GPT_5_5_THINKING_LOW`, `GPT_5_5_THINKING_HIGH`,
-`GPT_5_5_THINKING_EXTRA_HIGH`, `GPT_5_5_MINI`, `GPT_5_5_NANO`) so
-composition roots can validate deployment config and sort routes without
-duplicating OpenAI model metadata. The `gpt-5.5` thinking variants all send
-provider model id `gpt-5.5`; `gpt-5.5` supports up to `ExtraHigh`, so this
-catalog does not define a max-thinking OpenAI variant.
+This crate does not load config, read environment variables, or resolve
+credentials on its own. It exports `known_models()` and typed catalog id
+constants for GPT-5.6 Sol, Terra, and Luna. `GPT_5_6_SOL` is the first catalog
+entry and the default used by workspace examples. Sol also has explicit low,
+high, extra-high, and max-thinking variants; each sends provider model id
+`gpt-5.6-sol`. All existing GPT-5.5 constants and catalog entries remain
+available for pinned deployments.
 OpenAI generation uses workspace-defined function tools with `strict: false` during
 the Responses cutover. OpenAI built-in tools are intentionally not exposed by
 this crate.
@@ -78,13 +77,13 @@ retryable OpenAI transcription statuses as transient errors.
 use std::sync::Arc;
 
 use ai_interface::{AudioTranscriber, Model};
-use ai_models_openai::{GPT_5_5, OpenAiAudioTranscriber, OpenAiModel, known_models};
+use ai_models_openai::{GPT_5_6_SOL, OpenAiAudioTranscriber, OpenAiModel, known_models};
 use json_http::ReqwestJsonHttpClient;
 
 fn build_model() -> OpenAiModel {
     OpenAiModel::new(
         Arc::new(ReqwestJsonHttpClient::new()),
-        GPT_5_5,
+        GPT_5_6_SOL,
         "sk-demo",
     )
 }
@@ -116,6 +115,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [OpenAI model catalog](https://developers.openai.com/api/docs/models)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

@@ -33,25 +33,26 @@
 - status, transport, and structured-output validation failure mapping onto
   `ai_interface::ModelError`
 
-This crate does not load config, read environment variables, or resolve credentials on its own.
-It exports `known_models()` and typed catalog id constants
-(`GROK_4_20_REASONING`, `GROK_4_20`, `GROK_4_20_THINKING_HIGH`,
-`GROK_4_20_MINI`) so composition roots can validate deployment config and sort
-routes without duplicating xAI model metadata. `GROK_4_20_THINKING_HIGH` sends
-provider model id `grok-4.20` with `reasoning_effort: "high"`.
+This crate does not load config, read environment variables, or resolve
+credentials on its own. It exports `known_models()` and typed catalog id
+constants for Grok 4.5. `GROK_4_5` is the first catalog entry and the default
+used by workspace examples; its catalog metadata uses the provider's default
+high reasoning effort. Low- and medium-thinking variants send provider model
+id `grok-4.5` with the corresponding `reasoning_effort`. All existing Grok
+4.20 entries remain available for pinned deployments.
 
 ## Quick Start
 
 ```rust
 use std::sync::Arc;
 
-use ai_models_xai::{GROK_4_20_REASONING, XaiModel, known_models};
+use ai_models_xai::{GROK_4_5, XaiModel, known_models};
 use json_http::ReqwestJsonHttpClient;
 
 fn build_model() -> XaiModel {
     XaiModel::new(
         Arc::new(ReqwestJsonHttpClient::new()),
-        GROK_4_20_REASONING,
+        GROK_4_5,
         "xai-demo",
     )
 }
@@ -78,6 +79,7 @@ cargo clippy -p ai-models-xai --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [Grok 4.5 model details](https://docs.x.ai/developers/models/grok-4.5)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

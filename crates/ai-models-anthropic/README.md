@@ -26,13 +26,14 @@
 - status, transport, and structured-output validation failure mapping onto
   `ai_interface::ModelError`
 
-This crate does not load config, read environment variables, or resolve credentials on its own.
-It exports `known_models()` and typed catalog id constants
-(`CLAUDE_SONNET_4_6`, `CLAUDE_OPUS_4_7`, `CLAUDE_OPUS_4_7_THINKING_MAX`,
-`CLAUDE_HAIKU_4_5`) so composition roots can validate deployment config and
-sort routes without duplicating Anthropic model metadata. The Opus max variant
-sends provider model id `claude-opus-4-7`, enables adaptive thinking, sets
-`output_config.effort` to `max`, and requests omitted thinking display.
+This crate does not load config, read environment variables, or resolve
+credentials on its own. It exports `known_models()` and typed catalog id
+constants for Claude Sonnet 5, Opus 5, and Fable 5. `CLAUDE_SONNET_5` is the
+first catalog entry and the balanced default used by workspace examples.
+`CLAUDE_OPUS_5_THINKING_MAX` sends provider model id `claude-opus-5`, enables
+adaptive thinking, sets `output_config.effort` to `max`, and requests omitted
+thinking display. All existing Sonnet 4.6, Opus 4.7, and Haiku 4.5 entries
+remain available for pinned deployments.
 Reasoning/thinking content blocks in provider responses are ignored and are not
 surfaced as assistant text.
 
@@ -41,13 +42,13 @@ surfaced as assistant text.
 ```rust
 use std::sync::Arc;
 
-use ai_models_anthropic::{AnthropicModel, CLAUDE_SONNET_4_6, known_models};
+use ai_models_anthropic::{AnthropicModel, CLAUDE_SONNET_5, known_models};
 use json_http::ReqwestJsonHttpClient;
 
 fn build_model() -> AnthropicModel {
     AnthropicModel::new(
         Arc::new(ReqwestJsonHttpClient::new()),
-        CLAUDE_SONNET_4_6,
+        CLAUDE_SONNET_5,
         "anthropic-demo",
     )
 }
@@ -73,6 +74,7 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [Anthropic model overview](https://platform.claude.com/docs/en/about-claude/models/overview)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

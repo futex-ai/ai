@@ -2,6 +2,7 @@
 
 mod request;
 mod response;
+mod thinking;
 
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -94,7 +95,11 @@ impl Model for GoogleModel {
             .http_client
             .post(&self.endpoint())
             .auth(self.auth.clone())
-            .json(request::build_request(request, self.thinking_level))
+            .json(request::build_request(
+                &self.provider_model_id,
+                request,
+                self.thinking_level,
+            ))
             .map_err(ModelError::internal)?;
         let response = request
             .send_value()
