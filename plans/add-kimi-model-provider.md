@@ -199,7 +199,7 @@ rejected when Kimi marks them as dispatchable.
       remain typed provider errors.
 - [x] Run focused Kimi tests, formatting, file-length lint, Clippy, full
       workspace tests, smoke tests, and `cargo xtask check`.
-- [ ] Commit the review fix with a Conventional Commit message and push the
+- [x] Commit the review fix with a Conventional Commit message and push the
       current branch.
 - [ ] Repeat `cargo xtask review` and resolve every remaining valid finding
       within the review-cycle limit.
