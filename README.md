@@ -9,7 +9,9 @@ in-memory tool-calling runtime behavior.
 - Shared `ai-interface` contracts for conversations, model calls, audio
   transcription, tool calls, routing, logging, usage metering, and bounded
   model-visible tool output envelopes
-- Provider adapters for Anthropic, Google Gemini, OpenAI, and xAI models
+- Provider adapters for Anthropic, Google Gemini, MiniMax, OpenAI, and xAI
+  models, including MiniMax tools, reasoning replay, M3 images, locally
+  validated structured output, usage normalization, and provider-code errors
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, and usage pricing
 - Ordered fallback model composition through `ai-models-multi`
@@ -20,6 +22,9 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [MiniMax model provider](docs/protocol/minimax-model-provider.md) defines the
+  provider identity, catalog, request/replay, response, usage, and
+  error-normalization contract.
 - [Tool output management](docs/protocol/tool-output-management.md) defines the
   universal output-id, bounded-envelope, pagination, and raw-output isolation
   contract for tool calls.
@@ -34,6 +39,8 @@ boundary they need:
 - `ai-models-core`: reusable model wrappers and provider helper logic
 - `ai-models-anthropic`: Anthropic model adapter
 - `ai-models-google`: Google Gemini model adapter
+- `ai-models-minimax`: MiniMax Chat Completions model adapter and known-model
+  catalog
 - `ai-models-openai`: OpenAI model and transcription adapters
 - `ai-models-xai`: xAI model adapter
 - `ai-models-multi`: ordered fallback model adapter
@@ -59,6 +66,10 @@ cargo xtask rust-file-length-lint --all
 cargo xtask smoke-test
 ```
 
+The smoke test constructs every provider adapter with placeholder credentials
+and exercises the in-memory tool runtime. It performs no provider requests and
+does not require credentials or network access.
+
 Run local AI review after checks pass and the branch has been pushed:
 
 ```sh
@@ -71,6 +82,8 @@ cargo xtask review
 - `crates/ai-interface`: shared AI contracts, including
   `src/output/` envelope DTOs
 - `crates/ai-models-core`: provider-agnostic model wrappers and helpers
+- `crates/ai-models-minimax`: MiniMax catalog plus request, replay, response,
+  usage, and provider-error mapping
 - `crates/ai-models-*`: concrete provider and fallback adapters
 - `crates/ai-tool-calling`: in-memory tool-calling runtime, including
   `src/policy.rs`, `src/output_store/`, and the intrinsic output reader
@@ -79,6 +92,7 @@ cargo xtask review
   review
 - `docs/protocol/tool-output-management.md`: normative universal tool output
   management contract
+- `docs/protocol/minimax-model-provider.md`: normative MiniMax adapter contract
 - `docs/protocol/`: other normative contracts for shared runtime behavior
 - `plans/`: active and completed implementation plans.
 
