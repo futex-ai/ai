@@ -24,8 +24,10 @@ catalog id and upstream model id in normalized responses.
 Modern `tools` and `tool_calls` retain MiniMax provider call ids across
 assistant and tool-result messages. MiniMax `reasoning_content` and ordered
 `reasoning_details` are stored as provider-owned replay context for subsequent
-turns; private reasoning is never added to normalized assistant text. Legacy
-`function_call` messages are neither sent nor accepted.
+turns; private reasoning is never added to normalized assistant text. Tool
+results always include `content`, including an empty string, while unavailable
+empty assistant content is omitted. Legacy `function_call` messages are
+neither sent nor accepted.
 
 Cached input and reasoning tokens are separated from ordinary input/output
 usage. HTTP-success `base_resp` failures are classified by MiniMax's numeric

@@ -91,6 +91,9 @@ fn message_content(message: &ConversationMessage) -> Option<ChatCompletionsConte
             message.content_parts.iter().map(content_part).collect(),
         ));
     }
+    if message.role == ConversationRole::Tool {
+        return Some(ChatCompletionsContent::Text(message.content.clone()));
+    }
     (!message.content.is_empty()).then(|| ChatCompletionsContent::Text(message.content.clone()))
 }
 

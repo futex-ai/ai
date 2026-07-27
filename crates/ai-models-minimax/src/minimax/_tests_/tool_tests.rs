@@ -158,6 +158,37 @@ async fn omits_unavailable_assistant_content() {
 }
 
 #[tokio::test]
+async fn preserves_empty_tool_result_content() {
+    let (http_client, requests) = recording_http_client([tool_response()]);
+    MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key")
+        .complete(&ModelRequest {
+            system_prompt: "system".to_owned(),
+            messages: vec![ConversationMessage::tool("", "memory_read", "call_empty")],
+            tools: Vec::new(),
+            response_schema: None,
+        })
+        .await
+        .expect("MiniMax response should parse");
+
+    let requests = requests
+        .lock()
+        .expect("requests lock should not be poisoned");
+    let tool_message = &requests[0]
+        .body
+        .as_ref()
+        .and_then(|body| body.as_json())
+        .expect("JSON body should be present")["messages"][1];
+    assert_eq!(
+        tool_message,
+        &json!({
+            "role": "tool",
+            "content": "",
+            "tool_call_id": "call_empty"
+        })
+    );
+}
+
+#[tokio::test]
 async fn rejects_malformed_tool_arguments() {
     let (http_client, _) = recording_http_client([JsonHttpResponse {
         status: 200,

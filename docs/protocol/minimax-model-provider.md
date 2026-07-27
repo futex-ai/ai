@@ -92,8 +92,10 @@ part, so video input is outside V1 even though MiniMax-M3 supports it.
 
 Assistant history must include visible content, normalized tool calls, and any
 retained MiniMax reasoning context. Tool results include `content` and the
-provider tool-call id but no unsupported name field. Provider context owned by
-another adapter must not be serialized as MiniMax reasoning.
+provider tool-call id but no unsupported name field. Tool `content` remains
+present when the result is an empty string; only unavailable assistant content
+is omitted. Provider context owned by another adapter must not be serialized
+as MiniMax reasoning.
 
 MiniMax does not support legacy `function_call`; the adapter sends and accepts
 modern `tools` and `tool_calls` only.
@@ -126,7 +128,10 @@ complete assistant response to maintain interleaved thinking.
 
 Reasoning text is provider replay state. It must not be concatenated into
 `assistant_message`, surfaced as ordinary assistant content, or copied into
-normal user-visible logging.
+normal user-visible logging. The tool runtime therefore removes the complete
+MiniMax replay item from request and response copies passed to model-call
+loggers while preserving it in the actual model request and retained
+conversation.
 
 ## Structured Output
 
