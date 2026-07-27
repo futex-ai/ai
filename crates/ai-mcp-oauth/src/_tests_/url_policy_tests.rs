@@ -25,6 +25,50 @@ fn production_policy_requires_https_and_public_addresses() {
 }
 
 #[test]
+fn production_rejects_deprecated_6to4_relay_ipv4_range() {
+    let policy = OAuthUrlPolicy::default();
+
+    for value in ["192.88.99.0", "192.88.99.1", "192.88.99.2", "192.88.99.255"] {
+        let address = value.parse::<Ipv4Addr>().unwrap();
+        assert!(!policy.address_allowed(IpAddr::V4(address), "https"));
+        assert!(matches!(
+            policy.parse(
+                &format!("https://{value}/oauth"),
+                OAuthEndpointKind::Authorization
+            ),
+            Err(Error::UnsafeUrl {
+                reason: OAuthUnsafeUrlReason::Address,
+                ..
+            })
+        ));
+    }
+
+    let mapped = "::ffff:192.88.99.1".parse::<Ipv6Addr>().unwrap();
+    assert!(!policy.address_allowed(IpAddr::V6(mapped), "https"));
+    assert!(
+        policy
+            .parse(
+                "https://[::ffff:192.88.99.1]/oauth",
+                OAuthEndpointKind::Authorization
+            )
+            .is_err()
+    );
+
+    for value in ["192.88.98.255", "192.88.100.0"] {
+        let address = value.parse::<Ipv4Addr>().unwrap();
+        assert!(policy.address_allowed(IpAddr::V4(address), "https"));
+        assert!(
+            policy
+                .parse(
+                    &format!("https://{value}/oauth"),
+                    OAuthEndpointKind::Authorization
+                )
+                .is_ok()
+        );
+    }
+}
+
+#[test]
 fn loopback_http_requires_explicit_development_policy() {
     let policy = OAuthUrlPolicy::loopback_development();
 

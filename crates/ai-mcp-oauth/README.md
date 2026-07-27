@@ -50,13 +50,13 @@ This preflight cannot pin an external browser's later DNS lookup or redirects;
 the host and user-agent implementation retain that responsibility.
 HTTP loopback is available only through the explicit development policy: local
 hostnames and literals must resolve exclusively to loopback addresses, blocked
-ports remain blocked, and IPv4-compatible, both NAT64 prefixes, IPv6
-discard/dummy, IETF protocol-assignment, documentation, 6to4, SRv6 SID, and
-deprecated site-local destinations are rejected. Metadata marked `no-store`
-or `no-cache`, or carrying an invalid `max-age`, is never reused. A cached
-multi-issuer discovery result retains its host-selected issuer for that cache
-lifetime. The crate does not provide a browser, callback listener,
-Keychain/database implementation, or product UI.
+ports remain blocked, and deprecated IPv4 6to4 relay anycast, IPv4-compatible,
+both NAT64 prefixes, IPv6 discard/dummy, IETF protocol-assignment,
+documentation, IPv6 6to4, SRv6 SID, and deprecated site-local destinations are
+rejected. Metadata marked `no-store` or `no-cache`, or carrying an invalid
+`max-age`, is never reused. A cached multi-issuer discovery result retains its
+host-selected issuer for that cache lifetime. The crate does not provide a
+browser, callback listener, Keychain/database implementation, or product UI.
 
 ## Quick Start
 
