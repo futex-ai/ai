@@ -7,6 +7,7 @@ use crate::{Error, Result, tool_set_result::MIN_RESPONSE_BYTES};
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const DEFAULT_TOOL_CALL_TIMEOUT: Duration = Duration::from_secs(120);
 const DEFAULT_MAX_RESPONSE_BYTES: usize = 1024 * 1024;
+const DEFAULT_MAX_TOOL_PAGES: usize = 100;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// Connection settings for one streamable HTTP MCP server.
@@ -21,6 +22,8 @@ pub struct McpServerConfig {
     pub tool_call_timeout: Duration,
     /// Maximum bytes accepted from one HTTP response or exposed tool result.
     pub max_response_bytes: usize,
+    /// Maximum number of pages accepted from one tool-list operation.
+    pub max_tool_pages: usize,
     /// Optional activity label copied onto exposed tool definitions.
     pub activity_verb: Option<String>,
 }
@@ -34,11 +37,12 @@ impl McpServerConfig {
             request_timeout: DEFAULT_REQUEST_TIMEOUT,
             tool_call_timeout: DEFAULT_TOOL_CALL_TIMEOUT,
             max_response_bytes: DEFAULT_MAX_RESPONSE_BYTES,
+            max_tool_pages: DEFAULT_MAX_TOOL_PAGES,
             activity_verb: None,
         }
     }
 
-    /// Validates the stable server key, response limit, and timeouts.
+    /// Validates the stable server key, response and page limits, and timeouts.
     pub fn validate(&self) -> Result<()> {
         let valid_key = !self.server_key.is_empty()
             && self.server_key.len() <= 32
@@ -54,6 +58,9 @@ impl McpServerConfig {
             return Err(Error::InvalidResponseLimit {
                 minimum: MIN_RESPONSE_BYTES,
             });
+        }
+        if self.max_tool_pages == 0 {
+            return Err(Error::InvalidToolPageLimit);
         }
         if self.request_timeout.is_zero() || self.tool_call_timeout.is_zero() {
             return Err(Error::InvalidTimeout);

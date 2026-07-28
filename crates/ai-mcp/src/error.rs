@@ -103,6 +103,23 @@ pub enum Error {
     /// The per-client JSON-RPC request ID space was exhausted.
     #[error("[ai_mcp/error] JSON-RPC request id space exhausted")]
     RequestIdExhausted,
+    /// A paginated response reused a cursor from the same operation.
+    #[error("[ai_mcp/error] `{method}` pagination repeated a cursor")]
+    PaginationCursorCycle {
+        /// MCP method whose cursor cycle was rejected.
+        method: String,
+    },
+    /// A paginated response exceeded the configured page bound.
+    #[error("[ai_mcp/error] `{method}` pagination exceeded {limit} pages")]
+    PaginationLimitExceeded {
+        /// MCP method whose page bound was exceeded.
+        method: String,
+        /// Configured maximum number of pages.
+        limit: usize,
+    },
+    /// The configured tool-list page bound is zero.
+    #[error("[ai_mcp/error] tool page limit must be positive")]
+    InvalidToolPageLimit,
     /// A response used an unsupported content type.
     #[error("[ai_mcp/error] unsupported response content type {content_type:?}")]
     UnsupportedContentType {

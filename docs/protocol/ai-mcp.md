@@ -89,6 +89,13 @@ Required transport behavior (streamable HTTP, single endpoint URL):
 7. `close()` sends HTTP DELETE with the session header; a `405` response is
    success (servers may disallow client termination).
 8. `tools/list` paginates via `nextCursor`/`params.cursor` until exhausted.
+   The initial page counts toward `max_tool_pages` (default 100). Before
+   dispatching a follow-up request, reject a cursor already returned by the
+   same operation as `PaginationCursorCycle`; otherwise, when the current page
+   reaches the bound while naming another cursor, return
+   `PaginationLimitExceeded`. Cycle detection takes precedence at the bound.
+   Either failure discards the partial list and does not clear tool-list
+   invalidation state.
 9. `tools/call` params: `{"name":"<original tool name>","arguments":{...}}`.
 10. Server messages that may appear inside a POST's SSE stream:
     - `notifications/tools/list_changed` → set a stale flag (see API).
@@ -204,6 +211,9 @@ pub struct McpServerConfig {
     /// Cap on bytes read from a response or exposed by a tool. Default 1 MiB;
     /// minimum 31 bytes so the empty truncation envelope always fits.
     pub max_response_bytes: usize,
+    /// Maximum pages accepted from one tools/list operation. Default 100;
+    /// zero is invalid.
+    pub max_tool_pages: usize,
     /// Optional UI activity verb applied to every exposed tool definition.
     pub activity_verb: Option<String>,
 }
@@ -506,6 +516,9 @@ itself stays actionable. A 401 without a recognized error is
 | `InvalidServerKey { server_key: String }` | config validation |
 | `InvalidResponseLimit { minimum: usize }` | configured response limit is smaller than the explicit truncation envelope |
 | `InvalidTimeout` | a configured request or tool-call timeout is zero |
+| `InvalidToolPageLimit` | configured tool-list page limit is zero |
+| `PaginationCursorCycle { method: String }` | a paginated response reused an opaque cursor before completion |
+| `PaginationLimitExceeded { method: String, limit: usize }` | a paginated response named another page after reaching the configured bound |
 | `UnsupportedContentType { content_type: Option<String> }` | a successful non-empty JSON response omitted `Content-Type` or used a media type other than `application/json` |
 
 ## Testing requirements
@@ -520,8 +533,12 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
   instructions, omitted `listChanged` defaulting to false, `Mcp-Session-Id`
   capture and replay, `MCP-Protocol-Version` header on follow-up requests, and
   `notifications/initialized` getting 202.
-- `tools/list` pagination across cursors; stale-flag set by
-  `list_changed` inside a call's SSE stream and cleared by `list_tools`.
+- `tools/list` pagination across cursors, repeated and longer cursor-cycle
+  rejection before a duplicate request, distinct-cursor page-limit
+  enforcement, one-page and empty-cursor boundaries, and preservation of a
+  stale flag when bounded pagination fails. Also cover stale-flag set by
+  `list_changed` inside a call's SSE stream and cleared by successful
+  `list_tools`.
 - `tools/call` mapping: structured content, single-text collapse, multi-block
   array, `is_error` → `Ok` envelope, truncation envelope.
 - Server-request handling: `ping` gets an empty result reply and unsupported

@@ -19,6 +19,9 @@ belong to the host and the companion `ai-mcp-oauth` crate.
 trait-backed transport. It supports protocol versions `2025-06-18` and
 `2025-03-26`, session and protocol headers, paginated tool discovery, tool
 calls, server pings, tool-list invalidation, and session termination.
+Tool discovery accepts at most `max_tool_pages` pages (100 by default), rejects
+a repeated opaque cursor before sending it again, and returns typed errors
+without exposing a partial catalog or clearing existing invalidation state.
 
 `McpToolSet` snapshots discovered tools for `ai-interface` and
 `ai-tool-calling`. Names become `mcp__{server_key}__{sanitized_tool}` with

@@ -1,6 +1,6 @@
 //! High-level MCP initialization, tool, and session operations.
 
-use std::sync::atomic::Ordering;
+use std::{collections::BTreeSet, sync::atomic::Ordering};
 
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
@@ -80,6 +80,8 @@ impl McpClient for StreamableHttpMcpClient {
         let context = self.request_context().await?;
         let mut tools = Vec::new();
         let mut cursor: Option<String> = None;
+        let mut seen_cursors = BTreeSet::new();
+        let mut pages_fetched = 0;
         loop {
             let id = self.allocate_request_id()?;
             let params = cursor
@@ -97,11 +99,23 @@ impl McpClient for StreamableHttpMcpClient {
                 self.response_result("tools/list", id, response, &context)
                     .await?,
             )?;
+            pages_fetched += 1;
             tools.extend(page.tools);
-            cursor = page.next_cursor;
-            if cursor.is_none() {
+            let Some(next_cursor) = page.next_cursor else {
                 break;
+            };
+            if !seen_cursors.insert(next_cursor.clone()) {
+                return Err(Error::PaginationCursorCycle {
+                    method: "tools/list".to_owned(),
+                });
             }
+            if pages_fetched >= self.config.max_tool_pages {
+                return Err(Error::PaginationLimitExceeded {
+                    method: "tools/list".to_owned(),
+                    limit: self.config.max_tool_pages,
+                });
+            }
+            cursor = Some(next_cursor);
         }
         self.tools_stale.store(false, Ordering::SeqCst);
         Ok(tools)

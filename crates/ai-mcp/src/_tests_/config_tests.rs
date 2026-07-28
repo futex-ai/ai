@@ -13,6 +13,7 @@ fn defaults_match_the_protocol_contract() {
     assert_eq!(config.request_timeout, Duration::from_secs(30));
     assert_eq!(config.tool_call_timeout, Duration::from_secs(120));
     assert_eq!(config.max_response_bytes, 1024 * 1024);
+    assert_eq!(config.max_tool_pages, 100);
     assert_eq!(config.activity_verb, None);
 }
 
@@ -56,5 +57,19 @@ fn response_limit_must_fit_the_empty_truncation_envelope() {
 
     let mut config = McpServerConfig::new("calendar", "https://example.com/mcp");
     config.max_response_bytes = MIN_RESPONSE_BYTES;
+    assert!(config.validate().is_ok());
+}
+
+#[test]
+fn tool_page_limit_must_be_positive() {
+    let mut config = McpServerConfig::new("calendar", "https://example.com/mcp");
+    config.max_tool_pages = 0;
+
+    assert!(matches!(
+        config.validate(),
+        Err(Error::InvalidToolPageLimit)
+    ));
+
+    config.max_tool_pages = 1;
     assert!(config.validate().is_ok());
 }
