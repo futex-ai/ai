@@ -307,7 +307,7 @@ regress a newer successful acknowledgement.
 - [x] Run `cargo xtask check` and resolve every failure.
 - [x] Run `git add -A`, commit the checked work with a Conventional Commit
       title no longer than 50 characters, and push the current branch.
-- [ ] Run the next `cargo xtask review` against `origin/main`; continue only
+- [x] Run the next `cargo xtask review` against `origin/main`; continue only
       for independently valid, Fable-confirmed findings without exceeding the
       ten-cycle limit.
 - [ ] Once the authorized review loop has no valid finding left, mark this

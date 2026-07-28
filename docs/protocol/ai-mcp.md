@@ -121,6 +121,11 @@ Required transport behavior (streamable HTTP, single endpoint URL):
 The transport may buffer only enough data to decode the next complete SSE
 event. It must return a live, pull-based event stream as soon as the HTTP status
 and headers are available; it must not wait for the response body to reach EOF.
+Each SSE line accepts the WHATWG CRLF, standalone CR, or LF ending,
+independently of adjacent lines. CRLF is one ending even when its bytes arrive
+in separate chunks. A CR-terminated blank line at the end of received bytes
+completes its event immediately; if a later LF completes that CRLF pair, the
+resulting no-data empty event is ignored.
 The client consumes JSON-RPC messages in arrival order and handles each rule 10
 message before requesting the next event. In particular, it POSTs a response
 to a server request while the original SSE response remains open, then resumes
@@ -540,9 +545,11 @@ itself stays actionable. A 401 without a recognized error is
 
 Unit tests (unimock the transport / client per repo `_tests_` conventions):
 
-- SSE parser: chunk-split and multi-event bodies, multi-line `data:`, ignored
-  `event:`/`id:` fields, yielding completed events before EOF, and cumulative
-  size-cap enforcement.
+- SSE parser: chunk-split and multi-event bodies, multi-line `data:`, every
+  WHATWG CRLF/CR/LF line-ending combination, mixed framing, splits between CR
+  and LF, one CRLF never counting as a blank line, ignored `event:`/`id:`
+  fields, yielding completed events before EOF, and cumulative size-cap
+  enforcement.
 - Handshake: version negotiation success + `UnsupportedProtocolVersion`,
   public handshake projection for server identity, tools capability, and
   instructions, omitted `listChanged` defaulting to false, `Mcp-Session-Id`

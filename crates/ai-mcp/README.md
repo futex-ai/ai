@@ -11,7 +11,8 @@ belong to the host and the companion `ai-mcp-oauth` crate.
 - Discover and call server tools through typed protocol DTOs.
 - Preserve session state, authorization challenges, and tool-list
   invalidations.
-- Decode JSON or incremental SSE responses within configured size limits.
+- Decode JSON or incremental WHATWG SSE responses, including CRLF, CR, and LF
+  line endings, within configured size limits.
 
 ## What This Crate Does
 
@@ -46,13 +47,15 @@ non-empty request responses require `application/json` or
 `text/event-stream`, with case-insensitive media-type matching and optional
 parameters. Missing or unsupported JSON response media types return
 `UnsupportedContentType`; empty `202`, DELETE success, and non-success response
-bodies retain their status-specific behavior. Every inbound JSON or SSE
-message must declare `jsonrpc: "2.0"`; malformed responses and side messages
-fail the scoped request before their message-specific behavior runs. Only a
-method-bearing message that omits `id` is a notification; requests and success
-responses require string or number ids, while error responses additionally
-allow explicit null. Missing response ids and null or wrong-typed request ids
-fail before any notification or server-request side effect. A response must
+bodies retain their status-specific behavior. Incremental SSE framing accepts
+CRLF, standalone CR, and LF independently per line, including CRLF split
+across chunks. Every inbound JSON or SSE message must declare
+`jsonrpc: "2.0"`; malformed responses and side messages fail the scoped request
+before their message-specific behavior runs. Only a method-bearing message
+that omits `id` is a notification; requests and success responses require
+string or number ids, while error responses additionally allow explicit null.
+Missing response ids and null or wrong-typed request ids fail before any
+notification or server-request side effect. A response must
 contain exactly one of `result` or `error`; both members together fail as a
 malformed response regardless of their values or identifier.
 When a session-bound request returns 404, the client surfaces

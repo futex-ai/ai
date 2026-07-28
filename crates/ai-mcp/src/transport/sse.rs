@@ -64,20 +64,33 @@ struct EventEnd {
     consumed: usize,
 }
 
+/// Finds the first blank line using every WHATWG line-ending form.
+///
+/// A trailing CR can complete an empty line immediately because bytes are
+/// drained only for a complete event. If a later LF completes that CRLF pair,
+/// it forms a no-data empty event and is skipped. A CR ending a non-empty line
+/// remains buffered, so a later LF is seen contiguously on the next scan.
 fn event_end(buffer: &[u8]) -> Option<EventEnd> {
-    for index in 0..buffer.len() {
-        if buffer[index..].starts_with(b"\r\n\r\n") {
+    let mut line_start = 0;
+    let mut index = 0;
+    while index < buffer.len() {
+        let terminator_len = match buffer[index] {
+            b'\n' => 1,
+            b'\r' if buffer.get(index + 1) == Some(&b'\n') => 2,
+            b'\r' => 1,
+            _ => {
+                index += 1;
+                continue;
+            }
+        };
+        if index == line_start {
             return Some(EventEnd {
-                payload: index,
-                consumed: index + 4,
+                payload: line_start,
+                consumed: index + terminator_len,
             });
         }
-        if buffer[index..].starts_with(b"\n\n") {
-            return Some(EventEnd {
-                payload: index,
-                consumed: index + 2,
-            });
-        }
+        index += terminator_len;
+        line_start = index;
     }
     None
 }
@@ -87,7 +100,7 @@ fn decode_event(bytes: &[u8]) -> Result<Option<Value>> {
         Ok(text) => text,
         Err(source) => return Err(Error::transport(&source)),
     };
-    let normalized = text.replace("\r\n", "\n");
+    let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
     let mut data = Vec::new();
     for line in normalized.split('\n') {
         let Some((field, value)) = line.split_once(':') else {

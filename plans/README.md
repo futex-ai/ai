@@ -7,6 +7,7 @@ milestones are finished.
 ## Active
 
 - [AI MCP crate](ai-mcp-crate.md)
+- [MCP SSE line endings](mcp-sse-line-endings.md)
 
 ## Completed
 
