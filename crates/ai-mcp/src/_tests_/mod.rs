@@ -3,6 +3,7 @@
 mod authorization_tests;
 mod client;
 mod config_tests;
+mod content_serde_tests;
 mod protocol_tests;
 mod rpc_response_tests;
 mod sse_tests;

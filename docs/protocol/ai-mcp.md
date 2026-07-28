@@ -437,7 +437,11 @@ pub enum McpResourceContents {
 ```
 
 Wire serde names are `mimeType`, `lastModified`, and `_meta`; optional fields
-default to `None`. `McpRole` uses lowercase `user` and `assistant`.
+default to `None`. Within a known `annotations` object, absent members remain
+omitted during serialization. Schema-invalid explicit `null` annotation
+members also decode as absent and normalize to omission; present values,
+including an empty `audience` array and numeric-zero `priority`, remain
+present. `McpRole` uses lowercase `user` and `assistant`.
 `McpResourceContents` is untagged and selected by the exclusive presence of
 `text` or `blob`; both or neither is malformed. Content-block deserialization
 uses `type` to select the five known variants (`text`, `image`, `audio`,

@@ -13,6 +13,7 @@ milestones are finished.
 - [MCP close replacement session](mcp-close-replacement-session.md)
 - [OAuth discovery single-flight](oauth-discovery-single-flight.md)
 - [OAuth user-agent deadline](oauth-user-agent-deadline.md)
+- [MCP partial annotation serialization](mcp-partial-annotation-serialization.md)
 
 ## Completed
 

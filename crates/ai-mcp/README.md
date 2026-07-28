@@ -116,7 +116,10 @@ configuration before remote discovery. Structured MCP results pass through,
 single text blocks collapse to strings, multi-block results retain their MCP
 wire JSON, and remote `isError` results remain successful model-visible error
 envelopes, including after bounded truncation. Protocol and transport failures
-become `ToolError::Execution`.
+become `ToolError::Execution`. Within known content annotations, absent or
+explicit-null `audience`, `priority`, and `lastModified` members are omitted
+from model-visible JSON; present empty audience lists and zero priorities
+remain present.
 
 For a fixed Bearer credential, replace the default auth hook with:
 

@@ -116,8 +116,13 @@ async fn applies_result_precedence_and_preserves_wire_content() {
 
     assert_eq!(error_output["is_error"], true);
     assert_eq!(error_output["content"][0]["_meta"]["trace"], "one");
+    assert_eq!(
+        error_output["content"][0]["annotations"],
+        json!({"audience": ["assistant"]})
+    );
     assert!(error_output.get("truncated").is_none());
     assert_eq!(structured, json!({"answer": 42}));
+    assert_eq!(multi[0]["annotations"], json!({"audience": ["assistant"]}));
     assert_eq!(multi[1], json!({"type":"future","value":7}));
 }
 

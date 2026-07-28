@@ -10,10 +10,13 @@ use serde_json::Value;
 /// Optional annotations attached to MCP content.
 pub struct McpAnnotations {
     /// Intended recipients for this content.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<Vec<McpRole>>,
     /// Relative priority represented by a JSON number.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<serde_json::Number>,
     /// Optional ISO 8601 modification timestamp.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub last_modified: Option<String>,
 }
 
