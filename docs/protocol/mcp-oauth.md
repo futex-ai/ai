@@ -305,12 +305,14 @@ pub trait AuthorizationServerSelector: Send + Sync {
 ```
 
 `OAuthHttpTransport` separately models bounded GET JSON, POST JSON, and POST
-form requests. The production decoder retains valid JSON at every status.
-Non-empty, non-JSON bodies fail successful discovery, registration, and token
-requests. For non-success responses they become `null` so endpoint consumers
-retain the typed HTTP status; revocation bodies become `null` at any status
-because only the status is meaningful. Empty bodies are also represented as
-`null`, and response-size limits apply before this decoding decision.
+form requests. The production decoder retains valid JSON for decoded
+responses. Non-empty, non-JSON bodies fail successful discovery, registration,
+and token requests. For decoded non-success responses they become `null` so
+endpoint consumers retain the typed HTTP status; valid JSON error bodies remain
+available. A revocation `2xx` is status-authoritative: capture its status and
+normalized headers, return a `null` body, and drop the unread body without
+size-limiting or decoding it. Other responses retain their configured body
+limit before decoding. Empty decoded bodies are represented as `null`.
 `OAuthClock` and `OAuthRandom` abstract time and cryptographically secure
 bytes. Production implementations are injected into
 `DefaultMcpOAuthManager`, which implements `McpOAuthManager`.
@@ -362,7 +364,8 @@ Errors and diagnostics never contain authorization codes or token values.
   peer so DNS cannot change between validation and use. Disable environment
   and system proxies for library-owned OAuth requests so proxy routing cannot
   bypass those pins; deployments with proxy-only egress fail closed. The
-  per-hop timeout covers DNS, connection, headers, and streamed response bytes.
+  per-hop timeout covers DNS, connection, headers, and every response body the
+  client consumes. Successful revocation bodies are dropped after headers.
   The same configured HTTP timeout bounds the initial browser-URL DNS
   preflight. Preflight that URL as described above, without claiming that the
   external browser connection is pinned.

@@ -43,13 +43,15 @@ grant cannot repair those outcomes.
 The production transport disables automatic redirects, follows only validated
 metadata GET redirects, and never redirects a registration, token, or
 revocation POST. Each HTTP-hop timeout covers DNS, connection, headers, and
-streamed response bytes; an unrepresentable deadline is rejected as invalid
-configuration. Validated addresses are pinned before dispatch. Environment and
-system proxies are ignored so they cannot bypass those pins; proxy-only egress
-therefore fails closed as a transport error. Valid JSON is retained at every
-status. Non-JSON error bodies preserve their status with a `null` body,
-successful discovery, registration, and token responses require JSON, and RFC
-7009 revocation success is determined only by status.
+every response body the client consumes; an unrepresentable deadline is
+rejected as invalid configuration. Validated addresses are pinned before
+dispatch. Environment and system proxies are ignored so they cannot bypass
+those pins; proxy-only egress therefore fails closed as a transport error.
+Valid JSON is retained for decoded responses. Non-JSON error bodies preserve
+their status with a `null` body, while successful discovery, registration, and
+token responses require JSON. RFC 7009 revocation success is determined only
+by status, so a revocation 2xx returns with a `null` body after headers and
+drops the unread body without applying its response-size limit.
 Before browser handoff, the manager separately resolves the initial
 authorization hostname within the same HTTP timeout and requires every address
 to satisfy the same policy. A stalled lookup surfaces as a typed DNS failure.
@@ -228,7 +230,7 @@ Unit tests use injected Unimock boundaries. The integration suite runs real
 MCP and OAuth reqwest transports against a credential-free loopback server,
 including DCR, PKCE callback, refresh, revocation, 401/403, SSE side responses,
 and DELETE authentication. Revocation coverage includes a successful
-plain-text response body.
+plain-text response body and an oversized accepted body that is not consumed.
 
 ### Key Code
 

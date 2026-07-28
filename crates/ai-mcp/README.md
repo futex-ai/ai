@@ -34,11 +34,13 @@ collision suffixes and a 64-character limit. Hosts own refresh cadence: build a
 new snapshot when `tools_list_changed()` is true or according to product cache
 policy.
 
-`max_response_bytes` bounds both raw MCP responses and model-visible adapter
-results. Configuration below 47 bytes is rejected so even an empty truncated
-remote-error envelope retains `is_error: true`; this correctness floor is not a
-practical handshake size recommendation. Oversized successful results keep the
-smaller success truncation shape without an `is_error` member.
+`max_response_bytes` bounds raw MCP response bodies the client consumes and
+model-visible adapter results. Configuration below 47 bytes is rejected so
+even an empty truncated remote-error envelope retains `is_error: true`; this
+correctness floor is not a practical handshake size recommendation. Oversized
+successful results keep the smaller success truncation shape without an
+`is_error` member. Accepted session DELETE bodies are not consumed or counted
+because 2xx and tolerated 405 statuses are authoritative.
 
 HTTP authentication is injected through `json_http::JsonHttpAuth`. The crate
 surfaces typed `AuthorizationRequired` and `Forbidden` errors but never opens a
@@ -47,11 +49,13 @@ does not follow redirects; a 3xx response is surfaced to the caller. Successful
 non-empty request responses require `application/json` or
 `text/event-stream`, with case-insensitive media-type matching and optional
 parameters. Missing or unsupported JSON response media types return
-`UnsupportedContentType`; empty `202`, DELETE success, and non-success response
-bodies retain their status-specific behavior. Incremental SSE framing accepts
-CRLF, standalone CR, and LF independently per line, including CRLF split
-across chunks. A colonless line is parsed as a field name with an empty value,
-so bare `data` is an empty event payload and fails strict MCP JSON decoding.
+`UnsupportedContentType`; empty `202` and non-success response bodies retain
+their status-specific behavior. A 2xx or tolerated 405 session DELETE returns
+after its headers and drops any response body without reading or limiting it.
+Incremental SSE framing accepts CRLF, standalone CR, and LF independently per
+line, including CRLF split across chunks. A colonless line is parsed as a field
+name with an empty value, so bare `data` is an empty event payload and fails
+strict MCP JSON decoding.
 Every inbound JSON or SSE message must declare
 `jsonrpc: "2.0"`; malformed responses and side messages fail the scoped request
 before their message-specific behavior runs. Only a method-bearing message
@@ -146,6 +150,7 @@ MCP operation at most once.
 ```sh
 cargo test -p ai-mcp --all-features
 cargo test -p ai-mcp --test json_transport_tests
+cargo test -p ai-mcp --test delete_transport_tests
 cargo test -p ai-mcp --test sse_transport_tests
 cargo test -p ai-mcp --test authorization_transport_tests
 cargo clippy -p ai-mcp --all-targets --all-features -- -D warnings
@@ -169,8 +174,8 @@ environment-gated live test.
 - `src/tool_set_naming.rs` — namespacing, sanitization, and collision handling
 - `src/tool_set_result.rs` — result precedence and UTF-8-safe truncation
 - `tests/support/` — reusable in-process server harness
-- `tests/*_transport_tests.rs` — JSON, live SSE, and authorization integration
-  flows
+- `tests/*_transport_tests.rs` — JSON, live SSE, authorization, and
+  status-authoritative session DELETE integration flows
 
 The companion crate's `tests/oauth_integration.rs` exercises this production
 client and both production reqwest transports against one credential-free

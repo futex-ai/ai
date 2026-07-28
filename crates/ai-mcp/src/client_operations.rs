@@ -11,6 +11,7 @@ use crate::{
     StreamableHttpMcpClient,
     client::{COMPATIBLE_PROTOCOL_VERSION, ClientState, LATEST_PROTOCOL_VERSION, RequestContext},
     protocol::{InitializeResult, ListToolsResult, notification, request},
+    transport::delete_status::is_tolerated_delete_status,
 };
 
 #[async_trait]
@@ -106,7 +107,7 @@ impl McpClient for StreamableHttpMcpClient {
                 self.config.request_timeout,
             )
             .await?;
-        if !(200..300).contains(&response.status) && response.status != 405 {
+        if !is_tolerated_delete_status(response.status) {
             return Err(self.scoped_http_error(response, &context).await);
         }
         {

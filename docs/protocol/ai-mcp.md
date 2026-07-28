@@ -154,9 +154,11 @@ target.
 
 Content-type enforcement applies when the client consumes a successful,
 non-empty JSON-RPC request response. Empty `202` notification and side-response
-bodies remain valid, DELETE success ignores its body, and non-success bodies
-remain leniently decoded so `Error::HttpStatus` can retain JSON or textual
-diagnostics.
+bodies remain valid. A session DELETE with a `2xx` or tolerated `405` status is
+status-authoritative: capture its status and normalized headers, then drop the
+body without reading, size-limiting, or decoding it. Every other DELETE status
+retains bounded, lenient body decoding so `Error::HttpStatus` can preserve JSON
+or textual diagnostics.
 
 The approved `SessionExpired` behavior leaves retry timing to the host while
 permitting the MCP 2025-06-18 required new session. The operation that receives
@@ -611,12 +613,14 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
 
 Integration tests (crate-root `tests/`, in-process Axum servers, real
 `ReqwestMcpHttpTransport`) cover JSON and SSE initialize → list → call flows,
-static Bearer authentication, session close, and repeated 401/403 challenges.
-The SSE server gates its matching response and EOF on receiving the client's
-reply to an interleaved server request, proving that the client processes
-events incrementally without deadlock. A credential-free MCP adapter is also
-constructed by `cargo xtask smoke-test`. No ignored live test is required
-unless a stable public MCP test server becomes available.
+static Bearer authentication, repeated 401/403 challenges, and session close.
+Dedicated DELETE coverage proves oversized 2xx and 405 bodies are not consumed
+and that accepted close still clears the captured session. The SSE server gates
+its matching response and EOF on receiving the client's reply to an interleaved
+server request, proving that the client processes events incrementally without
+deadlock. A credential-free MCP adapter is also constructed by
+`cargo xtask smoke-test`. No ignored live test is required unless a stable
+public MCP test server becomes available.
 
 The companion `ai-mcp-oauth` integration suite additionally drives this client
 through challenge discovery, DCR, PKCE authorization, stored-token reuse,

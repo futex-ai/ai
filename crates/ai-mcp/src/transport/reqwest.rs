@@ -12,6 +12,7 @@ use crate::{Error, Result};
 use super::{
     McpHttpPayload, McpHttpResponse, McpHttpTransport,
     content_type::{EVENT_STREAM, matches},
+    delete_status::is_tolerated_delete_status,
     sse::ReqwestEventStream,
 };
 
@@ -63,7 +64,7 @@ impl McpHttpTransport for ReqwestMcpHttpTransport {
             headers,
         );
         let response = send(builder).await?;
-        decode_response(response, max_response_bytes).await
+        decode_delete_response(response, max_response_bytes).await
     }
 }
 
@@ -108,6 +109,18 @@ async fn decode_response(response: Response, limit_bytes: usize) -> Result<McpHt
         headers,
         payload,
     })
+}
+
+async fn decode_delete_response(response: Response, limit_bytes: usize) -> Result<McpHttpResponse> {
+    let status = response.status().as_u16();
+    if is_tolerated_delete_status(status) {
+        return Ok(McpHttpResponse {
+            status,
+            headers: response_headers(&response),
+            payload: McpHttpPayload::None,
+        });
+    }
+    decode_response(response, limit_bytes).await
 }
 
 fn response_headers(response: &Response) -> BTreeMap<String, Vec<String>> {

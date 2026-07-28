@@ -16,6 +16,8 @@ milestones are finished.
 - [MCP partial annotation serialization](mcp-partial-annotation-serialization.md)
 - [MCP initialized context snapshot](mcp-initialized-context-snapshot.md)
 - [MCP colonless SSE data](mcp-sse-colonless-data.md)
+- [MCP status-authoritative DELETE](mcp-delete-status-authoritative.md)
+- [OAuth status-authoritative revocation](oauth-revocation-status-authoritative.md)
 
 ## Completed
 

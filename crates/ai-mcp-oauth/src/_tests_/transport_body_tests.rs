@@ -40,6 +40,29 @@ async fn successful_revocation_ignores_a_plain_text_body() {
 }
 
 #[tokio::test]
+async fn successful_revocation_ignores_an_oversized_body() {
+    let app = Router::new().route(
+        "/revoke",
+        post(|| async { (StatusCode::CREATED, "x".repeat(2048)).into_response() }),
+    );
+    let address = serve(app).await;
+
+    let response = transport()
+        .post_form(
+            &format!("http://{address}/revoke"),
+            OAuthEndpointKind::Revocation,
+            &policy(),
+            limits(),
+            &[],
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status, 201);
+    assert_eq!(response.body, Value::Null);
+}
+
+#[tokio::test]
 async fn non_json_error_responses_preserve_endpoint_statuses() {
     let app = Router::new()
         .route(

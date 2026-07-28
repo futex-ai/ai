@@ -14,6 +14,13 @@ pub(super) async fn bounded_response(
 ) -> Result<OAuthHttpResponse> {
     let status = response.status().as_u16();
     let headers = normalized_headers(response.headers());
+    if endpoint == OAuthEndpointKind::Revocation && (200..300).contains(&status) {
+        return Ok(OAuthHttpResponse {
+            status,
+            headers,
+            body: Value::Null,
+        });
+    }
     let mut bytes = Vec::new();
     let mut stream = response.bytes_stream();
     while let Some(chunk) = stream.next().await {
