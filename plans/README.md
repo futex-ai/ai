@@ -11,6 +11,7 @@ milestones are finished.
 
 ## Completed
 
+- [Add Kimi model provider](add-kimi-model-provider.md)
 - [MCP JSON-RPC response exclusivity](mcp-json-rpc-response-exclusivity.md)
 - [MCP JSON-RPC identifier validation](mcp-json-rpc-id-validation.md)
 - [OAuth transient invalid-grant preservation](oauth-transient-invalid-grant-preservation.md)

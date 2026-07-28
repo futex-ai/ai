@@ -12,6 +12,7 @@ ai-mcp.workspace = true
 ai-mcp-oauth.workspace = true
 ai-models-anthropic.workspace = true
 ai-models-google.workspace = true
+ai-models-kimi.workspace = true
 ai-models-minimax.workspace = true
 ai-models-openai.workspace = true
 ai-models-xai.workspace = true

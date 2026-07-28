@@ -171,6 +171,7 @@ fn legacy_function_call(message: &ConversationMessage) -> Option<LegacyFunctionC
         ProviderConversationItem::OpenAiMessage { .. }
         | ProviderConversationItem::OpenAiReasoning { .. }
         | ProviderConversationItem::OpenAiFunctionCall { .. }
+        | ProviderConversationItem::KimiAssistantMessage { .. }
         | ProviderConversationItem::MiniMaxAssistant { .. }
         | ProviderConversationItem::XaiLegacyFunctionCall { .. } => None,
     })
