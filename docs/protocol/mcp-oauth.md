@@ -101,8 +101,12 @@ invalid configuration rather than panicking.
 - The protected-resource response must be JSON, stay within configured size
   and timeout limits, and return `resource` exactly equal to the canonical MCP
   resource. Unknown fields are ignored.
-- `authorization_servers` must contain at least one valid issuer. One issuer
-  may be selected automatically. Multiple issuers require the injected
+- `authorization_servers` must contain at least one issuer. Before automatic or
+  host selection, every advertised value must pass the configured URL policy
+  and RFC 8414 issuer form, including no query or fragment. One invalid value
+  fails the entire metadata response; do not filter or expose a partially
+  validated choice set. Preserve exact valid strings and wire order. One issuer
+  may then be selected automatically. Multiple issuers require the injected
   `AuthorizationServerSelector`; cancellation is a typed outcome.
 - Fetch RFC 8414 metadata for the selected issuer. The returned `issuer` must
   exactly match, and authorization, token, and optional registration endpoints
@@ -359,10 +363,10 @@ Errors and diagnostics never contain authorization codes or token values.
 
 ## Verification
 
-Unit tests cover canonicalization, well-known path insertion, metadata
-validation, issuer selection, registration precedence, DCR, PKCE vectors,
-state lifecycle, scope minimization, token parsing, expiry skew, refresh
-rotation, single-flight behavior, and redaction.
+Unit tests cover canonicalization, well-known path insertion, whole-list issuer
+validation before selection, exact ordered selector input, registration
+precedence, DCR, PKCE vectors, state lifecycle, scope minimization, token
+parsing, expiry skew, refresh rotation, single-flight behavior, and redaction.
 Token tests distinguish status-preserving authorization-code `invalid_grant`
 from refresh-only stale-credential cleanup.
 

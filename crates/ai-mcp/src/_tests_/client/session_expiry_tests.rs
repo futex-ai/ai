@@ -10,7 +10,9 @@ use serde_json::json;
 
 use crate::{Error, McpClient, McpServerConfig, StreamableHttpMcpClient, client::RequestContext};
 
-use super::support::{ScriptedTransport, empty_response, event_response, json_response};
+use super::support::{
+    DeleteGate, ScriptedTransport, empty_response, event_response, json_response,
+};
 
 #[tokio::test]
 async fn host_retry_reinitializes_after_session_expiry() {
@@ -101,6 +103,82 @@ async fn close_404_clears_expired_session_before_returning_error() {
     assert!(client.state.lock().await.handshake.is_none());
     client.close().await.unwrap();
     assert_eq!(transport.delete_count(), 1);
+}
+
+#[tokio::test]
+async fn stale_close_completion_preserves_a_replacement_session() {
+    let gate = DeleteGate::new();
+    let transport = ScriptedTransport::new_with_delete_gate(
+        vec![
+            initialized_response(1, "session-1", "first"),
+            empty_response(202),
+            empty_response(200),
+            initialized_response(2, "session-2", "replacement"),
+            empty_response(202),
+        ],
+        gate.clone(),
+    );
+    let client = Arc::new(client(transport.clone()));
+    client.ensure_initialized().await.unwrap();
+    let close_client = client.clone();
+    let closing = tokio::spawn(async move { close_client.close().await });
+    gate.wait_started().await;
+
+    let error = client
+        .response_result(
+            "tools/call",
+            3,
+            json_response(404, json!({"error":"gone"}), BTreeMap::new()),
+            &RequestContext {
+                session_id: Some("session-1".to_owned()),
+                protocol_version: Some("2025-06-18".to_owned()),
+            },
+        )
+        .await
+        .unwrap_err();
+    assert!(matches!(error, Error::SessionExpired));
+    assert_eq!(
+        client.ensure_initialized().await.unwrap().server_info.name,
+        "replacement"
+    );
+
+    gate.release();
+    closing.await.unwrap().unwrap();
+
+    let state = client.state.lock().await;
+    assert_eq!(state.session_id.as_deref(), Some("session-2"));
+    assert_eq!(
+        state
+            .handshake
+            .as_ref()
+            .map(|value| value.server_info.name.as_str()),
+        Some("replacement")
+    );
+    assert_eq!(
+        transport.deletes()[0]
+            .get("Mcp-Session-Id")
+            .map(String::as_str),
+        Some("session-1")
+    );
+}
+
+#[tokio::test]
+async fn matching_accepted_close_clears_session_state() {
+    for status in [200, 405] {
+        let transport = ScriptedTransport::new(vec![
+            initialized_response(1, "session-1", "first"),
+            empty_response(202),
+            empty_response(status),
+        ]);
+        let client = client(transport);
+        client.ensure_initialized().await.unwrap();
+
+        client.close().await.unwrap();
+
+        let state = client.state.lock().await;
+        assert!(state.handshake.is_none());
+        assert!(state.session_id.is_none());
+    }
 }
 
 #[tokio::test]

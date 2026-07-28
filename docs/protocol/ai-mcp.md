@@ -162,7 +162,10 @@ a session without the expired id. In-flight responses compare their request
 session with current state before invalidating it, so a late `404` for an old
 session cannot erase a replacement session established concurrently. The same
 rule covers ordinary request responses, server-message response POSTs, and
-session DELETE.
+session DELETE. After a `2xx` or tolerated `405` DELETE, clear cached state only
+if the session captured for that DELETE is still current. If a replacement was
+established while DELETE was in flight, return success without clearing or
+closing the replacement.
 
 ## Crate layout
 
@@ -215,7 +218,7 @@ pub struct McpServerConfig {
     /// Timeout for tools/call requests. Default 120s.
     pub tool_call_timeout: Duration,
     /// Cap on bytes read from a response or exposed by a tool. Default 1 MiB;
-    /// minimum 31 bytes so the empty truncation envelope always fits.
+    /// minimum 47 bytes so the empty remote-error truncation envelope fits.
     pub max_response_bytes: usize,
     /// Maximum pages accepted from one tools/list operation. Default 100;
     /// zero is invalid.
@@ -476,11 +479,17 @@ emits an `Unknown` value unchanged. `structured_content` maps to
   4. `is_error == false` and `structured_content` present → return it directly.
   5. Else if content is exactly one `Text` block → `Value::String(text)`.
   6. Else → `Value::Array` of the wire-JSON content blocks.
-  - If the serialized result would exceed `max_response_bytes`, return
-    `json!({"truncated": true, "content": "<utf-8-safe prefix>"})`.
-  - Reject configuration below the 31-byte serialized empty truncation
-    envelope. This is a correctness floor, not a recommended operational
-    response limit; realistic MCP handshakes require more space.
+  - If a remote error would exceed `max_response_bytes`, return
+    `json!({"is_error": true, "truncated": true, "content":
+    "<utf-8-safe prefix of serialized mapped content>"})`. Truncation must
+    never remove the remote-failure marker.
+  - If any non-error result would exceed the limit, return
+    `json!({"truncated": true, "content":
+    "<utf-8-safe prefix of the serialized result>"})`; do not add
+    `is_error: false`.
+  - Reject configuration below the 47-byte serialized empty remote-error
+    truncation envelope. This is a correctness floor, not a recommended
+    operational response limit; realistic MCP handshakes require more space.
 
 ## Error contract
 
@@ -565,7 +574,8 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
   concurrent lists whose older completion must not regress a newer
   acknowledgement.
 - `tools/call` mapping: structured content, single-text collapse, multi-block
-  array, `is_error` → `Ok` envelope, truncation envelope.
+  array, `is_error` → `Ok` envelope, success/error truncation envelopes,
+  failure-marker preservation, exact minimum bounds, and UTF-8-safe prefixes.
 - Server-request handling: `ping` gets an empty result reply and unsupported
   server requests get `-32601`, with each response POST completed before the
   client polls the original SSE stream for another event.

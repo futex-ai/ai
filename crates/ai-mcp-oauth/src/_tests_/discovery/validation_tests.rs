@@ -3,7 +3,10 @@
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
-use crate::{AuthorizationServerSelectorMock, Error, McpOAuthDiscovery};
+use crate::{
+    AuthorizationServerSelectorMock, Error, McpOAuthDiscovery, OAuthEndpointKind,
+    OAuthUnsafeUrlReason,
+};
 
 use super::support::{challenge, discovery, protected_json, resource, response, server_json};
 
@@ -61,7 +64,11 @@ async fn multiple_issuers_require_and_validate_host_selection() {
     let selector = Unimock::new(
         AuthorizationServerSelectorMock::select
             .next_call(matching!(_, _))
-            .returns(Ok("https://two.example".to_owned())),
+            .answers(&|_, selected_resource: &str, issuers: &[String]| {
+                assert_eq!(selected_resource, "https://mcp.example/api");
+                assert_eq!(issuers, ["https://one.example", "https://two.example"]);
+                Ok("https://two.example".to_owned())
+            }),
     );
     let discovery = discovery(
         vec![
@@ -87,6 +94,65 @@ async fn multiple_issuers_require_and_validate_host_selection() {
         .unwrap();
 
     assert_eq!(result.authorization_server.issuer, "https://two.example");
+}
+
+#[tokio::test]
+async fn invalid_issuer_fails_before_host_selection() {
+    for (issuer, expected) in [
+        ("not a url", "invalid"),
+        ("http://auth.example", "scheme"),
+        ("https://auth.example?unexpected=true", "query"),
+        ("https://auth.example#fragment", "fragment"),
+        ("https://localhost", "address"),
+    ] {
+        let discovery = discovery(
+            vec![response(
+                json!({
+                    "resource": "https://mcp.example/api",
+                    "authorization_servers": ["https://valid.example", issuer]
+                }),
+                60,
+            )],
+            Unimock::new(()),
+            vec![100],
+        );
+
+        let error = discovery
+            .discover(&resource(), &challenge(None))
+            .await
+            .unwrap_err();
+
+        match expected {
+            "invalid" | "query" => assert!(matches!(
+                error,
+                Error::InvalidUrl {
+                    endpoint: OAuthEndpointKind::AuthorizationServerMetadata
+                }
+            )),
+            "scheme" => assert!(matches!(
+                error,
+                Error::UnsafeUrl {
+                    endpoint: OAuthEndpointKind::AuthorizationServerMetadata,
+                    reason: OAuthUnsafeUrlReason::Scheme
+                }
+            )),
+            "fragment" => assert!(matches!(
+                error,
+                Error::UnsafeUrl {
+                    endpoint: OAuthEndpointKind::AuthorizationServerMetadata,
+                    reason: OAuthUnsafeUrlReason::Fragment
+                }
+            )),
+            "address" => assert!(matches!(
+                error,
+                Error::UnsafeUrl {
+                    endpoint: OAuthEndpointKind::AuthorizationServerMetadata,
+                    reason: OAuthUnsafeUrlReason::Address
+                }
+            )),
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[tokio::test]

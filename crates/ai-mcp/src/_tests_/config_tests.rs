@@ -61,6 +61,20 @@ fn response_limit_must_fit_the_empty_truncation_envelope() {
 }
 
 #[test]
+fn response_limit_uses_the_error_truncation_floor() {
+    let mut config = McpServerConfig::new("calendar", "https://example.com/mcp");
+    config.max_response_bytes = 46;
+
+    assert!(matches!(
+        config.validate(),
+        Err(Error::InvalidResponseLimit { minimum: 47 })
+    ));
+
+    config.max_response_bytes = 47;
+    assert!(config.validate().is_ok());
+}
+
+#[test]
 fn tool_page_limit_must_be_positive() {
     let mut config = McpServerConfig::new("calendar", "https://example.com/mcp");
     config.max_tool_pages = 0;

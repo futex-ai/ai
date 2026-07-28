@@ -11,6 +11,7 @@ use std::{
 
 use async_trait::async_trait;
 use serde_json::Value;
+use tokio::sync::Notify;
 
 use crate::{McpEventStream, McpHttpPayload, McpHttpResponse, McpHttpTransport, Result};
 
@@ -25,6 +26,7 @@ pub(super) struct ScriptedTransport {
     posts: Mutex<Vec<RecordedPost>>,
     deletes: Mutex<Vec<BTreeMap<String, String>>>,
     side_reply_seen: Arc<AtomicBool>,
+    delete_gate: Option<Arc<DeleteGate>>,
 }
 
 impl ScriptedTransport {
@@ -36,11 +38,31 @@ impl ScriptedTransport {
         responses: Vec<McpHttpResponse>,
         side_reply_seen: Arc<AtomicBool>,
     ) -> Arc<Self> {
+        Self::new_with_gates(responses, side_reply_seen, None)
+    }
+
+    pub(super) fn new_with_delete_gate(
+        responses: Vec<McpHttpResponse>,
+        delete_gate: Arc<DeleteGate>,
+    ) -> Arc<Self> {
+        Self::new_with_gates(
+            responses,
+            Arc::new(AtomicBool::new(false)),
+            Some(delete_gate),
+        )
+    }
+
+    fn new_with_gates(
+        responses: Vec<McpHttpResponse>,
+        side_reply_seen: Arc<AtomicBool>,
+        delete_gate: Option<Arc<DeleteGate>>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             responses: Mutex::new(responses.into()),
             posts: Mutex::new(Vec::new()),
             deletes: Mutex::new(Vec::new()),
             side_reply_seen,
+            delete_gate,
         })
     }
 
@@ -50,6 +72,10 @@ impl ScriptedTransport {
 
     pub(super) fn delete_count(&self) -> usize {
         self.deletes.lock().unwrap().len()
+    }
+
+    pub(super) fn deletes(&self) -> Vec<BTreeMap<String, String>> {
+        self.deletes.lock().unwrap().clone()
     }
 
     fn next_response(&self) -> McpHttpResponse {
@@ -92,7 +118,34 @@ impl McpHttpTransport for ScriptedTransport {
         _timeout: Duration,
     ) -> Result<McpHttpResponse> {
         self.deletes.lock().unwrap().push(headers.clone());
-        Ok(self.next_response())
+        let response = self.next_response();
+        if let Some(gate) = &self.delete_gate {
+            gate.started.notify_one();
+            gate.release.notified().await;
+        }
+        Ok(response)
+    }
+}
+
+pub(super) struct DeleteGate {
+    started: Notify,
+    release: Notify,
+}
+
+impl DeleteGate {
+    pub(super) fn new() -> Arc<Self> {
+        Arc::new(Self {
+            started: Notify::new(),
+            release: Notify::new(),
+        })
+    }
+
+    pub(super) async fn wait_started(&self) {
+        self.started.notified().await;
+    }
+
+    pub(super) fn release(&self) {
+        self.release.notify_one();
     }
 }
 

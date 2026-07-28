@@ -116,8 +116,42 @@ async fn applies_result_precedence_and_preserves_wire_content() {
 
     assert_eq!(error_output["is_error"], true);
     assert_eq!(error_output["content"][0]["_meta"]["trace"], "one");
+    assert!(error_output.get("truncated").is_none());
     assert_eq!(structured, json!({"answer": 42}));
     assert_eq!(multi[1], json!({"type":"future","value":7}));
+}
+
+#[tokio::test]
+async fn truncated_remote_errors_preserve_the_error_marker() {
+    let outcome = error_outcome(&"failure".repeat(100));
+    let mapped_content = serde_json::to_value(&outcome.content).unwrap();
+    let serialized_content = serde_json::to_string(&mapped_content).unwrap();
+    let mut config = McpServerConfig::new("demo", "https://example.com/mcp");
+    config.max_response_bytes = 80;
+
+    let output = call_once_with_config(outcome, config).await;
+
+    assert_eq!(output["is_error"], true);
+    assert_eq!(output["truncated"], true);
+    let prefix = output["content"].as_str().unwrap();
+    assert!(serialized_content.starts_with(prefix));
+    assert!(serde_json::to_vec(&output).unwrap().len() <= 80);
+}
+
+#[tokio::test]
+async fn truncated_remote_error_prefix_ends_on_a_utf8_boundary() {
+    let outcome = error_outcome(&"é".repeat(100));
+    let mapped_content = serde_json::to_value(&outcome.content).unwrap();
+    let serialized_content = serde_json::to_string(&mapped_content).unwrap();
+    let mut config = McpServerConfig::new("demo", "https://example.com/mcp");
+    config.max_response_bytes = 80;
+
+    let output = call_once_with_config(outcome, config).await;
+
+    assert_eq!(output["is_error"], true);
+    let prefix = output["content"].as_str().unwrap();
+    assert!(serialized_content.starts_with(prefix));
+    assert!(serde_json::to_vec(&output).unwrap().len() <= 80);
 }
 
 #[tokio::test]
@@ -128,6 +162,7 @@ async fn truncation_envelope_ends_on_a_utf8_boundary() {
 
     assert_eq!(output["truncated"], true);
     assert!(output["content"].as_str().is_some());
+    assert!(output.get("is_error").is_none());
     assert!(serde_json::to_vec(&output).unwrap().len() <= 80);
 }
 
@@ -140,9 +175,23 @@ async fn truncation_envelope_respects_minimum_and_nearby_limits() {
 
         assert_eq!(output["truncated"], true);
         assert!(serde_json::to_vec(&output).unwrap().len() <= limit);
-        if limit == MIN_RESPONSE_BYTES {
-            assert_eq!(output["content"], "");
-        }
+    }
+}
+
+#[tokio::test]
+async fn truncation_envelopes_respect_the_error_floor() {
+    for limit in 47..=51 {
+        let mut config = McpServerConfig::new("demo", "https://example.com/mcp");
+        config.max_response_bytes = limit;
+        let error = call_once_with_config(error_outcome(&"x".repeat(100)), config.clone()).await;
+        let success = call_once_with_config(text_outcome(&"x".repeat(100)), config).await;
+
+        assert_eq!(error["is_error"], true);
+        assert_eq!(error["truncated"], true);
+        assert!(serde_json::to_vec(&error).unwrap().len() <= limit);
+        assert_eq!(success["truncated"], true);
+        assert!(success.get("is_error").is_none());
+        assert!(serde_json::to_vec(&success).unwrap().len() <= limit);
     }
 }
 
@@ -173,5 +222,17 @@ fn text_outcome(text: &str) -> McpToolCallOutcome {
         }],
         structured_content: None,
         is_error: false,
+    }
+}
+
+fn error_outcome(text: &str) -> McpToolCallOutcome {
+    McpToolCallOutcome {
+        content: vec![McpContentBlock::Text {
+            text: text.to_owned(),
+            annotations: None,
+            meta: None,
+        }],
+        structured_content: Some(json!({"ignored": true})),
+        is_error: true,
     }
 }

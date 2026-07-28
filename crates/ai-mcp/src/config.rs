@@ -21,6 +21,8 @@ pub struct McpServerConfig {
     /// Timeout for tool calls.
     pub tool_call_timeout: Duration,
     /// Maximum bytes accepted from one HTTP response or exposed tool result.
+    ///
+    /// Must be at least 47 so a truncated remote error retains its marker.
     pub max_response_bytes: usize,
     /// Maximum number of pages accepted from one tool-list operation.
     pub max_tool_pages: usize,

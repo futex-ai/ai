@@ -11,7 +11,7 @@ use crate::OAuthScopes;
 pub struct ProtectedResourceMetadata {
     /// Exact canonical MCP resource identifier.
     pub resource: String,
-    /// Advertised authorization-server issuers in wire order.
+    /// URL-policy and RFC 8414 validated issuers in exact wire order.
     pub authorization_servers: Vec<String>,
     /// Optional advertised scope catalog.
     pub scopes_supported: OAuthScopes,

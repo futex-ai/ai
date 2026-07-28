@@ -14,8 +14,8 @@ pub type DynAuthorizationServerSelector = Arc<dyn AuthorizationServerSelector>;
     unimock::unimock(api = AuthorizationServerSelectorMock)
 )]
 #[async_trait]
-/// Lets a host explicitly select among multiple advertised issuers.
+/// Lets a host explicitly select among multiple validated issuers.
 pub trait AuthorizationServerSelector: Send + Sync {
-    /// Selects one issuer or returns `Error::IssuerSelectionCancelled`.
+    /// Selects one validated issuer or returns `Error::IssuerSelectionCancelled`.
     async fn select(&self, resource: &str, issuers: &[String]) -> Result<String>;
 }

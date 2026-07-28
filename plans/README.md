@@ -8,6 +8,9 @@ milestones are finished.
 
 - [AI MCP crate](ai-mcp-crate.md)
 - [MCP SSE line endings](mcp-sse-line-endings.md)
+- [MCP error truncation envelope](mcp-error-truncation-envelope.md)
+- [OAuth issuer preselection validation](oauth-issuer-preselection-validation.md)
+- [MCP close replacement session](mcp-close-replacement-session.md)
 
 ## Completed
 

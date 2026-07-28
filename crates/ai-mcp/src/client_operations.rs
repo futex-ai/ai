@@ -166,7 +166,12 @@ impl McpClient for StreamableHttpMcpClient {
         if !(200..300).contains(&response.status) && response.status != 405 {
             return Err(self.scoped_http_error(response, &context).await);
         }
-        *self.state.lock().await = ClientState::default();
+        {
+            let mut state = self.state.lock().await;
+            if state.session_id == context.session_id {
+                *state = ClientState::default();
+            }
+        }
         Ok(())
     }
 }

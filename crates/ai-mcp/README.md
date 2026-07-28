@@ -35,9 +35,10 @@ new snapshot when `tools_list_changed()` is true or according to product cache
 policy.
 
 `max_response_bytes` bounds both raw MCP responses and model-visible adapter
-results. Configuration below 31 bytes is rejected so even an empty explicit
-truncation envelope fits; this correctness floor is not a practical handshake
-size recommendation.
+results. Configuration below 47 bytes is rejected so even an empty truncated
+remote-error envelope retains `is_error: true`; this correctness floor is not a
+practical handshake size recommendation. Oversized successful results keep the
+smaller success truncation shape without an `is_error` member.
 
 HTTP authentication is injected through `json_http::JsonHttpAuth`. The crate
 surfaces typed `AuthorizationRequired` and `Forbidden` errors but never opens a
@@ -62,7 +63,9 @@ When a session-bound request returns 404, the client surfaces
 `SessionExpired` without replaying that operation and invalidates only the
 matching expired state. Matching expiry records a tool-list invalidation. A
 later host-initiated operation initializes a fresh session; a delayed response
-from the old session cannot erase a newer one.
+from the old session cannot erase a newer one. A successful or tolerated
+session DELETE likewise clears state only while its captured session remains
+current, so a replacement established during `close()` stays active.
 
 ## Quick Start
 
@@ -112,7 +115,8 @@ Register the returned `Arc<dyn Tool>` in
 configuration before remote discovery. Structured MCP results pass through,
 single text blocks collapse to strings, multi-block results retain their MCP
 wire JSON, and remote `isError` results remain successful model-visible error
-envelopes. Protocol and transport failures become `ToolError::Execution`.
+envelopes, including after bounded truncation. Protocol and transport failures
+become `ToolError::Execution`.
 
 For a fixed Bearer credential, replace the default auth hook with:
 

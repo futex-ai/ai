@@ -100,7 +100,7 @@ impl DefaultMcpOAuthDiscovery {
             &protected_response,
             OAuthEndpointKind::ProtectedResourceMetadata,
         )?;
-        let protected = parse_protected_resource(resource, protected_response.body)?;
+        let protected = parse_protected_resource(resource, protected_response.body, &self.config)?;
         let issuer = select_issuer(
             self.selector.as_ref(),
             resource,
@@ -127,10 +127,7 @@ impl DefaultMcpOAuthDiscovery {
         &self,
         issuer: &str,
     ) -> Result<(AuthorizationServerMetadata, BTreeMap<String, Vec<String>>)> {
-        self.config
-            .url_policy
-            .parse(issuer, OAuthEndpointKind::AuthorizationServerMetadata)?;
-        let metadata_url = authorization_server_metadata_url(issuer)?;
+        let metadata_url = authorization_server_metadata_url(issuer, &self.config.url_policy)?;
         let response = self
             .transport
             .get_json(

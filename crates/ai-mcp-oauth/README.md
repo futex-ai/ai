@@ -21,8 +21,10 @@ retaining control of browser UX and secure persistence.
 ## What This Crate Does
 
 `DefaultMcpOAuthDiscovery` consumes the `McpAuthorizationChallenge` returned by
-`ai-mcp`, validates exact resource and issuer identity, and selects an
-authorization server through a host-provided `AuthorizationServerSelector`.
+`ai-mcp`, validates exact resource identity and every advertised issuer before
+selection, and selects an authorization server through a host-provided
+`AuthorizationServerSelector`. One malformed or unsafe issuer fails discovery
+instead of exposing a partially validated choice set.
 `DefaultOAuthClientRegistry` then uses a configured registration, a host store,
 or public-client dynamic registration in that order.
 Configured and cached registrations must match the approved redirect URI and
@@ -110,8 +112,9 @@ let registry = DefaultOAuthClientRegistry::new(transport, store, config)?;
 ```
 
 The host calls discovery after `ai-mcp` returns a typed 401/403 challenge,
-shows issuer selection when needed, and supplies secure registration storage.
-It must not silently select among multiple issuers. Call
+shows the already validated issuer choices when selection is needed, and
+supplies secure registration storage. It must not silently select among
+multiple issuers. Call
 `McpOAuthManager::authorize` only for authorization-required, invalid-token, or
 insufficient-scope challenges; `InvalidRequest` and `Forbidden` are rejected
 without opening a browser.

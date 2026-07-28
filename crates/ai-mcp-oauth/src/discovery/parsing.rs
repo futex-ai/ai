@@ -4,11 +4,10 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 use serde_json::Value;
-use url::Url;
 
 use crate::{
     AuthorizationServerMetadata, CanonicalMcpResource, Error, McpOAuthConfig, OAuthEndpointKind,
-    OAuthHttpResponse, OAuthScopes, ProtectedResourceMetadata, Result,
+    OAuthHttpResponse, OAuthScopes, OAuthUrlPolicy, ProtectedResourceMetadata, Result,
 };
 
 #[derive(Deserialize)]
@@ -44,6 +43,7 @@ struct AuthorizationServerWire {
 pub(super) fn parse_protected_resource(
     resource: &CanonicalMcpResource,
     body: Value,
+    config: &McpOAuthConfig,
 ) -> Result<ProtectedResourceMetadata> {
     let wire: ProtectedResourceWire =
         decode_metadata(body, OAuthEndpointKind::ProtectedResourceMetadata)?;
@@ -55,6 +55,9 @@ pub(super) fn parse_protected_resource(
     }
     if wire.authorization_servers.is_empty() {
         return Err(Error::MissingAuthorizationServer);
+    }
+    for issuer in &wire.authorization_servers {
+        authorization_server_metadata_url(issuer, &config.url_policy)?;
     }
     Ok(ProtectedResourceMetadata {
         resource: wire.resource,
@@ -120,15 +123,11 @@ pub(super) fn require_discovery_response(
     Ok(())
 }
 
-pub(super) fn authorization_server_metadata_url(issuer: &str) -> Result<String> {
-    let mut url = match Url::parse(issuer) {
-        Ok(url) => url,
-        Err(_) => {
-            return Err(Error::InvalidUrl {
-                endpoint: OAuthEndpointKind::AuthorizationServerMetadata,
-            });
-        }
-    };
+pub(super) fn authorization_server_metadata_url(
+    issuer: &str,
+    policy: &OAuthUrlPolicy,
+) -> Result<String> {
+    let mut url = policy.parse(issuer, OAuthEndpointKind::AuthorizationServerMetadata)?;
     if url.query().is_some() {
         return Err(Error::InvalidUrl {
             endpoint: OAuthEndpointKind::AuthorizationServerMetadata,
