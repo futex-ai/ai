@@ -6,7 +6,7 @@ milestones are finished.
 
 ## Active
 
-No active plans.
+- [Add DeepSeek model provider](add-deepseek-model-provider.md)
 
 ## Completed
 
