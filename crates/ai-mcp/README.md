@@ -22,6 +22,10 @@ calls, server pings, tool-list invalidation, and session termination.
 Tool discovery accepts at most `max_tool_pages` pages (100 by default), rejects
 a repeated opaque cursor before sending it again, and returns typed errors
 without exposing a partial catalog or clearing existing invalidation state.
+Tool-list invalidations use monotonic generations: a successful `list_tools`
+acknowledges only events observed before its first page request. Notifications
+or matching session expiry during a refresh therefore remain visible, and an
+older concurrent refresh cannot regress a newer successful acknowledgement.
 
 `McpToolSet` snapshots discovered tools for `ai-interface` and
 `ai-tool-calling`. Names become `mcp__{server_key}__{sanitized_tool}` with
@@ -53,9 +57,9 @@ contain exactly one of `result` or `error`; both members together fail as a
 malformed response regardless of their values or identifier.
 When a session-bound request returns 404, the client surfaces
 `SessionExpired` without replaying that operation and invalidates only the
-matching expired state. When invalidation occurs, the client marks the tool
-snapshot stale. A later host-initiated operation initializes a fresh session;
-a delayed response from the old session cannot erase a newer one.
+matching expired state. Matching expiry records a tool-list invalidation. A
+later host-initiated operation initializes a fresh session; a delayed response
+from the old session cannot erase a newer one.
 
 ## Quick Start
 

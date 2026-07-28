@@ -1,6 +1,7 @@
 //! Protocol-client unit tests.
 
 mod error_tests;
+mod freshness;
 mod lifecycle_tests;
 mod pagination_tests;
 mod response_shape_tests;

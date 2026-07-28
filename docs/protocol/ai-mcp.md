@@ -80,8 +80,8 @@ Required transport behavior (streamable HTTP, single endpoint URL):
 5. Session: if the initialize HTTP response includes an `Mcp-Session-Id`
    header, include that header on every subsequent request. A `404` on a
    request that carried a session id means the session expired. If the cached
-   handshake and session still match that request, invalidate them and mark
-   the tool snapshot stale. Return `Error::SessionExpired` without replaying
+   handshake and session still match that request, invalidate them and record
+   a tool-list invalidation. Return `Error::SessionExpired` without replaying
    the failed operation. A later host-initiated operation starts a new session
    through the normal initialization path without the expired id.
 6. After negotiation, send `MCP-Protocol-Version: <negotiated>` as an HTTP
@@ -98,7 +98,8 @@ Required transport behavior (streamable HTTP, single endpoint URL):
    invalidation state.
 9. `tools/call` params: `{"name":"<original tool name>","arguments":{...}}`.
 10. Server messages that may appear inside a POST's SSE stream:
-    - `notifications/tools/list_changed` → set a stale flag (see API).
+    - `notifications/tools/list_changed` → record a tool-list invalidation
+      (see API).
     - `ping` request → POST back an empty-object result response.
     - any other server request (e.g. sampling) → POST back a JSON-RPC error
       response with code `-32601` (method not found).
@@ -258,11 +259,14 @@ pub enum McpHttpPayload {
 pub trait McpClient: Send + Sync {
     /// Idempotent handshake; returns negotiated version + server info.
     async fn ensure_initialized(&self) -> Result<McpServerHandshake>;
-    /// Full tool list (auto-initializes, auto-paginates, clears the stale flag).
+    /// Full tool list (auto-initializes and auto-paginates).
+    ///
+    /// Success acknowledges only invalidations observed before the first page
+    /// request; invalidations during the refresh remain visible.
     async fn list_tools(&self) -> Result<Vec<McpToolDescriptor>>;
     /// Calls one tool by its ORIGINAL (unprefixed) name.
     async fn call_tool(&self, name: &str, arguments: Value) -> Result<McpToolCallOutcome>;
-    /// True when a tools/list_changed notification was seen since the last list_tools.
+    /// True while an accepted tool-list invalidation remains unacknowledged.
     fn tools_list_changed(&self) -> bool;
     /// Terminates the session (HTTP DELETE; 405 tolerated).
     async fn close(&self) -> Result<()>;
@@ -318,9 +322,20 @@ headers across the transport seam. `McpHttpTransport` never owns or applies
 authentication. This follows the `json-http` request-builder pattern while
 keeping the MCP transport independently mockable. Callers pass
 `StaticHeaderAuth::default()` for unauthenticated servers. Internal session
-state (`Mcp-Session-Id`, negotiated version, id counter, stale flag) lives
-behind interior mutability; the type must be `Send + Sync` and safe for
-concurrent `call_tool`s.
+state (`Mcp-Session-Id`, negotiated version, id counter, and tool-list
+invalidation generations) lives behind interior mutability; the type must be
+`Send + Sync` and safe for concurrent operations.
+
+Tool-list invalidations are monotonic observed and acknowledged generations.
+After initialization and request-context resolution, `list_tools` captures the
+observed generation immediately before its first page request. Only a complete
+successful list acknowledges that captured generation; pagination and request
+failures acknowledge nothing. A notification or matching session expiry during
+the refresh therefore keeps `tools_list_changed()` true, including when the
+notification arrives in the list's own SSE stream. Acknowledgement is
+monotonic, so an older concurrent refresh cannot regress a newer completed
+refresh. Generations remain private; hosts continue to poll the Boolean API and
+own refresh cadence.
 
 ```rust
 /// One server tool as discovered from tools/list.
@@ -536,9 +551,12 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
 - `tools/list` pagination across cursors, repeated and longer cursor-cycle
   rejection before a duplicate request, distinct-cursor page-limit
   enforcement, one-page and empty-cursor boundaries, and preservation of a
-  stale flag when bounded pagination fails. Also cover stale-flag set by
-  `list_changed` inside a call's SSE stream and cleared by successful
-  `list_tools`.
+  tool-list invalidation when bounded pagination fails. Also cover clean
+  successful acknowledgement, in-band invalidation during a successful list,
+  a second invalidation when a refresh begins stale, concurrent call/list
+  invalidation, matching session expiry during a list, and out-of-order
+  concurrent lists whose older completion must not regress a newer
+  acknowledgement.
 - `tools/call` mapping: structured content, single-text collapse, multi-block
   array, `is_error` → `Ok` envelope, truncation envelope.
 - Server-request handling: `ping` gets an empty result reply and unsupported

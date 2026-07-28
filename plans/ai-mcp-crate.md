@@ -277,3 +277,39 @@ within its configured byte cap.
 - [x] After the push, run `cargo xtask review` and continue the authorized
       review-fix loop until no valid findings remain or the ten-cycle limit is
       reached.
+
+## Milestone 5: Concurrent Tool-List Freshness
+
+Replace lossy Boolean invalidation state with a race-safe generation contract.
+At the end of this milestone, notifications or matching session expiry during
+a tool-list refresh remain visible, while older concurrent refreshes cannot
+regress a newer successful acknowledgement.
+
+- [x] Independently reproduce the cycle-7 P2 finding and have Claude Code
+      Fable 5 validate its severity, the generation design, exact ordering,
+      failure behavior, and test contract before implementation.
+- [x] Add and run failure-first regressions for an in-band invalidation during
+      a successful list, a second invalidation when the list starts stale, and
+      a concurrent call/list invalidation race.
+- [x] Add deterministic coverage for out-of-order concurrent lists, matching
+      session expiry during a list, and the pure freshness state algebra.
+- [x] Encapsulate monotonic observed and acknowledged generations in a private
+      `ToolListFreshness` value; capture before the first page request,
+      invalidate accepted notifications and matching expiry, and acknowledge
+      only a complete successful list with non-regressing `fetch_max`.
+- [x] Align public trait docs, the MCP protocol, and the crate README with the
+      generation-based concurrency and failure contract.
+- [x] Run formatting, targeted Clippy with warnings denied, all `ai-mcp`
+      feature combinations, and the Rust file-length lint.
+- [x] Have Claude Code Fable 5 independently inspect the implementation,
+      tests, and documentation and validate that the solution closes every
+      required ordering without changing out-of-scope behavior.
+- [x] Run `cargo xtask check` and resolve every failure.
+- [x] Run `git add -A`, commit the checked work with a Conventional Commit
+      title no longer than 50 characters, and push the current branch.
+- [ ] Run the next `cargo xtask review` against `origin/main`; continue only
+      for independently valid, Fable-confirmed findings without exceeding the
+      ten-cycle limit.
+- [ ] Once the authorized review loop has no valid finding left, mark this
+      milestone complete, move this plan back to Completed in
+      `plans/README.md`, and commit and push the final bookkeeping.

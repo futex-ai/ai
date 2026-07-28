@@ -1,7 +1,5 @@
 //! HTTP and JSON-RPC response handling for the MCP client.
 
-use std::sync::atomic::Ordering;
-
 use serde_json::{Value, json};
 
 use crate::{
@@ -96,7 +94,7 @@ impl StreamableHttpMcpClient {
                 method: server_method,
             } => {
                 if server_method == "notifications/tools/list_changed" {
-                    self.tools_stale.store(true, Ordering::SeqCst);
+                    self.tools_freshness.invalidate();
                 }
                 Ok(None)
             }
@@ -126,7 +124,7 @@ impl StreamableHttpMcpClient {
         let mut state = self.state.lock().await;
         if state.session_id.as_deref() == Some(expired_session) {
             *state = Default::default();
-            self.tools_stale.store(true, Ordering::SeqCst);
+            self.tools_freshness.invalidate();
         }
     }
 

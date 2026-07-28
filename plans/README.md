@@ -6,7 +6,7 @@ milestones are finished.
 
 ## Active
 
-No active plans.
+- [AI MCP crate](ai-mcp-crate.md)
 
 ## Completed
 
@@ -26,6 +26,5 @@ No active plans.
 - [MCP lazy result serialization](mcp-lazy-result-serialization.md)
 - [OAuth authorization DNS timeout](oauth-authorization-dns-timeout.md)
 - [AI MCP OAuth](ai-mcp-oauth.md)
-- [AI MCP crate](ai-mcp-crate.md)
 - [Universal tool output management](universal-tool-output-management.md)
 - [Copy AI crates from Juno](copy-ai-crates-from-juno.md)

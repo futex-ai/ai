@@ -10,6 +10,7 @@ mod client_response;
 mod config;
 mod error;
 mod protocol;
+mod tool_list_freshness;
 mod tool_set;
 mod tool_set_naming;
 mod tool_set_result;

@@ -78,6 +78,7 @@ impl McpClient for StreamableHttpMcpClient {
     async fn list_tools(&self) -> Result<Vec<McpToolDescriptor>> {
         self.ensure_initialized().await?;
         let context = self.request_context().await?;
+        let freshness_generation = self.tools_freshness.capture();
         let mut tools = Vec::new();
         let mut cursor: Option<String> = None;
         let mut seen_cursors = BTreeSet::new();
@@ -117,7 +118,7 @@ impl McpClient for StreamableHttpMcpClient {
             }
             cursor = Some(next_cursor);
         }
-        self.tools_stale.store(false, Ordering::SeqCst);
+        self.tools_freshness.acknowledge(freshness_generation);
         Ok(tools)
     }
 
@@ -144,7 +145,7 @@ impl McpClient for StreamableHttpMcpClient {
     }
 
     fn tools_list_changed(&self) -> bool {
-        self.tools_stale.load(Ordering::SeqCst)
+        self.tools_freshness.is_stale()
     }
 
     async fn close(&self) -> Result<()> {

@@ -1,9 +1,6 @@
 //! Public MCP client boundary and retained runtime state.
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, AtomicU64},
-};
+use std::sync::{Arc, atomic::AtomicU64};
 
 use async_trait::async_trait;
 use json_http::DynJsonHttpAuth;
@@ -12,7 +9,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     DynMcpHttpTransport, McpServerConfig, McpServerHandshake, McpToolCallOutcome,
-    McpToolDescriptor, Result,
+    McpToolDescriptor, Result, tool_list_freshness::ToolListFreshness,
 };
 
 pub(crate) const LATEST_PROTOCOL_VERSION: &str = "2025-06-18";
@@ -31,13 +28,16 @@ pub trait McpClient: Send + Sync {
     /// Idempotently initializes the server connection.
     async fn ensure_initialized(&self) -> Result<McpServerHandshake>;
 
-    /// Returns the complete paginated server tool list.
+    /// Returns the complete paginated tool list.
+    ///
+    /// Success acknowledges only invalidations observed before the first page
+    /// request; invalidations during the refresh remain visible.
     async fn list_tools(&self) -> Result<Vec<McpToolDescriptor>>;
 
     /// Calls a server tool by its original unprefixed name.
     async fn call_tool(&self, name: &str, arguments: Value) -> Result<McpToolCallOutcome>;
 
-    /// Reports whether a tool-list invalidation was observed.
+    /// Reports whether an accepted tool-list invalidation remains unacknowledged.
     fn tools_list_changed(&self) -> bool;
 
     /// Terminates the active server session when one exists.
@@ -64,7 +64,7 @@ pub struct StreamableHttpMcpClient {
     pub(crate) state: Mutex<ClientState>,
     pub(crate) initialization_lock: Mutex<()>,
     pub(crate) next_request_id: AtomicU64,
-    pub(crate) tools_stale: AtomicBool,
+    pub(crate) tools_freshness: ToolListFreshness,
 }
 
 impl StreamableHttpMcpClient {
@@ -82,7 +82,7 @@ impl StreamableHttpMcpClient {
             state: Mutex::new(ClientState::default()),
             initialization_lock: Mutex::new(()),
             next_request_id: AtomicU64::new(1),
-            tools_stale: AtomicBool::new(false),
+            tools_freshness: ToolListFreshness::default(),
         })
     }
 }
