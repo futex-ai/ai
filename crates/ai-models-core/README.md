@@ -30,8 +30,8 @@ catalog variants that the provider/model supports.
 When callers request structured model responses, this crate also owns the
 shared JSON parsing and JSON Schema validation helpers used by provider crates.
 Synthetic tool-call scopes also hash provider replay context, including every
-Kimi raw assistant, reasoning, and tool-call field, so retained Kimi
-conversations remain distinct during deterministic id generation.
+DeepSeek and Kimi raw assistant, reasoning, and tool-call field, so retained
+provider conversations remain distinct during deterministic id generation.
 
 `UsagePricingModel` wraps any `ai_interface::Model` and applies a deployment
 provided `ModelPricing` snapshot to normalized usage categories. It emits
@@ -89,4 +89,5 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
+- [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)
 - [`../../plans/README.md`](../../plans/README.md)

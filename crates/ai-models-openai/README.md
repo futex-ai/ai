@@ -39,8 +39,8 @@ runtime wrappers from neighboring crates.
   preambles and final-answer phase metadata in the original output-item order
 - phase-less assistant message markers when function-call replay context needs
   the original OpenAI output item order
-- isolation from replay context owned by other providers, including Kimi
-  assistant reasoning and raw tool calls
+- isolation from replay context owned by other providers, including DeepSeek,
+  Kimi, and MiniMax assistant reasoning state and raw tool calls
 - provider response usage extraction into normalized input, output, cached
   input, and reasoning token counts
 - status, transport, and structured-output validation failure mapping onto

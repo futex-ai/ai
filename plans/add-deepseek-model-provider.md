@@ -117,6 +117,8 @@ and existing adapters ignore DeepSeek-owned context.
 - Modify `crates/ai-interface/src/_tests_/router_tests.rs`.
 - Modify `crates/ai-interface/src/_tests_/messages_tests.rs`.
 - Modify `crates/ai-interface/README.md`.
+- Modify `crates/ai-models-core/src/tool_call_identity.rs` and
+  `crates/ai-models-core/src/_tests_/tool_call_identity_tests.rs`.
 - Modify `crates/ai-models-openai/src/openai/request.rs` and
   `crates/ai-models-openai/src/openai/_tests_/openai_reasoning_replay_tests.rs`.
 - Modify `crates/ai-models-minimax/src/minimax/request.rs` and
@@ -125,22 +127,24 @@ and existing adapters ignore DeepSeek-owned context.
   `crates/ai-models-xai/src/xai/_tests_/xai_continuation_tests.rs`.
 - Modify `crates/ai-models-kimi/src/kimi/_tests_/request_tests.rs`.
 
-- [ ] Add failing routing tests for config parsing, display, snake-case serde,
+- [x] Add failing routing tests for config parsing, display, snake-case serde,
       and unknown-provider rejection for `deepseek`.
-- [ ] Add `ProviderKind::DeepSeek` and update every exhaustive provider match
+- [x] Add `ProviderKind::DeepSeek` and update every exhaustive provider match
       without catch-all arms.
-- [ ] Add failing serde tests for a DeepSeek replay item containing empty
+- [x] Add failing serde tests for a DeepSeek replay item containing empty
       content, optional reasoning, ordered calls, provider ids, names, and raw
       argument strings.
-- [ ] Add `DeepSeekToolCallContext` and
+- [x] Add `DeepSeekToolCallContext` and
       `ProviderConversationItem::DeepSeekAssistantMessage` with narrow
       visibility and complete public rustdoc.
-- [ ] Add regression tests proving OpenAI, MiniMax, xAI, Kimi, and other
+- [x] Add the DeepSeek item to deterministic tool-call scope hashing with
+      regression tests for every field.
+- [x] Add regression tests proving OpenAI, MiniMax, xAI, Kimi, and other
       providers never serialize DeepSeek-owned replay state.
-- [ ] Update `ai-interface` README responsibilities, behavior, Quick Start,
+- [x] Update `ai-interface` README responsibilities, behavior, Quick Start,
       key code, and related-doc links for DeepSeek identity and replay.
-- [ ] Run `cargo fmt --all -- --check` and
-      `cargo test -p ai-interface --all-features`.
+- [x] Run `cargo fmt --all -- --check` and
+      `cargo test -p ai-interface -p ai-models-core --all-features`.
 
 ## Milestone 2: Provider Crate, Catalog, And Text Completion
 
@@ -165,37 +169,38 @@ DeepSeek catalog variant and complete a non-tool text request.
 - Create `crates/ai-models-deepseek/src/deepseek/_tests_/request_tests.rs`.
 - Create `crates/ai-models-deepseek/src/deepseek/_tests_/input_tests.rs`.
 - Create `crates/ai-models-deepseek/src/deepseek/_tests_/response_tests.rs`.
+- Create `crates/ai-models-deepseek/src/deepseek/_tests_/client_tests.rs`.
 - Modify root `Cargo.toml` and generated `Cargo.lock`.
 
-- [ ] Add the crate to workspace members and dependencies with internal
+- [x] Add the crate to workspace members and dependencies with internal
       `{ workspace = true }` references; add external crates with `cargo add`
       and no guessed versions.
-- [ ] Add failing catalog tests for all six exact ids, provider ids,
+- [x] Add failing catalog tests for all six exact ids, provider ids,
       1,000,000-token context, Pro/Flash intelligence and speed tiers, low
       cost, enabled/disabled features, and high/max/disabled thinking.
-- [ ] Implement the six exported constants and `known_models()` exactly as
+- [x] Implement the six exported constants and `known_models()` exactly as
       specified; do not include legacy aliases or vision.
-- [ ] Add failing configuration tests for default Pro/high construction,
+- [x] Add failing configuration tests for default Pro/high construction,
       explicit auth, every valid model/thinking combination, unknown provider
       ids, and rejected Low/Medium/ExtraHigh thinking.
-- [ ] Implement `DeepSeekConfigurationError`,
+- [x] Implement `DeepSeekConfigurationError`,
       `DeepSeekConfigurationResult<T>`, and `DeepSeekModel` constructors
       behind `ai_interface::Model`.
-- [ ] Add failing request tests for the exact endpoint, bearer/custom auth,
+- [x] Add failing request tests for the exact endpoint, bearer/custom auth,
       `stream: false`, leading system message, all plain roles, optional names,
       tool result ids, empty strings, and omitted unsupported fields.
-- [ ] Add failing input tests proving every non-empty `content_parts` value
+- [x] Add failing input tests proving every non-empty `content_parts` value
       fails before auth and transport instead of dropping data.
-- [ ] Implement typed non-streaming request and response DTOs, text mapping,
+- [x] Implement typed non-streaming request and response DTOs, text mapping,
       injected request dispatch, shared HTTP classification, transient
       transport/auth handling, and internal serialization/deserialization
       handling.
-- [ ] Add stopped-response tests for provider/catalog ids, selected thinking,
+- [x] Add stopped-response tests for provider/catalog ids, selected thinking,
       nullable content, empty choices, and malformed typed wire fields.
-- [ ] Create the crate README with the required ordered sections, accurate
+- [x] Create the crate README with the required ordered sections, accurate
       limits, compiling Quick Start, development commands, key code, and
       protocol/plan links.
-- [ ] Run `cargo metadata --format-version 1 --no-deps`,
+- [x] Run `cargo metadata --format-version 1 --no-deps`,
       `cargo fmt --all -- --check`,
       `cargo clippy -p ai-models-deepseek --all-targets --all-features`, and
       `cargo test -p ai-models-deepseek --all-features`.
@@ -211,40 +216,36 @@ work through the shared runtime without exposing private reasoning.
 - Create `crates/ai-models-deepseek/src/deepseek/_tests_/thinking_tests.rs`.
 - Create `crates/ai-models-deepseek/src/deepseek/_tests_/tool_call_tests.rs`.
 - Create `crates/ai-models-deepseek/src/deepseek/_tests_/continuation_tests.rs`.
-- Modify `crates/ai-models-core/src/tool_call_identity.rs` and
-  `crates/ai-models-core/src/_tests_/tool_call_identity_tests.rs`.
 - Modify `crates/ai-models-core/README.md`.
 - Modify `crates/ai-tool-calling/src/turn/response.rs`.
 - Add `crates/ai-tool-calling/src/_tests_/deepseek_logging_redaction_tests.rs`
   and register it in `src/_tests_/mod.rs`.
 - Modify `crates/ai-tool-calling/README.md`.
 
-- [ ] Add failing thinking tests for
+- [x] Add failing thinking tests for
       `disabled` plus omitted effort, `enabled/high`, `enabled/max`, recorded
       normalized thinking, and the absence of sampling parameters.
-- [ ] Implement exact thinking serialization and omit `tool_choice` for every
+- [x] Implement exact thinking serialization and omit `tool_choice` for every
       request, including disabled-thinking tool requests.
-- [ ] Add failing tool tests for definitions, modern calls, parallel ordering,
+- [x] Add failing tool tests for definitions, modern calls, parallel ordering,
       provider ids, JSON argument parsing, raw argument preservation, tool
       results, and absent/null/empty/malformed dispatchable payloads.
-- [ ] Add failing terminal-safety tests proving tool payloads on every
+- [x] Add failing terminal-safety tests proving tool payloads on every
       non-tool finish are not parsed, dispatched, or retained.
-- [ ] Implement finish-gated parsing, require non-empty dispatchable calls,
+- [x] Implement finish-gated parsing, require non-empty dispatchable calls,
       and preserve raw DeepSeek calls separately from normalized `ToolCall`.
-- [ ] Add failing continuation tests proving exact content, reasoning, calls,
+- [x] Add failing continuation tests proving exact content, reasoning, calls,
       and tool-result pairing survive response parsing, shared serde, runtime
       retention, and the next provider request.
-- [ ] Add tests requiring reasoning on enabled-thinking tool responses while
+- [x] Add tests requiring reasoning on enabled-thinking tool responses while
       allowing it to be absent when thinking is disabled.
-- [ ] Implement DeepSeek replay only for dispatchable tool-call turns, prefer
+- [x] Implement DeepSeek replay only for dispatchable tool-call turns, prefer
       provider-owned raw replay over normalized assistant fields, and ignore
       all foreign replay items.
-- [ ] Add the DeepSeek item to deterministic tool-call scope hashing with
-      regression tests for every field.
-- [ ] Add logger tests proving private DeepSeek replay is removed from both
+- [x] Add logger tests proving private DeepSeek replay is removed from both
       request and response log copies but retained in live calls and
       conversation state; update the shared redaction boundary.
-- [ ] Run DeepSeek tests plus targeted `ai-models-core` identity and
+- [x] Run DeepSeek tests plus targeted `ai-models-core` identity and
       `ai-tool-calling` conversation/logging tests with a 100% pass rate.
 
 ## Milestone 4: Structured Output, Finish Safety, Usage, And Errors
@@ -262,32 +263,32 @@ fully covered by tests.
 - Create `crates/ai-models-deepseek/src/deepseek/_tests_/error_tests.rs`.
 - Modify the focused DeepSeek request, response, and client modules only.
 
-- [ ] Add failing structured-output tests for the augmented system prompt,
+- [x] Add failing structured-output tests for the augmented system prompt,
       schema name and value, required word `JSON`, raw-output instruction,
       `response_format: {"type":"json_object"}`, successful local validation,
       empty output, invalid JSON, invalid schema, and schema mismatch.
-- [ ] Implement JSON-object mode plus shared local parsing and validation only
+- [x] Implement JSON-object mode plus shared local parsing and validation only
       for a natural stop with no dispatchable calls.
-- [ ] Add failing finish tests for `stop`, `tool_calls`, `length`,
+- [x] Add failing finish tests for `stop`, `tool_calls`, `length`,
       `content_filter`, unknown, missing, and
       `insufficient_system_resource`.
-- [ ] Map the resource-limited finish directly to
+- [x] Map the resource-limited finish directly to
       `ModelError::TransientProvider`; preserve normalized behavior for every
       other finish.
-- [ ] Add failing usage tests for prompt totals, cache hit, cache miss,
+- [x] Add failing usage tests for prompt totals, cache hit, cache miss,
       fallback cache subtraction, completion reasoning, visible output,
       provider totals, reconstructed totals, missing usage, and saturating
       arithmetic.
-- [ ] Implement non-overlapping usage buckets and leave pricing/cost lines for
+- [x] Implement non-overlapping usage buckets and leave pricing/cost lines for
       composition-root `UsagePricingModel`.
-- [ ] Add failing error tests for `400`, `401`, `402`, `408`, `409`, `422`,
+- [x] Add failing error tests for `400`, `401`, `402`, `408`, `409`, `422`,
       `425`, `429`, `500`, `503`, recognized context overflow, transport,
       auth, request serialization, typed response deserialization, missing
       choices, and semantic provider failures.
-- [ ] Reuse shared HTTP classification, retain typed internal error sources,
+- [x] Reuse shared HTTP classification, retain typed internal error sources,
       and ensure no API key or authorization value enters error text or debug
       output.
-- [ ] Run the complete DeepSeek suite plus targeted core
+- [x] Run the complete DeepSeek suite plus targeted core
       structured-output/error tests, formatting, and provider Clippy.
 
 ## Milestone 5: Workspace Integration And Documentation
@@ -306,22 +307,22 @@ verify DeepSeek without reading implementation internals.
 - Modify `docs/protocol/deepseek-model-provider.md`.
 - Modify `plans/README.md` only when the implementation is complete.
 
-- [ ] Export the provider crate's model, configuration error/result, catalog
+- [x] Export the provider crate's model, configuration error/result, catalog
       constants, and `known_models()` from their real owner modules.
-- [ ] Add `ai-models-deepseek` to xtask and construct the default provider
+- [x] Add `ai-models-deepseek` to xtask and construct the default provider
       with a placeholder credential in `cargo xtask smoke-test` without a
       provider request.
-- [ ] Update xtask README so the construction list includes every adapter
+- [x] Update xtask README so the construction list includes every adapter
       actually instantiated by the smoke test, including Kimi and DeepSeek.
-- [ ] Update the root README feature list, protocol list, interface map,
+- [x] Update the root README feature list, protocol list, interface map,
       smoke-test description, and key-code map for DeepSeek.
-- [ ] Review `ai-interface`, `ai-models-core`, `ai-tool-calling`, and existing
+- [x] Review `ai-interface`, `ai-models-core`, `ai-tool-calling`, and existing
       provider READMEs for newly stale exhaustive provider/replay language and
       update only affected documentation.
-- [ ] Reconcile the protocol line by line with implemented ids, endpoint,
+- [x] Reconcile the protocol line by line with implemented ids, endpoint,
       request fields, replay rules, response mapping, usage, errors, and
       exclusions; change its status to implemented only after verification.
-- [ ] Run `cargo xtask smoke-test` and confirm it requires neither credentials
+- [x] Run `cargo xtask smoke-test` and confirm it requires neither credentials
       nor network access.
 
 ## Milestone 6: Full Verification, Commit, Push, And Review
@@ -330,19 +331,19 @@ Validate and publish the complete provider. At the end of this milestone, all
 changes are tracked and pushed, and review findings are ready for the user to
 assess.
 
-- [ ] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
       repeat the check.
-- [ ] Run `cargo xtask rust-file-length-lint --all`.
-- [ ] Run `cargo clippy --workspace --all-targets --all-features`.
-- [ ] Run `cargo test --workspace --all-features` and require a 100% pass rate.
-- [ ] Run `cargo xtask smoke-test`.
-- [ ] Run `cargo xtask check`; fix failures and repeat until it passes.
-- [ ] Audit `git diff origin/main...` for unrelated changes, untracked files,
+- [x] Run `cargo xtask rust-file-length-lint --all`.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features` and require a 100% pass rate.
+- [x] Run `cargo xtask smoke-test`.
+- [x] Run `cargo xtask check`; fix failures and repeat until it passes.
+- [x] Audit `git diff origin/main...` for unrelated changes, untracked files,
       private reasoning leakage, legacy DeepSeek aliases, false vision
       claims, endpoint drift, missing docs, and lockfile drift.
-- [ ] Move this plan from Active to Completed in `plans/README.md` only after
+- [x] Move this plan from Active to Completed in `plans/README.md` only after
       all earlier milestones and final checks are complete.
-- [ ] Run `git add -A` so every source, test, README, protocol, plan, and
+- [x] Run `git add -A` so every source, test, README, protocol, plan, and
       lockfile file is tracked.
 - [ ] Commit the completed work with a Conventional Commit title no longer
       than 50 characters and a descriptive body.

@@ -8,9 +8,9 @@ tool-calling, structured-output, usage, and error contracts.
 
 ## Status
 
-Planned. The
+Implemented. The
 [DeepSeek Model Provider implementation plan](../../plans/add-deepseek-model-provider.md)
-defines the work required to implement this contract.
+records the milestones and verification used to deliver this contract.
 
 ## Scope
 

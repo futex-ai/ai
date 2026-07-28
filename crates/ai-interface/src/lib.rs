@@ -23,8 +23,8 @@ pub use logger::{
     TurnOutcomeLogEntry,
 };
 pub use messages::{
-    ConversationContentPart, ConversationMessage, ConversationRole, KimiToolCallContext,
-    MiniMaxReasoningDetail, OpenAiReasoningSummary, ProviderConversationItem,
+    ConversationContentPart, ConversationMessage, ConversationRole, DeepSeekToolCallContext,
+    KimiToolCallContext, MiniMaxReasoningDetail, OpenAiReasoningSummary, ProviderConversationItem,
 };
 pub use mock_audio_transcriber::MockAudioTranscriber;
 pub use mock_model::MockModel;
