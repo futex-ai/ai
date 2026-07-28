@@ -345,11 +345,11 @@ assess.
       all earlier milestones and final checks are complete.
 - [x] Run `git add -A` so every source, test, README, protocol, plan, and
       lockfile file is tracked.
-- [ ] Commit the completed work with a Conventional Commit title no longer
+- [x] Commit the completed work with a Conventional Commit title no longer
       than 50 characters and a descriptive body.
-- [ ] Push the current branch.
-- [ ] Run `cargo xtask review` after the push so the reviewer compares the
+- [x] Push the current branch.
+- [x] Run `cargo xtask review` after the push so the reviewer compares the
       complete branch with `origin/main`.
-- [ ] Do not auto-fix review findings. Report each item with a number,
+- [x] Do not auto-fix review findings. Report each item with a number,
       severity, codebase/feature context, impact of doing nothing, lettered
       solution options, and the recommended option.
