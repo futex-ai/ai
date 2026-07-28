@@ -183,6 +183,11 @@ embedded desktop/mobile secret as confidential.
   and make it single-use for the configured 10-minute default lifetime. Reject
   missing, expired, reused, or mismatched state on both successful and OAuth
   error callbacks.
+- Report `OAuthUserAuthorizationRequest::expires_at()` as a conservative
+  whole-second UNIX deadline for the interaction: the start time plus the
+  earlier of the state lifetime and user-agent timeout, using saturating
+  arithmetic. The manager still enforces the user-agent timeout independently.
+  Sub-second configured durations may therefore report the start second.
 - Generate the RFC 7636 verifier from a separate 32 random bytes encoded
   base64url without padding and derive its `S256` challenge. `plain` is
   unsupported.

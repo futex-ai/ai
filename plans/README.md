@@ -12,6 +12,7 @@ milestones are finished.
 - [OAuth issuer preselection validation](oauth-issuer-preselection-validation.md)
 - [MCP close replacement session](mcp-close-replacement-session.md)
 - [OAuth discovery single-flight](oauth-discovery-single-flight.md)
+- [OAuth user-agent deadline](oauth-user-agent-deadline.md)
 
 ## Completed
 

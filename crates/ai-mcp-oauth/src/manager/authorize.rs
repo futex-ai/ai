@@ -78,6 +78,7 @@ impl DefaultMcpOAuthManager {
             .await?;
         let started_at = self.clock.now_unix_seconds()?;
         let state_lifetime = self.config.state_lifetime.as_secs();
+        let interaction_lifetime = state_lifetime.min(self.config.user_agent_timeout.as_secs());
         let state_handle = self
             .states
             .begin(&secrets.state, started_at, state_lifetime)
@@ -87,7 +88,7 @@ impl DefaultMcpOAuthManager {
             self.user_agent
                 .authorize(OAuthUserAuthorizationRequest::new(
                     authorization_url,
-                    started_at.saturating_add(state_lifetime),
+                    started_at.saturating_add(interaction_lifetime),
                 )),
         )
         .await;

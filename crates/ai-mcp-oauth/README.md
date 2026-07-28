@@ -55,6 +55,10 @@ authorization hostname within the same HTTP timeout and requires every address
 to satisfy the same policy. A stalled lookup surfaces as a typed DNS failure.
 This preflight cannot pin an external browser's later DNS lookup or redirects;
 the host and user-agent implementation retain that responsibility.
+The user-agent request reports a conservative whole-second UNIX interaction
+deadline derived from the earlier of the callback-state lifetime and the
+manager's user-agent timeout. Hosts can use that bound to close callback
+listeners and authorization UI; the manager enforces its timeout independently.
 HTTP loopback is available only through the explicit development policy: local
 hostnames and literals must resolve exclusively to loopback addresses, blocked
 ports remain blocked, and deprecated IPv4 6to4 relay anycast, IPv4-compatible,

@@ -29,7 +29,10 @@ impl OAuthUserAuthorizationRequest {
         self.authorization_url.expose_secret()
     }
 
-    /// Returns the UNIX deadline for this one authorization interaction.
+    /// Returns the conservative whole-second UNIX interaction deadline.
+    ///
+    /// The deadline is no later than either the configured state lifetime or
+    /// user-agent timeout.
     pub fn expires_at(&self) -> u64 {
         self.expires_at
     }
