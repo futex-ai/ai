@@ -1,5 +1,6 @@
 //! Protocol-client unit tests.
 
+mod context_invalidation_tests;
 mod error_tests;
 mod freshness;
 mod lifecycle_tests;

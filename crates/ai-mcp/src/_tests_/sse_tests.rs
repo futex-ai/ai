@@ -34,6 +34,18 @@ fn joins_multiline_data_and_ignores_other_fields() {
 }
 
 #[test]
+fn colonless_data_fails_before_a_later_valid_event() {
+    let mut decoder = SseDecoder::new(1024);
+    decoder
+        .push(b"data\n\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n")
+        .unwrap();
+
+    let error = decoder.next_message(false).unwrap_err();
+
+    assert!(matches!(error, Error::DeserializeResponse { .. }));
+}
+
+#[test]
 fn enforces_the_cumulative_raw_byte_limit() {
     let mut decoder = SseDecoder::new(10);
     decoder.push(b"data: 1\n").unwrap();

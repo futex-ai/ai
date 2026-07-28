@@ -50,7 +50,9 @@ parameters. Missing or unsupported JSON response media types return
 `UnsupportedContentType`; empty `202`, DELETE success, and non-success response
 bodies retain their status-specific behavior. Incremental SSE framing accepts
 CRLF, standalone CR, and LF independently per line, including CRLF split
-across chunks. Every inbound JSON or SSE message must declare
+across chunks. A colonless line is parsed as a field name with an empty value,
+so bare `data` is an empty event payload and fails strict MCP JSON decoding.
+Every inbound JSON or SSE message must declare
 `jsonrpc: "2.0"`; malformed responses and side messages fail the scoped request
 before their message-specific behavior runs. Only a method-bearing message
 that omits `id` is a notification; requests and success responses require
@@ -65,7 +67,10 @@ matching expired state. Matching expiry records a tool-list invalidation. A
 later host-initiated operation initializes a fresh session; a delayed response
 from the old session cannot erase a newer one. A successful or tolerated
 session DELETE likewise clears state only while its captured session remains
-current, so a replacement established during `close()` stays active.
+current, so a replacement established during `close()` stays active. Tool
+operations capture their initialized handshake and matching request context in
+one snapshot; later local invalidation cannot manufacture an initialization
+`MissingResponse`, and the captured request is never automatically replayed.
 
 ## Quick Start
 

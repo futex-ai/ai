@@ -126,6 +126,10 @@ independently of adjacent lines. CRLF is one ending even when its bytes arrive
 in separate chunks. A CR-terminated blank line at the end of received bytes
 completes its event immediately; if a later LF completes that CRLF pair, the
 resulting no-data empty event is ignored.
+Field parsing splits at the first colon; a line without one uses the complete
+line as its field name and an empty value. A colonless `data` field therefore
+dispatches an empty data event and fails MCP JSON decoding rather than being
+ignored before a later event.
 The client consumes JSON-RPC messages in arrival order and handles each rule 10
 message before requesting the next event. In particular, it POSTs a response
 to a server request while the original SSE response remains open, then resumes
@@ -165,7 +169,12 @@ rule covers ordinary request responses, server-message response POSTs, and
 session DELETE. After a `2xx` or tolerated `405` DELETE, clear cached state only
 if the session captured for that DELETE is still current. If a replacement was
 established while DELETE was in flight, return success without clearing or
-closing the replacement.
+closing the replacement. Tool-list and tool-call operations capture the
+initialized handshake and matching request context from one state snapshot.
+Concurrent invalidation after that snapshot cannot synthesize an
+initialization `MissingResponse`; the operation retains its captured context,
+dispatches at most once, and lets its own response determine whether the
+session has expired.
 
 ## Crate layout
 

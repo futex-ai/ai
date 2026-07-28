@@ -16,68 +16,12 @@ use crate::{
 #[async_trait]
 impl McpClient for StreamableHttpMcpClient {
     async fn ensure_initialized(&self) -> Result<McpServerHandshake> {
-        if let Some(handshake) = self.state.lock().await.handshake.clone() {
-            return Ok(handshake);
-        }
-        let _initialization = self.initialization_lock.lock().await;
-        if let Some(handshake) = self.state.lock().await.handshake.clone() {
-            return Ok(handshake);
-        }
-
-        let id = self.allocate_request_id()?;
-        let empty_context = RequestContext {
-            session_id: None,
-            protocol_version: None,
-        };
-        let message = request(
-            id,
-            "initialize",
-            json!({
-                "protocolVersion": LATEST_PROTOCOL_VERSION,
-                "capabilities": {},
-                "clientInfo": {
-                    "name": "ai-mcp",
-                    "version": env!("CARGO_PKG_VERSION")
-                }
-            }),
-        );
-        let response = self
-            .post_message(&message, &empty_context, self.config.request_timeout)
-            .await?;
-        let session_id = response
-            .headers
-            .get("mcp-session-id")
-            .and_then(|values| values.first())
-            .cloned();
-        let provisional_context = RequestContext {
-            session_id: session_id.clone(),
-            protocol_version: Some(LATEST_PROTOCOL_VERSION.to_owned()),
-        };
-        let result = self
-            .response_result("initialize", id, response, &provisional_context)
-            .await?;
-        let initialized: InitializeResult = decode_result("initialize", result)?;
-        ensure_supported_version(&initialized.protocol_version)?;
-        let handshake = McpServerHandshake::from(initialized);
-        let context = RequestContext {
-            session_id: session_id.clone(),
-            protocol_version: Some(handshake.protocol_version.clone()),
-        };
-        self.post_accepted(
-            &notification("notifications/initialized", json!({})),
-            &context,
-        )
-        .await?;
-        *self.state.lock().await = ClientState {
-            handshake: Some(handshake.clone()),
-            session_id,
-        };
+        let (handshake, _) = self.initialized_context().await?;
         Ok(handshake)
     }
 
     async fn list_tools(&self) -> Result<Vec<McpToolDescriptor>> {
-        self.ensure_initialized().await?;
-        let context = self.request_context().await?;
+        let (_, context) = self.initialized_context().await?;
         let freshness_generation = self.tools_freshness.capture();
         let mut tools = Vec::new();
         let mut cursor: Option<String> = None;
@@ -123,8 +67,7 @@ impl McpClient for StreamableHttpMcpClient {
     }
 
     async fn call_tool(&self, name: &str, arguments: Value) -> Result<McpToolCallOutcome> {
-        self.ensure_initialized().await?;
-        let context = self.request_context().await?;
+        let (_, context) = self.initialized_context().await?;
         let id = self.allocate_request_id()?;
         let response = self
             .post_message(
@@ -177,6 +120,79 @@ impl McpClient for StreamableHttpMcpClient {
 }
 
 impl StreamableHttpMcpClient {
+    async fn initialized_context(&self) -> Result<(McpServerHandshake, RequestContext)> {
+        if let Some(initialized) = self.initialized_context_snapshot().await {
+            return Ok(initialized);
+        }
+        let _initialization = self.initialization_lock.lock().await;
+        if let Some(initialized) = self.initialized_context_snapshot().await {
+            return Ok(initialized);
+        }
+
+        let id = self.allocate_request_id()?;
+        let empty_context = RequestContext {
+            session_id: None,
+            protocol_version: None,
+        };
+        let message = request(
+            id,
+            "initialize",
+            json!({
+                "protocolVersion": LATEST_PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "ai-mcp",
+                    "version": env!("CARGO_PKG_VERSION")
+                }
+            }),
+        );
+        let response = self
+            .post_message(&message, &empty_context, self.config.request_timeout)
+            .await?;
+        let session_id = response
+            .headers
+            .get("mcp-session-id")
+            .and_then(|values| values.first())
+            .cloned();
+        let provisional_context = RequestContext {
+            session_id: session_id.clone(),
+            protocol_version: Some(LATEST_PROTOCOL_VERSION.to_owned()),
+        };
+        let result = self
+            .response_result("initialize", id, response, &provisional_context)
+            .await?;
+        let initialized: InitializeResult = decode_result("initialize", result)?;
+        ensure_supported_version(&initialized.protocol_version)?;
+        let handshake = McpServerHandshake::from(initialized);
+        let context = RequestContext {
+            session_id: session_id.clone(),
+            protocol_version: Some(handshake.protocol_version.clone()),
+        };
+        self.post_accepted(
+            &notification("notifications/initialized", json!({})),
+            &context,
+        )
+        .await?;
+        *self.state.lock().await = ClientState {
+            handshake: Some(handshake.clone()),
+            session_id,
+        };
+        Ok((handshake, context))
+    }
+
+    async fn initialized_context_snapshot(&self) -> Option<(McpServerHandshake, RequestContext)> {
+        let state = self.state.lock().await;
+        state.handshake.as_ref().map(|handshake| {
+            (
+                handshake.clone(),
+                RequestContext {
+                    session_id: state.session_id.clone(),
+                    protocol_version: Some(handshake.protocol_version.clone()),
+                },
+            )
+        })
+    }
+
     fn allocate_request_id(&self) -> Result<u64> {
         match self
             .next_request_id
@@ -186,14 +202,6 @@ impl StreamableHttpMcpClient {
             Ok(id) => Ok(id),
             Err(_) => Err(Error::RequestIdExhausted),
         }
-    }
-
-    async fn request_context(&self) -> Result<RequestContext> {
-        self.optional_request_context()
-            .await
-            .ok_or_else(|| Error::MissingResponse {
-                method: "initialize".to_owned(),
-            })
     }
 
     async fn optional_request_context(&self) -> Option<RequestContext> {

@@ -103,8 +103,9 @@ fn decode_event(bytes: &[u8]) -> Result<Option<Value>> {
     let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
     let mut data = Vec::new();
     for line in normalized.split('\n') {
-        let Some((field, value)) = line.split_once(':') else {
-            continue;
+        let (field, value) = match line.split_once(':') {
+            Some(parts) => parts,
+            None => (line, ""),
         };
         if field == "data" {
             data.push(value.strip_prefix(' ').unwrap_or(value));

@@ -14,6 +14,8 @@ milestones are finished.
 - [OAuth discovery single-flight](oauth-discovery-single-flight.md)
 - [OAuth user-agent deadline](oauth-user-agent-deadline.md)
 - [MCP partial annotation serialization](mcp-partial-annotation-serialization.md)
+- [MCP initialized context snapshot](mcp-initialized-context-snapshot.md)
+- [MCP colonless SSE data](mcp-sse-colonless-data.md)
 
 ## Completed
 
