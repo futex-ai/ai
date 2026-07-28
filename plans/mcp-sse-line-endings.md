@@ -34,9 +34,10 @@ before EOF without mistaking one CRLF pair for a blank line.
 - [x] Run `cargo xtask check` and resolve every failure.
 - [x] Run `git add -A`, commit the checked work with a Conventional Commit
       title no longer than 50 characters, and push the current branch.
-- [ ] Run the next `cargo xtask review` against `origin/main`; continue only
-      for independently valid, Fable-confirmed findings without exceeding the
-      ten-cycle limit.
+- [x] Run the final allowed `cargo xtask review` attempts against
+      `origin/main`; cycles 9 and 10 were both rejected before analysis by the
+      provider usage limit, so no further invocation is permitted in this
+      ten-cycle workflow.
 - [ ] Once the authorized review loop has no valid finding left, move this and
       the AI MCP crate plan to Completed in `plans/README.md`, tick their final
       bookkeeping items, and commit and push those plan-only changes.
