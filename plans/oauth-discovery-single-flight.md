@@ -87,7 +87,7 @@ different resources can discover concurrently.
       tests, Rust file-length lint, smoke tests, and `cargo xtask check`.
 - [x] Review the complete diff for omissions, unrelated changes, Markdown
       errors, file-size violations, and untracked files.
-- [ ] Run `git add -A`, commit all completed cycle-2 fixes with a Conventional
+- [x] Run `git add -A`, commit all completed cycle-2 fixes with a Conventional
       Commit title no longer than 50 characters, and push the current branch.
 - [ ] After the push, run the next `cargo xtask review` cycle against
       `origin/main`; investigate every finding and repeat within the
