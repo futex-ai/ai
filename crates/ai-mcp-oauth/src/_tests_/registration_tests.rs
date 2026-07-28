@@ -36,6 +36,43 @@ async fn cached_registration_precedes_dynamic_registration() {
 }
 
 #[tokio::test]
+async fn rejects_empty_cached_client_id_without_registering_again() {
+    let cached = registration("", OAuthClientRegistrationSource::Dynamic);
+    let store = Unimock::new(
+        OAuthCredentialStoreMock::load_registration
+            .next_call(matching!(_))
+            .returns(Ok(Some(cached))),
+    );
+
+    let error = registry(Unimock::new(()), store)
+        .resolve(&request())
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, Error::RegistrationMismatch));
+}
+
+#[tokio::test]
+async fn rejects_mismatched_configured_registrations_without_side_effects() {
+    let empty_id = registration("", OAuthClientRegistrationSource::Configured);
+    let mut wrong_redirect =
+        registration("configured-id", OAuthClientRegistrationSource::Configured);
+    wrong_redirect.redirect_uri = "https://other.example/callback".to_owned();
+    let mut wrong_name = registration("configured-id", OAuthClientRegistrationSource::Configured);
+    wrong_name.client_name = "Other client".to_owned();
+
+    for configured in [empty_id, wrong_redirect, wrong_name] {
+        let registry = registry(Unimock::new(()), Unimock::new(()));
+        let mut request = request();
+        request.configured = Some(configured);
+
+        let error = registry.resolve(&request).await.unwrap_err();
+
+        assert!(matches!(error, Error::RegistrationMismatch));
+    }
+}
+
+#[tokio::test]
 async fn dynamic_registration_maps_public_client_and_refresh_grant() {
     let captured = Arc::new(Mutex::new(None::<Value>));
     let transport = Unimock::new(

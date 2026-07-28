@@ -25,9 +25,14 @@ retaining control of browser UX and secure persistence.
 authorization server through a host-provided `AuthorizationServerSelector`.
 `DefaultOAuthClientRegistry` then uses a configured registration, a host store,
 or public-client dynamic registration in that order.
+Configured and cached registrations must match the approved redirect URI and
+client name and carry a non-empty client ID; mismatches fail without issuing a
+new dynamic registration.
 Before registry or browser work, interactive authorization rejects a non-empty
 `grant_types_supported` list that excludes `authorization_code`; omitted grant
 metadata retains the RFC 8414 authorization-code default.
+It also rejects existing client-owned authorization query parameters before
+registration while retaining non-reserved endpoint extension parameters.
 Only authorization-required, invalid-token, and insufficient-scope challenges
 can start authorization. Forbidden and invalid-request challenges return
 distinct typed errors before discovery or any other side effect because a new

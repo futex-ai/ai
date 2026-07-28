@@ -103,8 +103,8 @@ pub enum Error {
         /// Underlying JSON decode failure.
         source: serde_json::Error,
     },
-    /// A configured registration does not match the approved callback identity.
-    #[error("[ai_mcp_oauth/registration] configured registration identity mismatch")]
+    /// A configured or cached registration does not match the approved identity.
+    #[error("[ai_mcp_oauth/registration] registration identity mismatch")]
     RegistrationMismatch,
     /// A secure credential-store operation failed.
     #[error("[ai_mcp_oauth/store] {operation:?} failed")]

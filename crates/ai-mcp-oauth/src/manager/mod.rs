@@ -19,6 +19,7 @@ use crate::{
 
 pub use types::{OAuthAuthorizationContext, OAuthConnection};
 
+mod authorization_url;
 mod authorize;
 mod disconnect;
 mod refresh;

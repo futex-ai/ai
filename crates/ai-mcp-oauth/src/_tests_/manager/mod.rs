@@ -1,5 +1,6 @@
 //! OAuth manager authorization, refresh, and disconnect tests.
 
+mod authorization_endpoint_tests;
 mod authorize_concurrency;
 mod authorize_destination_tests;
 mod authorize_flow_tests;

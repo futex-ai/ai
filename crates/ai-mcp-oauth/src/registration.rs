@@ -150,6 +150,7 @@ impl OAuthClientRegistry for DefaultOAuthClientRegistry {
         if let Some(cached) = self.store.load_registration(&key).await? {
             if cached.redirect_uri != request.redirect_uri
                 || cached.client_name != request.client_name
+                || cached.client_id.is_empty()
             {
                 return Err(Error::RegistrationMismatch);
             }

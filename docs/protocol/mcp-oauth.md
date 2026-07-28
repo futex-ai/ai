@@ -128,6 +128,9 @@ Resolve a public client in this order:
 3. RFC 7591 Dynamic Client Registration when `registration_endpoint` exists.
 4. `Error::ClientRegistrationRequired` with issuer and redirect details.
 
+Configured and cached registrations must match the exact approved redirect URI
+and client name and carry a non-empty client ID. Any mismatch returns
+`RegistrationMismatch` without falling through to dynamic registration.
 Dynamic registration sends the exact host-approved redirect URI,
 `response_types = ["code"]`, and `token_endpoint_auth_method = "none"`.
 `grant_types` always contains `authorization_code` and adds `refresh_token`
@@ -148,6 +151,12 @@ embedded desktop/mobile secret as confidential.
   for `authorization_code`. When a non-empty advertised list excludes
   `authorization_code`, return `AuthorizationCodeGrantUnsupported` before
   client registration or browser work.
+- Before client registration, parse the authorization endpoint through the URL
+  policy and reject any existing exact-case `response_type`, `client_id`,
+  `redirect_uri`, `code_challenge`, `code_challenge_method`, `resource`,
+  `state`, or `scope` query name. Query decoding applies before comparison.
+  Preserve non-reserved and case-distinct endpoint parameters, and append
+  client-owned parameters to the same validated URL.
 - Immediately before creating callback state and handing off the final
   authorization URL, resolve its domain through the injected DNS boundary and
   require every returned address to satisfy the URL policy. The lookup is
