@@ -117,6 +117,12 @@ invalid configuration rather than panicking.
 - A reusable discovery cache entry includes the selected authorization server.
   Do not ask the host to repeat an identical multi-issuer selection until that
   entry expires or is invalidated.
+- Serialize discovery per canonical resource before reading the clock or
+  consulting its cache. Concurrent callers reuse a cacheable successful
+  selection; non-cacheable results, cancellation, and errors are not shared
+  and later callers run independently in turn. Discovery for distinct
+  resources remains concurrent. Changed resource-metadata URLs serialize
+  against the same resource because they invalidate one resource-keyed entry.
 - This private cache does not revalidate. `no-store`, bare or qualified
   `no-cache`, and malformed `max-age` therefore disable reuse. When multiple
   valid `max-age` directives or discovery responses apply, use the shortest

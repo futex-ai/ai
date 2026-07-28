@@ -11,6 +11,7 @@ milestones are finished.
 - [MCP error truncation envelope](mcp-error-truncation-envelope.md)
 - [OAuth issuer preselection validation](oauth-issuer-preselection-validation.md)
 - [MCP close replacement session](mcp-close-replacement-session.md)
+- [OAuth discovery single-flight](oauth-discovery-single-flight.md)
 
 ## Completed
 

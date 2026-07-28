@@ -62,6 +62,8 @@ pub struct DefaultMcpOAuthDiscovery {
     clock: DynOAuthClock,
     config: McpOAuthConfig,
     cache: Mutex<BTreeMap<CanonicalMcpResource, CacheEntry>>,
+    /// Resource-keyed guards match cache ownership and never span resources.
+    discovery_locks: Mutex<BTreeMap<CanonicalMcpResource, Arc<Mutex<()>>>>,
 }
 
 impl DefaultMcpOAuthDiscovery {
@@ -79,7 +81,18 @@ impl DefaultMcpOAuthDiscovery {
             clock,
             config,
             cache: Mutex::new(BTreeMap::new()),
+            discovery_locks: Mutex::new(BTreeMap::new()),
         })
+    }
+
+    /// Clones one resource guard without retaining the registry lock.
+    async fn discovery_lock(&self, resource: &CanonicalMcpResource) -> Arc<Mutex<()>> {
+        self.discovery_locks
+            .lock()
+            .await
+            .entry(resource.clone())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
     }
 
     async fn discover_uncached(
@@ -150,6 +163,8 @@ impl McpOAuthDiscovery for DefaultMcpOAuthDiscovery {
         resource: &CanonicalMcpResource,
         challenge: &McpAuthorizationChallenge,
     ) -> Result<OAuthDiscoveryResult> {
+        let discovery_lock = self.discovery_lock(resource).await;
+        let _discovery = discovery_lock.lock().await;
         let now = self.clock.now_unix_seconds()?;
         let metadata_url = if let Some(advertised) = &challenge.resource_metadata_url {
             self.config

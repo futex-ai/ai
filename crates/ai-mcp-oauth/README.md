@@ -62,8 +62,12 @@ both NAT64 prefixes, IPv6 discard/dummy, IETF protocol-assignment,
 documentation, IPv6 6to4, SRv6 SID, and deprecated site-local destinations are
 rejected. Metadata marked `no-store` or `no-cache`, or carrying an invalid
 `max-age`, is never reused. A cached multi-issuer discovery result retains its
-host-selected issuer for that cache lifetime. The crate does not provide a
-browser, callback listener, Keychain/database implementation, or product UI.
+host-selected issuer for that cache lifetime. Discovery is serialized per
+canonical resource, so concurrent callers reuse one cacheable successful
+selection without blocking discovery for other resources. Non-cacheable,
+cancelled, and failed attempts are not shared; waiting callers run their own
+attempts in turn. The crate does not provide a browser, callback listener,
+Keychain/database implementation, or product UI.
 
 ## Quick Start
 
