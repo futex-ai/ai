@@ -73,5 +73,5 @@ validation.
       preselection validation and fail-closed behavior.
 - [x] Have Claude Code Fable 5 audit the completed implementation, ordering
       regressions, typed errors, documentation, and network boundaries.
-- [ ] Run the shared repository verification, commit/push, and post-push
+- [x] Run the shared repository verification, commit/push, and post-push
       `cargo xtask review` tasks recorded in all three cycle-1 fix plans.

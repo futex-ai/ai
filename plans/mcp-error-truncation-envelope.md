@@ -69,5 +69,5 @@ marker and every accepted response limit can contain their empty envelope.
       the 47-byte floor, and unchanged success behavior.
 - [x] Have Claude Code Fable 5 audit the completed implementation, regression
       strength, documentation, and adjacent output-management behavior.
-- [ ] Run the shared repository verification, commit/push, and post-push
+- [x] Run the shared repository verification, commit/push, and post-push
       `cargo xtask review` tasks recorded in all three cycle-1 fix plans.

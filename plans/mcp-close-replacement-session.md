@@ -72,6 +72,6 @@ entry and concurrent replacement sessions remain locally active.
       errors, file-size violations, and untracked files.
 - [x] Run `git add -A`, commit all completed cycle-1 fixes with a Conventional
       Commit title no longer than 50 characters, and push the current branch.
-- [ ] After the push, run the next `cargo xtask review` cycle against
+- [x] After the push, run the next `cargo xtask review` cycle against
       `origin/main`; investigate every finding and repeat within the
       invocation's ten-cycle limit.

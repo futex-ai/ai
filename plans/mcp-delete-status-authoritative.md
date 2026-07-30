@@ -70,6 +70,6 @@ headers arrive and clears only the captured current session.
       errors, file-size violations, and untracked files.
 - [x] Run `git add -A`, commit the completed fix with a Conventional Commit
       title no longer than 50 characters, and push the current branch.
-- [ ] After the push, run the next `cargo xtask review` cycle against
+- [x] After the push, run the next `cargo xtask review` cycle against
       `origin/main`; investigate every finding and repeat within the
       invocation's ten-cycle limit.
