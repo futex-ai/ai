@@ -77,12 +77,25 @@ impl OAuthAuthorizationResponse {
         }
     }
 
+    /// Builds a successful callback response whose state parameter was omitted.
+    pub fn authorized_without_state(code: impl Into<String>) -> Self {
+        Self::Authorized {
+            code: SecretString::from(code.into()),
+            state: None,
+        }
+    }
+
     /// Builds an OAuth error callback while wrapping its state safely.
     pub fn oauth_error(error: OAuthAuthorizationError, state: Option<impl Into<String>>) -> Self {
         Self::OAuthError {
             error,
             state: state.map(|state| SecretString::from(state.into())),
         }
+    }
+
+    /// Builds an OAuth error callback whose state parameter was omitted.
+    pub fn oauth_error_without_state(error: OAuthAuthorizationError) -> Self {
+        Self::OAuthError { error, state: None }
     }
 }
 

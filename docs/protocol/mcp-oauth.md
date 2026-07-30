@@ -182,7 +182,10 @@ embedded desktop/mobile secret as confidential.
 - Generate state from 32 random bytes, encode it base64url without padding,
   and make it single-use for the configured 10-minute default lifetime. Reject
   missing, expired, reused, or mismatched state on both successful and OAuth
-  error callbacks.
+  error callbacks. A host callback adapter must preserve an omitted state as
+  `None` rather than copying or synthesizing the expected value; the public
+  response API provides distinct no-state constructors so this path does not
+  require direct secret-field construction or type annotations.
 - Report `OAuthUserAuthorizationRequest::expires_at()` as a conservative
   whole-second UNIX deadline for the interaction: the start time plus the
   earlier of the state lifetime and user-agent timeout, using saturating

@@ -131,6 +131,26 @@ multiple issuers. Call
 insufficient-scope challenges; `InvalidRequest` and `Forbidden` are rejected
 without opening a browser.
 
+The host callback adapter must preserve whether `state` was present. Pass a
+present value to `OAuthAuthorizationResponse::authorized` or
+`OAuthAuthorizationResponse::oauth_error`. If the authorization server omits
+it, use `authorized_without_state` or `oauth_error_without_state`; the manager
+will reject the missing state instead of trusting a value synthesized by the
+host:
+
+```rust
+use ai_mcp_oauth::{OAuthAuthorizationError, OAuthAuthorizationResponse};
+
+let approved =
+    OAuthAuthorizationResponse::authorized("authorization-code", Some("callback-state"));
+let missing_state =
+    OAuthAuthorizationResponse::authorized_without_state("authorization-code");
+let denied_without_state = OAuthAuthorizationResponse::oauth_error_without_state(
+    OAuthAuthorizationError::AccessDenied,
+);
+# let _ = (approved, missing_state, denied_without_state);
+```
+
 Authorize only from an explicit host action, then bind the stored credential to
 the same canonical resource used by the MCP client:
 

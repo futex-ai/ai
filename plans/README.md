@@ -9,6 +9,7 @@ milestones are finished.
 - [AI MCP crate](ai-mcp-crate.md)
 - [MCP SSE line endings](mcp-sse-line-endings.md)
 - [MCP error SSE body decoding](mcp-error-sse-body-decoding.md)
+- [OAuth callback no-state constructors](oauth-callback-no-state-constructors.md)
 
 ## Completed
 
