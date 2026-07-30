@@ -54,10 +54,12 @@ does not follow redirects; a 3xx response is surfaced to the caller. Successful
 non-empty request responses require `application/json` or
 `text/event-stream`, with case-insensitive media-type matching and optional
 parameters. Missing or unsupported JSON response media types return
-`UnsupportedContentType`; empty `202` and non-authoritative non-success
-response bodies retain their status-specific behavior. A 2xx or tolerated 405
-session DELETE returns after its headers and drops any response body without
-reading or limiting it.
+`UnsupportedContentType`; only a 2xx SSE response becomes a live event stream.
+Other non-authoritative errors use bounded lenient JSON/text decoding even
+when they advertise an SSE media type, preserving their raw framing as a
+textual `HttpStatus` diagnostic. Empty `202` responses remain valid. A 2xx or
+tolerated 405 session DELETE returns after its headers and drops any response
+body without reading or limiting it.
 Incremental SSE framing accepts CRLF, standalone CR, and LF independently per
 line, including CRLF split across chunks. A colonless line is parsed as a field
 name with an empty value, so bare `data` is an empty event payload and fails
@@ -160,6 +162,7 @@ MCP operation at most once.
 cargo test -p ai-mcp --all-features
 cargo test -p ai-mcp --test json_transport_tests
 cargo test -p ai-mcp --test delete_transport_tests
+cargo test -p ai-mcp --test error_sse_transport_tests
 cargo test -p ai-mcp --test sse_transport_tests
 cargo test -p ai-mcp --test authorization_transport_tests
 cargo test -p ai-mcp --test session_expiry_transport_tests

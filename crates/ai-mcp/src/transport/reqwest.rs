@@ -100,7 +100,7 @@ async fn decode_response(
             payload: McpHttpPayload::None,
         });
     }
-    if matches(&headers, EVENT_STREAM) {
+    if (200..300).contains(&status) && matches(&headers, EVENT_STREAM) {
         return Ok(McpHttpResponse {
             status,
             headers,

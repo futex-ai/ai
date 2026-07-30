@@ -145,9 +145,13 @@ wrong-typed id, which must never be treated as notifications.
 No long-lived GET streams are added in v1. A POST response stream remains scoped
 to its originating request. For every response body the client consumes,
 enforce `max_response_bytes` against cumulative raw bytes as they are read,
-including SSE framing, and fail immediately when the limit is crossed. HTTP
-401 and 403 are status/header-authoritative for both POST and DELETE. So is a
-404 response when the outgoing request-header map contains
+including SSE framing, and fail immediately when the limit is crossed. Only a
+`2xx` response whose media type is `text/event-stream` becomes a live event
+stream. Every non-authoritative non-success response, including one advertised
+as SSE, uses bounded lenient body decoding so `Error::HttpStatus` can retain
+JSON or textual diagnostics; SSE framing that is not itself JSON is retained
+as text. HTTP 401 and 403 are status/header-authoritative for both POST and
+DELETE. So is a 404 response when the outgoing request-header map contains
 `Mcp-Session-Id`, matched case-insensitively and by presence even if its value
 is empty. For these responses, capture status and normalized headers, return
 `McpHttpPayload::None`, and drop the unread body without size-limiting,
@@ -634,10 +638,12 @@ DELETE coverage proves oversized 2xx and 405 bodies are not consumed and that
 accepted close still clears the captured session. Session-expiry transport
 coverage proves oversized and SSE-typed session-bound POST/DELETE 404 bodies
 are not consumed, lowercase session headers are recognized, host retry starts
-a replacement session, and non-session 404 bodies remain bounded. The SSE
-server gates its matching response and EOF on receiving the client's reply to
-an interleaved server request, proving that the client processes events
-incrementally without deadlock. A credential-free MCP adapter is also
+a replacement session, and non-session 404 bodies remain bounded. Error-SSE
+transport coverage proves ordinary SSE-typed 404/429 diagnostics are buffered,
+while oversized SSE-typed POST and non-tolerated DELETE errors remain bounded.
+The SSE server gates its matching response and EOF on receiving the client's
+reply to an interleaved server request, proving that the client processes
+events incrementally without deadlock. A credential-free MCP adapter is also
 constructed by `cargo xtask smoke-test`. No ignored live test is required
 unless a stable public MCP test server becomes available.
 

@@ -21,6 +21,7 @@ milestones are finished.
 - [MCP status-authoritative authorization](mcp-authorization-status-authoritative.md)
 - [OAuth IPv4 special-range classification](oauth-ipv4-special-range-classification.md)
 - [MCP status-authoritative session 404](mcp-session-404-status-authoritative.md)
+- [MCP error SSE body decoding](mcp-error-sse-body-decoding.md)
 
 ## Completed
 
