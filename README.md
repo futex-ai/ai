@@ -9,9 +9,10 @@ in-memory tool-calling runtime behavior.
 - Shared `ai-interface` contracts for conversations, model calls, audio
   transcription, tool calls, routing, logging, usage metering, and bounded
   model-visible tool output envelopes
-- Provider adapters for Anthropic, Google Gemini, Kimi, MiniMax, OpenAI, and xAI
-  models, including provider-specific tools, reasoning replay, vision,
-  structured output, usage normalization, and typed errors
+- Provider adapters for Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
+  OpenAI, and xAI models, including provider-specific tools, reasoning replay,
+  vision where supported, structured output, usage normalization, and typed
+  errors
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, and usage pricing
 - Ordered fallback model composition through `ai-models-multi`
@@ -22,6 +23,9 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) defines
+  the DeepSeek V4 Pro/Flash catalog, text-only request boundary, thinking,
+  replay, tool-calling, JSON-object, usage, and error contract.
 - [Kimi model provider](docs/protocol/kimi-model-provider.md) defines the
   implemented Kimi K3 catalog, request, replay, tool-calling,
   structured-output, usage, and error contract.
@@ -41,6 +45,8 @@ boundary they need:
   model-visible tool output envelopes
 - `ai-models-core`: reusable model wrappers and provider helper logic
 - `ai-models-anthropic`: Anthropic model adapter
+- `ai-models-deepseek`: DeepSeek V4 Pro/Flash model adapter and known-model
+  catalog
 - `ai-models-google`: Google Gemini model adapter
 - `ai-models-kimi`: Kimi K3 model adapter
 - `ai-models-minimax`: MiniMax Chat Completions model adapter and known-model
@@ -86,6 +92,8 @@ cargo xtask review
 - `crates/ai-interface`: shared AI contracts, including
   `src/output/` envelope DTOs
 - `crates/ai-models-core`: provider-agnostic model wrappers and helpers
+- `crates/ai-models-deepseek`: DeepSeek V4 catalog, typed client, thinking,
+  request/replay, structured-output, response, usage, and error mapping
 - `crates/ai-models-kimi`: Kimi K3 catalog, client, request, replay, response,
   and usage mapping
 - `crates/ai-models-minimax`: MiniMax catalog plus request, replay, response,
@@ -98,6 +106,8 @@ cargo xtask review
   review
 - `docs/protocol/tool-output-management.md`: normative universal tool output
   management contract
+- `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
+  contract
 - `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract
 - `docs/protocol/minimax-model-provider.md`: normative MiniMax adapter contract
 - `docs/protocol/`: other normative contracts for shared runtime behavior

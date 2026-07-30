@@ -1,8 +1,8 @@
 //! Kimi one-turn request mapping tests.
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, ModelRequest,
-    OpenAiReasoningSummary, ProviderConversationItem, ToolCall,
+    ConversationContentPart, ConversationMessage, ConversationRole, DeepSeekToolCallContext,
+    ModelRequest, OpenAiReasoningSummary, ProviderConversationItem, ToolCall,
 };
 use serde_json::{Value, json};
 
@@ -103,6 +103,15 @@ fn ignores_foreign_provider_context_and_uses_normalized_assistant_fields() {
             operation_id: None,
         }],
         vec![
+            ProviderConversationItem::DeepSeekAssistantMessage {
+                content: "DeepSeek-owned content".to_owned(),
+                reasoning_content: Some("DeepSeek-owned reasoning".to_owned()),
+                tool_calls: vec![DeepSeekToolCallContext {
+                    id: "deepseek_call".to_owned(),
+                    name: "ignored".to_owned(),
+                    arguments: "{\"foreign\":true}".to_owned(),
+                }],
+            },
             ProviderConversationItem::OpenAiMessage {
                 phase: Some("commentary".to_owned()),
             },
@@ -137,6 +146,7 @@ fn ignores_foreign_provider_context_and_uses_normalized_assistant_fields() {
         "{\"path\":\"root\"}"
     );
     assert!(assistant.get("reasoning_content").is_none());
+    assert!(!body.to_string().contains("DeepSeek-owned"));
 }
 
 #[test]

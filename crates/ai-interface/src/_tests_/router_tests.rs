@@ -43,6 +43,12 @@ fn provider_kind_round_trips_config_strings() {
         Some(ProviderKind::Anthropic)
     );
     assert_eq!(
+        ProviderKind::from_config_str("deepseek"),
+        Some(ProviderKind::DeepSeek)
+    );
+    assert_eq!(ProviderKind::DeepSeek.as_str(), "deepseek");
+    assert_eq!(ProviderKind::DeepSeek.to_string(), "deepseek");
+    assert_eq!(
         ProviderKind::from_config_str("kimi"),
         Some(ProviderKind::Kimi)
     );
@@ -56,6 +62,20 @@ fn provider_kind_round_trips_config_strings() {
     assert_eq!(ProviderKind::MiniMax.to_string(), "minimax");
     assert_eq!(ProviderKind::Xai.as_str(), "xai");
     assert_eq!(ProviderKind::from_config_str("unknown"), None);
+}
+
+#[test]
+fn deepseek_provider_serializes_with_config_identifier() {
+    assert_eq!(
+        serde_json::to_value(ProviderKind::DeepSeek).unwrap(),
+        json!("deepseek")
+    );
+    assert_eq!(
+        serde_json::from_value::<ProviderKind>(json!("deepseek")).unwrap(),
+        ProviderKind::DeepSeek
+    );
+    assert!(serde_json::from_value::<ProviderKind>(json!("deep_seek")).is_err());
+    assert!(serde_json::from_value::<ProviderKind>(json!("deepseek-ai")).is_err());
 }
 
 #[test]

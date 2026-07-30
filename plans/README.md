@@ -6,10 +6,9 @@ milestones are finished.
 
 ## Active
 
-No active plans.
-
 ## Completed
 
+- [Add DeepSeek model provider](add-deepseek-model-provider.md)
 - [Add Kimi model provider](add-kimi-model-provider.md)
 - [MiniMax model provider](minimax-model-provider.md)
 - [Universal tool output management](universal-tool-output-management.md)
