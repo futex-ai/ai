@@ -43,7 +43,9 @@ successful results keep the smaller success truncation shape without an
 because 2xx and tolerated 405 statuses are authoritative. Likewise, 401 and
 403 bodies are not consumed or counted: the transport returns their normalized
 headers immediately so the client can preserve the actionable authorization
-challenge.
+challenge. A 404 response to a request carrying `Mcp-Session-Id` is also
+status/header-authoritative, so an unreadable expiry body cannot prevent
+session recovery. Non-session 404 bodies retain the configured bound.
 
 HTTP authentication is injected through `json_http::JsonHttpAuth`. The crate
 surfaces typed `AuthorizationRequired` and `Forbidden` errors but never opens a
@@ -52,10 +54,10 @@ does not follow redirects; a 3xx response is surfaced to the caller. Successful
 non-empty request responses require `application/json` or
 `text/event-stream`, with case-insensitive media-type matching and optional
 parameters. Missing or unsupported JSON response media types return
-`UnsupportedContentType`; empty `202` and other non-success response bodies
-retain their status-specific behavior. A 2xx or tolerated 405 session DELETE
-returns after its headers and drops any response body without reading or
-limiting it.
+`UnsupportedContentType`; empty `202` and non-authoritative non-success
+response bodies retain their status-specific behavior. A 2xx or tolerated 405
+session DELETE returns after its headers and drops any response body without
+reading or limiting it.
 Incremental SSE framing accepts CRLF, standalone CR, and LF independently per
 line, including CRLF split across chunks. A colonless line is parsed as a field
 name with an empty value, so bare `data` is an empty event payload and fails
@@ -71,14 +73,17 @@ contain exactly one of `result` or `error`; both members together fail as a
 malformed response regardless of their values or identifier.
 When a session-bound request returns 404, the client surfaces
 `SessionExpired` without replaying that operation and invalidates only the
-matching expired state. Matching expiry records a tool-list invalidation. A
-later host-initiated operation initializes a fresh session; a delayed response
-from the old session cannot erase a newer one. A successful or tolerated
-session DELETE likewise clears state only while its captured session remains
-current, so a replacement established during `close()` stays active. Tool
-operations capture their initialized handshake and matching request context in
-one snapshot; later local invalidation cannot manufacture an initialization
-`MissingResponse`, and the captured request is never automatically replayed.
+matching expired state. The transport recognizes that expiry from status and
+case-insensitive outgoing session-header presence before reading or
+classifying the response body. Matching expiry records a tool-list
+invalidation. A later host-initiated operation initializes a fresh session; a
+delayed response from the old session cannot erase a newer one. A successful
+or tolerated session DELETE likewise clears state only while its captured
+session remains current, so a replacement established during `close()` stays
+active. Tool operations capture their initialized handshake and matching
+request context in one snapshot; later local invalidation cannot manufacture
+an initialization `MissingResponse`, and the captured request is never
+automatically replayed.
 
 ## Quick Start
 
@@ -157,6 +162,7 @@ cargo test -p ai-mcp --test json_transport_tests
 cargo test -p ai-mcp --test delete_transport_tests
 cargo test -p ai-mcp --test sse_transport_tests
 cargo test -p ai-mcp --test authorization_transport_tests
+cargo test -p ai-mcp --test session_expiry_transport_tests
 cargo clippy -p ai-mcp --all-targets --all-features -- -D warnings
 cargo xtask rust-file-length-lint --all
 cargo xtask smoke-test
@@ -178,8 +184,8 @@ environment-gated live test.
 - `src/tool_set_naming.rs` — namespacing, sanitization, and collision handling
 - `src/tool_set_result.rs` — result precedence and UTF-8-safe truncation
 - `tests/support/` — reusable in-process server harness
-- `tests/*_transport_tests.rs` — JSON, live SSE, authorization, and
-  status-authoritative session DELETE integration flows
+- `tests/*_transport_tests.rs` — JSON, live SSE, authorization, session
+  expiry, and status-authoritative session DELETE integration flows
 
 The companion crate's `tests/oauth_integration.rs` exercises this production
 client and both production reqwest transports against one credential-free

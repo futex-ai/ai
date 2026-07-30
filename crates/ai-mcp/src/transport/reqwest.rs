@@ -13,6 +13,7 @@ use super::{
     McpHttpPayload, McpHttpResponse, McpHttpTransport,
     content_type::{EVENT_STREAM, matches},
     delete_status::is_tolerated_delete_status,
+    session_status::{has_session_header, is_expired_session_status},
     sse::ReqwestEventStream,
 };
 
@@ -49,7 +50,7 @@ impl McpHttpTransport for ReqwestMcpHttpTransport {
         )
         .json(body);
         let response = send(builder).await?;
-        decode_response(response, max_response_bytes).await
+        decode_response(response, max_response_bytes, has_session_header(headers)).await
     }
 
     async fn delete(
@@ -64,7 +65,7 @@ impl McpHttpTransport for ReqwestMcpHttpTransport {
             headers,
         );
         let response = send(builder).await?;
-        decode_delete_response(response, max_response_bytes).await
+        decode_delete_response(response, max_response_bytes, has_session_header(headers)).await
     }
 }
 
@@ -85,10 +86,14 @@ async fn send(builder: reqwest::RequestBuilder) -> Result<Response> {
     }
 }
 
-async fn decode_response(response: Response, limit_bytes: usize) -> Result<McpHttpResponse> {
+async fn decode_response(
+    response: Response,
+    limit_bytes: usize,
+    session_bound: bool,
+) -> Result<McpHttpResponse> {
     let status = response.status().as_u16();
     let headers = response_headers(&response);
-    if is_authorization_status(status) {
+    if is_authorization_status(status) || is_expired_session_status(status, session_bound) {
         return Ok(McpHttpResponse {
             status,
             headers,
@@ -118,7 +123,11 @@ async fn decode_response(response: Response, limit_bytes: usize) -> Result<McpHt
     })
 }
 
-async fn decode_delete_response(response: Response, limit_bytes: usize) -> Result<McpHttpResponse> {
+async fn decode_delete_response(
+    response: Response,
+    limit_bytes: usize,
+    session_bound: bool,
+) -> Result<McpHttpResponse> {
     let status = response.status().as_u16();
     if is_tolerated_delete_status(status) {
         return Ok(McpHttpResponse {
@@ -127,7 +136,7 @@ async fn decode_delete_response(response: Response, limit_bytes: usize) -> Resul
             payload: McpHttpPayload::None,
         });
     }
-    decode_response(response, limit_bytes).await
+    decode_response(response, limit_bytes, session_bound).await
 }
 
 fn response_headers(response: &Response) -> BTreeMap<String, Vec<String>> {

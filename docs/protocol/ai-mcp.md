@@ -79,11 +79,12 @@ Required transport behavior (streamable HTTP, single endpoint URL):
    `notifications/initialized` notification.
 5. Session: if the initialize HTTP response includes an `Mcp-Session-Id`
    header, include that header on every subsequent request. A `404` on a
-   request that carried a session id means the session expired. If the cached
-   handshake and session still match that request, invalidate them and record
-   a tool-list invalidation. Return `Error::SessionExpired` without replaying
-   the failed operation. A later host-initiated operation starts a new session
-   through the normal initialization path without the expired id.
+   request that carried a session id means the session expired, regardless of
+   the response body's size, framing, media type, or availability. If the
+   cached handshake and session still match that request, invalidate them and
+   record a tool-list invalidation. Return `Error::SessionExpired` without
+   replaying the failed operation. A later host-initiated operation starts a
+   new session through the normal initialization path without the expired id.
 6. After negotiation, send `MCP-Protocol-Version: <negotiated>` as an HTTP
    header on every subsequent request.
 7. `close()` sends HTTP DELETE with the session header; a `405` response is
@@ -145,11 +146,16 @@ No long-lived GET streams are added in v1. A POST response stream remains scoped
 to its originating request. For every response body the client consumes,
 enforce `max_response_bytes` against cumulative raw bytes as they are read,
 including SSE framing, and fail immediately when the limit is crossed. HTTP
-401 and 403 are status/header-authoritative for both POST and DELETE: capture
-their status and normalized headers, return `McpHttpPayload::None`, and drop
-the unread body without size-limiting, content-type classification, or
-decoding. This preserves the actionable `WWW-Authenticate` challenge even
-when an ignored body is oversized, broken, or long-lived.
+401 and 403 are status/header-authoritative for both POST and DELETE. So is a
+404 response when the outgoing request-header map contains
+`Mcp-Session-Id`, matched case-insensitively and by presence even if its value
+is empty. For these responses, capture status and normalized headers, return
+`McpHttpPayload::None`, and drop the unread body without size-limiting,
+content-type classification, or decoding. This preserves an actionable
+`WWW-Authenticate` challenge and ensures an unreadable expiry body cannot
+prevent recovery. A non-session 404 retains bounded body decoding and
+diagnostics. Authentication hooks must not inject protocol-owned session
+headers independently of client session context.
 
 The production transport disables automatic redirects. Return any 3xx response
 to the client unchanged so it becomes the existing typed `Error::HttpStatus`;
@@ -162,22 +168,25 @@ non-empty JSON-RPC request response. Empty `202` notification and side-response
 bodies remain valid. A session DELETE with a `2xx` or tolerated `405` status is
 status-authoritative: capture its status and normalized headers, then drop the
 body without reading, size-limiting, or decoding it. Every other DELETE status
-apart from 401 and 403 retains bounded, lenient body decoding so
-`Error::HttpStatus` can preserve JSON or textual diagnostics.
+apart from 401, 403, and session-bound 404 retains bounded, lenient body
+decoding so `Error::HttpStatus` can preserve JSON or textual diagnostics.
 
 The approved `SessionExpired` behavior leaves retry timing to the host while
 permitting the MCP 2025-06-18 required new session. The operation that receives
-the `404` always fails without an automatic replay or reinitialization. Once
-that error is returned, the host may retry, and the next operation initializes
-a session without the expired id. In-flight responses compare their request
-session with current state before invalidating it, so a late `404` for an old
-session cannot erase a replacement session established concurrently. The same
-rule covers ordinary request responses, server-message response POSTs, and
-session DELETE. After a `2xx` or tolerated `405` DELETE, clear cached state only
-if the session captured for that DELETE is still current. If a replacement was
-established while DELETE was in flight, return success without clearing or
-closing the replacement. Tool-list and tool-call operations capture the
-initialized handshake and matching request context from one state snapshot.
+the `404` always fails without an automatic replay or reinitialization.
+Transport classification uses status and outgoing session-header presence
+alone, before polling even an oversized, stalled, broken, or SSE-typed body.
+Once that error is returned, the host may retry, and the next operation
+initializes a session without the expired id. In-flight responses compare
+their request session with current state before invalidating it, so a late
+`404` for an old session cannot erase a replacement session established
+concurrently. The same rule covers ordinary request responses, server-message
+response POSTs, and session DELETE. After a `2xx` or tolerated `405` DELETE,
+clear cached state only if the session captured for that DELETE is still
+current. If a replacement was established while DELETE was in flight, return
+success without clearing or closing the replacement. Tool-list and tool-call
+operations capture the initialized handshake and matching request context
+from one state snapshot.
 Concurrent invalidation after that snapshot cannot synthesize an
 initialization `MissingResponse`; the operation retains its captured context,
 dispatches at most once, and lets its own response determine whether the
@@ -622,12 +631,15 @@ static Bearer authentication, repeated 401/403 challenges, and session close.
 Authorization coverage proves oversized 401/403 bodies are not consumed while
 repeated challenge headers remain actionable across POST and DELETE. Dedicated
 DELETE coverage proves oversized 2xx and 405 bodies are not consumed and that
-accepted close still clears the captured session. The SSE server gates its
-matching response and EOF on receiving the client's reply to an interleaved
-server request, proving that the client processes events incrementally without
-deadlock. A credential-free MCP adapter is also constructed by `cargo xtask
-smoke-test`. No ignored live test is required unless a stable public MCP test
-server becomes available.
+accepted close still clears the captured session. Session-expiry transport
+coverage proves oversized and SSE-typed session-bound POST/DELETE 404 bodies
+are not consumed, lowercase session headers are recognized, host retry starts
+a replacement session, and non-session 404 bodies remain bounded. The SSE
+server gates its matching response and EOF on receiving the client's reply to
+an interleaved server request, proving that the client processes events
+incrementally without deadlock. A credential-free MCP adapter is also
+constructed by `cargo xtask smoke-test`. No ignored live test is required
+unless a stable public MCP test server becomes available.
 
 The companion `ai-mcp-oauth` integration suite additionally drives this client
 through challenge discovery, DCR, PKCE authorization, stored-token reuse,

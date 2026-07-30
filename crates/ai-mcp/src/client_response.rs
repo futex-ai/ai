@@ -7,7 +7,10 @@ use crate::{
     authorization::{authorization_challenge, is_authorization_status},
     client::RequestContext,
     protocol::{JsonRpcMessageKind, classify_message, error_response, success_response},
-    transport::content_type::{APPLICATION_JSON, first, matches},
+    transport::{
+        content_type::{APPLICATION_JSON, first, matches},
+        session_status::is_expired_session_status,
+    },
 };
 
 impl StreamableHttpMcpClient {
@@ -108,11 +111,12 @@ impl StreamableHttpMcpClient {
         response: McpHttpResponse,
         context: &RequestContext,
     ) -> Error {
-        let expired_session = if response.status == 404 {
-            context.session_id.as_deref()
-        } else {
-            None
-        };
+        let expired_session =
+            if is_expired_session_status(response.status, context.session_id.is_some()) {
+                context.session_id.as_deref()
+            } else {
+                None
+            };
         let error = self.http_error(response, context.session_id.is_some());
         if let Some(expired_session) = expired_session {
             self.invalidate_expired_session(expired_session).await;
@@ -143,7 +147,7 @@ impl StreamableHttpMcpClient {
                 Error::Forbidden { challenge }
             };
         }
-        if status == 404 && had_session {
+        if is_expired_session_status(status, had_session) {
             return Error::SessionExpired;
         }
         Error::HttpStatus {

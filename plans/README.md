@@ -20,6 +20,7 @@ milestones are finished.
 - [OAuth status-authoritative revocation](oauth-revocation-status-authoritative.md)
 - [MCP status-authoritative authorization](mcp-authorization-status-authoritative.md)
 - [OAuth IPv4 special-range classification](oauth-ipv4-special-range-classification.md)
+- [MCP status-authoritative session 404](mcp-session-404-status-authoritative.md)
 
 ## Completed
 
