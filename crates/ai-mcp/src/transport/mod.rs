@@ -70,7 +70,8 @@ pub struct McpHttpResponse {
 
 /// Body representation returned across the MCP transport seam.
 pub enum McpHttpPayload {
-    /// Empty body, such as an accepted notification.
+    /// Empty or deliberately unread body, such as an accepted notification or
+    /// status-authoritative response.
     None,
     /// One buffered JSON value or textual error body.
     Json(Value),

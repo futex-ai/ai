@@ -153,7 +153,7 @@ fn is_public_v4(address: Ipv4Addr) -> bool {
         || address.is_broadcast()
         || octets[0] == 0
         || (octets[0] == 100 && (64..=127).contains(&octets[1]))
-        || (octets[0] == 192 && octets[1] == 0)
+        || matches!(octets, [192, 0, 0, last] if !matches!(last, 9 | 10))
         || (octets[0] == 198 && matches!(octets[1], 18 | 19))
         || matches!(
             octets,

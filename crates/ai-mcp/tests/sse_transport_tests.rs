@@ -40,7 +40,11 @@ async fn runs_live_sse_flow_and_replies_before_stream_completion() {
         .route("/mcp", post(post_mcp))
         .with_state(state.clone());
     let server = spawn(router).await;
-    let client = client(&server.endpoint, Arc::new(StaticHeaderAuth::default()));
+    let client = client(
+        &server.endpoint,
+        Arc::new(StaticHeaderAuth::default()),
+        None,
+    );
 
     client.ensure_initialized().await.unwrap();
     let tools = client.list_tools().await.unwrap();

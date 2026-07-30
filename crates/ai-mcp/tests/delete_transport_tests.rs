@@ -16,7 +16,7 @@ use ai_mcp::{
 use axum::{
     Json, Router,
     extract::State,
-    http::{HeaderValue, StatusCode},
+    http::{HeaderValue, StatusCode, header::WWW_AUTHENTICATE},
     response::{IntoResponse, Response},
     routing::{delete, post},
 };
@@ -51,6 +51,40 @@ async fn tolerated_delete_statuses_ignore_oversized_bodies() {
         );
         assert!(matches!(response.payload, McpHttpPayload::None));
     }
+}
+
+#[tokio::test]
+async fn delete_authorization_status_ignores_an_oversized_body() {
+    let server = spawn(Router::new().route(
+        "/mcp",
+        delete(|| async {
+            let mut response = (StatusCode::UNAUTHORIZED, "x".repeat(128)).into_response();
+            response.headers_mut().append(
+                WWW_AUTHENTICATE,
+                HeaderValue::from_static("Bearer error=\"invalid_token\""),
+            );
+            response
+        }),
+    ))
+    .await;
+
+    let response = ReqwestMcpHttpTransport::new()
+        .unwrap()
+        .delete(
+            &server.endpoint,
+            &BTreeMap::new(),
+            1,
+            Duration::from_secs(2),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status, 401);
+    assert_eq!(
+        response.headers.get("www-authenticate"),
+        Some(&vec!["Bearer error=\"invalid_token\"".to_owned()])
+    );
+    assert!(matches!(response.payload, McpHttpPayload::None));
 }
 
 #[tokio::test]

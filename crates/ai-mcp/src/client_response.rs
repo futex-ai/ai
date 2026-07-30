@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use crate::{
     Error, McpHttpPayload, McpHttpResponse, McpRequestId, Result, StreamableHttpMcpClient,
-    authorization::authorization_challenge,
+    authorization::{authorization_challenge, is_authorization_status},
     client::RequestContext,
     protocol::{JsonRpcMessageKind, classify_message, error_response, success_response},
     transport::content_type::{APPLICATION_JSON, first, matches},
@@ -130,7 +130,7 @@ impl StreamableHttpMcpClient {
 
     fn http_error(&self, response: McpHttpResponse, had_session: bool) -> Error {
         let status = response.status;
-        if status == 401 || status == 403 {
+        if is_authorization_status(status) {
             let raw = response
                 .headers
                 .get("www-authenticate")

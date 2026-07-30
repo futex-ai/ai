@@ -56,6 +56,10 @@ pub(crate) fn authorization_challenge(
     }
 }
 
+pub(crate) fn is_authorization_status(status: u16) -> bool {
+    matches!(status, 401 | 403)
+}
+
 fn parse_bearer_fields(fields: &[String]) -> ParsedBearer {
     let mut parsed = ParsedBearer::default();
     for field in fields {

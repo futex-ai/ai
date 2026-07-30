@@ -40,7 +40,10 @@ even an empty truncated remote-error envelope retains `is_error: true`; this
 correctness floor is not a practical handshake size recommendation. Oversized
 successful results keep the smaller success truncation shape without an
 `is_error` member. Accepted session DELETE bodies are not consumed or counted
-because 2xx and tolerated 405 statuses are authoritative.
+because 2xx and tolerated 405 statuses are authoritative. Likewise, 401 and
+403 bodies are not consumed or counted: the transport returns their normalized
+headers immediately so the client can preserve the actionable authorization
+challenge.
 
 HTTP authentication is injected through `json_http::JsonHttpAuth`. The crate
 surfaces typed `AuthorizationRequired` and `Forbidden` errors but never opens a
@@ -49,9 +52,10 @@ does not follow redirects; a 3xx response is surfaced to the caller. Successful
 non-empty request responses require `application/json` or
 `text/event-stream`, with case-insensitive media-type matching and optional
 parameters. Missing or unsupported JSON response media types return
-`UnsupportedContentType`; empty `202` and non-success response bodies retain
-their status-specific behavior. A 2xx or tolerated 405 session DELETE returns
-after its headers and drops any response body without reading or limiting it.
+`UnsupportedContentType`; empty `202` and other non-success response bodies
+retain their status-specific behavior. A 2xx or tolerated 405 session DELETE
+returns after its headers and drops any response body without reading or
+limiting it.
 Incremental SSE framing accepts CRLF, standalone CR, and LF independently per
 line, including CRLF split across chunks. A colonless line is parsed as a field
 name with an empty value, so bare `data` is an empty event payload and fails

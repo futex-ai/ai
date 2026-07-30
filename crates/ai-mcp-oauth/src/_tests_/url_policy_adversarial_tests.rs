@@ -1,5 +1,7 @@
 //! Adversarial OAuth URL syntax and address-policy coverage.
 
+use std::net::{IpAddr, Ipv4Addr};
+
 use crate::{OAuthEndpointKind, OAuthUrlPolicy};
 
 #[test]
@@ -87,4 +89,112 @@ fn permits_loopback_http_only_under_explicit_development_policy() {
             .parse(endpoint, OAuthEndpointKind::Authorization)
             .is_ok()
     );
+}
+
+#[test]
+fn permits_public_addresses_outside_ietf_protocol_assignments() {
+    let policy = OAuthUrlPolicy::default();
+    for value in ["192.0.1.1", "192.0.3.1", "192.0.255.255"] {
+        let address = value.parse::<Ipv4Addr>().unwrap();
+        assert!(
+            policy.address_allowed(IpAddr::V4(address), "https"),
+            "{value} should be globally reachable"
+        );
+        assert!(
+            policy
+                .parse(
+                    &format!("https://{value}/oauth"),
+                    OAuthEndpointKind::Authorization
+                )
+                .is_ok(),
+            "{value} should be accepted as an HTTPS literal"
+        );
+    }
+}
+
+#[test]
+fn permits_global_anycast_protocol_assignment_exceptions() {
+    let policy = OAuthUrlPolicy::default();
+    for value in ["192.0.0.9", "192.0.0.10"] {
+        let address = value.parse::<Ipv4Addr>().unwrap();
+        assert!(
+            policy.address_allowed(IpAddr::V4(address), "https"),
+            "{value} should be globally reachable"
+        );
+        assert!(
+            policy
+                .parse(
+                    &format!("https://{value}/oauth"),
+                    OAuthEndpointKind::Authorization
+                )
+                .is_ok(),
+            "{value} should be accepted as an HTTPS literal"
+        );
+    }
+}
+
+#[test]
+fn rejects_non_global_protocol_assignments_and_test_net() {
+    let policy = OAuthUrlPolicy::default();
+    for value in [
+        "192.0.0.0",
+        "192.0.0.8",
+        "192.0.0.11",
+        "192.0.0.170",
+        "192.0.0.171",
+        "192.0.0.255",
+        "192.0.2.1",
+    ] {
+        let address = value.parse::<Ipv4Addr>().unwrap();
+        assert!(
+            !policy.address_allowed(IpAddr::V4(address), "https"),
+            "{value} should remain non-global"
+        );
+        assert!(
+            policy
+                .parse(
+                    &format!("https://{value}/oauth"),
+                    OAuthEndpointKind::Authorization
+                )
+                .is_err(),
+            "{value} should remain rejected as an HTTPS literal"
+        );
+    }
+}
+
+#[test]
+fn ipv4_mapped_ipv6_uses_the_corrected_ipv4_boundary() {
+    let policy = OAuthUrlPolicy::default();
+    for value in ["192.0.1.1", "192.0.0.9"] {
+        let mapped = value.parse::<Ipv4Addr>().unwrap().to_ipv6_mapped();
+        assert!(
+            policy.address_allowed(IpAddr::V6(mapped), "https"),
+            "{mapped} should be globally reachable"
+        );
+        assert!(
+            policy
+                .parse(
+                    &format!("https://[{mapped}]/oauth"),
+                    OAuthEndpointKind::Authorization
+                )
+                .is_ok(),
+            "{mapped} should be accepted as an HTTPS literal"
+        );
+    }
+    for value in ["192.0.0.8", "192.0.2.1"] {
+        let mapped = value.parse::<Ipv4Addr>().unwrap().to_ipv6_mapped();
+        assert!(
+            !policy.address_allowed(IpAddr::V6(mapped), "https"),
+            "{mapped} should remain non-global"
+        );
+        assert!(
+            policy
+                .parse(
+                    &format!("https://[{mapped}]/oauth"),
+                    OAuthEndpointKind::Authorization
+                )
+                .is_err(),
+            "{mapped} should remain rejected as an HTTPS literal"
+        );
+    }
 }

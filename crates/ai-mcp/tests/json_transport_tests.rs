@@ -36,7 +36,11 @@ struct JsonServerState {
 #[tokio::test]
 async fn rejects_json_body_with_unsupported_content_type() {
     let server = spawn(Router::new().route("/mcp", post(plain_text_json))).await;
-    let client = client(&server.endpoint, Arc::new(StaticHeaderAuth::default()));
+    let client = client(
+        &server.endpoint,
+        Arc::new(StaticHeaderAuth::default()),
+        None,
+    );
 
     let error = client.ensure_initialized().await.unwrap_err();
 
@@ -58,6 +62,7 @@ async fn runs_json_session_from_initialize_through_close() {
     let client = client(
         &server.endpoint,
         Arc::new(StaticHeaderAuth::bearer_token("integration-token")),
+        None,
     );
 
     let handshake = client.ensure_initialized().await.unwrap();
@@ -112,6 +117,7 @@ async fn post_redirects_surface_without_contacting_the_target() {
         let client = client(
             &source.endpoint,
             Arc::new(StaticHeaderAuth::bearer_token("integration-token")),
+            None,
         );
 
         let error = client.ensure_initialized().await.unwrap_err();

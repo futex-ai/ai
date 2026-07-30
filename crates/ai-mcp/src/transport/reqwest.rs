@@ -7,7 +7,7 @@ use futures_util::StreamExt;
 use reqwest::{Method, Response, redirect::Policy};
 use serde_json::Value;
 
-use crate::{Error, Result};
+use crate::{Error, Result, authorization::is_authorization_status};
 
 use super::{
     McpHttpPayload, McpHttpResponse, McpHttpTransport,
@@ -88,6 +88,13 @@ async fn send(builder: reqwest::RequestBuilder) -> Result<Response> {
 async fn decode_response(response: Response, limit_bytes: usize) -> Result<McpHttpResponse> {
     let status = response.status().as_u16();
     let headers = response_headers(&response);
+    if is_authorization_status(status) {
+        return Ok(McpHttpResponse {
+            status,
+            headers,
+            payload: McpHttpPayload::None,
+        });
+    }
     if matches(&headers, EVENT_STREAM) {
         return Ok(McpHttpResponse {
             status,

@@ -2,9 +2,16 @@
 
 mod support;
 
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
-use ai_mcp::{Error, McpAuthorizationFailure, McpClient};
+use ai_mcp::{
+    Error, McpAuthorizationFailure, McpClient, McpHttpPayload, McpHttpTransport,
+    ReqwestMcpHttpTransport,
+};
 use axum::{
     Json, Router,
     extract::State,
@@ -13,9 +20,12 @@ use axum::{
     routing::post,
 };
 use json_http::StaticHeaderAuth;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use support::{RecordedRequest, client, header, spawn};
+
+const AUTH_RESPONSE_LIMIT: usize = 64;
+const OVERSIZED_BODY_BYTES: usize = 128;
 
 #[derive(Default)]
 struct AuthServerState {
@@ -23,7 +33,7 @@ struct AuthServerState {
 }
 
 #[tokio::test]
-async fn preserves_repeated_401_challenges_and_typed_discovery_hints() {
+async fn preserves_repeated_401_challenges_despite_oversized_body() {
     let state = Arc::new(AuthServerState::default());
     let server = spawn(
         Router::new()
@@ -31,12 +41,17 @@ async fn preserves_repeated_401_challenges_and_typed_discovery_hints() {
             .with_state(state.clone()),
     )
     .await;
-    let client = client(&server.endpoint, Arc::new(StaticHeaderAuth::default()));
+    let client = client(
+        &server.endpoint,
+        Arc::new(StaticHeaderAuth::default()),
+        Some(AUTH_RESPONSE_LIMIT),
+    );
 
     let error = client.ensure_initialized().await.unwrap_err();
 
-    let Error::AuthorizationRequired { challenge } = error else {
-        panic!("expected authorization challenge");
+    let challenge = match error {
+        Error::AuthorizationRequired { challenge } => challenge,
+        other => panic!("expected authorization challenge, got {other:?}"),
     };
     assert_eq!(challenge.failure, McpAuthorizationFailure::InvalidToken);
     assert_eq!(
@@ -52,7 +67,7 @@ async fn preserves_repeated_401_challenges_and_typed_discovery_hints() {
 }
 
 #[tokio::test]
-async fn maps_403_scope_challenge_without_losing_raw_headers() {
+async fn maps_403_scope_challenge_despite_oversized_body() {
     let state = Arc::new(AuthServerState::default());
     let server = spawn(
         Router::new()
@@ -63,12 +78,14 @@ async fn maps_403_scope_challenge_without_losing_raw_headers() {
     let client = client(
         &server.endpoint,
         Arc::new(StaticHeaderAuth::bearer_token("insufficient-token")),
+        Some(AUTH_RESPONSE_LIMIT),
     );
 
     let error = client.ensure_initialized().await.unwrap_err();
 
-    let Error::Forbidden { challenge } = error else {
-        panic!("expected forbidden challenge");
+    let challenge = match error {
+        Error::Forbidden { challenge } => challenge,
+        other => panic!("expected forbidden challenge, got {other:?}"),
     };
     assert_eq!(
         challenge.failure,
@@ -84,13 +101,40 @@ async fn maps_403_scope_challenge_without_losing_raw_headers() {
     );
 }
 
+#[tokio::test]
+async fn transport_returns_headers_without_reading_oversized_401_body() {
+    let state = Arc::new(AuthServerState::default());
+    let server = spawn(
+        Router::new()
+            .route("/mcp", post(unauthorized))
+            .with_state(state),
+    )
+    .await;
+
+    let response = ReqwestMcpHttpTransport::new()
+        .unwrap()
+        .post(
+            &server.endpoint,
+            &BTreeMap::new(),
+            &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize"}),
+            AUTH_RESPONSE_LIMIT,
+            Duration::from_secs(2),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status, 401);
+    assert_eq!(response.headers["www-authenticate"].len(), 2);
+    assert!(matches!(response.payload, McpHttpPayload::None));
+}
+
 async fn unauthorized(
     State(state): State<Arc<AuthServerState>>,
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Response {
     record(&state, headers, body);
-    let mut response = StatusCode::UNAUTHORIZED.into_response();
+    let mut response = (StatusCode::UNAUTHORIZED, "x".repeat(OVERSIZED_BODY_BYTES)).into_response();
     response.headers_mut().append(
         WWW_AUTHENTICATE,
         HeaderValue::from_static(
@@ -110,7 +154,7 @@ async fn forbidden(
     Json(body): Json<Value>,
 ) -> Response {
     record(&state, headers, body);
-    let mut response = StatusCode::FORBIDDEN.into_response();
+    let mut response = (StatusCode::FORBIDDEN, "x".repeat(OVERSIZED_BODY_BYTES)).into_response();
     response.headers_mut().append(
         WWW_AUTHENTICATE,
         HeaderValue::from_static("Bearer error=\"insufficient_scope\", scope=\"admin read\""),

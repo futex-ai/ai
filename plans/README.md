@@ -18,6 +18,8 @@ milestones are finished.
 - [MCP colonless SSE data](mcp-sse-colonless-data.md)
 - [MCP status-authoritative DELETE](mcp-delete-status-authoritative.md)
 - [OAuth status-authoritative revocation](oauth-revocation-status-authoritative.md)
+- [MCP status-authoritative authorization](mcp-authorization-status-authoritative.md)
+- [OAuth IPv4 special-range classification](oauth-ipv4-special-range-classification.md)
 
 ## Completed
 

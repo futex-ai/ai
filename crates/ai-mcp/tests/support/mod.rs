@@ -41,11 +41,19 @@ pub(crate) async fn spawn(router: Router) -> TestServer {
 }
 
 /// Builds the production MCP client against an in-process endpoint.
-pub(crate) fn client(endpoint: &str, auth: Arc<dyn JsonHttpAuth>) -> StreamableHttpMcpClient {
+pub(crate) fn client(
+    endpoint: &str,
+    auth: Arc<dyn JsonHttpAuth>,
+    max_response_bytes: Option<usize>,
+) -> StreamableHttpMcpClient {
+    let mut config = ai_mcp::McpServerConfig::new("integration", endpoint);
+    if let Some(max_response_bytes) = max_response_bytes {
+        config.max_response_bytes = max_response_bytes;
+    }
     StreamableHttpMcpClient::new(
         Arc::new(ReqwestMcpHttpTransport::new().unwrap()),
         auth,
-        ai_mcp::McpServerConfig::new("integration", endpoint),
+        config,
     )
     .unwrap()
 }

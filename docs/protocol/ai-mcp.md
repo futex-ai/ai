@@ -142,9 +142,14 @@ both `result` and `error`, and method-bearing messages with an explicit null or
 wrong-typed id, which must never be treated as notifications.
 
 No long-lived GET streams are added in v1. A POST response stream remains scoped
-to its originating request. Enforce `max_response_bytes` against cumulative raw
-response bytes as they are read, including SSE framing, and fail immediately
-when the limit is crossed.
+to its originating request. For every response body the client consumes,
+enforce `max_response_bytes` against cumulative raw bytes as they are read,
+including SSE framing, and fail immediately when the limit is crossed. HTTP
+401 and 403 are status/header-authoritative for both POST and DELETE: capture
+their status and normalized headers, return `McpHttpPayload::None`, and drop
+the unread body without size-limiting, content-type classification, or
+decoding. This preserves the actionable `WWW-Authenticate` challenge even
+when an ignored body is oversized, broken, or long-lived.
 
 The production transport disables automatic redirects. Return any 3xx response
 to the client unchanged so it becomes the existing typed `Error::HttpStatus`;
@@ -157,8 +162,8 @@ non-empty JSON-RPC request response. Empty `202` notification and side-response
 bodies remain valid. A session DELETE with a `2xx` or tolerated `405` status is
 status-authoritative: capture its status and normalized headers, then drop the
 body without reading, size-limiting, or decoding it. Every other DELETE status
-retains bounded, lenient body decoding so `Error::HttpStatus` can preserve JSON
-or textual diagnostics.
+apart from 401 and 403 retains bounded, lenient body decoding so
+`Error::HttpStatus` can preserve JSON or textual diagnostics.
 
 The approved `SessionExpired` behavior leaves retry timing to the host while
 permitting the MCP 2025-06-18 required new session. The operation that receives
@@ -614,13 +619,15 @@ Unit tests (unimock the transport / client per repo `_tests_` conventions):
 Integration tests (crate-root `tests/`, in-process Axum servers, real
 `ReqwestMcpHttpTransport`) cover JSON and SSE initialize → list → call flows,
 static Bearer authentication, repeated 401/403 challenges, and session close.
-Dedicated DELETE coverage proves oversized 2xx and 405 bodies are not consumed
-and that accepted close still clears the captured session. The SSE server gates
-its matching response and EOF on receiving the client's reply to an interleaved
+Authorization coverage proves oversized 401/403 bodies are not consumed while
+repeated challenge headers remain actionable across POST and DELETE. Dedicated
+DELETE coverage proves oversized 2xx and 405 bodies are not consumed and that
+accepted close still clears the captured session. The SSE server gates its
+matching response and EOF on receiving the client's reply to an interleaved
 server request, proving that the client processes events incrementally without
-deadlock. A credential-free MCP adapter is also constructed by
-`cargo xtask smoke-test`. No ignored live test is required unless a stable
-public MCP test server becomes available.
+deadlock. A credential-free MCP adapter is also constructed by `cargo xtask
+smoke-test`. No ignored live test is required unless a stable public MCP test
+server becomes available.
 
 The companion `ai-mcp-oauth` integration suite additionally drives this client
 through challenge discovery, DCR, PKCE authorization, stored-token reuse,
