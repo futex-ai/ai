@@ -6,13 +6,14 @@ milestones are finished.
 
 ## Active
 
-- [AI MCP crate](ai-mcp-crate.md)
-- [MCP SSE line endings](mcp-sse-line-endings.md)
-- [MCP error SSE body decoding](mcp-error-sse-body-decoding.md)
-- [OAuth callback no-state constructors](oauth-callback-no-state-constructors.md)
+None.
 
 ## Completed
 
+- [OAuth callback no-state constructors](oauth-callback-no-state-constructors.md)
+- [MCP error SSE body decoding](mcp-error-sse-body-decoding.md)
+- [MCP SSE line endings](mcp-sse-line-endings.md)
+- [AI MCP crate](ai-mcp-crate.md)
 - [MCP status-authoritative session 404](mcp-session-404-status-authoritative.md)
 - [OAuth IPv4 special-range classification](oauth-ipv4-special-range-classification.md)
 - [MCP status-authoritative authorization](mcp-authorization-status-authoritative.md)

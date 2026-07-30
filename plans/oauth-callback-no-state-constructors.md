@@ -69,7 +69,7 @@ present-state integrations compile unchanged.
       tests, Rust file-length lint, smoke tests, and `cargo xtask check`.
 - [x] Review the complete diff for omissions, unrelated changes, Markdown
       errors, file-size violations, and untracked files.
-- [ ] Run `git add -A`, commit the completed fix and plan bookkeeping with a
+- [x] Run `git add -A`, commit the completed fix and plan bookkeeping with a
       Conventional Commit title no longer than 50 characters, and push the
       current branch.
 - [x] Record that the finding arose in review cycle 10 and no cycle 11 is

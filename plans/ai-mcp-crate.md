@@ -310,6 +310,6 @@ regress a newer successful acknowledgement.
 - [x] Run the next `cargo xtask review` against `origin/main`; continue only
       for independently valid, Fable-confirmed findings without exceeding the
       ten-cycle limit.
-- [ ] Once the authorized review loop has no valid finding left, mark this
+- [x] Once the authorized review loop has no valid finding left, mark this
       milestone complete, move this plan back to Completed in
       `plans/README.md`, and commit and push the final bookkeeping.
