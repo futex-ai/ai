@@ -89,6 +89,20 @@ fn serializes_tools_parallel_calls_and_matching_results() {
 }
 
 #[test]
+fn serializes_empty_non_tool_assistant_content_as_a_string() {
+    let mut request = simple_request();
+    request
+        .messages
+        .push(ConversationMessage::assistant("", Vec::new()));
+
+    let body = request_json(QWEN_3_7_PLUS, ThinkingLevel::High, &request)
+        .expect("empty assistant history should build");
+
+    assert_eq!(body["messages"][2]["content"], "");
+    assert!(body["messages"][2].get("tool_calls").is_none());
+}
+
+#[test]
 fn serializes_plus_and_flash_images_as_data_urls() {
     let request = request_with_user_parts();
 
