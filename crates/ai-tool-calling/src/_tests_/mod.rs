@@ -6,6 +6,7 @@ mod model_logging_redaction_tests;
 mod output_id_generation_tests;
 mod output_store_tests;
 mod policy_tests;
+mod qwen_logging_redaction_tests;
 mod support;
 mod turn_error_logging_tests;
 mod turn_execution;

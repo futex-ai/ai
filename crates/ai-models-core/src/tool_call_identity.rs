@@ -195,6 +195,21 @@ impl StableHasher {
                     self.write_str(&call.arguments);
                 }
             }
+            ProviderConversationItem::QwenAssistantMessage {
+                content,
+                reasoning_content,
+                tool_calls,
+            } => {
+                self.write_str("qwen_assistant_message");
+                self.write_optional_str(content.as_deref());
+                self.write_optional_str(reasoning_content.as_deref());
+                self.write_usize(tool_calls.len());
+                for call in tool_calls {
+                    self.write_str(&call.id);
+                    self.write_str(&call.name);
+                    self.write_str(&call.arguments);
+                }
+            }
         }
     }
 

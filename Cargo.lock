@@ -149,6 +149,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ai-models-qwen"
+version = "0.3.0"
+dependencies = [
+ "ai-interface",
+ "ai-models-core",
+ "async-trait",
+ "json-http",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "unimock",
+]
+
+[[package]]
 name = "ai-models-xai"
 version = "0.3.0"
 dependencies = [
@@ -2413,6 +2428,7 @@ dependencies = [
  "ai-models-kimi",
  "ai-models-minimax",
  "ai-models-openai",
+ "ai-models-qwen",
  "ai-models-xai",
  "ai-tool-calling",
  "async-trait",

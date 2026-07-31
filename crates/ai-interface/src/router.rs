@@ -28,6 +28,8 @@ pub enum ProviderKind {
     /// MiniMax model provider.
     #[serde(rename = "minimax")]
     MiniMax,
+    /// Alibaba Qwen model provider.
+    Qwen,
     /// xAI/Grok model provider.
     Xai,
 }
@@ -43,6 +45,7 @@ impl ProviderKind {
             "google" => Some(Self::Google),
             "kimi" => Some(Self::Kimi),
             "minimax" => Some(Self::MiniMax),
+            "qwen" => Some(Self::Qwen),
             "xai" => Some(Self::Xai),
             _ => None,
         }
@@ -58,6 +61,7 @@ impl ProviderKind {
             Self::Google => "google",
             Self::Kimi => "kimi",
             Self::MiniMax => "minimax",
+            Self::Qwen => "qwen",
             Self::Xai => "xai",
         }
     }

@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use ai_interface::{
     ConversationMessage, DeepSeekToolCallContext, KimiToolCallContext, Model, ModelRequest,
-    ProviderConversationItem, ToolCall,
+    ProviderConversationItem, QwenToolCallContext, ToolCall,
 };
 use json_http::{
     JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
@@ -98,6 +98,15 @@ async fn serializes_legacy_function_call_continuation_messages() {
                                 arguments: "{}".to_owned(),
                             }],
                         },
+                        ProviderConversationItem::QwenAssistantMessage {
+                            content: Some("Qwen-owned content".to_owned()),
+                            reasoning_content: Some("Qwen-owned reasoning".to_owned()),
+                            tool_calls: vec![QwenToolCallContext {
+                                id: "qwen_call".to_owned(),
+                                name: "ignored".to_owned(),
+                                arguments: "{}".to_owned(),
+                            }],
+                        },
                         ProviderConversationItem::XaiLegacyFunctionCall {
                             tool_call_id: legacy_call_id.to_owned(),
                             name: "memory_read".to_owned(),
@@ -148,6 +157,13 @@ async fn serializes_legacy_function_call_continuation_messages() {
             .expect("JSON body should be present")
             .to_string()
             .contains("DeepSeek-owned")
+    );
+    assert!(
+        !body
+            .as_json()
+            .expect("JSON body should be present")
+            .to_string()
+            .contains("Qwen-owned")
     );
 }
 
