@@ -134,6 +134,26 @@ fn enforces_dispatchable_tool_shape_and_thinking_reasoning() {
             "reasoning_content": "private",
             "tool_calls": [raw_call("call_1", "memory_read", "{")]
         }),
+        json!({
+            "content": null,
+            "reasoning_content": "private",
+            "tool_calls": [raw_call("", "memory_read", "{}")]
+        }),
+        json!({
+            "content": null,
+            "reasoning_content": "private",
+            "tool_calls": [raw_call(" ", "memory_read", "{}")]
+        }),
+        json!({
+            "content": null,
+            "reasoning_content": "private",
+            "tool_calls": [raw_call("call_1", "", "{}")]
+        }),
+        json!({
+            "content": null,
+            "reasoning_content": "private",
+            "tool_calls": [raw_call("call_1", " ", "{}")]
+        }),
     ];
 
     for message in malformed_messages {

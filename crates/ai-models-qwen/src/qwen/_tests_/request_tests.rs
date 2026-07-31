@@ -181,6 +181,33 @@ fn replays_qwen_owned_raw_fields_and_ignores_foreign_context() {
 }
 
 #[test]
+fn replays_null_non_tool_content_as_an_empty_string() {
+    let assistant = ConversationMessage::assistant_with_provider_context(
+        "",
+        Vec::new(),
+        vec![ProviderConversationItem::QwenAssistantMessage {
+            content: None,
+            reasoning_content: Some("private reasoning".to_owned()),
+            tool_calls: Vec::new(),
+        }],
+    );
+    let request = ModelRequest {
+        system_prompt: "system".to_owned(),
+        messages: vec![assistant],
+        tools: Vec::new(),
+        response_schema: None,
+    };
+
+    let body = request_json(QWEN_3_7_PLUS, ThinkingLevel::High, &request)
+        .expect("non-tool replay request should build");
+    let replay = &body["messages"][1];
+
+    assert_eq!(replay["content"], "");
+    assert_eq!(replay["reasoning_content"], "private reasoning");
+    assert!(replay.get("tool_calls").is_none());
+}
+
+#[test]
 fn structured_output_always_prompts_and_uses_native_json_only_when_supported() {
     let mut request = simple_request();
     request.response_schema = Some(status_schema());

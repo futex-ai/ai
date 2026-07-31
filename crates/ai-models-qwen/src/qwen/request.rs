@@ -133,7 +133,11 @@ fn replay_message(item: &ProviderConversationItem) -> ChatCompletionsMessage {
     };
     ChatCompletionsMessage {
         role: "assistant".to_owned(),
-        content: content.clone().map(ChatCompletionsContent::Text),
+        content: match content {
+            Some(content) => Some(ChatCompletionsContent::Text(content.clone())),
+            None if tool_calls.is_empty() => Some(ChatCompletionsContent::Text(String::new())),
+            None => None,
+        },
         tool_call_id: None,
         reasoning_content: reasoning_content.clone(),
         tool_calls: tool_calls.iter().map(raw_tool_call).collect(),

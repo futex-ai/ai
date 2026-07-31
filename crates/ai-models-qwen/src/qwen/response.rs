@@ -186,6 +186,7 @@ fn parse_tool_calls(
     calls
         .iter()
         .map(|call| {
+            validate_tool_call_identity(model_id, call)?;
             Ok(ToolCall {
                 id: call.id.clone(),
                 name: call.function.name.clone(),
@@ -194,6 +195,24 @@ fn parse_tool_calls(
             })
         })
         .collect()
+}
+
+fn validate_tool_call_identity(model_id: &str, call: &ChatCompletionsToolCall) -> ModelResult<()> {
+    if call.id.trim().is_empty() {
+        return Err(ModelError::provider(
+            PROVIDER,
+            model_id,
+            "Qwen tool call had no id",
+        ));
+    }
+    if call.function.name.trim().is_empty() {
+        return Err(ModelError::provider(
+            PROVIDER,
+            model_id,
+            "Qwen tool call had no function name",
+        ));
+    }
+    Ok(())
 }
 
 fn raw_tool_calls(calls: &[ChatCompletionsToolCall]) -> Vec<QwenToolCallContext> {

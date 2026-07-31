@@ -120,7 +120,9 @@ calls, when a thinking-mode tool flow continues.
 `ai-interface` therefore stores a typed Qwen assistant replay item with the
 nullable content, nullable reasoning, and ordered raw tool-call ids, names,
 and JSON argument strings. Qwen requests prefer this item over normalized
-assistant fields. An enabled-thinking tool-call finish without
+assistant fields. Null replay content remains null only when raw tool calls are
+present; without calls it becomes an empty string so the next request remains
+a valid assistant message. An enabled-thinking tool-call finish without
 `reasoning_content` is a non-retryable provider failure because exact
 continuation cannot be guaranteed.
 
@@ -137,8 +139,8 @@ and JSON Schema parameters. The request sends `tool_choice: "auto"` and
 
 Calls are dispatchable only for a `tool_calls` finish. Each call must include
 an id, function name, and arguments that parse as JSON. Provider order, ids,
-and raw argument strings survive parallel calls and replay. Missing, empty, or
-malformed dispatchable calls are provider failures.
+and raw argument strings survive parallel calls and replay. Missing, empty,
+whitespace-only, or malformed dispatchable calls are provider failures.
 
 Tool payloads attached to stop, truncated, filtered, unknown, or missing
 finish reasons are ignored and not retained. Tool results send string content

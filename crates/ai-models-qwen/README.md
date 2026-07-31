@@ -17,7 +17,9 @@ needs Qwen 3.7 Max, Plus, or Flash with explicit thinking behavior.
 The adapter targets QwenCloud's international pay-as-you-go endpoint. It
 supports high-thinking and thinking-disabled variants, parallel function
 calling, Plus/Flash image input, and locally validated JSON objects. Qwen 3.7
-Max is intentionally text-only.
+Max is intentionally text-only. Replay emits null assistant content only for
+tool-call turns, and invalid provider tool-call identities are rejected before
+they reach the shared runtime.
 
 Streaming, Qwen Coding Plan endpoints, preview model snapshots, built-in tools,
 and ambient credential lookup are outside this crate's boundary.
