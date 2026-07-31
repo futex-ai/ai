@@ -10,9 +10,9 @@ in-memory tool-calling runtime behavior.
   transcription, tool calls, routing, logging, usage metering, and bounded
   model-visible tool output envelopes
 - Provider adapters for Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
-  OpenAI, and xAI models, including provider-specific tools, reasoning replay,
-  vision where supported, structured output, usage normalization, and typed
-  errors
+  OpenAI, QwenCloud, and xAI models, including provider-specific tools,
+  reasoning replay, vision where supported, structured output, usage
+  normalization, and typed errors
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, and usage pricing
 - Ordered fallback model composition through `ai-models-multi`
@@ -32,6 +32,9 @@ in-memory tool-calling runtime behavior.
 - [MiniMax model provider](docs/protocol/minimax-model-provider.md) defines the
   provider identity, catalog, request/replay, response, usage, and
   error-normalization contract.
+- [Qwen model provider](docs/protocol/qwen-model-provider.md) defines the stable
+  Qwen 3.7 Max/Plus/Flash catalog, thinking, vision, replay, tool-calling,
+  structured-output, usage, and error contract.
 - [Tool output management](docs/protocol/tool-output-management.md) defines the
   universal output-id, bounded-envelope, pagination, and raw-output isolation
   contract for tool calls.
@@ -52,6 +55,8 @@ boundary they need:
 - `ai-models-minimax`: MiniMax Chat Completions model adapter and known-model
   catalog
 - `ai-models-openai`: OpenAI model and transcription adapters
+- `ai-models-qwen`: Qwen 3.7 Max/Plus/Flash Chat Completions adapter and
+  known-model catalog
 - `ai-models-xai`: xAI model adapter
 - `ai-models-multi`: ordered fallback model adapter
 - `ai-tool-calling`: in-memory tool-calling runtime with output policy, output
@@ -98,6 +103,8 @@ cargo xtask review
   and usage mapping
 - `crates/ai-models-minimax`: MiniMax catalog plus request, replay, response,
   usage, and provider-error mapping
+- `crates/ai-models-qwen`: Qwen 3.7 catalog, typed client, thinking, vision,
+  request/replay, structured output, usage, and error mapping
 - `crates/ai-models-*`: concrete provider and fallback adapters
 - `crates/ai-tool-calling`: in-memory tool-calling runtime, including
   `src/policy.rs`, `src/output_store/`, and the intrinsic output reader
@@ -110,6 +117,7 @@ cargo xtask review
   contract
 - `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract
 - `docs/protocol/minimax-model-provider.md`: normative MiniMax adapter contract
+- `docs/protocol/qwen-model-provider.md`: normative Qwen 3.7 provider contract
 - `docs/protocol/`: other normative contracts for shared runtime behavior
 - `plans/`: active and completed implementation plans.
 

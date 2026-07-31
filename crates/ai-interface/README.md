@@ -10,8 +10,8 @@ without taking a dependency on a stateful runtime implementation.
 - Own shared DTOs for conversations, model calls, tool calls, audio
   transcription, routing, logging, and usage metering.
 - Represent provider identity and provider-owned replay state, including
-  DeepSeek, Kimi, and MiniMax reasoning context that remains separate from
-  visible assistant text.
+  DeepSeek, Kimi, MiniMax, and Qwen reasoning context that remains separate
+  from visible assistant text.
 - Own the model-visible tool output DTOs used by universal output management:
   opaque output ids, inline envelopes, window envelopes, read requests, and
   unavailable-remainder reasons.
@@ -29,13 +29,15 @@ without taking a dependency on a stateful runtime implementation.
   `ToolDefinition`, including provider replay context on assistant messages.
   DeepSeek replay items retain normalized assistant content, optional provider
   reasoning, and ordered raw tool calls so a later tool continuation can
-  reproduce the original assistant message exactly. Kimi has an equivalent
-  provider-owned replay shape with nullable content.
+  reproduce the original assistant message exactly. Kimi and Qwen have
+  equivalent provider-owned replay shapes with nullable content.
 - Defines `ProviderKind::DeepSeek` with the stable deployment and serde value
   `deepseek`.
 - Defines `ProviderKind::MiniMax` with the stable deployment and serde value
   `minimax`, plus typed MiniMax reasoning details for lossless continuation
   replay.
+- Defines `ProviderKind::Qwen` with the stable deployment and serde value
+  `qwen`, plus typed Qwen raw tool-call replay state.
 - Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
@@ -58,8 +60,8 @@ returns the raw JSON value it produced. Runtime crates can inspect that value in
 current-run execution records, but they serialize only `ToolOutputEnvelope`
 values into conversation tool messages and logger success entries.
 
-Provider replay context follows the same separation. DeepSeek, Kimi, and
-MiniMax reasoning content is retained as provider-owned context for
+Provider replay context follows the same separation. DeepSeek, Kimi, MiniMax,
+and Qwen reasoning content is retained as provider-owned context for
 continuation requests, but it is never copied into normalized assistant text
 or exposed as tool output. Other model providers ignore replay items they do
 not own.
@@ -143,7 +145,7 @@ tool dispatch live in `ai-tool-calling`.
 
 ### Key Code
 
-- `src/messages.rs` - conversation DTOs, DeepSeek/Kimi raw tool replay,
+- `src/messages.rs` - conversation DTOs, DeepSeek/Kimi/Qwen raw tool replay,
   MiniMax reasoning details, and provider replay context.
 - `src/model.rs` - model trait, request/response DTOs, finish reasons, and
   typed model errors.
@@ -166,4 +168,5 @@ tool dispatch live in `ai-tool-calling`.
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)
+- [`../../docs/protocol/qwen-model-provider.md`](../../docs/protocol/qwen-model-provider.md)
 - [`../../plans/README.md`](../../plans/README.md)

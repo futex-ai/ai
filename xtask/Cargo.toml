@@ -14,6 +14,7 @@ ai-models-google.workspace = true
 ai-models-kimi.workspace = true
 ai-models-minimax.workspace = true
 ai-models-openai.workspace = true
+ai-models-qwen.workspace = true
 ai-models-xai.workspace = true
 ai-tool-calling.workspace = true
 async-trait = "0.1.89"

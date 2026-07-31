@@ -60,6 +60,7 @@ fn remove_private_replay_context(context: &mut Vec<ProviderConversationItem>) {
             ProviderConversationItem::DeepSeekAssistantMessage { .. }
                 | ProviderConversationItem::KimiAssistantMessage { .. }
                 | ProviderConversationItem::MiniMaxAssistant { .. }
+                | ProviderConversationItem::QwenAssistantMessage { .. }
         )
     });
 }

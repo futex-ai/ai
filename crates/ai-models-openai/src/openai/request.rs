@@ -79,6 +79,7 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
             ProviderConversationItem::DeepSeekAssistantMessage { .. }
             | ProviderConversationItem::KimiAssistantMessage { .. }
             | ProviderConversationItem::MiniMaxAssistant { .. }
+            | ProviderConversationItem::QwenAssistantMessage { .. }
             | ProviderConversationItem::XaiLegacyFunctionCall { .. } => {}
         }
     }
@@ -105,6 +106,7 @@ fn provider_context_item(item: &ProviderConversationItem) -> Option<ResponsesInp
         | ProviderConversationItem::OpenAiMessage { .. }
         | ProviderConversationItem::KimiAssistantMessage { .. }
         | ProviderConversationItem::MiniMaxAssistant { .. }
+        | ProviderConversationItem::QwenAssistantMessage { .. }
         | ProviderConversationItem::XaiLegacyFunctionCall { .. } => None,
         ProviderConversationItem::OpenAiReasoning {
             id,

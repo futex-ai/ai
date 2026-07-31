@@ -60,6 +60,12 @@ fn provider_kind_round_trips_config_strings() {
     );
     assert_eq!(ProviderKind::MiniMax.as_str(), "minimax");
     assert_eq!(ProviderKind::MiniMax.to_string(), "minimax");
+    assert_eq!(
+        ProviderKind::from_config_str("qwen"),
+        Some(ProviderKind::Qwen)
+    );
+    assert_eq!(ProviderKind::Qwen.as_str(), "qwen");
+    assert_eq!(ProviderKind::Qwen.to_string(), "qwen");
     assert_eq!(ProviderKind::Xai.as_str(), "xai");
     assert_eq!(ProviderKind::from_config_str("unknown"), None);
 }
@@ -115,4 +121,17 @@ fn minimax_provider_serializes_with_config_identifier() {
         ProviderKind::MiniMax
     );
     assert!(serde_json::from_value::<ProviderKind>(json!("mini_max")).is_err());
+}
+
+#[test]
+fn qwen_provider_serializes_with_config_identifier() {
+    assert_eq!(
+        serde_json::to_value(ProviderKind::Qwen).unwrap(),
+        json!("qwen")
+    );
+    assert_eq!(
+        serde_json::from_value::<ProviderKind>(json!("qwen")).unwrap(),
+        ProviderKind::Qwen
+    );
+    assert!(serde_json::from_value::<ProviderKind>(json!("qwencloud")).is_err());
 }

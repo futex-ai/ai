@@ -2,7 +2,7 @@
 
 use ai_interface::{
     ConversationMessage, DeepSeekToolCallContext, MiniMaxReasoningDetail, Model, ModelRequest,
-    OpenAiReasoningSummary, ProviderConversationItem,
+    OpenAiReasoningSummary, ProviderConversationItem, QwenToolCallContext,
 };
 use json_http::JsonHttpResponse;
 use serde_json::json;
@@ -61,6 +61,15 @@ async fn preserves_and_replays_complete_reasoning_context_without_disclosure() {
             arguments: "{\"foreign\":true}".to_owned(),
         }],
     });
+    replay_context.push(ProviderConversationItem::QwenAssistantMessage {
+        content: Some("Qwen-owned content".to_owned()),
+        reasoning_content: Some("Qwen-owned reasoning".to_owned()),
+        tool_calls: vec![QwenToolCallContext {
+            id: "qwen_call".to_owned(),
+            name: "ignored".to_owned(),
+            arguments: "{}".to_owned(),
+        }],
+    });
     model
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
@@ -111,6 +120,7 @@ async fn preserves_and_replays_complete_reasoning_context_without_disclosure() {
     );
     assert!(!replay_body.to_string().contains("foreign provider state"));
     assert!(!replay_body.to_string().contains("DeepSeek-owned"));
+    assert!(!replay_body.to_string().contains("Qwen-owned"));
 }
 
 fn simple_request() -> ModelRequest {
