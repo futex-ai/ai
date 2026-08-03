@@ -34,6 +34,9 @@ pub struct OAuthHttpResponse {
     /// Final HTTP status.
     pub status: u16,
     /// Lowercase response-header names mapped to wire-order values.
+    ///
+    /// An empty value list means the header was present but at least one value
+    /// could not be decoded as text.
     pub headers: BTreeMap<String, Vec<String>>,
     /// Parsed JSON response, or `null` for an empty or ignorable non-JSON body.
     pub body: Value,

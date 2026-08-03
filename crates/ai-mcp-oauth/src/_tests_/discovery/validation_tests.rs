@@ -1,14 +1,37 @@
 //! Discovery metadata and issuer validation tests.
 
+use std::collections::BTreeMap;
+
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{
     AuthorizationServerSelectorMock, Error, McpOAuthDiscovery, OAuthEndpointKind,
-    OAuthUnsafeUrlReason,
+    OAuthHttpResponse, OAuthUnsafeUrlReason,
 };
 
 use super::support::{challenge, discovery, protected_json, resource, response, server_json};
+
+#[tokio::test]
+async fn undecodable_content_type_fails_discovery_closed() {
+    let response = OAuthHttpResponse {
+        status: 200,
+        headers: BTreeMap::from([("content-type".to_owned(), Vec::new())]),
+        body: protected_json(),
+    };
+    let error = discovery(vec![response], Unimock::new(()), vec![100])
+        .discover(&resource(), &challenge(None))
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::DiscoveryStatus {
+            endpoint: OAuthEndpointKind::ProtectedResourceMetadata,
+            status: 200
+        }
+    ));
+}
 
 #[tokio::test]
 async fn discovers_one_issuer_and_preserves_unknown_metadata() {

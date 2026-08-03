@@ -37,6 +37,20 @@ fn malformed_max_age_disables_caching() {
 }
 
 #[test]
+fn present_but_undecodable_cache_control_disables_caching() {
+    assert_eq!(age(&[], &[], 7200), 7200);
+    assert_eq!(
+        cache_age_seconds(
+            &BTreeMap::from([("cache-control".to_owned(), Vec::new())]),
+            &headers(&["max-age=3600"]),
+            7200,
+        ),
+        0
+    );
+    assert_eq!(age(&[""], &[], 7200), 7200);
+}
+
+#[test]
 fn absent_or_irrelevant_directives_use_the_configured_maximum() {
     assert_eq!(age(&[], &[], 7200), 7200);
     assert_eq!(

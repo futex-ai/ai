@@ -138,6 +138,9 @@ impl ReqwestOAuthHttpTransport {
         let mut builder = Client::builder().redirect(Policy::none()).no_proxy();
         if let Host::Domain(domain) = host {
             let addresses = self.resolver.resolve(domain, port).await?;
+            if addresses.is_empty() {
+                return Err(Error::Dns);
+            }
             if addresses
                 .iter()
                 .any(|address| !policy.address_allowed(*address, url.scheme()))

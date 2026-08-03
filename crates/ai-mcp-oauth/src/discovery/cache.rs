@@ -14,6 +14,9 @@ pub(super) fn cache_age_seconds(
 
 fn response_cache_age(headers: &BTreeMap<String, Vec<String>>) -> Option<u64> {
     let values = headers.get("cache-control")?;
+    if values.is_empty() {
+        return Some(0);
+    }
     let mut minimum = None;
     let mut force_zero = false;
     for directive in values.iter().flat_map(|value| value.split(',')) {

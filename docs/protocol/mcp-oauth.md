@@ -124,9 +124,11 @@ invalid configuration rather than panicking.
   resources remains concurrent. Changed resource-metadata URLs serialize
   against the same resource because they invalidate one resource-keyed entry.
 - This private cache does not revalidate. `no-store`, bare or qualified
-  `no-cache`, and malformed `max-age` therefore disable reuse. When multiple
-  valid `max-age` directives or discovery responses apply, use the shortest
-  lifetime independent of directive or header order.
+  `no-cache`, malformed `max-age`, and any Cache-Control field value that
+  cannot be decoded as text therefore disable reuse. One undecodable repeated
+  value invalidates the whole field. When multiple valid `max-age` directives
+  or discovery responses apply, use the shortest lifetime independent of
+  directive or header order.
 
 ## Client registration
 

@@ -145,6 +145,28 @@ async fn rejects_every_resolution_when_one_address_is_unsafe() {
 }
 
 #[tokio::test]
+async fn rejects_empty_dns_results_as_dns_failures() {
+    let resolver = Arc::new(Unimock::new(
+        OAuthDnsResolverMock::resolve
+            .next_call(matching!("oauth.example", 443))
+            .returns(Ok(Vec::new())),
+    )) as Arc<dyn OAuthDnsResolver>;
+    let transport = ReqwestOAuthHttpTransport::with_resolver(resolver);
+
+    let error = transport
+        .get_json(
+            "https://oauth.example/metadata",
+            OAuthEndpointKind::AuthorizationServerMetadata,
+            &OAuthUrlPolicy::default(),
+            limits(1, 1024),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, Error::Dns));
+}
+
+#[tokio::test]
 async fn rejects_a_site_local_ipv6_resolution() {
     let resolver = Arc::new(Unimock::new(
         OAuthDnsResolverMock::resolve

@@ -59,9 +59,14 @@ fn normalized_headers(headers: &reqwest::header::HeaderMap) -> BTreeMap<String, 
         let values = headers
             .get_all(name)
             .iter()
-            .filter_map(|value| value.to_str().ok().map(str::to_owned))
-            .collect::<Vec<_>>();
+            .map(|value| value.to_str().ok().map(str::to_owned))
+            .collect::<Option<Vec<_>>>()
+            .unwrap_or_default();
         normalized.insert(name.as_str().to_ascii_lowercase(), values);
     }
     normalized
 }
+
+#[cfg(test)]
+#[path = "_tests_/response_tests.rs"]
+mod response_tests;
