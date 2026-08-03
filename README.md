@@ -20,6 +20,9 @@ in-memory tool-calling runtime behavior.
 - In-memory tool-calling runtime through `ai-tool-calling`, including
   universal tool output management with inline envelopes, stored output ids,
   UTF-8-safe windows, and degraded-window fallbacks
+- Streamable HTTP MCP tool discovery and dispatch through `ai-mcp`
+- Host-side MCP OAuth discovery, PKCE, refresh, and request authentication
+  through `ai-mcp-oauth`
 
 ## Protocols
 
@@ -38,6 +41,10 @@ in-memory tool-calling runtime behavior.
 - [Tool output management](docs/protocol/tool-output-management.md) defines the
   universal output-id, bounded-envelope, pagination, and raw-output isolation
   contract for tool calls.
+- [AI MCP client and tool adapter](docs/protocol/ai-mcp.md) defines streamable
+  HTTP transport, session lifecycle, protocol mapping, and tool adaptation.
+- [Host-side MCP OAuth](docs/protocol/mcp-oauth.md) defines discovery,
+  registration, PKCE, token lifecycle, and request authentication.
 
 ## Interfaces
 
@@ -61,6 +68,10 @@ boundary they need:
 - `ai-models-multi`: ordered fallback model adapter
 - `ai-tool-calling`: in-memory tool-calling runtime with output policy, output
   store integration, and the intrinsic `tool_output_read` reader
+- `ai-mcp`: MCP 2025-06-18/2025-03-26 streamable HTTP client and
+  `ai-interface::Tool` adapter
+- `ai-mcp-oauth`: host-side OAuth companion with injected browser, secure
+  storage, issuer-selection, clock, randomness, and transport boundaries
 - `json-http`: typed JSON and multipart HTTP client boundary
 - `xtask`: repository automation invoked with `cargo xtask ...`
 
@@ -108,6 +119,10 @@ cargo xtask review
 - `crates/ai-models-*`: concrete provider and fallback adapters
 - `crates/ai-tool-calling`: in-memory tool-calling runtime, including
   `src/policy.rs`, `src/output_store/`, and the intrinsic output reader
+- `crates/ai-mcp`: streamable HTTP MCP protocol client, authorization
+  challenges, and tool adapter
+- `crates/ai-mcp-oauth`: protected-resource discovery, public-client
+  registration, PKCE authorization, token lifecycle, and MCP auth hook
 - `crates/json-http`: HTTP client abstraction used by provider crates
 - `xtask/`: local automation for checks, smoke tests, file-length lint, and
   review

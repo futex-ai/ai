@@ -1,0 +1,245 @@
+//! Authorization callback, denial, and timeout tests.
+
+use std::{sync::Arc, time::Duration};
+
+use ai_mcp::McpAuthorizationFailure;
+use async_trait::async_trait;
+use secrecy::SecretString;
+use unimock::{MockFn, Unimock, matching};
+use url::Url;
+
+use crate::{
+    DefaultMcpOAuthManager, Error, McpOAuthConfig, McpOAuthDiscoveryMock, McpOAuthManager,
+    OAuthAuthorizationError, OAuthAuthorizationResponse, OAuthClientRegistryMock, OAuthRandomMock,
+    OAuthUserAgent, OAuthUserAgentMock, OAuthUserAuthorizationRequest, Result,
+};
+
+use super::support::{
+    challenge, clock, context, discovery_result, manager, manager_with_user_agent,
+    public_dns_resolver, registration,
+};
+
+#[tokio::test]
+async fn rejects_invalid_request_before_side_effects() {
+    let oauth = manager(
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        Unimock::new(()),
+        McpOAuthConfig::default(),
+    );
+
+    let error = oauth
+        .authorize(
+            &challenge(McpAuthorizationFailure::InvalidRequest, &[]),
+            &context(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, Error::AuthorizationInvalidRequest));
+}
+
+#[tokio::test]
+async fn rejects_mismatched_callback_state_before_token_exchange() {
+    let oauth = authorization_manager_with_response(OAuthAuthorizationResponse::authorized(
+        "code",
+        Some("wrong-state"),
+    ));
+
+    let error = oauth
+        .authorize(
+            &challenge(McpAuthorizationFailure::AuthorizationRequired, &[]),
+            &context(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, Error::StateMismatch));
+}
+
+#[tokio::test]
+async fn maps_callback_errors_without_exposing_callback_values() {
+    let oauth = authorization_manager_with_error(OAuthAuthorizationError::TemporarilyUnavailable);
+
+    let error = oauth
+        .authorize(
+            &challenge(McpAuthorizationFailure::AuthorizationRequired, &[]),
+            &context(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        Error::AuthorizationRejected {
+            error: OAuthAuthorizationError::TemporarilyUnavailable
+        }
+    ));
+}
+
+#[tokio::test]
+async fn rejects_mismatched_state_on_an_error_callback() {
+    let oauth = authorization_manager_with_response(OAuthAuthorizationResponse::OAuthError {
+        error: OAuthAuthorizationError::AccessDenied,
+        state: Some(SecretString::from("wrong-state".to_owned())),
+    });
+
+    let error = oauth
+        .authorize(
+            &challenge(McpAuthorizationFailure::AuthorizationRequired, &[]),
+            &context(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, Error::StateMismatch));
+}
+
+#[tokio::test]
+async fn maps_host_cancellation_without_token_exchange() {
+    let oauth = authorization_manager_with_response(OAuthAuthorizationResponse::Cancelled);
+
+    let error = oauth
+        .authorize(
+            &challenge(McpAuthorizationFailure::AuthorizationRequired, &[]),
+            &context(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, Error::UserCancelled));
+}
+
+#[tokio::test]
+async fn enforces_the_user_agent_timeout() {
+    let config = McpOAuthConfig {
+        user_agent_timeout: Duration::from_millis(5),
+        ..McpOAuthConfig::default()
+    };
+    let oauth = manager_with_user_agent(
+        Unimock::new(
+            McpOAuthDiscoveryMock::discover
+                .next_call(matching!(_, _))
+                .returns(Ok(discovery_result())),
+        ),
+        Unimock::new(
+            OAuthClientRegistryMock::resolve
+                .next_call(matching!(_))
+                .returns(Ok(registration())),
+        ),
+        Unimock::new(()),
+        Arc::new(PendingUserAgent),
+        Unimock::new(()),
+        public_dns_resolver(),
+        clock(vec![100]),
+        random(),
+        config,
+    );
+
+    let error = oauth
+        .authorize(
+            &challenge(McpAuthorizationFailure::AuthorizationRequired, &[]),
+            &context(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, Error::CallbackTimeout));
+}
+
+fn authorization_manager_with_response(
+    response: OAuthAuthorizationResponse,
+) -> DefaultMcpOAuthManager {
+    manager(
+        Unimock::new(
+            McpOAuthDiscoveryMock::discover
+                .next_call(matching!(_, _))
+                .returns(Ok(discovery_result())),
+        ),
+        Unimock::new(
+            OAuthClientRegistryMock::resolve
+                .next_call(matching!(_))
+                .returns(Ok(registration())),
+        ),
+        Unimock::new(()),
+        Unimock::new(
+            OAuthUserAgentMock::authorize
+                .next_call(matching!(_))
+                .returns(Ok(response)),
+        ),
+        Unimock::new(()),
+        public_dns_resolver(),
+        clock(vec![100, 101]),
+        random(),
+        McpOAuthConfig::default(),
+    )
+}
+
+fn authorization_manager_with_error(error: OAuthAuthorizationError) -> DefaultMcpOAuthManager {
+    manager(
+        Unimock::new(
+            McpOAuthDiscoveryMock::discover
+                .next_call(matching!(_, _))
+                .returns(Ok(discovery_result())),
+        ),
+        Unimock::new(
+            OAuthClientRegistryMock::resolve
+                .next_call(matching!(_))
+                .returns(Ok(registration())),
+        ),
+        Unimock::new(()),
+        Unimock::new(
+            OAuthUserAgentMock::authorize
+                .next_call(matching!(_))
+                .answers_arc(Arc::new(move |_, request| {
+                    Ok(OAuthAuthorizationResponse::oauth_error(
+                        error,
+                        Some(callback_state(request)),
+                    ))
+                })),
+        ),
+        Unimock::new(()),
+        public_dns_resolver(),
+        clock(vec![100, 101]),
+        random(),
+        McpOAuthConfig::default(),
+    )
+}
+
+fn callback_state(request: OAuthUserAuthorizationRequest) -> String {
+    Url::parse(request.authorization_url())
+        .unwrap()
+        .query_pairs()
+        .find(|(name, _)| name == "state")
+        .unwrap()
+        .1
+        .into_owned()
+}
+
+fn random() -> Unimock {
+    Unimock::new((
+        OAuthRandomMock::bytes
+            .next_call(matching!(32))
+            .returns(Ok(vec![1; 32])),
+        OAuthRandomMock::bytes
+            .next_call(matching!(32))
+            .returns(Ok(vec![2; 32])),
+    ))
+}
+
+struct PendingUserAgent;
+
+#[async_trait]
+impl OAuthUserAgent for PendingUserAgent {
+    async fn authorize(
+        &self,
+        _request: OAuthUserAuthorizationRequest,
+    ) -> Result<OAuthAuthorizationResponse> {
+        std::future::pending().await
+    }
+}

@@ -13,7 +13,7 @@ pub(crate) fn run(root: &Path) -> Result<()> {
     }
 
     file_length::run(root, true)?;
-    smoke::run()
+    smoke::runner::run()
 }
 
 pub(crate) struct CheckCommand {

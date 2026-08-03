@@ -1,0 +1,315 @@
+# AI MCP Crate
+
+## Summary
+
+Add `crates/ai-mcp` as a protocol-focused Model Context Protocol client for
+the 2025-06-18 streamable HTTP transport, with negotiated support for
+2025-03-26, and expose discovered server tools through
+`ai_interface::Tool` for use by `ai-tool-calling`.
+
+The approved and durable source of truth is
+[`docs/protocol/ai-mcp.md`](../docs/protocol/ai-mcp.md). Implementation must
+keep that protocol document, the crate README, tests, and public API aligned.
+OAuth flows, credential persistence, token refresh, product policy, stdio,
+legacy HTTP+SSE, and all non-tool MCP capabilities remain out of scope.
+The follow-on [`AI MCP OAuth`](ai-mcp-oauth.md) plan consumes this crate's
+typed authorization challenges and auth hook without moving those concerns
+into `ai-mcp`.
+
+## Milestone 1: Streamable HTTP Protocol Client
+
+Create a usable protocol client with a mockable HTTP seam. At the end of this
+milestone, a caller can initialize a supported MCP server, list all of its
+tools, call a tool by its original name, inspect tool-list invalidation, and
+close the session without depending on the tool adapter.
+
+- [x] Verify the approved transport, schema, tools, and authorization
+      requirements against the versioned official MCP 2025-06-18
+      specification before coding; if an official requirement would change
+      this approved contract, record the discrepancy and request protocol
+      direction first.
+- [x] Add `crates/ai-mcp` to the workspace members and add
+      `ai-mcp = { version = "0.2.0", path = "crates/ai-mcp" }` to workspace
+      dependencies.
+- [x] Create the crate manifest with workspace package metadata, the
+      `test-support` feature, workspace-internal `ai-interface` and
+      `json-http` dependencies, and the approved external dependencies; use
+      `cargo add` for every crates.io dependency and configure the required
+      `reqwest` and Tokio features. Add `unimock` as an optional normal
+      dependency wired through `test-support = ["dep:unimock"]` and as a
+      dev-dependency for ordinary tests, matching `json-http`.
+- [x] Keep `lib.rs` as a thin documented module root, add
+      `#![warn(unreachable_pub)]`, use narrow visibility, and export only the
+      intentional config, error, protocol, transport, client, and adapter
+      contracts.
+- [x] Add `McpServerConfig`, its documented defaults, and validation for the
+      `[a-z0-9_-]{1,32}` server-key contract without introducing product or
+      credential state.
+- [x] Define the typed `ai_mcp::{Error, Result}` contract, including actionable
+      authorization challenges, expired sessions, unsupported versions,
+      JSON-RPC errors, missing responses, HTTP failures, response-size limits,
+      deserialization, transport, auth-hook, and invalid-key failures.
+- [x] Add `McpAuthorizationChallenge` and `McpAuthorizationFailure`; expose
+      distinct `AuthorizationRequired` (401) and `Forbidden` (403) errors with
+      raw header values, agreed RFC 9728 `resource_metadata`, recognized Bearer
+      failure, description, and deduplicated scope hints.
+- [x] Define fully typed serde DTOs for JSON-RPC envelopes, initialization,
+      server capabilities and identity, tool descriptors, pagination,
+      tool-call outcomes, annotations, embedded text/blob resources, and every
+      known MCP content block; preserve unrecognized content block objects
+      exactly, and convert raw JSON at the protocol boundary rather than
+      carrying untyped envelopes through client logic.
+- [x] Add failing serde tests for every known content-block field and
+      camel-case wire name, optional annotations and metadata, embedded
+      text/blob resource selection, omitted `isError`, malformed known blocks,
+      and exact unknown-block round trips before implementing those DTOs.
+- [x] Implement the public `McpServerHandshake`, `McpServerInfo`,
+      `McpServerCapabilities`, and `McpToolsCapability` contract, projecting
+      negotiated version, server identity, optional instructions, and the
+      tools/list-changed capability while ignoring non-goal capabilities.
+- [x] Define the single-owner `McpEventStream` boundary and boxed dyn alias so
+      the HTTP transport can return response status and headers immediately
+      while the client pulls decoded SSE messages before EOF.
+- [x] Add failing source-adjacent unit tests for chunk-split SSE event framing,
+      multi-line `data:` fields, ignored fields, JSON decoding, yielding a
+      completed event before EOF, and cumulative `max_response_bytes`
+      enforcement before implementing the parser.
+- [x] Implement the trait-backed `McpHttpTransport` boundary and
+      `ReqwestMcpHttpTransport` for POST and DELETE, receiving completed header
+      maps from the client, normalizing response-header names, buffering capped
+      JSON bodies, returning live pull-based SSE bodies without waiting for
+      EOF, preserving every repeated response-header value in wire order,
+      passing the configured response limit into both methods, and enforcing
+      timeouts and cumulative byte limits while reading.
+- [x] Export Unimock-generated transport, event-stream, and client mocks only
+      for tests, doctests, or the `test-support` feature, following the
+      `json-http` pattern.
+- [x] Add failing unit tests for initialization idempotence, supported and
+      unsupported version negotiation, monotonically increasing request IDs,
+      exact preservation of string and numeric incoming server-request IDs,
+      server identity/capability/instructions projection, omitted
+      `listChanged` defaulting to false, session capture/replay,
+      protocol-version headers, initialized notification acceptance, and safe
+      concurrent calls.
+- [x] Implement `StreamableHttpMcpClient` behind the `McpClient` trait with
+      synchronized initialization/session state, collision-free request IDs,
+      automatic tool-list pagination, original-name tool calls, stale-list
+      tracking, and DELETE close semantics including tolerated 405 responses;
+      build protocol/session headers, apply the injected `JsonHttpAuth` hook,
+      and pass the completed map to the transport before every request.
+- [x] Add failing unit tests and then implement SSE side-message handling:
+      mark `notifications/tools/list_changed`, reply to `ping` with an empty
+      result, reply to unsupported server requests with JSON-RPC `-32601`,
+      ignore other notifications, complete each response POST before polling
+      the original stream again, and require the response matching the posted
+      request ID.
+- [x] Test repeated and combined `WWW-Authenticate` fields, quoted commas,
+      agreeing/missing/malformed/conflicting RFC 9728 `resource_metadata`,
+      401 invalid-token mapping, 403 insufficient-scope mapping, scope
+      deduplication, session-expiry 404 behavior only when a session header was
+      sent, other HTTP statuses, malformed responses, auth-hook failure,
+      response overflow, and close success/failure paths.
+- [x] Add the crate `README.md` with the required Responsibilities, What This
+      Crate Does, Quick Start, Development, Key Code, and Related Docs
+      sections, including unauthenticated and bearer-auth examples.
+- [x] Run `cargo fmt --all -- --check`, targeted Clippy with warnings denied,
+      `cargo test -p ai-mcp --all-features`, and
+      `cargo xtask rust-file-length-lint --all`, followed by
+      `cargo xtask check`; fix failures until this milestone is green.
+- [x] Run `git add -A`, commit the green protocol-client milestone with a
+      descriptive Conventional Commit whose title is at most 50 characters,
+      and push the current branch.
+- [x] After the push, run `cargo xtask review`; do not apply findings
+      automatically, and report them with the required severity, context,
+      impact, solution options, and recommendation for user decision.
+
+## Milestone 2: Tool Adapter And Runtime Dispatch
+
+Expose a stable snapshot of one MCP server's tools through the shared tool
+boundary. At the end of this milestone, `ai-tool-calling` can register the
+adapter, advertise provider-legal definitions, and dispatch model tool calls
+back to the correct original MCP tool.
+
+- [x] Implement `McpToolSet::new` and `McpToolSet::load` with the protocol's
+      borrowed `&McpServerConfig` signature, copying only the server key,
+      activity verb, and response-size limit needed by the immutable adapter
+      snapshot.
+- [x] Add failing unit tests for deterministic `mcp__{server_key}__{tool}`
+      naming, character replacement, 64-character truncation, collision
+      suffixes with re-truncation, stable prefixed-to-original dispatch, and
+      invalid server keys before implementing the naming helpers.
+- [x] Build `ToolDefinition` snapshots from discovered descriptors using the
+      required description/title/name fallback, pass through input schemas,
+      attach the optional activity verb, and report group `mcp` only for names
+      owned by this adapter.
+- [x] Add failing unit tests for unknown names, client failures, MCP
+      `is_error` outcomes, structured content, single text results,
+      multi-block wire JSON retaining annotations, metadata, embedded
+      resources, and unknown blocks, plus UTF-8-safe truncation envelopes
+      before implementing `Tool::call`.
+- [x] Implement the load/new snapshot APIs and `ai_interface::Tool` adapter
+      with the exact load-bearing result precedence from the protocol spec;
+      keep MCP tool-execution errors as successful model-visible envelopes and
+      convert only protocol/client failures into `ToolError::Execution`.
+- [x] Add a credential-free runtime smoke test that registers `McpToolSet` as
+      an `ai_interface::DynTool` in `ai-tool-calling`, advertises its
+      definitions, dispatches a prefixed name, and observes the remote result.
+- [x] Update the crate README with adapter construction, refresh ownership,
+      naming, output mapping, and downstream runtime registration examples.
+- [x] Run formatting, targeted Clippy with warnings denied, all `ai-mcp`
+      feature combinations, the targeted runtime smoke test, and the Rust
+      file-length lint, followed by `cargo xtask check`; fix failures until
+      this milestone is green.
+- [x] Run `git add -A`, commit the green tool-adapter milestone with a
+      descriptive Conventional Commit whose title is at most 50 characters,
+      and push the current branch.
+- [x] After the push, run `cargo xtask review`; do not apply findings
+      automatically, and report them with the required severity, context,
+      impact, solution options, and recommendation for user decision.
+
+## Milestone 3: Integration Hardening And Completion
+
+Validate the production transport against realistic servers and finish the
+workspace integration. At the end of this milestone, JSON and SSE servers,
+static auth, session handling, and tool dispatch are covered end to end; all
+workspace checks pass and the completed change is pushed for independent AI
+review.
+
+- [x] Add crate-root Axum integration-test support with an in-process server
+      that records headers and JSON-RPC messages without using external
+      credentials or network services.
+- [x] Add a JSON-response integration flow covering initialize,
+      `notifications/initialized`, paginated list, call, session/protocol
+      headers, auth application, and close through the real reqwest transport.
+- [x] Add the equivalent SSE-response integration flow, including interleaved
+      notifications and server requests; gate the matching final response and
+      EOF on receipt of the client's side-request reply so the test fails if
+      the implementation buffers the original stream to completion.
+- [x] Add end-to-end 401 and 403 challenge cases that assert raw header
+      preservation and typed discovery/scope details, plus an authenticated
+      success case using `StaticHeaderAuth::bearer_token`.
+- [x] Add a credential-free smoke-test entry to the workspace automation; add
+      an ignored `AI_MCP_SMOKE_URL` live test only if a stable manual test
+      server is available, and document exactly how to run it.
+- [x] Audit every changed Rust module for module/public API documentation,
+      trait-backed impure boundaries, typed error propagation, production
+      panic/`unwrap`/`expect`/`map_err` use, import order, test placement, and
+      the 300-line hard cap.
+- [x] Update the root README feature, interface, and key-code maps for
+      `ai-mcp`; reconcile the crate README and protocol document with the
+      implemented public behavior and capture any useful integration context.
+- [x] Run `cargo fmt --all -- --check`,
+      `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+      `cargo test --workspace --all-features`,
+      `cargo xtask rust-file-length-lint --all`, the credential-free smoke
+      tests, and `cargo xtask check`; keep working until every required check
+      passes with a 100% test pass rate.
+- [x] Mark every completed TODO and milestone in this plan, then move its link
+      from Active to Completed in `plans/README.md`.
+- [x] Review `git diff origin/main...` and `git status` for unrelated changes,
+      missing/new untracked files, generated artifacts, and stale references.
+- [x] Run `git add -A`, commit all completed work with a descriptive
+      Conventional Commit whose title is at most 50 characters, and push the
+      current branch.
+- [x] After the push, run `cargo xtask review` against `origin/main`; do not
+      change review findings automatically, and report every finding with a
+      number, severity, feature/codebase context, impact of doing nothing,
+      lettered solution options, and a recommended option for user decision.
+
+## Milestone 4: Review-Driven Response-Limit Hardening
+
+Make every accepted adapter response limit large enough to preserve the
+explicit truncation envelope. At the end of this milestone, undersized limits
+fail during configuration and every successful model-visible result remains
+within its configured byte cap.
+
+- [x] Add a failing configuration regression test for positive response limits
+      that cannot contain the empty truncation envelope.
+- [x] Define one named minimum beside the envelope implementation, reject
+      smaller limits with a typed error carrying that minimum, and retain the
+      existing bounded runtime behavior.
+- [x] Add drift and boundary tests for the serialized empty envelope, the exact
+      minimum limit, and nearby limits.
+- [x] Update the protocol and crate README with the correctness floor and the
+      complete configuration-error contract.
+- [x] Run targeted MCP tests, formatting, workspace Clippy with warnings
+      denied, all workspace tests, Rust file-length lint, smoke tests, and
+      `cargo xtask check`.
+- [x] Document the Fable-identified invariant tying the minimum response limit
+      to the serialized empty truncation envelope.
+- [x] Have Claude Code Fable 5 inspect the completed diff and validate the
+      response-limit solution.
+- [x] Add failing buffered-JSON and SSE regressions proving a scoped JSON-RPC
+      error with `id: null` preserves its code, message, and data while an
+      unrelated non-null error remains ignored.
+- [x] Surface scoped null-ID errors as the existing typed `JsonRpc` failure and
+      document the correlation behavior in the MCP protocol contract.
+- [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
+      validate the completed null-ID solution.
+- [x] Add failing production-transport regressions proving 302 and 307
+      responses are surfaced without contacting their redirect targets or
+      replaying POST/DELETE requests.
+- [x] Disable automatic redirects with a fallible reqwest transport
+      constructor and update every composition root and public example.
+- [x] Document that MCP 3xx responses are never followed and surface through
+      the existing typed HTTP-status error.
+- [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
+      validate the completed redirect solution.
+- [x] Add failing Bearer regressions for space/tab `BWS` around `=`, parameter
+      ordering, quoted commas, mixed schemes, and token68 boundaries.
+- [x] Parse later Bearer auth-params with optional whitespace before `=`
+      without allowing parameters from another challenge to bleed through, and
+      align the protocol contract.
+- [x] Add a failing strict-mock regression proving invalid tool configuration
+      never calls the MCP client.
+- [x] Validate tool configuration before remote discovery while retaining the
+      independently validated direct constructor, and correct the documented
+      load ordering.
+- [x] Add a failing regression proving empty `WWW-Authenticate` list elements
+      do not terminate an active Bearer challenge.
+- [x] Ignore empty list elements during Bearer parsing and align the protocol
+      contract with RFC recipient tolerance.
+- [x] Re-run targeted and full repository gates, then have Claude Code Fable 5
+      validate the completed Bearer, empty-element, and fail-fast solutions.
+- [x] Run `git add -A`, commit the green hardening work with a descriptive
+      Conventional Commit whose title is at most 50 characters, and push the
+      current branch.
+- [x] After the push, run `cargo xtask review` and continue the authorized
+      review-fix loop until no valid findings remain or the ten-cycle limit is
+      reached.
+
+## Milestone 5: Concurrent Tool-List Freshness
+
+Replace lossy Boolean invalidation state with a race-safe generation contract.
+At the end of this milestone, notifications or matching session expiry during
+a tool-list refresh remain visible, while older concurrent refreshes cannot
+regress a newer successful acknowledgement.
+
+- [x] Independently reproduce the cycle-7 P2 finding and have Claude Code
+      Fable 5 validate its severity, the generation design, exact ordering,
+      failure behavior, and test contract before implementation.
+- [x] Add and run failure-first regressions for an in-band invalidation during
+      a successful list, a second invalidation when the list starts stale, and
+      a concurrent call/list invalidation race.
+- [x] Add deterministic coverage for out-of-order concurrent lists, matching
+      session expiry during a list, and the pure freshness state algebra.
+- [x] Encapsulate monotonic observed and acknowledged generations in a private
+      `ToolListFreshness` value; capture before the first page request,
+      invalidate accepted notifications and matching expiry, and acknowledge
+      only a complete successful list with non-regressing `fetch_max`.
+- [x] Align public trait docs, the MCP protocol, and the crate README with the
+      generation-based concurrency and failure contract.
+- [x] Run formatting, targeted Clippy with warnings denied, all `ai-mcp`
+      feature combinations, and the Rust file-length lint.
+- [x] Have Claude Code Fable 5 independently inspect the implementation,
+      tests, and documentation and validate that the solution closes every
+      required ordering without changing out-of-scope behavior.
+- [x] Run `cargo xtask check` and resolve every failure.
+- [x] Run `git add -A`, commit the checked work with a Conventional Commit
+      title no longer than 50 characters, and push the current branch.
+- [x] Run the next `cargo xtask review` against `origin/main`; continue only
+      for independently valid, Fable-confirmed findings without exceeding the
+      ten-cycle limit.
+- [x] Once the authorized review loop has no valid finding left, mark this
+      milestone complete, move this plan back to Completed in
+      `plans/README.md`, and commit and push the final bookkeeping.

@@ -1,80 +1,21 @@
-//! Credential-free runtime construction and pagination smoke test.
+//! Universal tool-output pagination smoke fixtures.
 
-use std::future::Future;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::task::{Context, Poll, Waker};
 
 use ai_interface::{
-    ConversationMessage, ConversationRole, DynModel, FinishReason, Model, ModelRequest,
-    ModelResponse, ModelResult, ModelUsage, NoopLogger, Tool, ToolCall, ToolDefinition,
-    ToolOutputEnvelope,
-};
-use ai_models_anthropic::{AnthropicModel, CLAUDE_SONNET_5};
-use ai_models_deepseek::DeepSeekModel;
-use ai_models_google::{GEMINI_3_6_FLASH, GoogleModel};
-use ai_models_kimi::KimiModel;
-use ai_models_minimax::{MINIMAX_M3, MiniMaxModel};
-use ai_models_openai::{GPT_5_6_SOL, OpenAiAudioTranscriber, OpenAiModel};
-use ai_models_qwen::QwenModel;
-use ai_models_xai::{GROK_4_5, XaiModel};
-use ai_tool_calling::{
-    InMemoryToolOutputStore, RunOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn,
+    ConversationRole, FinishReason, Model, ModelRequest, ModelResponse, ModelResult, ModelUsage,
+    Tool, ToolCall, ToolDefinition, ToolOutputEnvelope,
 };
 use async_trait::async_trait;
-use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use serde_json::{Value, json};
 use thiserror::Error as ThisError;
 
-use crate::error::{Error, Result};
-
-pub(crate) fn run() -> Result<()> {
-    let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
-    let _anthropic = AnthropicModel::new(client.clone(), CLAUDE_SONNET_5, "anthropic-key");
-    let _deepseek = DeepSeekModel::new(client.clone(), "deepseek-key");
-    let _google = GoogleModel::new(client.clone(), GEMINI_3_6_FLASH, "google-key");
-    let _kimi = KimiModel::new(client.clone(), "kimi-key");
-    let _minimax = MiniMaxModel::new(client.clone(), MINIMAX_M3, "minimax-key");
-    let _openai = OpenAiModel::new(client.clone(), GPT_5_6_SOL, "openai-key");
-    let _qwen = QwenModel::new(client.clone(), "qwen-key");
-    let _xai = XaiModel::new(client, GROK_4_5, "xai-key");
-    let _transcriber = OpenAiAudioTranscriber::new("gpt-4o-mini-transcribe", "openai-key");
-
-    let model: DynModel = Arc::new(SmokePaginationModel::new());
-    let tool: Arc<dyn Tool> = Arc::new(SmokeTool);
-    let runtime = match ToolCallingRuntime::new(
-        "Use registered tools when helpful.",
-        model,
-        Arc::new(NoopLogger),
-        vec![tool],
-        Arc::new(InMemoryToolOutputStore::new()),
-        ToolOutputPolicy::default(),
-    ) {
-        Ok(runtime) => runtime,
-        Err(source) => return Err(Error::SmokeRuntime { source }),
-    };
-
-    let outcome = match block_on(async {
-        let mut turn = runtime.send(ConversationMessage::user("Run the smoke flow."), Some(5));
-        turn.run().await
-    }) {
-        Ok(outcome) => outcome,
-        Err(source) => return Err(Error::SmokeRuntime { source }),
-    };
-    match outcome {
-        RunOutcome::Completed { steps_taken: 4, .. } => Ok(()),
-        _ => Err(Error::SmokeRuntime {
-            source: ai_tool_calling::Error::checkpoint(SmokeModelError::UnexpectedOutcome),
-        }),
-    }
-}
-
-struct SmokePaginationModel {
+pub(super) struct SmokePaginationModel {
     calls: AtomicUsize,
 }
 
 impl SmokePaginationModel {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             calls: AtomicUsize::new(0),
         }
@@ -161,7 +102,7 @@ impl SmokePaginationModel {
     }
 }
 
-struct SmokeTool;
+pub(super) struct SmokeTool;
 
 #[async_trait]
 impl Tool for SmokeTool {
@@ -245,20 +186,8 @@ fn tool_call_response(call: ToolCall) -> ModelResponse {
     }
 }
 
-fn block_on<T>(future: impl Future<Output = T>) -> T {
-    let waker = Waker::noop();
-    let mut context = Context::from_waker(waker);
-    let mut future = std::pin::pin!(future);
-    loop {
-        match future.as_mut().poll(&mut context) {
-            Poll::Ready(output) => return output,
-            Poll::Pending => std::thread::yield_now(),
-        }
-    }
-}
-
 #[derive(Debug, ThisError)]
-enum SmokeModelError {
+pub(super) enum SmokeModelError {
     #[error("[xtask/smoke] tool_output_read definition was missing")]
     MissingReaderDefinition,
     #[error("[xtask/smoke] expected a tool output window in conversation")]

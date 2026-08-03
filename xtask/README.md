@@ -8,8 +8,8 @@ file-length audits, or AI review.
 
 - Run the standard local verification sequence
 - Enforce the Rust file-length cap for `crates/` and `xtask/`
-- Run a credential-free smoke test for provider construction and tool-calling
-  registration
+- Run a credential-free smoke test for provider construction, tool-calling
+  registration, MCP tools, and the resource-bound MCP OAuth hook
 - Delegate local AI review to the Codex CLI
 
 ## What This Crate Does
@@ -45,7 +45,7 @@ cargo clippy -p xtask --all-targets --all-features
 - `src/cli.rs` - command-line parser
 - `src/check.rs` - local verification command plan
 - `src/file_length.rs` - Rust line-count audit
-- `src/smoke.rs` - credential-free runtime construction smoke test
+- `src/smoke/` - credential-free provider, MCP, OAuth, and pagination smoke tests
 - `src/review.rs` - Codex CLI review delegation
 
 ### Related Docs

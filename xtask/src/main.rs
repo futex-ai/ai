@@ -30,7 +30,7 @@ fn run() -> Result<()> {
         Command::Check => check::run(&root),
         Command::Review => review::run(&root),
         Command::RustFileLengthLint { all } => file_length::run(&root, all),
-        Command::SmokeTest => smoke::run(),
+        Command::SmokeTest => smoke::runner::run(),
     }
 }
 

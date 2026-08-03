@@ -1,0 +1,202 @@
+# ai-mcp
+
+`ai-mcp` is the workspace's protocol-focused Model Context Protocol client.
+Depend on it when a caller needs tools from a remote MCP server using the
+2025-06-18 streamable HTTP transport. Authentication policy and OAuth flows
+belong to the host and the companion `ai-mcp-oauth` crate.
+
+## Responsibilities
+
+- Initialize streamable HTTP MCP sessions and negotiate supported versions.
+- Discover and call server tools through typed protocol DTOs.
+- Preserve session state, authorization challenges, and tool-list
+  invalidations.
+- Decode JSON or incremental WHATWG SSE responses, including CRLF, CR, and LF
+  line endings, within configured size limits.
+
+## What This Crate Does
+
+`StreamableHttpMcpClient` sends one JSON-RPC message per HTTP request through a
+trait-backed transport. It supports protocol versions `2025-06-18` and
+`2025-03-26`, session and protocol headers, paginated tool discovery, tool
+calls, server pings, tool-list invalidation, and session termination.
+Tool discovery accepts at most `max_tool_pages` pages (100 by default), rejects
+a repeated opaque cursor before sending it again, and returns typed errors
+without exposing a partial catalog or clearing existing invalidation state.
+Tool-list invalidations use monotonic generations: a successful `list_tools`
+acknowledges only events observed before its first page request. Notifications
+or matching session expiry during a refresh therefore remain visible, and an
+older concurrent refresh cannot regress a newer successful acknowledgement.
+
+`McpToolSet` snapshots discovered tools for `ai-interface` and
+`ai-tool-calling`. Names become `mcp__{server_key}__{sanitized_tool}` with
+collision suffixes and a 64-character limit. Hosts own refresh cadence: build a
+new snapshot when `tools_list_changed()` is true or according to product cache
+policy.
+
+`max_response_bytes` bounds raw MCP response bodies the client consumes and
+model-visible adapter results. Configuration below 47 bytes is rejected so
+even an empty truncated remote-error envelope retains `is_error: true`; this
+correctness floor is not a practical handshake size recommendation. Oversized
+successful results keep the smaller success truncation shape without an
+`is_error` member. Accepted session DELETE bodies are not consumed or counted
+because 2xx and tolerated 405 statuses are authoritative. Likewise, 401 and
+403 bodies are not consumed or counted: the transport returns their normalized
+headers immediately so the client can preserve the actionable authorization
+challenge. A 404 response to a request carrying `Mcp-Session-Id` is also
+status/header-authoritative, so an unreadable expiry body cannot prevent
+session recovery. Non-session 404 bodies retain the configured bound.
+
+HTTP authentication is injected through `json_http::JsonHttpAuth`. The crate
+surfaces typed `AuthorizationRequired` and `Forbidden` errors but never opens a
+browser, stores credentials, or retries authorization. The production transport
+does not follow redirects; a 3xx response is surfaced to the caller. Successful
+non-empty request responses require `application/json` or
+`text/event-stream`, with case-insensitive media-type matching and optional
+parameters. Missing or unsupported JSON response media types return
+`UnsupportedContentType`; only a 2xx SSE response becomes a live event stream.
+Other non-authoritative errors use bounded lenient JSON/text decoding even
+when they advertise an SSE media type, preserving their raw framing as a
+textual `HttpStatus` diagnostic. Empty `202` responses remain valid. A 2xx or
+tolerated 405 session DELETE returns after its headers and drops any response
+body without reading or limiting it.
+Incremental SSE framing accepts CRLF, standalone CR, and LF independently per
+line, including CRLF split across chunks. A colonless line is parsed as a field
+name with an empty value, so bare `data` is an empty event payload and fails
+strict MCP JSON decoding.
+Every inbound JSON or SSE message must declare
+`jsonrpc: "2.0"`; malformed responses and side messages fail the scoped request
+before their message-specific behavior runs. Only a method-bearing message
+that omits `id` is a notification; requests and success responses require
+string or number ids, while error responses additionally allow explicit null.
+Missing response ids and null or wrong-typed request ids fail before any
+notification or server-request side effect. A response must
+contain exactly one of `result` or `error`; both members together fail as a
+malformed response regardless of their values or identifier.
+When a session-bound request returns 404, the client surfaces
+`SessionExpired` without replaying that operation and invalidates only the
+matching expired state. The transport recognizes that expiry from status and
+case-insensitive outgoing session-header presence before reading or
+classifying the response body. Matching expiry records a tool-list
+invalidation. A later host-initiated operation initializes a fresh session; a
+delayed response from the old session cannot erase a newer one. A successful
+or tolerated session DELETE likewise clears state only while its captured
+session remains current, so a replacement established during `close()` stays
+active. Tool operations capture their initialized handshake and matching
+request context in one snapshot; later local invalidation cannot manufacture
+an initialization `MissingResponse`, and the captured request is never
+automatically replayed.
+
+## Quick Start
+
+```rust,no_run
+use std::sync::Arc;
+
+use ai_mcp::{
+    McpClient, McpServerConfig, ReqwestMcpHttpTransport,
+    StreamableHttpMcpClient,
+};
+use json_http::StaticHeaderAuth;
+
+async fn list_remote_tools() -> ai_mcp::Result<Vec<String>> {
+    let config = McpServerConfig::new("calendar", "https://example.com/mcp");
+    let client = Arc::new(StreamableHttpMcpClient::new(
+        Arc::new(ReqwestMcpHttpTransport::new()?),
+        Arc::new(StaticHeaderAuth::default()),
+        config,
+    )?);
+    Ok(client
+        .list_tools()
+        .await?
+        .into_iter()
+        .map(|tool| tool.name)
+        .collect())
+}
+```
+
+Expose a discovered snapshot through the shared tool boundary:
+
+```rust,no_run
+use std::sync::Arc;
+
+use ai_interface::Tool;
+use ai_mcp::{DynMcpClient, McpServerConfig, McpToolSet};
+
+async fn load_adapter(
+    client: DynMcpClient,
+    config: &McpServerConfig,
+) -> ai_mcp::Result<Arc<dyn Tool>> {
+    Ok(Arc::new(McpToolSet::load(client, config).await?))
+}
+```
+
+Register the returned `Arc<dyn Tool>` in
+`ai_tool_calling::ToolCallingRuntime`. `McpToolSet::load` validates local
+configuration before remote discovery. Structured MCP results pass through,
+single text blocks collapse to strings, multi-block results retain their MCP
+wire JSON, and remote `isError` results remain successful model-visible error
+envelopes, including after bounded truncation. Protocol and transport failures
+become `ToolError::Execution`. Within known content annotations, absent or
+explicit-null `audience`, `priority`, and `lastModified` members are omitted
+from model-visible JSON; present empty audience lists and zero priorities
+remain present.
+
+For a fixed Bearer credential, replace the default auth hook with:
+
+```rust
+# use std::sync::Arc;
+# use json_http::StaticHeaderAuth;
+let auth = Arc::new(StaticHeaderAuth::bearer_token("access-token"));
+```
+
+For rotating MCP OAuth credentials, inject
+`ai_mcp_oauth::RefreshingMcpAuth` instead. The companion crate binds the hook to
+one canonical resource and performs only non-interactive loads/refreshes.
+Browser authorization remains an explicit host operation after this client
+returns a typed 401 or insufficient-scope 403; the host retries the interrupted
+MCP operation at most once.
+
+## Development
+
+```sh
+cargo test -p ai-mcp --all-features
+cargo test -p ai-mcp --test json_transport_tests
+cargo test -p ai-mcp --test delete_transport_tests
+cargo test -p ai-mcp --test error_sse_transport_tests
+cargo test -p ai-mcp --test sse_transport_tests
+cargo test -p ai-mcp --test authorization_transport_tests
+cargo test -p ai-mcp --test session_expiry_transport_tests
+cargo clippy -p ai-mcp --all-targets --all-features -- -D warnings
+cargo xtask rust-file-length-lint --all
+cargo xtask smoke-test
+```
+
+The integration tests start credential-free Axum servers on ephemeral loopback
+ports and exercise the production reqwest transport. No stable public
+OAuth-enabled MCP test server is currently required or assumed, so there is no
+environment-gated live test.
+
+### Key Code
+
+- `src/client.rs` — public client trait and synchronized runtime state
+- `src/client_operations.rs` — initialization, tools, and close operations
+- `src/transport/` — mockable HTTP boundary and incremental SSE transport
+- `src/protocol/` — typed MCP wire DTOs and content blocks
+- `src/authorization.rs` — typed Bearer challenge parsing
+- `src/tool_set.rs` — immutable `ai_interface::Tool` adapter
+- `src/tool_set_naming.rs` — namespacing, sanitization, and collision handling
+- `src/tool_set_result.rs` — result precedence and UTF-8-safe truncation
+- `tests/support/` — reusable in-process server harness
+- `tests/*_transport_tests.rs` — JSON, live SSE, authorization, session
+  expiry, and status-authoritative session DELETE integration flows
+
+The companion crate's `tests/oauth_integration.rs` exercises this production
+client and both production reqwest transports against one credential-free
+in-process OAuth and MCP server.
+
+### Related Docs
+
+- [`../../docs/protocol/ai-mcp.md`](../../docs/protocol/ai-mcp.md)
+- [`../../docs/protocol/mcp-oauth.md`](../../docs/protocol/mcp-oauth.md)
+- [`../../plans/ai-mcp-crate.md`](../../plans/ai-mcp-crate.md)
+- [`../../plans/README.md`](../../plans/README.md)
