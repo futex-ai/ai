@@ -1,8 +1,8 @@
 //! MiniMax interleaved-thinking replay tests.
 
 use ai_interface::{
-    ConversationMessage, MiniMaxReasoningDetail, Model, ModelRequest, OpenAiReasoningSummary,
-    ProviderConversationItem,
+    ConversationMessage, DeepSeekToolCallContext, MiniMaxReasoningDetail, Model, ModelRequest,
+    OpenAiReasoningSummary, ProviderConversationItem, QwenToolCallContext,
 };
 use json_http::JsonHttpResponse;
 use serde_json::json;
@@ -51,6 +51,24 @@ async fn preserves_and_replays_complete_reasoning_context_without_disclosure() {
             text: "foreign provider state".to_owned(),
         }],
         encrypted_content: None,
+    });
+    replay_context.push(ProviderConversationItem::DeepSeekAssistantMessage {
+        content: "DeepSeek-owned content".to_owned(),
+        reasoning_content: Some("DeepSeek-owned reasoning".to_owned()),
+        tool_calls: vec![DeepSeekToolCallContext {
+            id: "deepseek_call".to_owned(),
+            name: "ignored".to_owned(),
+            arguments: "{\"foreign\":true}".to_owned(),
+        }],
+    });
+    replay_context.push(ProviderConversationItem::QwenAssistantMessage {
+        content: Some("Qwen-owned content".to_owned()),
+        reasoning_content: Some("Qwen-owned reasoning".to_owned()),
+        tool_calls: vec![QwenToolCallContext {
+            id: "qwen_call".to_owned(),
+            name: "ignored".to_owned(),
+            arguments: "{}".to_owned(),
+        }],
     });
     model
         .complete(&ModelRequest {
@@ -101,6 +119,8 @@ async fn preserves_and_replays_complete_reasoning_context_without_disclosure() {
         })
     );
     assert!(!replay_body.to_string().contains("foreign provider state"));
+    assert!(!replay_body.to_string().contains("DeepSeek-owned"));
+    assert!(!replay_body.to_string().contains("Qwen-owned"));
 }
 
 fn simple_request() -> ModelRequest {

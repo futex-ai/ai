@@ -76,8 +76,10 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
                     items.push(provider_item);
                 }
             }
-            ProviderConversationItem::KimiAssistantMessage { .. }
+            ProviderConversationItem::DeepSeekAssistantMessage { .. }
+            | ProviderConversationItem::KimiAssistantMessage { .. }
             | ProviderConversationItem::MiniMaxAssistant { .. }
+            | ProviderConversationItem::QwenAssistantMessage { .. }
             | ProviderConversationItem::XaiLegacyFunctionCall { .. } => {}
         }
     }
@@ -100,9 +102,11 @@ fn assistant_items(message: &ConversationMessage) -> Vec<ResponsesInputItem> {
 
 fn provider_context_item(item: &ProviderConversationItem) -> Option<ResponsesInputItem> {
     match item {
-        ProviderConversationItem::OpenAiMessage { .. }
+        ProviderConversationItem::DeepSeekAssistantMessage { .. }
+        | ProviderConversationItem::OpenAiMessage { .. }
         | ProviderConversationItem::KimiAssistantMessage { .. }
         | ProviderConversationItem::MiniMaxAssistant { .. }
+        | ProviderConversationItem::QwenAssistantMessage { .. }
         | ProviderConversationItem::XaiLegacyFunctionCall { .. } => None,
         ProviderConversationItem::OpenAiReasoning {
             id,

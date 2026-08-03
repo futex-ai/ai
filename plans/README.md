@@ -10,6 +10,7 @@ None.
 
 ## Completed
 
+- [Add DeepSeek model provider](add-deepseek-model-provider.md)
 - [OAuth callback no-state constructors](oauth-callback-no-state-constructors.md)
 - [MCP error SSE body decoding](mcp-error-sse-body-decoding.md)
 - [MCP SSE line endings](mcp-sse-line-endings.md)

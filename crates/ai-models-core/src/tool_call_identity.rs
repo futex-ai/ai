@@ -165,12 +165,42 @@ impl StableHasher {
                 self.write_str(name);
                 self.write_str(arguments);
             }
+            ProviderConversationItem::DeepSeekAssistantMessage {
+                content,
+                reasoning_content,
+                tool_calls,
+            } => {
+                self.write_str("deep_seek_assistant_message");
+                self.write_str(content);
+                self.write_optional_str(reasoning_content.as_deref());
+                self.write_usize(tool_calls.len());
+                for call in tool_calls {
+                    self.write_str(&call.id);
+                    self.write_str(&call.name);
+                    self.write_str(&call.arguments);
+                }
+            }
             ProviderConversationItem::KimiAssistantMessage {
                 content,
                 reasoning_content,
                 tool_calls,
             } => {
                 self.write_str("kimi_assistant_message");
+                self.write_optional_str(content.as_deref());
+                self.write_optional_str(reasoning_content.as_deref());
+                self.write_usize(tool_calls.len());
+                for call in tool_calls {
+                    self.write_str(&call.id);
+                    self.write_str(&call.name);
+                    self.write_str(&call.arguments);
+                }
+            }
+            ProviderConversationItem::QwenAssistantMessage {
+                content,
+                reasoning_content,
+                tool_calls,
+            } => {
+                self.write_str("qwen_assistant_message");
                 self.write_optional_str(content.as_deref());
                 self.write_optional_str(reasoning_content.as_deref());
                 self.write_usize(tool_calls.len());

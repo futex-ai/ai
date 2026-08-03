@@ -168,11 +168,13 @@ fn legacy_function_call(message: &ConversationMessage) -> Option<LegacyFunctionC
                 arguments: arguments.clone(),
             })
         }
-        ProviderConversationItem::OpenAiMessage { .. }
+        ProviderConversationItem::DeepSeekAssistantMessage { .. }
+        | ProviderConversationItem::OpenAiMessage { .. }
         | ProviderConversationItem::OpenAiReasoning { .. }
         | ProviderConversationItem::OpenAiFunctionCall { .. }
         | ProviderConversationItem::KimiAssistantMessage { .. }
         | ProviderConversationItem::MiniMaxAssistant { .. }
+        | ProviderConversationItem::QwenAssistantMessage { .. }
         | ProviderConversationItem::XaiLegacyFunctionCall { .. } => None,
     })
 }

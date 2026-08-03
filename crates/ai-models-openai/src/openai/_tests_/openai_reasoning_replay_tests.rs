@@ -3,8 +3,8 @@
 use std::sync::{Arc, Mutex};
 
 use ai_interface::{
-    ConversationMessage, KimiToolCallContext, Model, ModelRequest, OpenAiReasoningSummary,
-    ProviderConversationItem, ToolCall,
+    ConversationMessage, DeepSeekToolCallContext, KimiToolCallContext, Model, ModelRequest,
+    OpenAiReasoningSummary, ProviderConversationItem, QwenToolCallContext, ToolCall,
 };
 use json_http::{
     JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
@@ -30,11 +30,29 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
             operation_id: None,
         }],
         vec![
+            ProviderConversationItem::DeepSeekAssistantMessage {
+                content: "DeepSeek-owned content".to_owned(),
+                reasoning_content: Some("DeepSeek-owned reasoning".to_owned()),
+                tool_calls: vec![DeepSeekToolCallContext {
+                    id: "deepseek_call".to_owned(),
+                    name: "ignored".to_owned(),
+                    arguments: "{\"foreign\":true}".to_owned(),
+                }],
+            },
             ProviderConversationItem::KimiAssistantMessage {
                 content: None,
                 reasoning_content: Some("Kimi-owned context".to_owned()),
                 tool_calls: vec![KimiToolCallContext {
                     id: "kimi_call".to_owned(),
+                    name: "ignored".to_owned(),
+                    arguments: "{}".to_owned(),
+                }],
+            },
+            ProviderConversationItem::QwenAssistantMessage {
+                content: Some("Qwen-owned content".to_owned()),
+                reasoning_content: Some("Qwen-owned reasoning".to_owned()),
+                tool_calls: vec![QwenToolCallContext {
+                    id: "qwen_call".to_owned(),
                     name: "ignored".to_owned(),
                     arguments: "{}".to_owned(),
                 }],
@@ -85,6 +103,8 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
     assert_eq!(input[3]["type"], "function_call_output");
     assert_eq!(input[3]["call_id"], "call_1");
     assert_eq!(function_call_count(input), 1);
+    assert!(!input.to_string().contains("DeepSeek-owned"));
+    assert!(!input.to_string().contains("Qwen-owned"));
 }
 
 #[tokio::test]

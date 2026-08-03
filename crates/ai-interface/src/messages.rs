@@ -114,6 +114,17 @@ pub enum ProviderConversationItem {
         /// Raw JSON argument string returned by xAI.
         arguments: String,
     },
+    /// DeepSeek Chat Completions assistant message retained for exact continuation replay.
+    DeepSeekAssistantMessage {
+        /// Assistant content returned by DeepSeek, with provider null normalized to empty.
+        content: String,
+        /// Optional provider reasoning retained for replay but hidden from visible text.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reasoning_content: Option<String>,
+        /// Ordered raw DeepSeek tool calls retained exactly as returned.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        tool_calls: Vec<DeepSeekToolCallContext>,
+    },
     /// Kimi Chat Completions assistant message retained for exact continuation replay.
     #[serde(rename = "kimi_assistant_message")]
     KimiAssistantMessage {
@@ -127,6 +138,30 @@ pub enum ProviderConversationItem {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         tool_calls: Vec<KimiToolCallContext>,
     },
+    /// Qwen Chat Completions assistant message retained for exact continuation replay.
+    #[serde(rename = "qwen_assistant_message")]
+    QwenAssistantMessage {
+        /// Nullable assistant content returned by Qwen.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        content: Option<String>,
+        /// Nullable provider reasoning retained for replay but hidden from visible text.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reasoning_content: Option<String>,
+        /// Ordered raw Qwen tool calls retained exactly as returned.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        tool_calls: Vec<QwenToolCallContext>,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+/// One raw DeepSeek function call retained for lossless assistant replay.
+pub struct DeepSeekToolCallContext {
+    /// Provider-issued tool-call identifier.
+    pub id: String,
+    /// Function name returned by DeepSeek.
+    pub name: String,
+    /// Raw JSON argument string returned by DeepSeek.
+    pub arguments: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -137,6 +172,17 @@ pub struct KimiToolCallContext {
     /// Function name returned by Kimi.
     pub name: String,
     /// Raw JSON argument string returned by Kimi.
+    pub arguments: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+/// One raw Qwen function call retained for lossless assistant replay.
+pub struct QwenToolCallContext {
+    /// Provider-issued tool-call identifier.
+    pub id: String,
+    /// Function name returned by Qwen.
+    pub name: String,
+    /// Raw JSON argument string returned by Qwen.
     pub arguments: String,
 }
 

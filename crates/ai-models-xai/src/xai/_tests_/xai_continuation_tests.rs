@@ -3,8 +3,8 @@
 use std::sync::{Arc, Mutex};
 
 use ai_interface::{
-    ConversationMessage, KimiToolCallContext, Model, ModelRequest, ProviderConversationItem,
-    ToolCall,
+    ConversationMessage, DeepSeekToolCallContext, KimiToolCallContext, Model, ModelRequest,
+    ProviderConversationItem, QwenToolCallContext, ToolCall,
 };
 use json_http::{
     JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
@@ -80,11 +80,29 @@ async fn serializes_legacy_function_call_continuation_messages() {
                         operation_id: None,
                     }],
                     vec![
+                        ProviderConversationItem::DeepSeekAssistantMessage {
+                            content: "DeepSeek-owned content".to_owned(),
+                            reasoning_content: Some("DeepSeek-owned reasoning".to_owned()),
+                            tool_calls: vec![DeepSeekToolCallContext {
+                                id: "deepseek_call".to_owned(),
+                                name: "ignored".to_owned(),
+                                arguments: "{\"foreign\":true}".to_owned(),
+                            }],
+                        },
                         ProviderConversationItem::KimiAssistantMessage {
                             content: None,
                             reasoning_content: Some("Kimi-owned context".to_owned()),
                             tool_calls: vec![KimiToolCallContext {
                                 id: "kimi_call".to_owned(),
+                                name: "ignored".to_owned(),
+                                arguments: "{}".to_owned(),
+                            }],
+                        },
+                        ProviderConversationItem::QwenAssistantMessage {
+                            content: Some("Qwen-owned content".to_owned()),
+                            reasoning_content: Some("Qwen-owned reasoning".to_owned()),
+                            tool_calls: vec![QwenToolCallContext {
+                                id: "qwen_call".to_owned(),
                                 name: "ignored".to_owned(),
                                 arguments: "{}".to_owned(),
                             }],
@@ -133,6 +151,20 @@ async fn serializes_legacy_function_call_continuation_messages() {
     assert_eq!(function_message["name"], "memory_read");
     assert_eq!(function_message["content"], "{\"ok\":true}");
     assert!(!function_object.contains_key("tool_call_id"));
+    assert!(
+        !body
+            .as_json()
+            .expect("JSON body should be present")
+            .to_string()
+            .contains("DeepSeek-owned")
+    );
+    assert!(
+        !body
+            .as_json()
+            .expect("JSON body should be present")
+            .to_string()
+            .contains("Qwen-owned")
+    );
 }
 
 fn recording_http_client(

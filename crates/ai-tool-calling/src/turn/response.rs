@@ -57,8 +57,10 @@ fn remove_private_replay_context(context: &mut Vec<ProviderConversationItem>) {
     context.retain(|item| {
         !matches!(
             item,
-            ProviderConversationItem::KimiAssistantMessage { .. }
+            ProviderConversationItem::DeepSeekAssistantMessage { .. }
+                | ProviderConversationItem::KimiAssistantMessage { .. }
                 | ProviderConversationItem::MiniMaxAssistant { .. }
+                | ProviderConversationItem::QwenAssistantMessage { .. }
         )
     });
 }

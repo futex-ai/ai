@@ -18,6 +18,9 @@ pub enum ProviderKind {
     OpenAi,
     /// Anthropic model provider.
     Anthropic,
+    /// DeepSeek model provider.
+    #[serde(rename = "deepseek")]
+    DeepSeek,
     /// Google Gemini model provider.
     Google,
     /// Moonshot AI Kimi model provider.
@@ -25,6 +28,8 @@ pub enum ProviderKind {
     /// MiniMax model provider.
     #[serde(rename = "minimax")]
     MiniMax,
+    /// Alibaba Qwen model provider.
+    Qwen,
     /// xAI/Grok model provider.
     Xai,
 }
@@ -36,9 +41,11 @@ impl ProviderKind {
             "mock" => Some(Self::Mock),
             "openai" => Some(Self::OpenAi),
             "anthropic" => Some(Self::Anthropic),
+            "deepseek" => Some(Self::DeepSeek),
             "google" => Some(Self::Google),
             "kimi" => Some(Self::Kimi),
             "minimax" => Some(Self::MiniMax),
+            "qwen" => Some(Self::Qwen),
             "xai" => Some(Self::Xai),
             _ => None,
         }
@@ -50,9 +57,11 @@ impl ProviderKind {
             Self::Mock => "mock",
             Self::OpenAi => "openai",
             Self::Anthropic => "anthropic",
+            Self::DeepSeek => "deepseek",
             Self::Google => "google",
             Self::Kimi => "kimi",
             Self::MiniMax => "minimax",
+            Self::Qwen => "qwen",
             Self::Xai => "xai",
         }
     }

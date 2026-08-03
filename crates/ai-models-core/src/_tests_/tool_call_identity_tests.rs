@@ -1,5 +1,6 @@
 use ai_interface::{
-    ConversationMessage, KimiToolCallContext, ModelRequest, ProviderConversationItem,
+    ConversationMessage, DeepSeekToolCallContext, KimiToolCallContext, ModelRequest,
+    ProviderConversationItem,
 };
 
 use crate::{synthetic_tool_call_id, synthetic_tool_call_scope};
@@ -86,6 +87,59 @@ fn synthetic_scope_hashes_every_kimi_replay_field() {
     }
 }
 
+#[test]
+fn synthetic_scope_hashes_every_deepseek_replay_field() {
+    let baseline = deepseek_request(
+        "visible",
+        Some("reasoning"),
+        "call_1",
+        "memory_read",
+        "{\"path\":\"one\"}",
+    );
+    let baseline_scope = synthetic_tool_call_scope(&baseline);
+    let variants = [
+        deepseek_request(
+            "changed",
+            Some("reasoning"),
+            "call_1",
+            "memory_read",
+            "{\"path\":\"one\"}",
+        ),
+        deepseek_request(
+            "visible",
+            Some("changed"),
+            "call_1",
+            "memory_read",
+            "{\"path\":\"one\"}",
+        ),
+        deepseek_request(
+            "visible",
+            Some("reasoning"),
+            "call_2",
+            "memory_read",
+            "{\"path\":\"one\"}",
+        ),
+        deepseek_request(
+            "visible",
+            Some("reasoning"),
+            "call_1",
+            "memory_write",
+            "{\"path\":\"one\"}",
+        ),
+        deepseek_request(
+            "visible",
+            Some("reasoning"),
+            "call_1",
+            "memory_read",
+            "{\"path\":\"two\"}",
+        ),
+    ];
+
+    for variant in variants {
+        assert_ne!(synthetic_tool_call_scope(&variant), baseline_scope);
+    }
+}
+
 fn request_with_message(content: &str) -> ModelRequest {
     ModelRequest {
         system_prompt: "system".to_owned(),
@@ -111,6 +165,33 @@ fn kimi_request(
                 content: content.map(str::to_owned),
                 reasoning_content: reasoning_content.map(str::to_owned),
                 tool_calls: vec![KimiToolCallContext {
+                    id: id.to_owned(),
+                    name: name.to_owned(),
+                    arguments: arguments.to_owned(),
+                }],
+            }],
+        )],
+        tools: Vec::new(),
+        response_schema: None,
+    }
+}
+
+fn deepseek_request(
+    content: &str,
+    reasoning_content: Option<&str>,
+    id: &str,
+    name: &str,
+    arguments: &str,
+) -> ModelRequest {
+    ModelRequest {
+        system_prompt: "system".to_owned(),
+        messages: vec![ConversationMessage::assistant_with_provider_context(
+            content,
+            Vec::new(),
+            vec![ProviderConversationItem::DeepSeekAssistantMessage {
+                content: content.to_owned(),
+                reasoning_content: reasoning_content.map(str::to_owned),
+                tool_calls: vec![DeepSeekToolCallContext {
                     id: id.to_owned(),
                     name: name.to_owned(),
                     arguments: arguments.to_owned(),
