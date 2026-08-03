@@ -3,6 +3,7 @@
 mod context_invalidation_tests;
 mod error_tests;
 mod freshness;
+mod initialization_error_tests;
 mod lifecycle_tests;
 mod pagination_tests;
 mod response_shape_tests;

@@ -150,6 +150,9 @@ impl StreamableHttpMcpClient {
         let response = self
             .post_message(&message, &empty_context, self.config.request_timeout)
             .await?;
+        if !(200..300).contains(&response.status) {
+            return Err(self.scoped_http_error(response, &empty_context).await);
+        }
         let session_id = response
             .headers
             .get("mcp-session-id")
