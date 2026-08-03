@@ -133,11 +133,11 @@ pub(super) fn authorization_server_metadata_url(
             endpoint: OAuthEndpointKind::AuthorizationServerMetadata,
         });
     }
-    let issuer_path = url.path().trim_start_matches('/');
-    let path = if issuer_path.is_empty() {
+    let issuer_path = url.path();
+    let path = if issuer_path == "/" {
         "/.well-known/oauth-authorization-server".to_owned()
     } else {
-        format!("/.well-known/oauth-authorization-server/{issuer_path}")
+        format!("/.well-known/oauth-authorization-server{issuer_path}")
     };
     url.set_path(&path);
     Ok(url.to_string())
@@ -186,3 +186,7 @@ fn has_json_content_type(response: &OAuthHttpResponse) -> bool {
         })
     })
 }
+
+#[cfg(test)]
+#[path = "_tests_/parsing_tests.rs"]
+mod parsing_tests;

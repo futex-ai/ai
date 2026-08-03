@@ -2,7 +2,48 @@
 
 use std::net::{IpAddr, Ipv4Addr};
 
-use crate::{OAuthEndpointKind, OAuthUrlPolicy};
+use crate::{Error, OAuthEndpointKind, OAuthUnsafeUrlReason, OAuthUrlPolicy};
+
+#[test]
+fn rejects_empty_user_info_after_url_preprocessing() {
+    let policy = OAuthUrlPolicy::default();
+
+    for value in [
+        "https://@example.com/oauth",
+        "https://:@example.com/oauth",
+        "https:@example.com",
+        r"https:\@example.com",
+        "https://\t@example.com/oauth",
+    ] {
+        assert!(
+            matches!(
+                policy.parse(value, OAuthEndpointKind::Authorization),
+                Err(Error::UnsafeUrl {
+                    reason: OAuthUnsafeUrlReason::UserInfo,
+                    ..
+                })
+            ),
+            "{value:?} should be rejected as user info"
+        );
+    }
+}
+
+#[test]
+fn permits_at_signs_outside_the_authority() {
+    let policy = OAuthUrlPolicy::default();
+
+    for value in [
+        "https://example.com/pa@th",
+        "https://example.com/oauth?login_hint=user@example.com",
+    ] {
+        assert!(
+            policy
+                .parse(value, OAuthEndpointKind::Authorization)
+                .is_ok(),
+            "{value} should remain valid"
+        );
+    }
+}
 
 #[test]
 fn rejects_dangerous_schemes_user_info_and_fragments() {

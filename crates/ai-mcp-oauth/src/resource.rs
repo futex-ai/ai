@@ -32,11 +32,11 @@ impl CanonicalMcpResource {
                 });
             }
         };
-        let resource_path = url.path().trim_start_matches('/');
-        let metadata_path = if resource_path.is_empty() {
+        let resource_path = url.path();
+        let metadata_path = if resource_path == "/" {
             "/.well-known/oauth-protected-resource".to_owned()
         } else {
-            format!("/.well-known/oauth-protected-resource/{resource_path}")
+            format!("/.well-known/oauth-protected-resource{resource_path}")
         };
         url.set_path(&metadata_path);
         Ok(url.to_string())

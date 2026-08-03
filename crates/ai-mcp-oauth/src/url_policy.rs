@@ -1,8 +1,11 @@
 //! OAuth URL syntax and network-destination policy.
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::{
+    cell::Cell,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+};
 
-use url::{Host, Url};
+use url::{Host, SyntaxViolation, Url};
 
 use crate::{Error, OAuthEndpointKind, OAuthUnsafeUrlReason, Result};
 
@@ -22,10 +25,25 @@ impl OAuthUrlPolicy {
     }
 
     pub(crate) fn parse(&self, value: &str, endpoint: OAuthEndpointKind) -> Result<Url> {
-        let url = match Url::parse(value) {
+        let has_user_info = Cell::new(false);
+        let record_violation = |violation| {
+            if matches!(
+                violation,
+                SyntaxViolation::EmbeddedCredentials | SyntaxViolation::UnencodedAtSign
+            ) {
+                has_user_info.set(true);
+            }
+        };
+        let url = match Url::options()
+            .syntax_violation_callback(Some(&record_violation))
+            .parse(value)
+        {
             Ok(url) => url,
             Err(_) => return Err(Error::InvalidUrl { endpoint }),
         };
+        if has_user_info.get() {
+            return Err(unsafe_url(endpoint, OAuthUnsafeUrlReason::UserInfo));
+        }
         self.validate_url(&url, endpoint)?;
         Ok(url)
     }

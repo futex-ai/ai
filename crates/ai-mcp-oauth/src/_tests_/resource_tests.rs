@@ -51,6 +51,33 @@ fn inserts_well_known_path_for_root_and_specific_resources() {
 }
 
 #[test]
+fn well_known_url_preserves_resource_path_shape_and_query() {
+    let cases = [
+        (
+            "https://example.com//tenant",
+            "https://example.com/.well-known/oauth-protected-resource//tenant",
+        ),
+        (
+            "https://example.com/tenant/",
+            "https://example.com/.well-known/oauth-protected-resource/tenant/",
+        ),
+        (
+            "https://example.com/a%2Fb?region=one",
+            "https://example.com/.well-known/oauth-protected-resource/a%2Fb?region=one",
+        ),
+    ];
+
+    for (value, expected) in cases {
+        let resource = CanonicalMcpResource::parse(value, &OAuthUrlPolicy::default()).unwrap();
+
+        assert_eq!(
+            resource.protected_resource_metadata_url().unwrap(),
+            expected
+        );
+    }
+}
+
+#[test]
 fn scopes_deduplicate_without_reordering() {
     let scopes = OAuthScopes::new(["read", "write", "read"]);
     let elevated = scopes.union(&OAuthScopes::new(["admin", "write"]));

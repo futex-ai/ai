@@ -97,7 +97,8 @@ invalid configuration rather than panicking.
 - Prefer the challenge's `resource_metadata_url` after applying the OAuth URL
   policy. When absent, derive the RFC 9728
   `/.well-known/oauth-protected-resource` URL by inserting the well-known
-  segment between the authority and resource path.
+  segment between the authority and resource path. Preserve the resource path
+  verbatim, including empty segments and percent encoding, and retain its query.
 - The protected-resource response must be JSON, stay within configured size
   and timeout limits, and return `resource` exactly equal to the canonical MCP
   resource. Unknown fields are ignored.
@@ -353,8 +354,10 @@ Errors and diagnostics never contain authorization codes or token values.
   HTTPS under every policy. Development HTTP requires every resolved address
   to remain loopback, so a local-looking hostname cannot send plaintext
   traffic off-box.
-- Reject user info, fragments, dangerous schemes, private/reserved/link-local
-  destinations, non-global IPv4 IETF protocol assignments
+- Reject user info, including zero-length user info expressed by an `@` in the
+  raw authority; `@` remains valid in path and query components. Also reject
+  fragments, dangerous schemes, private/reserved/link-local destinations,
+  non-global IPv4 IETF protocol assignments
   (`192.0.0.0/24`, except globally reachable `192.0.0.9/32` and
   `192.0.0.10/32`), deprecated IPv4 6to4 relay anycast
   (`192.88.99.0/24`), IPv4-compatible, well-known and local-use NAT64
@@ -363,7 +366,10 @@ Errors and diagnostics never contain authorization codes or token values.
   (`2001:db8::/32` and `3fff::/20`), IPv6 6to4 (`2002::/16`), SRv6 SID
   (`5f00::/16`), and deprecated IPv6 site-local (`fec0::/10`) ranges. Apply
   the same policy to literals and every DNS result; loopback destinations do
-  not bypass the blocked-port list.
+  not bypass the blocked-port list. Raw-authority rejection applies to resource
+  identities and configured or discovered endpoint strings parsed directly by
+  the policy. Redirect `Location` values are joined and normalized before each
+  hop is validated; non-empty user info remains rejected there.
 - Disable automatic redirects. Follow redirects only for metadata GETs after
   validating scheme, resolved destination, and policy at every library-owned
   hop; registration, token, and revocation POST responses never redirect their
