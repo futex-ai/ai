@@ -1,0 +1,425 @@
+# Spec: `ai-mcp-oauth` — host-side MCP OAuth
+
+Status: approved by Cal on 24 Jul 2026. This is the durable source of truth for
+[`plans/ai-mcp-oauth.md`](../../plans/ai-mcp-oauth.md).
+
+## Purpose
+
+Add a reusable `crates/ai-mcp-oauth` library that turns the typed HTTP 401 and
+403 challenges emitted by `ai-mcp` into OAuth 2.1 authorization for remote MCP
+servers. It owns discovery, public-client registration, PKCE, token exchange,
+refresh, and the `JsonHttpAuth` adapter. The embedding host owns browser UX,
+authorization-server selection, secure persistence, and user consent through
+injected traits.
+
+## Responsibilities
+
+- Discover protected-resource and authorization-server metadata.
+- Register or resolve a public OAuth client.
+- Run authorization-code flow with PKCE through an injected user agent.
+- Persist, refresh, rotate, and remove tokens through an injected secure store.
+- Inject a valid Bearer token into every MCP HTTP request.
+- Surface typed interaction, scope, discovery, and token failures to the host.
+- Enforce URL, audience, redirect, state, scope, and secret-handling controls.
+
+## Non-goals
+
+- OAuth inside `ai-mcp`; that crate only parses challenges and applies auth.
+- Concrete browser, callback listener, Keychain, database, or product UI.
+- OAuth for stdio MCP servers.
+- Password, implicit, device-code, client-credentials, or token-exchange grants.
+- Confidential-client secrets, DPoP, OIDC login semantics, or token
+  introspection in v1.
+- Remote dynamic-client management or deletion through RFC 7592.
+- Automatically granting scopes or silently choosing among multiple issuers.
+- Passing an MCP access token through to a downstream API.
+
+## Standards target
+
+The implementation targets MCP authorization revision **2025-06-18** and:
+
+- <https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization>
+- <https://datatracker.ietf.org/doc/html/rfc9728>
+- <https://datatracker.ietf.org/doc/html/rfc8414>
+- <https://datatracker.ietf.org/doc/html/rfc7591>
+- <https://datatracker.ietf.org/doc/html/rfc7636>
+- <https://datatracker.ietf.org/doc/html/rfc8707>
+- <https://datatracker.ietf.org/doc/html/rfc7009>
+
+The standards audit on 24 Jul 2026 confirmed the approved discovery,
+registration, PKCE, resource-indicator, and revocation contracts. MCP and
+RFC 8414 require HTTPS for authorization-server endpoints and metadata. This
+contract's explicit loopback-HTTP policy is a deliberate development-only
+exception for local hosts and tests; production policy remains HTTPS-only.
+
+## End-to-end flow
+
+1. The host constructs a `RefreshingMcpAuth` for one canonical MCP resource
+   URI and injects it into `StreamableHttpMcpClient`.
+2. The hook injects a usable stored token, refreshes one non-interactively, or
+   sends no Authorization header when no usable credential exists.
+3. A protected server returns `Error::AuthorizationRequired` (401) or
+   `Error::Forbidden` (403) with `McpAuthorizationChallenge`.
+4. On a 401 with an existing credential, the host may call
+   `McpOAuthManager::refresh` once. A new connection, unusable refresh, or
+   explicit insufficient-scope consent uses `McpOAuthManager::authorize`.
+   Interactive work never runs from `JsonHttpAuth::apply_headers`. A
+   `Forbidden` challenge returns `AuthorizationForbidden`, while
+   `InvalidRequest` returns `AuthorizationInvalidRequest` because a new grant
+   cannot repair the malformed MCP request; both fail before discovery or
+   browser work.
+5. The manager stores the resulting token set atomically.
+6. The host retries the interrupted MCP operation once. Further 401/403
+   responses are surfaced; no unbounded authorization or retry loop is allowed.
+7. Later requests refresh within the configured expiry skew under a
+   per-credential single-flight lock. If no refresh token exists, an
+   unexpired access token remains usable until its actual expiry.
+
+For a 403 with `InsufficientScope`, authorization is incremental and requires
+explicit host consent. Other 403 responses remain denied and do not
+automatically open a browser.
+
+## Configuration defaults
+
+`McpOAuthConfig` defaults to a 30-second HTTP timeout, 10-minute user-agent
+timeout/state lifetime, 1 MiB response cap, three validated redirects,
+one-hour maximum metadata cache age, and 60-second refresh skew. Every value is
+configurable, positive, and bounded before network or authorization work. An
+HTTP timeout that cannot form a platform-representable deadline is rejected as
+invalid configuration rather than panicking.
+
+## Resource identity and discovery
+
+- The credential resource is the most specific absolute MCP endpoint URI.
+  Scheme and host are lowercase, fragments are rejected, and trailing-slash
+  handling is stable. Use the identical canonical string for discovery
+  validation, OAuth `resource`, storage keys, and retries.
+- Prefer the challenge's `resource_metadata_url` after applying the OAuth URL
+  policy. When absent, derive the RFC 9728
+  `/.well-known/oauth-protected-resource` URL by inserting the well-known
+  segment between the authority and resource path. Preserve the resource path
+  verbatim, including empty segments and percent encoding, and retain its query.
+- The protected-resource response must be JSON, stay within configured size
+  and timeout limits, and return `resource` exactly equal to the canonical MCP
+  resource. Unknown fields are ignored.
+- `authorization_servers` must contain at least one issuer. Before automatic or
+  host selection, every advertised value must pass the configured URL policy
+  and RFC 8414 issuer form, including no query or fragment. One invalid value
+  fails the entire metadata response; do not filter or expose a partially
+  validated choice set. Preserve exact valid strings and wire order. One issuer
+  may then be selected automatically. Multiple issuers require the injected
+  `AuthorizationServerSelector`; cancellation is a typed outcome.
+- Fetch RFC 8414 metadata for the selected issuer. The returned `issuer` must
+  exactly match, and authorization, token, and optional registration endpoints
+  must pass the same URL policy.
+- A fresh `WWW-Authenticate` resource-metadata URL invalidates cached discovery
+  for that resource. Otherwise, metadata caching follows HTTP cache directives
+  and is bounded by a configurable maximum age.
+- A reusable discovery cache entry includes the selected authorization server.
+  Do not ask the host to repeat an identical multi-issuer selection until that
+  entry expires or is invalidated.
+- Serialize discovery per canonical resource before reading the clock or
+  consulting its cache. Concurrent callers reuse a cacheable successful
+  selection; non-cacheable results, cancellation, and errors are not shared
+  and later callers run independently in turn. Discovery for distinct
+  resources remains concurrent. Changed resource-metadata URLs serialize
+  against the same resource because they invalidate one resource-keyed entry.
+- This private cache does not revalidate. `no-store`, bare or qualified
+  `no-cache`, malformed `max-age`, and any Cache-Control field value that
+  cannot be decoded as text therefore disable reuse. One undecodable repeated
+  value invalidates the whole field. When multiple valid `max-age` directives
+  or discovery responses apply, use the shortest lifetime independent of
+  directive or header order.
+
+## Client registration
+
+Resolve a public client in this order:
+
+1. A configured registration supplied by the host for the issuer.
+2. A previously stored dynamic registration for the same issuer, redirect URI,
+   and client metadata.
+3. RFC 7591 Dynamic Client Registration when `registration_endpoint` exists.
+4. `Error::ClientRegistrationRequired` with issuer and redirect details.
+
+Configured and cached registrations must match the exact approved redirect URI
+and client name and carry a non-empty client ID. Any mismatch returns
+`RegistrationMismatch` without falling through to dynamic registration.
+Dynamic registration sends the exact host-approved redirect URI,
+`response_types = ["code"]`, and `token_endpoint_auth_method = "none"`.
+`grant_types` always contains `authorization_code` and adds `refresh_token`
+only when server metadata advertises it. Reject an issuer that does not support
+public-client token authentication. Persist the returned client ID before
+authorization. V1 ignores a returned client secret and never treats an
+embedded desktop/mobile secret as confidential.
+
+## Authorization and token exchange
+
+- Use an external user agent through `OAuthUserAgent`; never embed credentials
+  or launch a URL through a shell.
+- Treat only `AuthorizationRequired`, `InvalidToken`, and
+  `InsufficientScope` as authorizable challenge classes. Reject `Forbidden`
+  and `InvalidRequest` immediately with distinct typed errors before
+  discovery, registration, DNS, state, or user-agent side effects.
+- Treat omitted `grant_types_supported` metadata as RFC 8414's default support
+  for `authorization_code`. When a non-empty advertised list excludes
+  `authorization_code`, return `AuthorizationCodeGrantUnsupported` before
+  client registration or browser work.
+- Before client registration, parse the authorization endpoint through the URL
+  policy and reject any existing exact-case `response_type`, `client_id`,
+  `redirect_uri`, `code_challenge`, `code_challenge_method`, `resource`,
+  `state`, or `scope` query name. Query decoding applies before comparison.
+  Preserve non-reserved and case-distinct endpoint parameters, and append
+  client-owned parameters to the same validated URL.
+- Immediately before creating callback state and handing off the final
+  authorization URL, resolve its domain through the injected DNS boundary and
+  require every returned address to satisfy the URL policy. The lookup is
+  bounded by the configured HTTP timeout. Empty, failed, or timed-out
+  resolution aborts authorization with the typed DNS failure without opening
+  the user agent.
+- This preflight is defense in depth, not connection pinning. A platform
+  browser resolves the hostname again and controls subsequent redirects, so
+  DNS-rebinding, time-of-check/time-of-use, and browser redirect enforcement
+  remain explicit host and `OAuthUserAgent` responsibilities.
+- Redirect URIs must be HTTPS or explicit loopback HTTP and must exactly match
+  the registered value.
+- Generate state from 32 random bytes, encode it base64url without padding,
+  and make it single-use for the configured 10-minute default lifetime. Reject
+  missing, expired, reused, or mismatched state on both successful and OAuth
+  error callbacks. A host callback adapter must preserve an omitted state as
+  `None` rather than copying or synthesizing the expected value; the public
+  response API provides distinct no-state constructors so this path does not
+  require direct secret-field construction or type annotations.
+- Report `OAuthUserAuthorizationRequest::expires_at()` as a conservative
+  whole-second UNIX deadline for the interaction: the start time plus the
+  earlier of the state lifetime and user-agent timeout, using saturating
+  arithmetic. The manager still enforces the user-agent timeout independently.
+  Sub-second configured durations may therefore report the start second.
+- Generate the RFC 7636 verifier from a separate 32 random bytes encoded
+  base64url without padding and derive its `S256` challenge. `plain` is
+  unsupported.
+- Include the canonical `resource` in both authorization and token requests.
+- Request only host-approved baseline scopes plus scopes from the triggering
+  challenge. Never request the entire advertised scope catalog by default.
+- Exchange the code once with the same redirect URI and verifier. Require a
+  Bearer access token and parse optional refresh token, expiry, and granted
+  scope without logging secrets. Because RFC 6749 requires a non-empty refresh
+  token, treat an empty response value exactly like an omitted field.
+- Preserve any token endpoint rejection, including authorization-code
+  `invalid_grant`, as `TokenRejected` with its HTTP status and typed OAuth
+  error. A rejected code exchange does not read, replace, or delete stored
+  credentials.
+- If `expires_in` is absent, do not invent an expiry; use the token until a
+  challenge or explicit refresh. If `scope` is absent, retain the requested
+  scopes, and on refresh retain the prior scopes unless replacements are
+  returned.
+- Store registration and tokens under user/account, resource, issuer, client
+  ID, and redirect URI. The token set records its granted scopes. Secret values
+  use redacted debug formatting.
+
+## Refresh, retry, and disconnect
+
+- Default refresh skew is 60 seconds and is configurable.
+- Refresh within that skew when a refresh token exists. Without one, continue
+  sending an unexpired access token until its actual expiry; never send a
+  known-expired token.
+- Concurrent callers for one credential share one refresh; unrelated
+  credentials do not block each other.
+- The final token write from interactive authorization uses the same
+  per-credential lock, so a newly approved grant wins over an older in-flight
+  refresh or its `invalid_grant` cleanup. The lock is not held during browser
+  interaction or token exchange.
+- Disconnect uses the same per-credential lock across load, best-effort
+  revocation, and local deletion. It cannot overlap a refresh save or leave a
+  rotated token set stored after disconnect returns.
+- An authorization grant that finishes after an already-completed disconnect
+  is a new user-approved connection and may store its new credentials.
+- A rotated non-empty refresh token atomically replaces the old token set. If
+  a refresh response omits `refresh_token` or returns an empty value, retain
+  the previous one.
+- Within a refresh request only, an HTTP 400 `TokenRejected` carrying
+  `invalid_grant` removes the unusable token set. The status requirement
+  prevents a transient or non-conforming response body from deleting local
+  credentials. An explicit refresh returns
+  `InteractionRequired`; an auth-hook refresh leaves the header absent so the
+  MCP server can return an authoritative typed challenge. Transient discovery
+  or token errors preserve credentials and do not send a known-expired token.
+- A 401 after one successful refresh or interactive authorization is surfaced
+  to the host. A denied incremental scope is cached by its semantic,
+  order-insensitive scope set for the current connection attempt to prevent
+  prompt loops.
+- Disconnect best-effort revokes tokens only when a validated endpoint is
+  available, then always removes local tokens. Cached dynamic registration is
+  retained by default and may be removed locally through explicit host policy;
+  v1 does not remotely manage registrations. Any 2xx revocation status is
+  successful and its response body is ignored as required by RFC 7009. Local
+  deletion is not contingent on network success. A token-load failure skips
+  remote revocation but still triggers key-based local deletion. If deletion
+  succeeds, disconnect returns the original typed load error. If deletion also
+  fails,
+  `LocalTokenDeletionFailed` takes precedence with `revocation_failed = true`
+  because remote revocation could not be attempted.
+
+## Public boundaries
+
+All impure behavior is trait-backed and Unimock-enabled under tests, doctests,
+or `test-support`.
+
+```rust
+pub trait McpOAuthManager: Send + Sync {
+    async fn authorize(
+        &self,
+        challenge: &McpAuthorizationChallenge,
+        context: &OAuthAuthorizationContext,
+    ) -> Result<OAuthConnection>;
+    async fn refresh(&self, key: &OAuthCredentialKey)
+        -> Result<OAuthConnection>;
+    async fn disconnect(&self, key: &OAuthCredentialKey) -> Result<()>;
+}
+
+pub trait OAuthCredentialStore: Send + Sync {
+    async fn load_registration(&self, key: &OAuthRegistrationKey)
+        -> Result<Option<OAuthClientRegistration>>;
+    async fn save_registration(
+        &self,
+        key: &OAuthRegistrationKey,
+        value: &OAuthClientRegistration,
+    ) -> Result<()>;
+    async fn load_tokens(&self, key: &OAuthCredentialKey)
+        -> Result<Option<OAuthTokenSet>>;
+    async fn save_tokens(
+        &self,
+        key: &OAuthCredentialKey,
+        value: &OAuthTokenSet,
+    ) -> Result<()>;
+    async fn delete_tokens(&self, key: &OAuthCredentialKey) -> Result<()>;
+    async fn delete_registration(&self, key: &OAuthRegistrationKey)
+        -> Result<()>;
+}
+
+pub trait OAuthUserAgent: Send + Sync {
+    async fn authorize(&self, request: OAuthUserAuthorizationRequest)
+        -> Result<OAuthAuthorizationResponse>;
+}
+
+pub trait AuthorizationServerSelector: Send + Sync {
+    async fn select(
+        &self,
+        resource: &str,
+        issuers: &[String],
+    ) -> Result<String>;
+}
+```
+
+`OAuthHttpTransport` separately models bounded GET JSON, POST JSON, and POST
+form requests. The production decoder retains valid JSON for decoded
+responses. Non-empty, non-JSON bodies fail successful discovery, registration,
+and token requests. For decoded non-success responses they become `null` so
+endpoint consumers retain the typed HTTP status; valid JSON error bodies remain
+available. A revocation `2xx` is status-authoritative: capture its status and
+normalized headers, return a `null` body, and drop the unread body without
+size-limiting or decoding it. Other responses retain their configured body
+limit before decoding. Empty decoded bodies are represented as `null`.
+`OAuthClock` and `OAuthRandom` abstract time and cryptographically secure
+bytes. Production implementations are injected into
+`DefaultMcpOAuthManager`, which implements `McpOAuthManager`.
+
+`RefreshingMcpAuth` is bound to a canonical resource and credential identity
+and implements `json_http::JsonHttpAuth`. It may load or refresh credentials
+but must never invoke `OAuthUserAgent`. With no credential it leaves headers
+unchanged so `ai-mcp` can obtain the authoritative challenge.
+
+## Typed data and errors
+
+Public DTOs include protected-resource metadata, authorization-server metadata,
+client registration, authorization context/response, credential and
+registration keys, token set, granted scopes, and connection summary. Known
+states use enums; arbitrary JSON is confined to unknown metadata fields at the
+wire boundary.
+
+The public `Error` uses typed variants for invalid URLs, resource/issuer
+mismatch, unsafe network targets, discovery status/schema failures, issuer
+selection cancellation, missing registration, registration rejection, user
+denial, forbidden and invalid-request challenge rejection, unsupported
+authorization-code grants, callback timeout, state mismatch/reuse, token
+rejection, `InteractionRequired`, store failure, DNS/transport failure,
+redirect rejection or exhaustion, response bounds, and internal failure.
+Errors and diagnostics never contain authorization codes or token values.
+
+## Security requirements
+
+- Require HTTPS for production discovery and OAuth endpoints; permit HTTP only
+  for explicit loopback development.
+- Treat IPv4/IPv6 loopback literals, IPv4-mapped loopback, `localhost`,
+  `*.localhost`, and their trailing-dot forms as loopback. Reject loopback
+  HTTPS under every policy. Development HTTP requires every resolved address
+  to remain loopback, so a local-looking hostname cannot send plaintext
+  traffic off-box.
+- Reject user info, including zero-length user info expressed by an `@` in the
+  raw authority; `@` remains valid in path and query components. Also reject
+  fragments, dangerous schemes, private/reserved/link-local destinations,
+  non-global IPv4 IETF protocol assignments
+  (`192.0.0.0/24`, except globally reachable `192.0.0.9/32` and
+  `192.0.0.10/32`), deprecated IPv4 6to4 relay anycast
+  (`192.88.99.0/24`), IPv4-compatible, well-known and local-use NAT64
+  (`64:ff9b::/96` and `64:ff9b:1::/48`), discard/dummy (`100::/64` and
+  `100:0:0:1::/64`), IETF protocol-assignment (`2001::/23`), documentation
+  (`2001:db8::/32` and `3fff::/20`), IPv6 6to4 (`2002::/16`), SRv6 SID
+  (`5f00::/16`), and deprecated IPv6 site-local (`fec0::/10`) ranges. Apply
+  the same policy to literals and every DNS result; loopback destinations do
+  not bypass the blocked-port list. Raw-authority rejection applies to resource
+  identities and configured or discovered endpoint strings parsed directly by
+  the policy. Redirect `Location` values are joined and normalized before each
+  hop is validated; non-empty user info remains rejected there.
+- Disable automatic redirects. Follow redirects only for metadata GETs after
+  validating scheme, resolved destination, and policy at every library-owned
+  hop; registration, token, and revocation POST responses never redirect their
+  payloads. Pin connections to validated addresses or verify the connected
+  peer so DNS cannot change between validation and use. Disable environment
+  and system proxies for library-owned OAuth requests so proxy routing cannot
+  bypass those pins; deployments with proxy-only egress fail closed. The
+  per-hop timeout covers DNS, connection, headers, and every response body the
+  client consumes. Successful revocation bodies are dropped after headers.
+  The same configured HTTP timeout bounds the initial browser-URL DNS
+  preflight. Preflight that URL as described above, without claiming that the
+  external browser connection is pinned.
+- Open authorization URLs with platform APIs, never shell execution.
+- Bound response bytes, redirect count, callback lifetime, and request time.
+- Never log, serialize to diagnostics, or expose through `Debug` any access
+  token, refresh token, authorization code, verifier, or client credential.
+- Never send a token to a resource other than its exact credential key.
+
+## Verification
+
+Unit tests cover canonicalization, well-known path insertion, whole-list issuer
+validation before selection, exact ordered selector input, registration
+precedence, DCR, PKCE vectors, state lifecycle, scope minimization, token
+parsing, expiry skew, refresh rotation, single-flight behavior, and redaction.
+Token tests distinguish status-preserving authorization-code `invalid_grant`
+from refresh-only stale-credential cleanup.
+
+`tests/oauth_integration.rs` uses one in-process protected-resource,
+authorization, and MCP server with the production reqwest transports for:
+
+- initial 401 → discovery → DCR → browser callback → token → MCP retry;
+- stored-token reuse across MCP POST, SSE side-response POST, and DELETE;
+- concurrent single-flight refresh and rotation;
+- `invalid_grant` cleanup and a post-refresh 401 without retry loops;
+- 403 incremental scope consent, granted subsets, and denial-loop prevention;
+- best-effort revocation, including non-JSON 2xx bodies, and unconditional
+  local cleanup.
+
+Source-adjacent tests cover malicious discovery URLs, dangerous address forms,
+DNS rebinding, stalled browser-handoff DNS preflight, redirect chains, response
+bounds, status-aware JSON decoding, and secret redaction. No test uses real
+credentials. No ignored live test is present because there is no stable public
+OAuth-enabled MCP test server.
+
+## Acceptance criteria
+
+- A host can authorize a new remote MCP server and retry initialization once.
+- Every MCP request, including side-response POSTs and DELETE, receives the
+  same resource-bound Bearer token through `JsonHttpAuth`.
+- Refresh is concurrency-safe and rotated tokens are stored atomically.
+- Interactive browser work occurs only after an explicit host call.
+- 401, 403, user denial, invalid grant, and unsafe discovery remain distinct.
+- All required workspace checks and tests pass.
