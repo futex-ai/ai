@@ -3,7 +3,7 @@
 ## Purpose And Status
 
 This protocol defines a provider-agnostic, one-image generation and editing
-boundary for agent runtimes. It is planned by the active
+boundary for agent runtimes. It is implemented by the completed
 [image generation implementation plan](../../plans/add-image-generation-support.md).
 
 `ai-interface` owns the stable DTO, error, and trait contract.

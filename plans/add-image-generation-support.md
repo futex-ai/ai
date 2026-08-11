@@ -131,17 +131,31 @@ ready for the downstream revision bump.
 - [x] Run all targeted tests, full formatting, Clippy, workspace tests,
       credential-free smoke tests, and the Rust file-length lint.
 - [x] Run `cargo xtask check` and fix failures until it passes.
-- [ ] Review `git diff origin/main...` for scope, docs, public API, tests, and
+- [x] Review `git diff origin/main...` for scope, docs, public API, tests, and
       untracked files.
-- [ ] Mark the protocol Implemented and move this plan to Completed only after
+- [x] Mark the protocol Implemented and move this plan to Completed only after
       every implementation and verification task is complete.
-- [ ] Run `git add -A` so every new source, test, protocol, plan, README, and
+- [x] Run `git add -A` so every new source, test, protocol, plan, README, and
       lockfile change is tracked.
-- [ ] Commit with a Conventional Commit title no longer than 50 characters and
+- [x] Commit with a Conventional Commit title no longer than 50 characters and
       a descriptive body.
-- [ ] Push the current branch without renaming it.
-- [ ] Run `cargo xtask review` after the push against `origin/main`.
-- [ ] Do not auto-fix review findings; report each with a number, severity,
+- [x] Push the current branch without renaming it.
+- [x] Run `cargo xtask review` after the push against `origin/main`.
+- [x] Do not auto-fix review findings; report each with a number, severity,
       context, impact, lettered options, and a recommended option.
-- [ ] Record the merged revision in the eventual PR description so juno can
-      update its `futex-ai/ai` git pins.
+- [x] Document the post-merge requirement to record the merged revision in the
+      eventual PR description so juno can update its `futex-ai/ai` git pins.
+
+## Review And Post-Merge Handoff
+
+The mandatory AI review completed after the implementation commit was pushed.
+It reported three P2 findings: reject empty decoded Google image payloads,
+adopt the workspace `InternalError` contract at the shared boundary, and inject
+a trait-backed OpenAI HTTP transport. Repository policy requires these findings
+to be reported for a follow-up decision rather than fixed automatically after
+review.
+
+The pushed implementation revision at review time was
+`f1b972fa2cbd27f677d4649bd31d1d3cbbc3667c`. This is not the eventual merged
+revision. The PR description must record that merged revision after landing so
+juno can update its `futex-ai/ai` git pins.
