@@ -5,7 +5,7 @@ use ai_models_core::{ModelFeature, ProviderKind, ThinkingLevel};
 use super::{
     GPT_5_5, GPT_5_5_MINI, GPT_5_5_NANO, GPT_5_5_THINKING_EXTRA_HIGH, GPT_5_5_THINKING_HIGH,
     GPT_5_5_THINKING_LOW, GPT_5_6_LUNA, GPT_5_6_SOL, GPT_5_6_SOL_THINKING_MAX, GPT_5_6_TERRA,
-    known_models,
+    GPT_IMAGE_2, known_models,
 };
 
 #[test]
@@ -46,4 +46,19 @@ fn gpt_5_6_family_has_current_metadata() {
         .expect("GPT-5.6 Sol max-thinking model should exist");
     assert_eq!(max.provider_model_id, GPT_5_6_SOL);
     assert_eq!(max.thinking_level, ThinkingLevel::Max);
+}
+
+#[test]
+fn gpt_image_2_is_routable_for_image_generation() {
+    let models = known_models();
+    let model = models
+        .iter()
+        .find(|model| model.id == GPT_IMAGE_2)
+        .expect("GPT Image 2 should exist");
+
+    assert_eq!(model.provider, ProviderKind::OpenAi);
+    assert_eq!(model.provider_model_id, GPT_IMAGE_2);
+    assert_eq!(model.context_window_tokens, 0);
+    assert!(model.has_feature(ModelFeature::ImageGeneration));
+    assert!(model.has_feature(ModelFeature::Vision));
 }

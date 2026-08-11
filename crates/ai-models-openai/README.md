@@ -2,17 +2,19 @@
 
 `ai-models-openai` is the OpenAI-specific `ai-interface` implementation crate
 for the workspace. Depend on it when you want to call OpenAI Responses
-generation models or the audio transcription endpoint with explicit auth and shared
-runtime wrappers from neighboring crates.
+generation models, image generation and editing, or the audio transcription
+endpoint with explicit auth and shared runtime wrappers from neighboring crates.
 
 ## Responsibilities
 
 - Implement the OpenAI model client behind `ai_interface::Model`
 - Implement the OpenAI speech-to-text client behind
   `ai_interface::AudioTranscriber`
+- Implement the OpenAI image client behind `ai_interface::ImageGenerator`
 - Export strongly typed known OpenAI model metadata for model routing
 - Map shared model/tool DTOs to the OpenAI Responses API
 - Map shared audio transcription DTOs to `v1/audio/transcriptions`
+- Map shared image DTOs to `v1/images/generations` and `v1/images/edits`
 - Parse OpenAI responses into shared response DTOs and typed model errors
 
 ## What This Crate Does
@@ -71,13 +73,22 @@ transcription model. It expects the caller to provide the API key and the
 uploaded audio media type. It applies a 60-second request timeout and surfaces
 retryable OpenAI transcription statuses as transient errors.
 
+`OpenAiImageGenerator` accepts an explicit model id; `GPT_IMAGE_2` identifies
+the current image catalog entry. Requests without source images use the JSON generation endpoint;
+requests with source images use multipart edit requests. The adapter decodes
+the single returned image, preserves any revised prompt, normalizes usage, and
+keeps content-policy refusals distinct from retryable provider failures.
+
 ## Quick Start
 
 ```rust
 use std::sync::Arc;
 
-use ai_interface::{AudioTranscriber, Model};
-use ai_models_openai::{GPT_5_6_SOL, OpenAiAudioTranscriber, OpenAiModel, known_models};
+use ai_interface::{AudioTranscriber, ImageGenerator, Model};
+use ai_models_openai::{
+    GPT_5_6_SOL, GPT_IMAGE_2, OpenAiAudioTranscriber, OpenAiImageGenerator,
+    OpenAiModel, known_models,
+};
 use json_http::ReqwestJsonHttpClient;
 
 fn build_model() -> OpenAiModel {
@@ -94,6 +105,10 @@ fn known_model_count() -> usize {
 
 fn build_transcriber() -> OpenAiAudioTranscriber {
     OpenAiAudioTranscriber::new("gpt-4o-mini-transcribe", "sk-demo")
+}
+
+fn build_image_generator() -> OpenAiImageGenerator {
+    OpenAiImageGenerator::new(GPT_IMAGE_2, "sk-demo")
 }
 ```
 
@@ -112,10 +127,12 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - `src/openai/request_types.rs` - OpenAI Responses request DTOs
 - `src/openai/response/mod.rs` - OpenAI Responses response parsing
 - `src/openai/transcription.rs` - OpenAI audio transcription implementation
+- `src/openai/image_generation/` - OpenAI image request, response, and error mapping
 
 ### Related Docs
 
 - [OpenAI model catalog](https://developers.openai.com/api/docs/models)
+- [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

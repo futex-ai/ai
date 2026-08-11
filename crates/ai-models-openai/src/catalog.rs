@@ -44,6 +44,9 @@ pub const GPT_5_5_THINKING_HIGH: &str = "gpt-5.5-thinking-high";
 /// OpenAI flagship model id with explicit extra-high reasoning effort.
 pub const GPT_5_5_THINKING_EXTRA_HIGH: &str = "gpt-5.5-thinking-extra-high";
 
+/// Current OpenAI image generation and editing model id.
+pub const GPT_IMAGE_2: &str = "gpt-image-2";
+
 const GPT_5_6_FEATURES: &[ModelFeature] = &[
     ModelFeature::ToolCalling,
     ModelFeature::StructuredOutput,
@@ -69,6 +72,9 @@ const GPT_5_5_MINI_FEATURES: &[ModelFeature] = &[
 
 const GPT_5_5_NANO_FEATURES: &[ModelFeature] =
     &[ModelFeature::ToolCalling, ModelFeature::StructuredOutput];
+
+const GPT_IMAGE_2_FEATURES: &[ModelFeature] =
+    &[ModelFeature::ImageGeneration, ModelFeature::Vision];
 
 /// Returns OpenAI models known to this provider crate.
 pub fn known_models() -> Vec<KnownModelSpec> {
@@ -170,6 +176,17 @@ pub fn known_models() -> Vec<KnownModelSpec> {
             cost: CostTier::Low,
             thinking_level: ThinkingLevel::Disabled,
             features: GPT_5_5_NANO_FEATURES,
+        },
+        KnownModelSpec {
+            provider: ProviderKind::OpenAi,
+            id: GPT_IMAGE_2,
+            provider_model_id: GPT_IMAGE_2,
+            context_window_tokens: 0,
+            intelligence_score: IntelligenceScore::Ten,
+            speed: SpeedTier::Medium,
+            cost: CostTier::Premium,
+            thinking_level: ThinkingLevel::Disabled,
+            features: GPT_IMAGE_2_FEATURES,
         },
     ]
 }

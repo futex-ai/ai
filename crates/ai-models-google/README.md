@@ -1,12 +1,16 @@
 # ai-models-google
 
-`ai-models-google` is the Google-specific `ai-interface::Model` implementation for the workspace. Depend on it when you want to call Gemini models with explicit auth and shared runtime wrappers from neighboring crates.
+`ai-models-google` provides Google-specific chat and image implementations for
+the shared AI interfaces. Depend on it when you want to call Gemini models with
+explicit auth and shared runtime wrappers from neighboring crates.
 
 ## Responsibilities
 
 - Implement the Google model client behind `ai_interface::Model`
+- Implement the Google image client behind `ai_interface::ImageGenerator`
 - Export strongly typed known Google model metadata for model routing
 - Map shared model/tool DTOs to the Google `generateContent` API
+- Map shared image generation and edit DTOs to the Google `generateContent` API
 - Parse Google responses into shared response DTOs and typed model errors
 
 ## What This Crate Does
@@ -45,12 +49,25 @@ existing Gemini 2.5 entries remain available and continue to use fixed
 `thinkingBudget` values. Response parts marked as provider thoughts are
 ignored and are not surfaced as assistant text.
 
+`GoogleImageGenerator` uses the current `v1` compatibility endpoint with an
+injected `json-http` client and explicit API key or auth hook. It maps text and
+ordered source images to Gemini content parts, requests exactly one final image
+modality, and supports the shared aspect preferences. The adapter intentionally
+does not map shared quality preferences, because Gemini's resolution control is
+a different contract. It skips interim thought images, decodes the first final
+image, normalizes usage, and retains safety messages in typed content-policy
+errors. `GEMINI_3_1_FLASH_IMAGE` identifies the balanced image catalog entry.
+
 ## Quick Start
 
 ```rust
 use std::sync::Arc;
 
-use ai_models_google::{GEMINI_3_6_FLASH, GoogleModel, known_models};
+use ai_interface::ImageGenerator;
+use ai_models_google::{
+    GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, GoogleImageGenerator, GoogleModel,
+    known_models,
+};
 use json_http::ReqwestJsonHttpClient;
 
 fn build_model() -> GoogleModel {
@@ -63,6 +80,14 @@ fn build_model() -> GoogleModel {
 
 fn known_model_count() -> usize {
     known_models().len()
+}
+
+fn build_image_generator() -> GoogleImageGenerator {
+    GoogleImageGenerator::new(
+        Arc::new(ReqwestJsonHttpClient::new()),
+        GEMINI_3_1_FLASH_IMAGE,
+        "google-demo",
+    )
 }
 ```
 
@@ -79,10 +104,12 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - `src/catalog.rs` - known Google model ids and routing metadata
 - `src/google/request.rs` - Google request DTO mapping
 - `src/google/response.rs` - Google response parsing
+- `src/google/image_generation/` - Google image request, response, and error mapping
 
 ### Related Docs
 
 - [Latest Gemini models](https://ai.google.dev/gemini-api/docs/latest-model)
+- [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

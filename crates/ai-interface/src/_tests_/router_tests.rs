@@ -135,3 +135,19 @@ fn qwen_provider_serializes_with_config_identifier() {
     );
     assert!(serde_json::from_value::<ProviderKind>(json!("qwencloud")).is_err());
 }
+
+#[test]
+fn image_generation_feature_has_stable_config_display_and_serde_values() {
+    let feature = ModelFeature::ImageGeneration;
+
+    assert_eq!(feature.as_str(), "image_generation");
+    assert_eq!(feature.to_string(), "image_generation");
+    assert_eq!(
+        serde_json::to_value(feature).unwrap(),
+        json!("image_generation")
+    );
+    assert_eq!(
+        serde_json::from_value::<ModelFeature>(json!("image_generation")).unwrap(),
+        feature
+    );
+}

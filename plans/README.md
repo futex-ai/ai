@@ -6,7 +6,7 @@ milestones are finished.
 
 ## Active
 
-None.
+- [Add image generation support](add-image-generation-support.md)
 
 ## Completed
 
