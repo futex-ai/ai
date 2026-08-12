@@ -28,7 +28,9 @@ function calls retain provider ids, order, raw JSON arguments, assistant
 content, and reasoning across tool continuations. Portable output limits and
 stops map in all modes. Sampling and forced tool choice map only when thinking
 is disabled; thinking keeps native sampling and automatic tool semantics.
-Blank system prompts are omitted and per-call timeouts reach the transport.
+`RequiredOrAuto` forces required use without thinking and retains tools while
+omitting `tool_choice` in thinking mode. Blank system prompts are omitted and
+per-call timeouts reach the transport.
 
 Structured requests use provider JSON-object mode plus a schema-specific
 system instruction, then validate naturally stopped output against the caller's

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use ai_interface::{
     FinishReason, Model, ModelGenerationControls, ModelMock, ModelRequest, ModelResponse,
-    ModelUsage, ModelUsageMeasurementState, ModelUsageUnitKind,
+    ModelToolChoice, ModelUsage, ModelUsageMeasurementState, ModelUsageUnitKind,
 };
 use unimock::{MockFn, Unimock, matching};
 
@@ -14,14 +14,17 @@ async fn pricing_wrapper_forwards_call_controls_unchanged() {
         ModelMock::complete
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                assert_eq!(request.controls.generation.max_output_tokens, Some(4321));
+                assert_eq!(
+                    request.controls.generation.tool_choice,
+                    Some(ModelToolChoice::RequiredOrAuto)
+                );
                 Ok(success_response())
             }),
     ));
     let model = UsagePricingModel::new(inner, ModelPricing::default());
     let mut request = empty_request();
     request.controls.generation = ModelGenerationControls {
-        max_output_tokens: Some(4321),
+        tool_choice: Some(ModelToolChoice::RequiredOrAuto),
         ..Default::default()
     };
 

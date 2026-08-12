@@ -8,7 +8,7 @@ use std::{
 
 use ai_interface::{
     FinishReason, Model, ModelError, ModelGenerationControls, ModelMock, ModelRequest,
-    ModelResponse, ModelUsage,
+    ModelResponse, ModelToolChoice, ModelUsage,
 };
 use unimock::{MockFn, Unimock, matching};
 
@@ -75,14 +75,17 @@ async fn forwards_call_controls_unchanged() {
         ModelMock::complete
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                assert_eq!(request.controls.generation.max_output_tokens, Some(4321));
+                assert_eq!(
+                    request.controls.generation.tool_choice,
+                    Some(ModelToolChoice::RequiredOrAuto)
+                );
                 Ok(success_response())
             }),
     ));
     let retrying = RetryingModel::new(model, Arc::new(Unimock::new(())), Vec::new());
     let mut request = empty_request();
     request.controls.generation = ModelGenerationControls {
-        max_output_tokens: Some(4321),
+        tool_choice: Some(ModelToolChoice::RequiredOrAuto),
         ..Default::default()
     };
 

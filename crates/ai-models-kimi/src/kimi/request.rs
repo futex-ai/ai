@@ -20,10 +20,10 @@ pub(super) fn build_request(
     request: &ModelRequest,
 ) -> ChatCompletionsRequest {
     let mut messages = Vec::new();
-    if !request.system_prompt.is_empty() {
+    if let Some(system_prompt) = request.nonblank_system_prompt() {
         messages.push(ChatCompletionsMessage {
             role: "system".to_owned(),
-            content: Some(ChatCompletionsContent::Text(request.system_prompt.clone())),
+            content: Some(ChatCompletionsContent::Text(system_prompt.to_owned())),
             name: None,
             tool_call_id: None,
             reasoning_content: None,
@@ -47,7 +47,7 @@ fn tool_choice(request: &ModelRequest, has_tools: bool) -> Option<ChatCompletion
     match request.controls.generation.tool_choice.as_ref() {
         Some(ModelToolChoice::None) => Some(ChatCompletionsToolChoice::Mode("none".to_owned())),
         Some(ModelToolChoice::Auto) => Some(ChatCompletionsToolChoice::Mode("auto".to_owned())),
-        Some(ModelToolChoice::Required) => {
+        Some(ModelToolChoice::Required | ModelToolChoice::RequiredOrAuto) => {
             Some(ChatCompletionsToolChoice::Mode("required".to_owned()))
         }
         Some(ModelToolChoice::Function(name)) => Some(ChatCompletionsToolChoice::Function(

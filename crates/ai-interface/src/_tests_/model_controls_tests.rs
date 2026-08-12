@@ -29,6 +29,25 @@ fn default_controls_are_absent_from_serialized_requests() {
 }
 
 #[test]
+fn system_prompt_blankness_uses_trim_semantics() {
+    for (system_prompt, expected) in [
+        ("", None),
+        (" \t\n", None),
+        (" normal instruction ", Some(" normal instruction ")),
+    ] {
+        let request = ModelRequest {
+            system_prompt: system_prompt.to_owned(),
+            messages: Vec::new(),
+            tools: Vec::new(),
+            response_schema: None,
+            controls: Default::default(),
+        };
+
+        assert_eq!(request.nonblank_system_prompt(), expected);
+    }
+}
+
+#[test]
 fn explicit_controls_round_trip_without_losing_order_or_types() {
     let controls = ModelCallControls {
         generation: ModelGenerationControls {
@@ -49,6 +68,18 @@ fn explicit_controls_round_trip_without_losing_order_or_types() {
         serde_json::from_value(encoded).expect("controls should deserialize");
 
     assert_eq!(decoded, controls);
+}
+
+#[test]
+fn required_or_auto_round_trips_as_a_distinct_typed_policy() {
+    let choice = ModelToolChoice::RequiredOrAuto;
+    let encoded = serde_json::to_value(&choice).expect("tool choice should serialize");
+    let decoded: ModelToolChoice =
+        serde_json::from_value(encoded).expect("tool choice should deserialize");
+
+    assert_eq!(decoded, choice);
+    assert_ne!(decoded, ModelToolChoice::Required);
+    assert_ne!(decoded, ModelToolChoice::Auto);
 }
 
 #[test]

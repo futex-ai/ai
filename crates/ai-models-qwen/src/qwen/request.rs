@@ -29,7 +29,7 @@ pub(super) fn build_request(
     validate_controls(model_id, thinking_enabled, request)?;
     let mut messages = Vec::new();
     let system_prompt = system_prompt(request);
-    if !system_prompt.is_empty() {
+    if !system_prompt.trim().is_empty() {
         messages.push(ChatCompletionsMessage {
             role: "system".to_owned(),
             content: Some(ChatCompletionsContent::Text(system_prompt)),
@@ -44,7 +44,7 @@ pub(super) fn build_request(
         model: model_id.to_owned(),
         messages,
         tools: request.tools.iter().map(tool).collect(),
-        tool_choice: tool_choice(request, has_tools),
+        tool_choice: tool_choice(thinking_enabled, request, has_tools),
         parallel_tool_calls: has_tools.then_some(true),
         stream: false,
         enable_thinking: thinking_enabled,
@@ -67,9 +67,16 @@ fn validate_controls(
     request: &ModelRequest,
 ) -> ModelResult<()> {
     let unsupported = match request.controls.generation.tool_choice.as_ref() {
-        Some(ModelToolChoice::Required) => Some(ModelControl::ToolChoice),
-        Some(ModelToolChoice::Function(_)) if thinking_enabled => Some(ModelControl::ToolChoice),
-        Some(ModelToolChoice::None | ModelToolChoice::Auto | ModelToolChoice::Function(_))
+        Some(ModelToolChoice::Required | ModelToolChoice::Function(_)) if thinking_enabled => {
+            Some(ModelControl::ToolChoice)
+        }
+        Some(
+            ModelToolChoice::None
+            | ModelToolChoice::Auto
+            | ModelToolChoice::Required
+            | ModelToolChoice::RequiredOrAuto
+            | ModelToolChoice::Function(_),
+        )
         | None => None,
     };
     match unsupported {
@@ -78,17 +85,29 @@ fn validate_controls(
     }
 }
 
-fn tool_choice(request: &ModelRequest, has_tools: bool) -> Option<ChatCompletionsToolChoice> {
+fn tool_choice(
+    thinking_enabled: bool,
+    request: &ModelRequest,
+    has_tools: bool,
+) -> Option<ChatCompletionsToolChoice> {
     match request.controls.generation.tool_choice.as_ref() {
         Some(ModelToolChoice::None) => Some(ChatCompletionsToolChoice::Mode("none".to_owned())),
         Some(ModelToolChoice::Auto) => Some(ChatCompletionsToolChoice::Mode("auto".to_owned())),
+        Some(ModelToolChoice::RequiredOrAuto) if thinking_enabled => {
+            Some(ChatCompletionsToolChoice::Mode("auto".to_owned()))
+        }
+        Some(ModelToolChoice::RequiredOrAuto) => {
+            Some(ChatCompletionsToolChoice::Mode("required".to_owned()))
+        }
         Some(ModelToolChoice::Function(name)) => Some(ChatCompletionsToolChoice::Function(
             ChatCompletionsNamedToolChoice {
                 kind: "function".to_owned(),
                 function: ChatCompletionsNamedFunction { name: name.clone() },
             },
         )),
-        Some(ModelToolChoice::Required) => None,
+        Some(ModelToolChoice::Required) => {
+            Some(ChatCompletionsToolChoice::Mode("required".to_owned()))
+        }
         None if has_tools => Some(ChatCompletionsToolChoice::Mode("auto".to_owned())),
         None => None,
     }

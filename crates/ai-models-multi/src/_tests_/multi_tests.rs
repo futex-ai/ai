@@ -7,7 +7,7 @@ use std::sync::{
 
 use ai_interface::{
     FinishReason, Model, ModelError, ModelGenerationControls, ModelMock, ModelRequest,
-    ModelResponse, ModelUsage,
+    ModelResponse, ModelToolChoice, ModelUsage,
 };
 use unimock::{MockFn, Unimock, matching};
 
@@ -161,7 +161,7 @@ async fn forwards_call_controls_to_each_fallback_candidate() {
     ]);
     let mut request = empty_request();
     request.controls.generation = ModelGenerationControls {
-        max_output_tokens: Some(4321),
+        tool_choice: Some(ModelToolChoice::RequiredOrAuto),
         ..Default::default()
     };
 
@@ -183,7 +183,10 @@ fn control_asserting_model(
         ModelMock::complete
             .next_call(matching!(_))
             .answers_arc(Arc::new(move |_, request: &ModelRequest| {
-                assert_eq!(request.controls.generation.max_output_tokens, Some(4321));
+                assert_eq!(
+                    request.controls.generation.tool_choice,
+                    Some(ModelToolChoice::RequiredOrAuto)
+                );
                 calls.fetch_add(1, Ordering::SeqCst);
                 result
                     .lock()

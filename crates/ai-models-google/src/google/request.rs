@@ -115,13 +115,15 @@ pub(super) fn build_request(
     let generation_config = generation_config(model_id, request, thinking_level);
 
     GoogleRequest {
-        system_instruction: (!request.system_prompt.is_empty()).then(|| GoogleInstruction {
-            parts: vec![GooglePart {
-                text: Some(request.system_prompt.clone()),
-                function_call: None,
-                function_response: None,
-                inline_data: None,
-            }],
+        system_instruction: request.nonblank_system_prompt().map(|system_prompt| {
+            GoogleInstruction {
+                parts: vec![GooglePart {
+                    text: Some(system_prompt.to_owned()),
+                    function_call: None,
+                    function_response: None,
+                    inline_data: None,
+                }],
+            }
         }),
         contents: google_contents(&request.messages),
         tools: if request.tools.is_empty() {

@@ -10,7 +10,7 @@ use std::{
 
 use ai_interface::{
     FinishReason, Model, ModelGenerationControls, ModelMock, ModelRequest, ModelResponse,
-    ModelUsage,
+    ModelToolChoice, ModelUsage,
 };
 use unimock::{MockFn, Unimock, matching};
 
@@ -61,7 +61,10 @@ fn blocking_model(
             let first_entered = first_entered.clone();
             let second_entered = second_entered.clone();
             Arc::new(move |_, request: &ModelRequest| {
-                assert_eq!(request.controls.generation.max_output_tokens, Some(4321));
+                assert_eq!(
+                    request.controls.generation.tool_choice,
+                    Some(ModelToolChoice::RequiredOrAuto)
+                );
                 if first_entered
                     .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
                     .is_ok()
@@ -89,7 +92,7 @@ fn empty_request() -> ModelRequest {
 fn controlled_request() -> ModelRequest {
     let mut request = empty_request();
     request.controls.generation = ModelGenerationControls {
-        max_output_tokens: Some(4321),
+        tool_choice: Some(ModelToolChoice::RequiredOrAuto),
         ..Default::default()
     };
     request

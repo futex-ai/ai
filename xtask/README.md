@@ -37,7 +37,8 @@ model, thinking, finish, text, tool, and usage fields. Image-generation entries
 are excluded because they use the separate `ImageGenerator` interface. The
 suite never runs as part of `check` or `smoke-test`. The dedicated GitHub Actions
 workflow invokes it for eligible pull requests, daily verification, and manual
-dispatch.
+dispatch. The MiniMax job first sends MiniMax-M3 a real tool with strict
+`Required` selection and asserts that the provider returns that tool call.
 
 ## Quick Start
 

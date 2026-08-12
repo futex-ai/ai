@@ -33,7 +33,17 @@ or choose a completion lifecycle by provider name.
   `max_output_tokens`, ordered `stop_sequences`, and optional `tool_choice`;
 - execution controls: optional `total_timeout` and `completion_mode`.
 
-Tool choice is one of `None`, `Auto`, `Required`, or `Function(name)`.
+Tool choice is one of `None`, `Auto`, `Required`, `RequiredOrAuto`, or
+`Function(name)`:
+
+- `Required` strictly requires provider-enforced tool use. If the selected
+  provider/model cannot force tool use, the adapter returns
+  `UnsupportedControl` before transport.
+- `RequiredOrAuto` asks the adapter to force tool use when supported and
+  otherwise preserve the tools while permitting automatic selection. The
+  evaluation layer remains responsible for verifying that a tool was called.
+- `Function(name)` remains strict and has no automatic fallback.
+
 Completion mode is one of:
 
 - `Synchronous`: use the adapter's ordinary immediate lifecycle;
@@ -85,12 +95,17 @@ always preserve the adapter's prior behavior.
 | Anthropic, thinking | fixed | `min(4096, requested)` | `stop_sequences` | map all |
 | Google Gemini | map | `maxOutputTokens` | `stopSequences` | map all |
 | Kimi K3 | fixed | `max_completion_tokens` | `stop` | map all |
-| Qwen, no thinking | map | `max_completion_tokens` | `stop` | none, auto, named; required unsupported |
-| Qwen, thinking | fixed | `max_completion_tokens` | `stop` | none and auto; forced choices unsupported |
+| Qwen, no thinking | map | `max_completion_tokens` | `stop` | map all; `RequiredOrAuto` -> required |
+| Qwen, thinking | fixed | `max_completion_tokens` | `stop` | none/auto; strict forced unsupported; `RequiredOrAuto` -> auto |
 | DeepSeek, no thinking | map | `max_tokens` | `stop` | map all |
-| DeepSeek, thinking | fixed | `max_tokens` | `stop` | auto by omission; forced choices unsupported |
-| MiniMax | map | `max_completion_tokens` | unsupported | none and auto only |
+| DeepSeek, thinking | fixed | `max_tokens` | `stop` | auto by omission; strict forced unsupported; `RequiredOrAuto` -> omission |
+| MiniMax-M3 | map | `max_completion_tokens` | unsupported | none, auto, required; `RequiredOrAuto` -> required |
+| Other MiniMax catalog models | map | `max_completion_tokens` | unsupported | none/auto; required unsupported; `RequiredOrAuto` -> auto |
 | XAI Chat Completions | map | `max_tokens` | `stop` | map all |
+
+For OpenAI, Anthropic, Google, Kimi, and XAI, `RequiredOrAuto` maps to the
+same provider-enforced form as `Required`. Tool definitions remain serialized
+in every `RequiredOrAuto` fallback path.
 
 For every non-XAI adapter, `PreferDeferred` uses the ordinary immediate call
 and `RequireDeferred` is unsupported. XAI maps either deferred mode to its
@@ -98,6 +113,8 @@ native deferred lifecycle.
 
 ## System Instructions
 
+- Blank means `system_prompt.trim().is_empty()`: empty and whitespace-only
+  prompts are omitted, while nonblank authored text is preserved exactly.
 - OpenAI and Anthropic omit blank top-level system instructions.
 - Google omits `systemInstruction` when blank.
 - Kimi, Qwen, DeepSeek, MiniMax, and XAI omit a blank leading `system`
@@ -146,8 +163,10 @@ not reinterpret generation or execution controls.
 
 ## Firna Migration
 
-Firna maps fixture and routed policy into `ModelRequest::controls`, removes its
-task-local controls and raw JSON mutator, and removes its XAI transport. A
+Firna maps fixture and routed policy into `ModelRequest::controls`, uses
+`RequiredOrAuto` for benchmarks that prefer forced tool use but permit
+provider-native automatic selection, removes its task-local controls and raw
+JSON mutator, and removes its XAI transport. A
 provider-direct benchmark can use one `PreferDeferred` mode and one total
 timeout for every provider; the adapter determines whether the native call is
 immediate or deferred. Firna continues to own model ids, credentials, routing,
@@ -158,9 +177,11 @@ fallback, pricing, retry, concurrency, and effective routed token limits.
 Provider tests inspect the final request received by a mocked
 `JsonHttpTransport`. No control-mapping or deferred-lifecycle test uses live
 credentials. Required regressions cover absent controls, supported controls,
-fixed controls, unsupported errors before transport, blank and nonblank system
-instructions, wrapper preservation, full Google schemas, and exactly-once XAI
-submission.
+strict and fallback tool choice, retained fallback tools, unsupported errors
+before transport, empty/whitespace/nonblank system instructions, wrapper
+preservation, full Google schemas, and exactly-once XAI submission. The
+credentialed MiniMax suite additionally sends a real MiniMax-M3 tool with
+strict `Required` and asserts that the response contains the tool call.
 
 ## Official References
 

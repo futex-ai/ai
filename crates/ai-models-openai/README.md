@@ -23,8 +23,9 @@ endpoint with explicit auth and shared runtime wrappers from neighboring crates.
 
 - OpenAI Responses request serialization
 - portable temperature and top-p outside reasoning mode, output-limit and
-  tool-choice mapping, per-call timeouts, blank-instruction omission, and
-  typed rejection of unsupported stop sequences
+  strict or required-with-automatic-fallback tool-choice mapping, per-call
+  timeouts, blank-instruction omission, and typed rejection of unsupported
+  stop sequences
 - OpenAI tool-call parsing
 - OpenAI `finish_reason` normalization into `ai_interface::FinishReason`
   before exposing tool calls, so incomplete or failed Responses results cannot

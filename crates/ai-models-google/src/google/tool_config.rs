@@ -20,7 +20,7 @@ pub(super) fn tool_config(choice: Option<&ModelToolChoice>) -> Option<GoogleTool
     let (mode, allowed_function_names) = match choice {
         Some(ModelToolChoice::None) => ("NONE", Vec::new()),
         Some(ModelToolChoice::Auto) => ("AUTO", Vec::new()),
-        Some(ModelToolChoice::Required) => ("ANY", Vec::new()),
+        Some(ModelToolChoice::Required | ModelToolChoice::RequiredOrAuto) => ("ANY", Vec::new()),
         Some(ModelToolChoice::Function(name)) => ("ANY", vec![name.clone()]),
         None => return None,
     };

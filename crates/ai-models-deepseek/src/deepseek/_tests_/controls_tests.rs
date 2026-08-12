@@ -4,7 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
     ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl, ModelError,
-    ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
+    ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 use json_http::StaticHeaderAuth;
@@ -67,6 +67,70 @@ async fn thinking_keeps_sampling_fixed_and_uses_native_auto_tool_semantics() {
 }
 
 #[tokio::test]
+async fn thinking_required_or_auto_preserves_tools_and_omits_tool_choice() {
+    let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
+    let model = DeepSeekModel::new(http_client, "key");
+    let mut request = controlled_request(ModelToolChoice::RequiredOrAuto);
+    request.tools = vec![lookup_tool()];
+
+    model
+        .complete(&request)
+        .await
+        .expect("fallback tool choice should be supported");
+
+    let requests = requests.lock().expect("request lock should be available");
+    let body = requests[0].body.as_ref().expect("request body");
+    assert!(body.get("tool_choice").is_none());
+    assert_eq!(body["tools"][0]["function"]["name"], "lookup");
+}
+
+#[tokio::test]
+async fn disabled_thinking_required_or_auto_still_forces_tool_use() {
+    let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
+    let model = DeepSeekModel::with_catalog_auth(
+        http_client,
+        "deepseek-v4-pro-thinking-disabled",
+        DEEPSEEK_V4_PRO,
+        ThinkingLevel::Disabled,
+        Arc::new(StaticHeaderAuth::bearer_token("key")),
+    )
+    .expect("configuration should be supported");
+
+    model
+        .complete(&controlled_request(ModelToolChoice::RequiredOrAuto))
+        .await
+        .expect("non-thinking fallback should retain required semantics");
+
+    let requests = requests.lock().expect("request lock should be available");
+    assert_eq!(
+        requests[0].body.as_ref().expect("request body")["tool_choice"],
+        "required"
+    );
+}
+
+#[tokio::test]
+async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
+    for (system_prompt, expected) in [("", None), ("   ", None), ("normal", Some("normal"))] {
+        let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
+        let model = DeepSeekModel::new(http_client, "key");
+        let mut request = base_request();
+        request.system_prompt = system_prompt.to_owned();
+
+        model
+            .complete(&request)
+            .await
+            .expect("response should parse");
+
+        let requests = requests.lock().expect("request lock should be available");
+        let messages = &requests[0].body.as_ref().expect("request body")["messages"];
+        match expected {
+            Some(expected) => assert_eq!(messages[0]["content"], expected),
+            None => assert_eq!(messages[0]["role"], "user"),
+        }
+    }
+}
+
+#[tokio::test]
 async fn rejects_forced_thinking_tools_and_required_deferred_before_transport() {
     let model = DeepSeekModel::new(unused_http_client(), "key");
     for choice in [
@@ -103,6 +167,7 @@ async fn rejects_forced_thinking_tools_and_required_deferred_before_transport() 
 
 fn controlled_request(tool_choice: ModelToolChoice) -> ModelRequest {
     let mut request = base_request();
+    request.tools = vec![lookup_tool()];
     request.controls = ModelCallControls {
         generation: ModelGenerationControls {
             temperature: Some(0.2),
@@ -126,5 +191,14 @@ fn base_request() -> ModelRequest {
         tools: Vec::new(),
         response_schema: None,
         controls: Default::default(),
+    }
+}
+
+fn lookup_tool() -> ToolDefinition {
+    ToolDefinition {
+        name: "lookup".to_owned(),
+        description: "Look up a value".to_owned(),
+        input_schema: json!({"type": "object"}),
+        activity_verb: None,
     }
 }

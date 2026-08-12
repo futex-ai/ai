@@ -25,7 +25,7 @@ pub(super) fn build_request(
     validate_controls(model_id, thinking_level, request)?;
     let mut messages = Vec::new();
     let system_prompt = system_prompt(request);
-    if !system_prompt.is_empty() {
+    if !system_prompt.trim().is_empty() {
         messages.push(ChatCompletionsMessage {
             role: "system".to_owned(),
             content: system_prompt,
@@ -101,6 +101,9 @@ fn tool_choice(
         Some(ModelToolChoice::None) => Some(ChatCompletionsToolChoice::Mode("none".to_owned())),
         Some(ModelToolChoice::Auto) => Some(ChatCompletionsToolChoice::Mode("auto".to_owned())),
         Some(ModelToolChoice::Required) => {
+            Some(ChatCompletionsToolChoice::Mode("required".to_owned()))
+        }
+        Some(ModelToolChoice::RequiredOrAuto) => {
             Some(ChatCompletionsToolChoice::Mode("required".to_owned()))
         }
         Some(ModelToolChoice::Function(name)) => Some(ChatCompletionsToolChoice::Function(

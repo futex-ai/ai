@@ -22,9 +22,12 @@ auth hook. It sends requests to the international MiniMax endpoint, sets
 catalog id and upstream model id in normalized responses.
 
 Portable sampling and output limits map to the current OpenAI-compatible
-fields. MiniMax accepts `none` and `auto` tool choice; forced named/required
-choices and stop sequences return typed unsupported-control errors. Blank
-system prompts are omitted and per-call timeouts reach the transport.
+fields. Every catalog model accepts `none` and `auto`. MiniMax-M3 also accepts
+strict `Required`, as verified by Firna with a real tool; other catalog models
+retain strict rejection. `RequiredOrAuto` maps to required for M3 and automatic
+selection elsewhere while retaining tools. Named choices and stop sequences
+return typed unsupported-control errors. Blank system prompts are omitted and
+per-call timeouts reach the transport.
 
 Modern `tools` and `tool_calls` retain MiniMax provider call ids across
 assistant and tool-result messages. MiniMax `reasoning_content` and ordered

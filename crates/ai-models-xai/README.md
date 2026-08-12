@@ -14,8 +14,9 @@
 `XaiModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - xAI chat-completions request serialization
-- portable sampling, output limits, stops, tool choice, per-call deadlines,
-  and blank-system omission
+- portable sampling, output limits, stops, strict or
+  required-with-automatic-fallback tool choice, per-call deadlines, and
+  blank-system omission
 - provider-owned deferred submission and same-id polling that retries pending,
   rate-limited, transient transport, and server states without resubmitting an
   accepted completion

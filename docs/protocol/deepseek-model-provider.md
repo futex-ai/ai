@@ -110,7 +110,9 @@ Portable output limits map to `max_tokens` and ordered stops map to `stop` in
 every thinking mode. With thinking disabled, temperature, top-p, and all
 portable tool choices map to native fields. With thinking enabled, sampling
 keeps provider defaults, `auto` uses omission plus `tools`, `none` omits tools,
-and required or named-function choice returns typed `UnsupportedControl`.
+and strict required or named-function choice returns typed
+`UnsupportedControl`. `RequiredOrAuto` maps to native automatic semantics by
+retaining `tools` and omitting `tool_choice`.
 A total timeout reaches the HTTP request, `PreferDeferred` falls back to
 synchronous, and `RequireDeferred` is unsupported.
 

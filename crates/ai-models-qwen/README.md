@@ -24,7 +24,9 @@ they reach the shared runtime.
 Portable sampling maps only when thinking is disabled; enabled thinking keeps
 provider sampling defaults. Output limits, stops, and supported tool choices
 map natively, forced thinking-mode choices are typed as unsupported, blank
-system prompts are omitted, and per-call timeouts reach the transport.
+system prompts are omitted, and per-call timeouts reach the transport. The
+typed `RequiredOrAuto` policy forces required use without thinking and retains
+tools with automatic selection in thinking mode.
 
 Streaming, Qwen Coding Plan endpoints, preview model snapshots, built-in tools,
 and ambient credential lookup are outside this crate's boundary.
