@@ -14,6 +14,9 @@ pub const GEMINI_3_6_FLASH_THINKING_HIGH: &str = "gemini-3.6-flash-thinking-high
 /// Google low-latency Gemini 3.5 model id.
 pub const GEMINI_3_5_FLASH_LITE: &str = "gemini-3.5-flash-lite";
 
+/// Google balanced image generation model id.
+pub const GEMINI_3_1_FLASH_IMAGE: &str = "gemini-3.1-flash-image";
+
 /// Previous-generation Google flagship model id.
 pub const GEMINI_2_5_PRO: &str = "gemini-2.5-pro";
 
@@ -58,6 +61,9 @@ const GEMINI_2_5_FLASH_LITE_FEATURES: &[ModelFeature] = &[
     ModelFeature::LongContext,
 ];
 
+const GEMINI_3_1_FLASH_IMAGE_FEATURES: &[ModelFeature] =
+    &[ModelFeature::ImageGeneration, ModelFeature::Vision];
+
 /// Returns Google models known to this provider crate.
 pub fn known_models() -> Vec<KnownModelSpec> {
     vec![
@@ -83,6 +89,17 @@ pub fn known_models() -> Vec<KnownModelSpec> {
             cost: CostTier::Low,
             thinking_level: ThinkingLevel::Disabled,
             features: GEMINI_3_FEATURES,
+        },
+        KnownModelSpec {
+            provider: ProviderKind::Google,
+            id: GEMINI_3_1_FLASH_IMAGE,
+            provider_model_id: GEMINI_3_1_FLASH_IMAGE,
+            context_window_tokens: 131_072,
+            intelligence_score: IntelligenceScore::Nine,
+            speed: SpeedTier::Fast,
+            cost: CostTier::Medium,
+            thinking_level: ThinkingLevel::Disabled,
+            features: GEMINI_3_1_FLASH_IMAGE_FEATURES,
         },
         gemini_2_5_pro_variant(
             GEMINI_2_5_PRO,

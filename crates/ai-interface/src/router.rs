@@ -87,6 +87,28 @@ pub enum ModelFeature {
     LongContext,
     /// Advertises stronger reasoning behavior.
     Reasoning,
+    /// Supports generating or editing images.
+    ImageGeneration,
+}
+
+impl ModelFeature {
+    /// Returns the stable deployment-config capability identifier.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ToolCalling => "tool_calling",
+            Self::StructuredOutput => "structured_output",
+            Self::Vision => "vision",
+            Self::LongContext => "long_context",
+            Self::Reasoning => "reasoning",
+            Self::ImageGeneration => "image_generation",
+        }
+    }
+}
+
+impl std::fmt::Display for ModelFeature {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

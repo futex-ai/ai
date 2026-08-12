@@ -2,21 +2,23 @@
 
 `ai-interface` is the shared contract crate for AI-facing runtime boundaries in
 this workspace. Depend on it when you need the common conversation, model, tool,
-audio transcription, routing, logging, usage, or model-visible tool output DTOs
-without taking a dependency on a stateful runtime implementation.
+audio transcription, image generation, routing, logging, usage, or model-visible
+tool output DTOs without taking a dependency on a stateful runtime
+implementation.
 
 ## Responsibilities
 
 - Own shared DTOs for conversations, model calls, tool calls, audio
-  transcription, routing, logging, and usage metering.
+  transcription, image generation/editing, routing, logging, and usage
+  metering.
 - Represent provider identity and provider-owned replay state, including
   DeepSeek, Kimi, MiniMax, and Qwen reasoning context that remains separate
   from visible assistant text.
 - Own the model-visible tool output DTOs used by universal output management:
   opaque output ids, inline envelopes, window envelopes, read requests, and
   unavailable-remainder reasons.
-- Own the generic `Model`, `Tool`, `ModelRouter`, `AudioTranscriber`, and
-  `Logger` trait boundaries plus their dyn aliases.
+- Own the generic `Model`, `Tool`, `ModelRouter`, `AudioTranscriber`,
+  `ImageGenerator`, and `Logger` trait boundaries plus their dyn aliases.
 - Keep individual tools pagination-agnostic: `Tool::call()` and
   `Tool::call_with_invocation()` return raw `serde_json::Value`.
 - Define logger success payloads in terms of bounded model-visible envelopes,
@@ -40,6 +42,10 @@ without taking a dependency on a stateful runtime implementation.
   `qwen`, plus typed Qwen raw tool-call replay state.
 - Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
+- Defines the one-image `ImageGenerator` boundary, normalized aspect/quality
+  controls, edit input images, decoded output bytes, and typed policy/retry
+  errors. Internal failures use the shared tracked `InternalError` contract.
+  `ModelFeature::ImageGeneration` is the stable routing capability.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
   tool idempotency key alongside the model-visible tool name and JSON input.
 - Defines `ToolOutputEnvelope` as the model-visible success payload for tools.
@@ -70,9 +76,9 @@ not own.
 
 ```rust
 use ai_interface::{
-    ConversationMessage, DeepSeekToolCallContext, MiniMaxReasoningDetail, Model, ModelRequest,
-    MockModel, ProviderKind, ProviderConversationItem, ToolOutputEnvelope, ToolOutputId,
-    ToolOutputReadRequest,
+    ConversationMessage, DeepSeekToolCallContext, ImageGenerationRequest, ImageGenerator,
+    MiniMaxReasoningDetail, MockImageGenerator, Model, ModelRequest, MockModel, ProviderKind,
+    ProviderConversationItem, ToolOutputEnvelope, ToolOutputId, ToolOutputReadRequest,
 };
 use serde_json::json;
 
@@ -88,6 +94,18 @@ async fn call_model() -> ai_interface::ModelResult<String> {
         .await?;
 
     Ok(response.assistant_message)
+}
+
+async fn generate_image() -> ai_interface::ImageGenerationResult<Vec<u8>> {
+    let generator = MockImageGenerator::default();
+    let response = generator
+        .generate(&ImageGenerationRequest {
+            prompt: "A geometric blue bird".to_owned(),
+            ..ImageGenerationRequest::default()
+        })
+        .await?;
+
+    Ok(response.image.data)
 }
 
 fn serialize_inline_tool_output() -> serde_json::Result<String> {
@@ -152,19 +170,24 @@ tool dispatch live in `ai-tool-calling`.
 - `src/router.rs` - model route request DTOs and router trait.
 - `src/audio_transcriber.rs` - speech-to-text trait, request/response DTOs,
   and typed transcription errors.
+- `src/image_generator.rs` - one-image generation/editing trait, normalized
+  DTOs, and typed generation errors.
 - `src/tools.rs` - tool trait, tool DTOs, invocation context, and tool errors.
 - `src/output/` - model-visible tool output ids, envelopes, reasons, and read
   request DTOs.
 - `src/logger.rs` - logger trait, log payloads, `ToolCallLogResult`, and
   `NoopLogger`.
-- `src/mock_model.rs` and `src/mock_audio_transcriber.rs` - built-in mocks for
-  tests and local development.
+- `src/mock_model.rs`, `src/mock_audio_transcriber.rs`, and
+  `src/mock_image_generator.rs` - built-in mocks for tests and local
+  development.
 
 ### Related Docs
 
+- [`futex-ai/internal-error`](https://github.com/futex-ai/internal-error)
 - [`../ai-tool-calling/README.md`](../ai-tool-calling/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../../docs/protocol/minimax-model-provider.md`](../../docs/protocol/minimax-model-provider.md)
+- [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)

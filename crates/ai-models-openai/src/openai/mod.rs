@@ -1,5 +1,6 @@
 //! OpenAI Responses model client.
 
+mod image_generation;
 mod request;
 mod request_types;
 mod response;
@@ -12,6 +13,7 @@ use ai_models_core::{ThinkingLevel, classify_json_http_error};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 
+pub use image_generation::OpenAiImageGenerator;
 pub use transcription::OpenAiAudioTranscriber;
 
 const OPENAI_RESPONSES_URL: &str = "https://api.openai.com/v1/responses";

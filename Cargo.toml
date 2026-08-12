@@ -40,4 +40,5 @@ ai-models-openai = { version = "0.3.0", path = "crates/ai-models-openai" }
 ai-models-qwen = { version = "0.3.0", path = "crates/ai-models-qwen" }
 ai-models-xai = { version = "0.3.0", path = "crates/ai-models-xai" }
 ai-tool-calling = { version = "0.3.0", path = "crates/ai-tool-calling" }
+internal-error = { version = "0.1.0", git = "https://github.com/futex-ai/internal-error.git", rev = "6477922a1c4db8c3e35189af69f0147464004b99", package = "internal-error" }
 json-http = { version = "0.3.0", path = "crates/json-http" }

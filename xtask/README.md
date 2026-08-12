@@ -8,9 +8,11 @@ file-length audits, or AI review.
 
 - Run the standard local verification sequence
 - Enforce the Rust file-length cap for `crates/` and `xtask/`
-- Run a credential-free smoke test for provider construction, tool-calling
-  registration, MCP tools, and the resource-bound MCP OAuth hook
-- Host opt-in integration tests for every provider catalog against real APIs
+- Run a credential-free smoke test for chat, transcription, and image-provider
+  construction, tool-calling registration, MCP tools, and the resource-bound
+  MCP OAuth hook
+- Host opt-in integration tests for every chat-provider catalog against real
+  APIs
 - Delegate local AI review to the Codex CLI
 
 ## What This Crate Does
@@ -20,10 +22,10 @@ The crate exposes the `check`, `rust-file-length-lint`, `smoke-test`, and
 and the smoke test in the same order expected by CI.
 
 `smoke-test` constructs the Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
-OpenAI, QwenCloud, and xAI model adapters plus the OpenAI transcriber with
-placeholder credentials. It also runs an in-memory tool-output pagination
-flow. Provider construction does not send network requests or require real
-credentials.
+OpenAI, QwenCloud, and xAI model adapters, the OpenAI transcriber, and the
+Google and OpenAI image generators with placeholder credentials. It also runs
+an in-memory tool-output pagination flow. Provider construction does not send
+network requests or require real credentials.
 
 `tests/live_models.rs` is a separate, ignored integration suite. Each provider
 test reads one explicit `LIVE_MODEL_API_KEY`, constructs every entry returned
