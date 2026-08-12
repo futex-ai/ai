@@ -1,0 +1,91 @@
+name: Live model APIs
+
+on:
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-model-apis-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  provider:
+    name: ${{ matrix.provider }} catalog
+    if: >-
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]') ||
+      (github.event_name != 'pull_request' &&
+      github.ref_name == github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - provider: Anthropic
+            test: anthropic_catalog
+            api_key: ANTHROPIC_API_KEY
+          - provider: DeepSeek
+            test: deepseek_catalog
+            api_key: DEEPSEEK_API_KEY
+          - provider: Google
+            test: google_catalog
+            api_key: GOOGLE_API_KEY
+          - provider: Kimi
+            test: kimi_catalog
+            api_key: KIMI_API_KEY
+          - provider: MiniMax
+            test: minimax_catalog
+            api_key: MINIMAX_API_KEY
+          - provider: OpenAI
+            test: openai_catalog
+            api_key: OPENAI_API_KEY
+          - provider: QwenCloud
+            test: qwen_catalog
+            api_key: QWEN_API_KEY
+          - provider: xAI
+            test: xai_catalog
+            api_key: XAI_API_KEY
+    steps:
+      - name: Require provider credential
+        env:
+          LIVE_MODEL_API_KEY: ${{ secrets[matrix.api_key] }}
+        run: |
+          if [[ -z "$LIVE_MODEL_API_KEY" ]]; then
+            echo "::error::Missing required Actions secret ${{ matrix.api_key }}"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup default 1.95.0
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: live-models-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'xtask/Cargo.toml') }}
+          restore-keys: |
+            live-models-${{ runner.os }}-
+            cargo-${{ runner.os }}-
+
+      - name: Test every chat catalog model
+        env:
+          LIVE_MODEL_API_KEY: ${{ secrets[matrix.api_key] }}
+        run: cargo test --locked -p xtask --test live_models "${{ matrix.test }}" -- --ignored --exact --nocapture

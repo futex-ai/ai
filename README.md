@@ -40,6 +40,9 @@ in-memory tool-calling runtime behavior.
 - [Qwen model provider](docs/protocol/qwen-model-provider.md) defines the stable
   Qwen 3.7 Max/Plus/Flash catalog, thinking, vision, replay, tool-calling,
   structured-output, usage, and error contract.
+- [Live model API tests](docs/protocol/live-model-api-tests.md) define the
+  credentialed provider/catalog coverage, assertions, CI schedule, and secret
+  boundary.
 - [Tool output management](docs/protocol/tool-output-management.md) defines the
   universal output-id, bounded-envelope, pagination, and raw-output isolation
   contract for tool calls.
@@ -98,6 +101,24 @@ The smoke test constructs every provider adapter with placeholder credentials
 and exercises the in-memory tool runtime. It performs no provider requests and
 does not require credentials or network access.
 
+Credentialed model checks live in `xtask/tests/live_models.rs`. To test one
+provider and every chat-capable model variant in its catalog against the real
+API, set `LIVE_MODEL_API_KEY` and run the corresponding ignored test, for
+example:
+
+```sh
+LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_models \
+  openai_catalog -- --ignored --exact --nocapture
+```
+
+These calls are billable. The dedicated `Live model APIs` workflow runs all
+eight provider catalogs for same-repository pull requests, every day, and on
+manual dispatch. It requires the repository Actions secrets
+`ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`,
+`GOOGLE_API_KEY`, `KIMI_API_KEY`, `MINIMAX_API_KEY`, `OPENAI_API_KEY`,
+`QWEN_API_KEY`, and `XAI_API_KEY`. On an eligible run, a missing secret fails
+its provider job.
+
 Run local AI review after checks pass and the branch has been pushed:
 
 ```sh
@@ -143,8 +164,16 @@ cargo xtask review
 ## CI
 
 GitHub Actions runs the same Rust verification expected locally on pull requests
-and branch pushes: formatting, Clippy, tests, Rust file-length lint,
-credential-free smoke tests, and `cargo xtask check`.
+and pushes to `main`: formatting, Clippy, tests, Rust file-length lint,
+credential-free smoke tests, and `cargo xtask check`. Limiting push-triggered CI
+to `main` prevents an open pull request from running the same commit once for
+the branch push and again for the pull-request event. The separate `Live model
+APIs` workflow makes billable calls through the production adapters for every
+chat-capable catalog entry on eligible pull requests as well as its daily
+schedule and manual dispatch. Image-generation entries use a separate typed
+interface and are not sent through chat adapters. Forked and Dependabot pull
+requests skip credentialed jobs because GitHub does not provide them repository
+Actions secrets.
 
 ## Plans
 

@@ -35,10 +35,16 @@ reasoning tokens map to non-overlapping usage buckets; pricing remains a
 composition-root concern. Resource-limited completions and retryable HTTP,
 transport, and auth failures become shared transient errors.
 
+Requests use a ten-minute transport timeout. DeepSeek may keep a request open
+while it waits for inference capacity, especially for Flash reasoning, and the
+provider documents a ten-minute upper bound before it closes a request that has
+not started inference.
+
 The provider is text-only: any non-empty typed `content_parts` input is rejected
 before authentication or transport. Retired aliases, vision, streaming, beta
-APIs, Anthropic-format access, custom endpoints, ambient credentials, and live
-credential-dependent tests are outside this crate's contract.
+APIs, Anthropic-format access, custom endpoints, and ambient credentials are
+outside this crate's contract. Credentialed whole-catalog checks live in the
+workspace `xtask` suite rather than this crate's deterministic unit tests.
 
 ## Quick Start
 
@@ -91,4 +97,5 @@ credential or network access is required.
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [DeepSeek provider protocol](../../docs/protocol/deepseek-model-provider.md)
+- [Live model API test protocol](../../docs/protocol/live-model-api-tests.md)
 - [DeepSeek implementation plan](../../plans/add-deepseek-model-provider.md)

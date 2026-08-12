@@ -34,7 +34,7 @@ pub(super) fn build_request(
         tools: request.tools.iter().map(tool).collect(),
         tool_choice: (!request.tools.is_empty()).then(|| "auto".to_owned()),
         response_format: request.response_schema.as_ref().map(response_format),
-        reasoning_effort: reasoning_effort(thinking_level).map(str::to_owned),
+        reasoning_effort: reasoning_effort(model_id, thinking_level).map(str::to_owned),
     }
 }
 
@@ -227,7 +227,10 @@ fn response_format(response_schema: &StructuredOutputSchema) -> ChatCompletionsR
     }
 }
 
-fn reasoning_effort(thinking_level: ThinkingLevel) -> Option<&'static str> {
+fn reasoning_effort(model_id: &str, thinking_level: ThinkingLevel) -> Option<&'static str> {
+    if model_id.starts_with("grok-4.20") {
+        return None;
+    }
     match thinking_level {
         ThinkingLevel::Disabled => None,
         ThinkingLevel::Low => Some("low"),
