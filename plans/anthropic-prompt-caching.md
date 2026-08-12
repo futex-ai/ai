@@ -254,8 +254,8 @@ pushed and review findings are ready for the user to assess.
 - [x] Commit the completed work with a Conventional Commit title no longer
       than 50 characters and a descriptive body.
 - [x] Push the current branch.
-- [ ] Run `cargo xtask review` after the push so the reviewer compares the
+- [x] Run `cargo xtask review` after the push so the reviewer compares the
       complete branch with `origin/main`.
-- [ ] Do not auto-fix review findings. Report each item with a number,
+- [x] Do not auto-fix review findings. Report each item with a number,
       severity, codebase/feature context, impact of doing nothing, lettered
       solution options, and the recommended option.
