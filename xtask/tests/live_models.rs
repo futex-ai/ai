@@ -72,6 +72,24 @@ fn workflow_covers_every_live_provider() {
     }
 }
 
+#[test]
+fn workflow_runs_for_trusted_pull_requests() {
+    let workflow = include_str!("../../.github/workflows/live-models.yml");
+
+    assert!(
+        workflow.contains("  pull_request:\n    branches:\n      - main"),
+        "workflow must run for pull requests targeting main"
+    );
+    assert!(
+        workflow.contains("github.event.pull_request.head.repo.full_name == github.repository"),
+        "workflow must restrict credentialed pull-request jobs to repository branches"
+    );
+    assert!(
+        workflow.contains("github.event.pull_request.user.login != 'dependabot[bot]'"),
+        "workflow must not expose Actions secrets to Dependabot jobs"
+    );
+}
+
 #[tokio::test]
 #[ignore = "requires a live Anthropic API credential"]
 async fn anthropic_catalog() {

@@ -238,8 +238,9 @@ responses.
 The credential-free workspace smoke test must construct the default Kimi
 model. The ignored workspace integration test `xtask/tests/live_models.rs`
 separately calls every Kimi catalog entry through the production adapter when
-an explicit `LIVE_MODEL_API_KEY` is supplied; GitHub Actions runs it only from
-the scheduled/manual `Live model APIs` workflow. Full formatting, file-length
+an explicit `LIVE_MODEL_API_KEY` is supplied; GitHub Actions runs it for
+eligible pull requests and from the scheduled/manual `Live model APIs`
+workflow. Full formatting, file-length
 lint, Clippy, workspace tests, `cargo xtask check`, commit and push, and
 post-push `cargo xtask review` are required before implementation handoff.
 

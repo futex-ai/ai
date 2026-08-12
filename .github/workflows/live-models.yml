@@ -1,6 +1,9 @@
 name: Live model APIs
 
 on:
+  pull_request:
+    branches:
+      - main
   schedule:
     - cron: "17 5 * * *"
   workflow_dispatch:
@@ -9,13 +12,16 @@ permissions:
   contents: read
 
 concurrency:
-  group: live-model-apis
-  cancel-in-progress: false
+  group: live-model-apis-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   provider:
     name: ${{ matrix.provider }} catalog
-    if: github.ref_name == github.event.repository.default_branch
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:

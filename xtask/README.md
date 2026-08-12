@@ -11,8 +11,8 @@ file-length audits, or AI review.
 - Run a credential-free smoke test for chat, transcription, and image-provider
   construction, tool-calling registration, MCP tools, and the resource-bound
   MCP OAuth hook
-- Host opt-in integration tests for every chat-provider catalog against real
-  APIs
+- Host credentialed integration tests for every chat-provider catalog against
+  real APIs
 - Delegate local AI review to the Codex CLI
 
 ## What This Crate Does
@@ -32,6 +32,8 @@ test reads one explicit `LIVE_MODEL_API_KEY`, constructs every entry returned
 by that provider's `known_models()`, sends a minimal real completion, and
 validates normalized provider, catalog, model, thinking, finish, text, tool,
 and usage fields. The suite never runs as part of `check` or `smoke-test`.
+The dedicated GitHub Actions workflow invokes it for eligible pull requests,
+daily verification, and manual dispatch.
 
 ## Quick Start
 

@@ -111,10 +111,12 @@ LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_mo
 ```
 
 These calls are billable. The dedicated `Live model APIs` workflow runs all
-eight provider catalogs every day and on manual dispatch. It requires the
-repository Actions secrets `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`,
+eight provider catalogs for same-repository pull requests, every day, and on
+manual dispatch. It requires the repository Actions secrets
+`ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`,
 `GOOGLE_API_KEY`, `KIMI_API_KEY`, `MINIMAX_API_KEY`, `OPENAI_API_KEY`,
-`QWEN_API_KEY`, and `XAI_API_KEY`. A missing secret fails its provider job.
+`QWEN_API_KEY`, and `XAI_API_KEY`. On an eligible run, a missing secret fails
+its provider job.
 
 Run local AI review after checks pass and the branch has been pushed:
 
@@ -164,11 +166,11 @@ GitHub Actions runs the same Rust verification expected locally on pull requests
 and pushes to `main`: formatting, Clippy, tests, Rust file-length lint,
 credential-free smoke tests, and `cargo xtask check`. Limiting push-triggered CI
 to `main` prevents an open pull request from running the same commit once for
-the branch push and again for the pull-request event. A separate scheduled and
-manual workflow makes billable calls through the production adapters for every
-catalog entry; it is intentionally excluded from pull requests so untrusted
-code cannot access provider credentials and upstream incidents do not block
-ordinary changes.
+the branch push and again for the pull-request event. The separate `Live model
+APIs` workflow makes billable calls through the production adapters for every
+catalog entry on eligible pull requests as well as its daily schedule and
+manual dispatch. Forked and Dependabot pull requests skip credentialed jobs
+because GitHub does not provide them repository Actions secrets.
 
 ## Plans
 

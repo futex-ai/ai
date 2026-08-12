@@ -46,17 +46,19 @@ Each live completion must:
 - return no tool calls when none were offered; and
 - report a non-zero total token count.
 
-A provider job fails if any catalog entry violates this contract. Missing
-credentials also fail explicitly and must never be treated as skipped or
-successful coverage.
+A provider job fails if any catalog entry violates this contract. For an
+eligible event, missing credentials also fail explicitly and must never be
+treated as skipped or successful coverage.
 
 ## CI And Credentials
 
-`.github/workflows/live-models.yml` runs on the default branch on a daily
-schedule and by manual dispatch. It uses one matrix job per provider, keeps
-matrix failures independent, and limits parallelism to reduce rate pressure.
-The workflow has read-only repository permissions and exposes only the current
-provider's secret, only to the credential check and test steps.
+`.github/workflows/live-models.yml` runs for pull requests targeting `main`, on
+the default branch on a daily schedule, and by manual dispatch. It uses one
+matrix job per provider, keeps matrix failures independent, and limits
+parallelism to reduce rate pressure. A newer revision of the same pull request
+cancels its superseded live run. The workflow has read-only repository
+permissions and exposes only the current provider's secret, only to the
+credential check and test steps.
 
 The required repository Actions secrets are:
 
@@ -71,9 +73,11 @@ The required repository Actions secrets are:
 | QwenCloud | `QWEN_API_KEY` |
 | xAI | `XAI_API_KEY` |
 
-The workflow does not run on pull requests or arbitrary branches. This keeps
-credentials away from untrusted changes and prevents external API availability
-from blocking the deterministic pull-request gate.
+Credentialed jobs run only for same-repository pull requests not authored by
+Dependabot. GitHub withholds repository Actions secrets from forked and
+Dependabot pull requests, so those jobs are skipped before checkout or secret
+access. The workflow must not use `pull_request_target` to execute pull-request
+code because that would give untrusted code a privileged secret context.
 
 ## Local Invocation
 

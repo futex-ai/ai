@@ -260,7 +260,8 @@ credential-free smoke construction.
 The ignored workspace integration test `xtask/tests/live_models.rs` separately
 calls every DeepSeek catalog entry through the production adapter when an
 explicit `LIVE_MODEL_API_KEY` is supplied. GitHub Actions runs that billable
-suite only from the scheduled/manual `Live model APIs` workflow.
+suite for eligible pull requests and from the scheduled/manual `Live model
+APIs` workflow.
 
 Full formatting, Rust file-length lint, Clippy, workspace tests, smoke tests,
 and `cargo xtask check` must pass before commit and push. `cargo xtask review`
