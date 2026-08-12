@@ -181,9 +181,14 @@ fully testable without provider credentials.
       tests, and `cargo xtask check` until every check passes.
 - [x] Review `git diff origin/main...` for scope, docs, public API, tests, and
       untracked files.
-- [ ] Move this plan back to Completed after every follow-up task passes.
-- [ ] Run `git add -A`, commit with a Conventional Commit message, and push the
+- [x] Move this plan back to Completed after every follow-up task passes.
+- [x] Run `git add -A`, commit with a Conventional Commit message, and push the
       current branch without renaming it.
-- [ ] Run `cargo xtask review` after the push against `origin/main`.
-- [ ] Do not auto-fix new review findings; report each with a number, severity,
+- [x] Run `cargo xtask review` after the push against `origin/main`.
+- [x] Do not auto-fix new review findings; report each with a number, severity,
       context, impact, lettered options, and a recommended option.
+
+The follow-up implementation was reviewed at
+`8dca63244bdd390e157ed5e85b210fa5f2f04534`. The mandatory AI reviewer found no
+actionable correctness issues; its targeted tests, strict Clippy checks, and
+workspace smoke test passed.
