@@ -12,6 +12,9 @@ pub struct ModelUsage {
     /// Cached input token count, when separated by the provider.
     #[serde(default)]
     pub cached_input_tokens: u64,
+    /// Cache-write input token count, when billed separately by the provider.
+    #[serde(default)]
+    pub cache_write_input_tokens: u64,
     /// Reasoning token count, when separated by the provider.
     #[serde(default)]
     pub reasoning_tokens: u64,
@@ -34,6 +37,8 @@ pub enum ModelUsageUnitKind {
     OutputToken,
     /// Cached input token.
     CachedInputToken,
+    /// Cache-write input token.
+    CacheWriteInputToken,
     /// Reasoning token.
     ReasoningToken,
 }
@@ -45,6 +50,7 @@ impl ModelUsageUnitKind {
             Self::InputToken => "input_token",
             Self::OutputToken => "output_token",
             Self::CachedInputToken => "cached_input_token",
+            Self::CacheWriteInputToken => "cache_write_input_token",
             Self::ReasoningToken => "reasoning_token",
         }
     }

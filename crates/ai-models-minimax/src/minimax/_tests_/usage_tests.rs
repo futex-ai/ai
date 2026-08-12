@@ -26,6 +26,7 @@ async fn separates_cached_and_reasoning_usage_buckets() {
             input_tokens: 80,
             output_tokens: 20,
             cached_input_tokens: 20,
+            cache_write_input_tokens: 0,
             reasoning_tokens: 30,
             total_tokens: 150,
             estimated_cost_microusd: 0,

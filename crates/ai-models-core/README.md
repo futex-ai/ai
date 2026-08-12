@@ -37,6 +37,9 @@ provider conversations remain distinct during deterministic id generation.
 provided `ModelPricing` snapshot to normalized usage categories. It emits
 `ModelUsageCostLine` values and sums known line costs in micro-USD; provider
 crates keep parsing usage quantities but do not own mutable price tables.
+`ModelPricing` accepts independent regular-input, cached-input-read,
+cache-write-input, output, and reasoning prices. Cache writes therefore retain
+their provider-specific premium instead of being priced as regular input.
 
 The default retry schedule preserved by this crate is `100ms` then `250ms` for transient model failures.
 
@@ -88,6 +91,7 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
+- [`../../docs/protocol/anthropic-prompt-caching.md`](../../docs/protocol/anthropic-prompt-caching.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)
 - [`../../plans/README.md`](../../plans/README.md)

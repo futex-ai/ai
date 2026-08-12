@@ -88,6 +88,7 @@ impl Model for MockModel {
                 input_tokens: u64::from(input_tokens),
                 output_tokens: u64::from(output_tokens),
                 cached_input_tokens: 0,
+                cache_write_input_tokens: 0,
                 reasoning_tokens: 0,
                 total_tokens: u64::from(input_tokens.saturating_add(output_tokens)),
                 estimated_cost_microusd: 0,

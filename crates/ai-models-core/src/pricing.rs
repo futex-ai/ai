@@ -19,6 +19,8 @@ pub struct ModelPricing {
     pub output_token_usd_micros_per_million: Option<u64>,
     /// Cached-input-token price in micro-USD per one million tokens.
     pub cached_input_token_usd_micros_per_million: Option<u64>,
+    /// Cache-write-token price in micro-USD per one million tokens.
+    pub cache_write_input_token_usd_micros_per_million: Option<u64>,
     /// Reasoning-token price in micro-USD per one million tokens.
     pub reasoning_token_usd_micros_per_million: Option<u64>,
     /// Whether usage with no explicit price should be treated as free.
@@ -33,6 +35,7 @@ impl ModelPricing {
             input_token_usd_micros_per_million: Some(0),
             output_token_usd_micros_per_million: Some(0),
             cached_input_token_usd_micros_per_million: Some(0),
+            cache_write_input_token_usd_micros_per_million: Some(0),
             reasoning_token_usd_micros_per_million: Some(0),
             free_when_unpriced: true,
         }
@@ -84,6 +87,13 @@ pub fn price_usage(mut usage: ModelUsage, pricing: &ModelPricing) -> ModelUsage 
         ModelUsageUnitKind::CachedInputToken,
         usage.cached_input_tokens,
         pricing.cached_input_token_usd_micros_per_million,
+        pricing,
+    );
+    push_line(
+        &mut lines,
+        ModelUsageUnitKind::CacheWriteInputToken,
+        usage.cache_write_input_tokens,
+        pricing.cache_write_input_token_usd_micros_per_million,
         pricing,
     );
     push_line(

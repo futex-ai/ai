@@ -102,6 +102,7 @@ async fn builds_text_request_and_parses_stopped_response() {
             input_tokens: 12,
             output_tokens: 3,
             cached_input_tokens: 0,
+            cache_write_input_tokens: 0,
             reasoning_tokens: 0,
             total_tokens: 15,
             estimated_cost_microusd: 0,

@@ -26,6 +26,7 @@ fn normalizes_cached_usage_and_falls_back_when_total_is_absent() {
             input_tokens: 100,
             output_tokens: 30,
             cached_input_tokens: 20,
+            cache_write_input_tokens: 0,
             reasoning_tokens: 0,
             total_tokens: 150,
             estimated_cost_microusd: 0,

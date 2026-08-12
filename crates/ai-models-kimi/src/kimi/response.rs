@@ -221,6 +221,7 @@ fn usage(usage: ChatCompletionsUsage) -> ModelUsage {
         input_tokens,
         output_tokens,
         cached_input_tokens,
+        cache_write_input_tokens: 0,
         reasoning_tokens: 0,
         total_tokens,
         estimated_cost_microusd: 0,

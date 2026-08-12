@@ -13,6 +13,9 @@ in-memory tool-calling runtime behavior.
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, structured output, usage
   normalization, and typed errors
+- Anthropic prompt caching with deterministic prefix and message breakpoints,
+  selectable five-minute or one-hour lifetimes, and separate cache-write usage
+  pricing
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, and usage pricing
 - Ordered fallback model composition through `ai-models-multi`

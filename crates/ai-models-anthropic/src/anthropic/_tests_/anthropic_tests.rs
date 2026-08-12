@@ -97,9 +97,10 @@ async fn builds_anthropic_tool_requests_and_parses_response() {
     assert_eq!(response.tool_calls[0].name, "memory_read");
     assert_eq!(response.structured_output, None);
     assert_eq!(response.usage.total_tokens, 202);
-    assert_eq!(response.usage.input_tokens, 130);
+    assert_eq!(response.usage.input_tokens, 120);
     assert_eq!(response.usage.output_tokens, 32);
     assert_eq!(response.usage.cached_input_tokens, 40);
+    assert_eq!(response.usage.cache_write_input_tokens, 10);
 }
 
 #[tokio::test]
@@ -146,9 +147,9 @@ async fn builds_anthropic_structured_output_requests_and_parses_response() {
         .lock()
         .expect("requests lock should not be poisoned");
     assert!(
-        requests[0].body.as_ref().expect("body present")["system"]
+        requests[0].body.as_ref().expect("body present")["system"][0]["text"]
             .as_str()
-            .expect("system prompt should be a string")
+            .expect("system prompt should be a text block")
             .contains("return raw JSON only")
     );
     assert_eq!(

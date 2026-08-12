@@ -40,6 +40,10 @@ without taking a dependency on a stateful runtime implementation.
   `qwen`, plus typed Qwen raw tool-call replay state.
 - Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
+  `ModelUsage` keeps regular input, cached-input reads, cache-write input,
+  output, and reasoning tokens in disjoint buckets. `ModelUsageUnitKind`
+  provides the matching stable metering identifiers, including
+  `cache_write_input_token`.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
   tool idempotency key alongside the model-visible tool name and JSON input.
 - Defines `ToolOutputEnvelope` as the model-visible success payload for tools.
@@ -157,6 +161,8 @@ tool dispatch live in `ai-tool-calling`.
   request DTOs.
 - `src/logger.rs` - logger trait, log payloads, `ToolCallLogResult`, and
   `NoopLogger`.
+- `src/usage.rs` - normalized token buckets, metering unit kinds, and cost
+  lines.
 - `src/mock_model.rs` and `src/mock_audio_transcriber.rs` - built-in mocks for
   tests and local development.
 
@@ -164,6 +170,7 @@ tool dispatch live in `ai-tool-calling`.
 
 - [`../ai-tool-calling/README.md`](../ai-tool-calling/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
+- [`../../docs/protocol/anthropic-prompt-caching.md`](../../docs/protocol/anthropic-prompt-caching.md)
 - [`../../docs/protocol/minimax-model-provider.md`](../../docs/protocol/minimax-model-provider.md)
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)

@@ -1,5 +1,6 @@
 //! Anthropic messages model client.
 
+pub(crate) mod cache;
 mod request;
 mod response;
 
@@ -9,6 +10,8 @@ use ai_interface::{Model, ModelError, ModelRequest, ModelResponse};
 use ai_models_core::{ThinkingLevel, classify_json_http_error};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+
+use self::cache::{AnthropicCacheTtl, AnthropicPromptCache};
 
 const ANTHROPIC_MESSAGES_URL: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_API_VERSION: &str = "2023-06-01";
@@ -21,6 +24,7 @@ pub struct AnthropicModel {
     catalog_model_id: String,
     provider_model_id: String,
     thinking_level: ThinkingLevel,
+    prompt_cache: AnthropicPromptCache,
     auth: DynJsonHttpAuth,
     endpoint: String,
 }
@@ -71,9 +75,18 @@ impl AnthropicModel {
             catalog_model_id: catalog_model_id.into(),
             provider_model_id: provider_model_id.into(),
             thinking_level,
+            prompt_cache: AnthropicPromptCache::Enabled {
+                ttl: AnthropicCacheTtl::FiveMinutes,
+            },
             auth,
             endpoint: ANTHROPIC_MESSAGES_URL.to_owned(),
         }
+    }
+
+    /// Replaces the prompt-cache configuration for this model instance.
+    pub fn with_prompt_cache(mut self, prompt_cache: AnthropicPromptCache) -> Self {
+        self.prompt_cache = prompt_cache;
+        self
     }
 }
 
@@ -93,6 +106,7 @@ impl Model for AnthropicModel {
                 &self.provider_model_id,
                 self.thinking_level,
                 request,
+                self.prompt_cache,
             ))
             .map_err(ModelError::internal)?;
         let response = request
@@ -142,3 +156,15 @@ mod anthropic_multimodal_tests;
 #[cfg(test)]
 #[path = "_tests_/anthropic_thinking_tests.rs"]
 mod anthropic_thinking_tests;
+
+#[cfg(test)]
+#[path = "_tests_/anthropic_usage_tests.rs"]
+mod anthropic_usage_tests;
+
+#[cfg(test)]
+#[path = "_tests_/anthropic_cache_tests.rs"]
+mod anthropic_cache_tests;
+
+#[cfg(test)]
+#[path = "_tests_/anthropic_cache_marker_tests.rs"]
+mod anthropic_cache_marker_tests;

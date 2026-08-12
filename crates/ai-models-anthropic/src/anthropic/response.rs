@@ -71,10 +71,10 @@ pub(super) fn parse_response(
     } else {
         assistant_message
     };
-    let input_tokens = u64::from(parsed.usage.input_tokens)
-        .saturating_add(u64::from(parsed.usage.cache_creation_input_tokens));
+    let input_tokens = u64::from(parsed.usage.input_tokens);
     let output_tokens = u64::from(parsed.usage.output_tokens);
     let cached_input_tokens = u64::from(parsed.usage.cache_read_input_tokens);
+    let cache_write_input_tokens = u64::from(parsed.usage.cache_creation_input_tokens);
     Ok(ModelResponse {
         provider: PROVIDER.to_owned(),
         model_id: provider_model_id.to_owned(),
@@ -89,10 +89,12 @@ pub(super) fn parse_response(
             input_tokens,
             output_tokens,
             cached_input_tokens,
+            cache_write_input_tokens,
             reasoning_tokens: 0,
             total_tokens: input_tokens
                 .saturating_add(output_tokens)
-                .saturating_add(cached_input_tokens),
+                .saturating_add(cached_input_tokens)
+                .saturating_add(cache_write_input_tokens),
             estimated_cost_microusd: 0,
             cost_lines: Vec::new(),
         },

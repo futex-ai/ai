@@ -18,8 +18,9 @@ This protocol covers two contracts:
 
 ## Status
 
-Proposed. Implementation plan:
-[plans/anthropic-prompt-caching.md](../../plans/anthropic-prompt-caching.md).
+Implemented. The
+[completed Anthropic prompt caching plan](../../plans/anthropic-prompt-caching.md)
+records the implementation and verification milestones.
 
 ## Scope
 

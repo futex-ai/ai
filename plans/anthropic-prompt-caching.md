@@ -135,31 +135,31 @@ has changed yet.
 - Update every remaining `ModelUsage` literal the compiler reports across
   workspace tests (including `ai-tool-calling` and `ai-mcp` test support).
 
-- [ ] Add failing `ai-interface` serde tests: the new field round-trips,
+- [x] Add failing `ai-interface` serde tests: the new field round-trips,
       defaults to zero when absent from stored payloads, and
       `ModelUsageUnitKind::CacheWriteInputToken.as_str()` returns
       `cache_write_input_token`.
-- [ ] Add `cache_write_input_tokens` and `CacheWriteInputToken` with complete
+- [x] Add `cache_write_input_tokens` and `CacheWriteInputToken` with complete
       public rustdoc.
-- [ ] Add failing pricing tests: priced cache-write line with correct
+- [x] Add failing pricing tests: priced cache-write line with correct
       micro-USD rounding, `Unknown` state when unpriced, `Free` under
       `free_when_unpriced` and under `ModelPricing::free`, no line at zero
       quantity, and `estimated_cost_microusd` including the new line.
-- [ ] Add `cache_write_input_token_usd_micros_per_million` to `ModelPricing`,
+- [x] Add `cache_write_input_token_usd_micros_per_million` to `ModelPricing`,
       update `ModelPricing::free`, and emit the line from `price_usage`.
-- [ ] Add failing Anthropic usage tests: `input_tokens` excludes
+- [x] Add failing Anthropic usage tests: `input_tokens` excludes
       `cache_creation_input_tokens`, `cache_write_input_tokens` carries it,
       `cached_input_tokens` still carries `cache_read_input_tokens`,
       `total_tokens` sums all buckets, and missing usage fields default to
       zero.
-- [ ] Stop folding `cache_creation_input_tokens` into `input_tokens` in the
+- [x] Stop folding `cache_creation_input_tokens` into `input_tokens` in the
       Anthropic response mapping and populate the new bucket.
-- [ ] Zero-fill the new field in every other provider adapter, the mock
+- [x] Zero-fill the new field in every other provider adapter, the mock
       model, and every test literal; verify no non-Anthropic adapter maps a
       provider value into it.
-- [ ] Update `ai-interface` and `ai-models-core` READMEs for the new usage
+- [x] Update `ai-interface` and `ai-models-core` READMEs for the new usage
       bucket, unit kind, and price field.
-- [ ] Run `cargo fmt --all -- --check`,
+- [x] Run `cargo fmt --all -- --check`,
       `cargo clippy --workspace --all-targets --all-features`, and
       `cargo test --workspace --all-features` with a 100% pass rate.
 
@@ -183,38 +183,38 @@ protocol exactly.
   block-array shape.
 - Modify `crates/ai-models-anthropic/README.md`.
 
-- [ ] Add failing system-shape tests: `system` serializes as a text-block
+- [x] Add failing system-shape tests: `system` serializes as a text-block
       array carrying the prompt (including the structured-output suffix), and
       the field is omitted when the effective system prompt is empty.
-- [ ] Convert `system` to typed blocks in the request builder and update
+- [x] Convert `system` to typed blocks in the request builder and update
       existing request tests to the new shape.
-- [ ] Add failing configuration tests: every constructor defaults to
+- [x] Add failing configuration tests: every constructor defaults to
       `Enabled { ttl: FiveMinutes }`, `with_prompt_cache(Disabled)` emits no
       `cache_control` anywhere, and `OneHour` serializes
       `{"type": "ephemeral", "ttl": "1h"}` while `FiveMinutes` omits `ttl`.
-- [ ] Add `AnthropicPromptCache`, `AnthropicCacheTtl`, and the serialized
+- [x] Add `AnthropicPromptCache`, `AnthropicCacheTtl`, and the serialized
       cache-control type in `cache.rs` with complete public rustdoc; store
       the configuration on `AnthropicModel`, add `with_prompt_cache`, and
       export the types from `lib.rs`.
-- [ ] Add failing prefix-marker tests: marker on the last system block when
+- [x] Add failing prefix-marker tests: marker on the last system block when
       the system prompt is non-empty, on the last tool definition when the
       system prompt is empty and tools exist, and absent when both are empty.
-- [ ] Add failing message-marker tests: single-turn request marks only the
+- [x] Add failing message-marker tests: single-turn request marks only the
       final block; a multi-turn tool loop marks the final block; a history
       long enough for stride placement marks blocks at offsets 0, 20, and 40
       from the tail; total markers never exceed 4; markers attach only to
       `text`, `image`, `tool_use`, and `tool_result` blocks; unmarked blocks
       omit the field entirely.
-- [ ] Implement deterministic marker placement in `cache.rs` per the
+- [x] Implement deterministic marker placement in `cache.rs` per the
       protocol: one prefix marker plus tail-stride message markers with a
       20-block stride and a 3-marker cap, applied after message building.
-- [ ] Keep `request.rs`, `cache.rs`, and `mod.rs` each at or below 300 lines,
+- [x] Keep `request.rs`, `cache.rs`, and `mod.rs` each at or below 300 lines,
       with placement logic and cache types owned by `cache.rs`.
-- [ ] Update the `ai-models-anthropic` README: responsibilities, caching
+- [x] Update the `ai-models-anthropic` README: responsibilities, caching
       behavior and defaults, `with_prompt_cache` Quick Start example, caller
       invariants (stable system/tool bytes, append-only history), key code,
       and a link to the protocol doc.
-- [ ] Run `cargo fmt --all -- --check`,
+- [x] Run `cargo fmt --all -- --check`,
       `cargo clippy -p ai-models-anthropic --all-targets --all-features`, and
       `cargo test -p ai-models-anthropic --all-features` with a 100% pass
       rate.
@@ -231,29 +231,29 @@ pushed and review findings are ready for the user to assess.
 - Modify root `README.md`.
 - Modify `plans/README.md`.
 
-- [ ] Reconcile the protocol doc line by line with the implemented types,
+- [x] Reconcile the protocol doc line by line with the implemented types,
       marker algorithm, wire shapes, usage mapping, and pricing fields;
       change its status to implemented only after verification.
-- [ ] Update the root `README.md` key-features list for Anthropic prompt
+- [x] Update the root `README.md` key-features list for Anthropic prompt
       caching and confirm the protocol and key-code lists link the new doc.
-- [ ] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all`
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all`
       and re-run the check.
-- [ ] Run `cargo xtask rust-file-length-lint --all`.
-- [ ] Run `cargo clippy --workspace --all-targets --all-features`.
-- [ ] Run `cargo test --workspace --all-features` and require a 100% pass
+- [x] Run `cargo xtask rust-file-length-lint --all`.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features` and require a 100% pass
       rate.
-- [ ] Run `cargo xtask smoke-test` and confirm it requires neither
+- [x] Run `cargo xtask smoke-test` and confirm it requires neither
       credentials nor network access.
-- [ ] Run `cargo xtask check`; fix failures and repeat until it passes.
-- [ ] Audit `git diff origin/main...` for unrelated changes, untracked
+- [x] Run `cargo xtask check`; fix failures and repeat until it passes.
+- [x] Audit `git diff origin/main...` for unrelated changes, untracked
       files, stale README claims, and lockfile drift.
-- [ ] Move this plan from Active to Completed in `plans/README.md` only
+- [x] Move this plan from Active to Completed in `plans/README.md` only
       after all earlier milestones and final checks are complete.
-- [ ] Run `git add -A` so every source, test, README, protocol, plan, and
+- [x] Run `git add -A` so every source, test, README, protocol, plan, and
       lockfile change is tracked.
-- [ ] Commit the completed work with a Conventional Commit title no longer
+- [x] Commit the completed work with a Conventional Commit title no longer
       than 50 characters and a descriptive body.
-- [ ] Push the current branch.
+- [x] Push the current branch.
 - [ ] Run `cargo xtask review` after the push so the reviewer compares the
       complete branch with `origin/main`.
 - [ ] Do not auto-fix review findings. Report each item with a number,

@@ -7,16 +7,19 @@ use ai_models_core::ThinkingLevel;
 use serde::Serialize;
 use serde_json::Value;
 
+use super::cache::{AnthropicCacheControl, AnthropicPromptCache, apply_prompt_cache};
+
 const ANTHROPIC_MAX_TOKENS: u32 = 4096;
 
 #[derive(Debug, Serialize)]
 pub(super) struct AnthropicRequest {
     model: String,
     max_tokens: u32,
-    system: String,
-    messages: Vec<AnthropicMessage>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    tools: Vec<AnthropicTool>,
+    pub(super) system: Vec<AnthropicSystemBlock>,
+    pub(super) messages: Vec<AnthropicMessage>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(super) tools: Vec<AnthropicTool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     thinking: Option<AnthropicThinking>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -24,34 +27,57 @@ pub(super) struct AnthropicRequest {
 }
 
 #[derive(Debug, Serialize)]
-struct AnthropicMessage {
+#[serde(tag = "type")]
+pub(super) enum AnthropicSystemBlock {
+    #[serde(rename = "text")]
+    Text {
+        text: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cache_control: Option<AnthropicCacheControl>,
+    },
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct AnthropicMessage {
     role: String,
-    content: Vec<AnthropicBlock>,
+    pub(super) content: Vec<AnthropicBlock>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "type")]
-enum AnthropicBlock {
+pub(super) enum AnthropicBlock {
     #[serde(rename = "text")]
-    Text { text: String },
+    Text {
+        text: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cache_control: Option<AnthropicCacheControl>,
+    },
     #[serde(rename = "image")]
-    Image { source: AnthropicImageSource },
+    Image {
+        source: AnthropicImageSource,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cache_control: Option<AnthropicCacheControl>,
+    },
     #[serde(rename = "tool_use")]
     ToolUse {
         id: String,
         name: String,
         input: Value,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cache_control: Option<AnthropicCacheControl>,
     },
     #[serde(rename = "tool_result")]
     ToolResult {
         #[serde(skip_serializing_if = "Option::is_none")]
         tool_use_id: Option<String>,
         content: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cache_control: Option<AnthropicCacheControl>,
     },
 }
 
 #[derive(Debug, Serialize)]
-struct AnthropicImageSource {
+pub(super) struct AnthropicImageSource {
     #[serde(rename = "type")]
     kind: String,
     media_type: String,
@@ -59,10 +85,12 @@ struct AnthropicImageSource {
 }
 
 #[derive(Debug, Serialize)]
-struct AnthropicTool {
+pub(super) struct AnthropicTool {
     name: String,
     description: String,
     input_schema: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) cache_control: Option<AnthropicCacheControl>,
 }
 
 #[derive(Debug, Serialize)]
@@ -81,15 +109,30 @@ pub(super) fn build_request(
     model_id: &str,
     thinking_level: ThinkingLevel,
     request: &ModelRequest,
+    prompt_cache: AnthropicPromptCache,
 ) -> AnthropicRequest {
-    AnthropicRequest {
+    let mut request = AnthropicRequest {
         model: model_id.to_owned(),
         max_tokens: ANTHROPIC_MAX_TOKENS,
-        system: system_prompt(request),
+        system: system_blocks(request),
         messages: anthropic_messages(&request.messages),
         tools: request.tools.iter().map(tool).collect(),
         thinking: thinking(thinking_level),
         output_config: output_config(thinking_level),
+    };
+    apply_prompt_cache(&mut request, prompt_cache);
+    request
+}
+
+fn system_blocks(request: &ModelRequest) -> Vec<AnthropicSystemBlock> {
+    let prompt = system_prompt(request);
+    if prompt.is_empty() {
+        Vec::new()
+    } else {
+        vec![AnthropicSystemBlock::Text {
+            text: prompt,
+            cache_control: None,
+        }]
     }
 }
 
@@ -116,6 +159,7 @@ fn anthropic_messages(messages: &[ConversationMessage]) -> Vec<AnthropicMessage>
                 if !message.content.is_empty() {
                     blocks.push(AnthropicBlock::Text {
                         text: message.content.clone(),
+                        cache_control: None,
                     });
                 }
                 blocks.extend(
@@ -126,6 +170,7 @@ fn anthropic_messages(messages: &[ConversationMessage]) -> Vec<AnthropicMessage>
                             id: call.id.clone(),
                             name: call.name.clone(),
                             input: call.input.clone(),
+                            cache_control: None,
                         }),
                 );
                 append_blocks(&mut output, "assistant", blocks);
@@ -137,6 +182,7 @@ fn anthropic_messages(messages: &[ConversationMessage]) -> Vec<AnthropicMessage>
                     vec![AnthropicBlock::ToolResult {
                         tool_use_id: message.tool_call_id.clone(),
                         content: message.content.clone(),
+                        cache_control: None,
                     }],
                 );
             }
@@ -150,6 +196,7 @@ fn user_blocks(message: &ConversationMessage) -> Vec<AnthropicBlock> {
     if message.content_parts.is_empty() {
         return vec![AnthropicBlock::Text {
             text: message.content.clone(),
+            cache_control: None,
         }];
     }
     message.content_parts.iter().map(content_part).collect()
@@ -157,7 +204,10 @@ fn user_blocks(message: &ConversationMessage) -> Vec<AnthropicBlock> {
 
 fn content_part(part: &ConversationContentPart) -> AnthropicBlock {
     match part {
-        ConversationContentPart::Text { text } => AnthropicBlock::Text { text: text.clone() },
+        ConversationContentPart::Text { text } => AnthropicBlock::Text {
+            text: text.clone(),
+            cache_control: None,
+        },
         ConversationContentPart::Image {
             mime_type,
             data_base64,
@@ -167,6 +217,7 @@ fn content_part(part: &ConversationContentPart) -> AnthropicBlock {
                 media_type: mime_type.clone(),
                 data: data_base64.clone(),
             },
+            cache_control: None,
         },
     }
 }
@@ -192,6 +243,7 @@ fn tool(tool: &ToolDefinition) -> AnthropicTool {
         name: tool.name.clone(),
         description: tool.description.clone(),
         input_schema: tool.input_schema.clone(),
+        cache_control: None,
     }
 }
 
