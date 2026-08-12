@@ -23,8 +23,8 @@ reasoning usage.
 The initial provider does not support the retired `deepseek-chat` or
 `deepseek-reasoner` aliases, streaming, image input, the Anthropic-format API,
 third-party or custom endpoints, FIM completion, chat prefix completion,
-strict tool mode, beta endpoints, or live credential-dependent tests. These
-capabilities require separate contracts rather than silent partial support.
+strict tool mode, or beta endpoints. These capabilities require separate
+contracts rather than silent partial support.
 
 ## Ownership
 
@@ -59,6 +59,11 @@ Requests set `stream: false`. `DeepSeekModel::new` and `with_auth` construct
 the default high-thinking `deepseek-v4-pro`; `with_catalog_auth` accepts the
 injected client and auth, catalog id, provider id, and `ThinkingLevel`, then
 validates the selection before returning a model.
+
+Each request uses a ten-minute transport timeout. DeepSeek can keep a request
+open while it waits for inference capacity, and the provider closes a request
+that has not started inference after ten minutes. The adapter must not apply
+the shared 60-second JSON HTTP default to this endpoint.
 
 ## Known Model Catalog
 
@@ -261,6 +266,12 @@ thinking controls; parallel tools and raw replay; reasoning non-disclosure,
 redaction, serde, and hashing; JSON prompting and validation; finish and
 response shapes; cache/reasoning usage; error classification; and
 credential-free smoke construction.
+
+The ignored workspace integration test `xtask/tests/live_models.rs` separately
+calls every DeepSeek catalog entry through the production adapter when an
+explicit `LIVE_MODEL_API_KEY` is supplied. GitHub Actions runs that billable
+suite for eligible pull requests and from the scheduled/manual `Live model
+APIs` workflow.
 
 Full formatting, Rust file-length lint, Clippy, workspace tests, smoke tests,
 and `cargo xtask check` must pass before commit and push. `cargo xtask review`

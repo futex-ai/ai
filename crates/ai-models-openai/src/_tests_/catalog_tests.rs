@@ -3,7 +3,7 @@
 use ai_models_core::{ModelFeature, ProviderKind, ThinkingLevel};
 
 use super::{
-    GPT_5_5, GPT_5_5_MINI, GPT_5_5_NANO, GPT_5_5_THINKING_EXTRA_HIGH, GPT_5_5_THINKING_HIGH,
+    GPT_5_4_MINI, GPT_5_4_NANO, GPT_5_5, GPT_5_5_THINKING_EXTRA_HIGH, GPT_5_5_THINKING_HIGH,
     GPT_5_5_THINKING_LOW, GPT_5_6_LUNA, GPT_5_6_SOL, GPT_5_6_SOL_THINKING_MAX, GPT_5_6_TERRA,
     GPT_IMAGE_2, known_models,
 };
@@ -18,10 +18,38 @@ fn gpt_5_6_sol_is_the_first_catalog_model() {
         GPT_5_5_THINKING_LOW,
         GPT_5_5_THINKING_HIGH,
         GPT_5_5_THINKING_EXTRA_HIGH,
-        GPT_5_5_MINI,
-        GPT_5_5_NANO,
+        GPT_5_4_MINI,
+        GPT_5_4_NANO,
     ] {
         assert!(models.iter().any(|model| model.id == legacy_id));
+    }
+}
+
+#[test]
+fn cost_optimized_models_use_supported_gpt_5_4_ids() {
+    let model_ids = known_models()
+        .into_iter()
+        .map(|model| model.id)
+        .collect::<Vec<_>>();
+
+    assert!(model_ids.contains(&"gpt-5.4-mini"));
+    assert!(model_ids.contains(&"gpt-5.4-nano"));
+    assert!(!model_ids.contains(&"gpt-5.5-mini"));
+    assert!(!model_ids.contains(&"gpt-5.5-nano"));
+}
+
+#[test]
+fn cost_optimized_models_have_current_metadata() {
+    let models = known_models();
+
+    for model_id in [GPT_5_4_MINI, GPT_5_4_NANO] {
+        let model = models
+            .iter()
+            .find(|model| model.id == model_id)
+            .expect("GPT-5.4 cost-optimized model should exist");
+        assert_eq!(model.context_window_tokens, 400_000);
+        assert!(model.has_feature(ModelFeature::Reasoning));
+        assert!(model.has_feature(ModelFeature::Vision));
     }
 }
 

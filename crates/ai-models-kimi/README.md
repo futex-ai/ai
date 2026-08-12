@@ -32,9 +32,10 @@ apply a per-call timeout while provider-neutral `PreferDeferred` falls back to
 the ordinary synchronous request.
 
 The crate does not read environment variables, load deployment config, price
-usage, or make credential-dependent calls during tests. K2.x and Moonshot V1
-models, streaming, Partial Mode, video/file upload, dynamic or official tools,
-and provider cache-key tuning are outside its initial contract.
+usage, or make credential-dependent calls during unit tests. Credentialed
+whole-catalog checks live in the workspace `xtask` suite. K2.x and Moonshot V1 models,
+streaming, Partial Mode, video/file upload, dynamic or official tools, and
+provider cache-key tuning are outside its initial contract.
 
 ## Quick Start
 
@@ -86,4 +87,5 @@ credentials or network access are required.
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
+- [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [`../../plans/add-kimi-model-provider.md`](../../plans/add-kimi-model-provider.md)

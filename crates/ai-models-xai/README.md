@@ -31,8 +31,8 @@
   payloads are parsed, so partial tool-call arguments are not dispatched
 - xAI OpenAI-compatible non-strict `response_format` JSON-schema mapping for
   structured outputs, with local response validation through shared helpers
-- xAI `reasoning_effort` mapping from catalog `ThinkingLevel` for
-  reasoning-capable catalog variants
+- xAI `reasoning_effort` mapping from catalog `ThinkingLevel` for Grok 4.5;
+  fixed-reasoning Grok 4.20 requests omit the unsupported parameter
 - provider response usage extraction into normalized input, cached input,
   output, and reasoning token counts when xAI returns compatible usage details
 - status, transport, and structured-output validation failure mapping onto
@@ -43,8 +43,10 @@ credentials on its own. It exports `known_models()` and typed catalog id
 constants for Grok 4.5. `GROK_4_5` is the first catalog entry and the default
 used by workspace examples; its catalog metadata uses the provider's default
 high reasoning effort. Low- and medium-thinking variants send provider model
-id `grok-4.5` with the corresponding `reasoning_effort`. All existing Grok
-4.20 entries remain available for pinned deployments.
+id `grok-4.5` with the corresponding `reasoning_effort`. The catalog retains
+the supported Grok 4.20 reasoning and general-purpose aliases with their
+one-million-token context window; nonexistent Mini and configurable-thinking
+aliases are not advertised.
 
 ## Quick Start
 
@@ -87,6 +89,8 @@ cargo clippy -p ai-models-xai --all-targets --all-features -- -D warnings
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [Grok 4.5 model details](https://docs.x.ai/developers/models/grok-4.5)
+- [xAI model catalog](https://docs.x.ai/developers/models)
+- [Grok 4.20 model details](https://docs.x.ai/developers/models/grok-4.20)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

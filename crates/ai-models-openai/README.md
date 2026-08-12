@@ -58,7 +58,8 @@ constants for GPT-5.6 Sol, Terra, and Luna. `GPT_5_6_SOL` is the first catalog
 entry and the default used by workspace examples. Sol also has explicit low,
 high, extra-high, and max-thinking variants; each sends provider model id
 `gpt-5.6-sol`. All existing GPT-5.5 constants and catalog entries remain
-available for pinned deployments.
+available for pinned deployments. Cost-optimized routing uses GPT-5.4 Mini and
+Nano because OpenAI does not expose GPT-5.5 Mini or Nano aliases.
 OpenAI generation uses workspace-defined function tools with `strict: false` during
 the Responses cutover. OpenAI built-in tools are intentionally not exposed by
 this crate.

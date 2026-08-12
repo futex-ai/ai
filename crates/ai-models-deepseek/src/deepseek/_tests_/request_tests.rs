@@ -1,6 +1,6 @@
 //! DeepSeek one-turn request mapping tests.
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use ai_interface::{ConversationMessage, ConversationRole, Model, ModelRequest};
 use json_http::StaticHeaderAuth;
@@ -29,6 +29,7 @@ async fn sends_bearer_auth_to_exact_endpoint_with_non_streaming_body() {
         .expect("object");
 
     assert_eq!(request.url, "https://api.deepseek.com/chat/completions");
+    assert_eq!(request.timeout, Duration::from_secs(10 * 60));
     assert_eq!(
         request.headers.get("Authorization").map(String::as_str),
         Some("Bearer deepseek-secret")

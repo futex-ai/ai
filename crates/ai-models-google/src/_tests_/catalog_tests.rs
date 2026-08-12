@@ -3,8 +3,7 @@
 use ai_models_core::{ModelFeature, ProviderKind, ThinkingLevel};
 
 use super::{
-    GEMINI_2_5_FLASH, GEMINI_2_5_FLASH_LITE, GEMINI_2_5_PRO, GEMINI_2_5_PRO_THINKING_HIGH,
-    GEMINI_2_5_PRO_THINKING_MAX, GEMINI_3_1_FLASH_IMAGE, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH,
+    GEMINI_3_1_FLASH_IMAGE, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH,
     GEMINI_3_6_FLASH_THINKING_HIGH, known_models,
 };
 
@@ -13,15 +12,15 @@ fn gemini_3_6_flash_is_the_first_catalog_model() {
     let models = known_models();
 
     assert_eq!(models.first().map(|model| model.id), Some(GEMINI_3_6_FLASH));
-    for legacy_id in [
-        GEMINI_2_5_PRO,
-        GEMINI_2_5_PRO_THINKING_HIGH,
-        GEMINI_2_5_PRO_THINKING_MAX,
-        GEMINI_2_5_FLASH,
-        GEMINI_2_5_FLASH_LITE,
-    ] {
-        assert!(models.iter().any(|model| model.id == legacy_id));
-    }
+}
+
+#[test]
+fn catalog_excludes_unavailable_gemini_2_5_models() {
+    assert!(
+        known_models()
+            .iter()
+            .all(|model| !model.provider_model_id.starts_with("gemini-2.5"))
+    );
 }
 
 #[test]

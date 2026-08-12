@@ -34,8 +34,8 @@ async fn builds_xai_thinking_variant_requests() {
     });
     let model = XaiModel::with_catalog_auth(
         http_client,
-        "grok-4.20-thinking-high",
-        "grok-4.20",
+        "grok-4.5-thinking-high",
+        "grok-4.5",
         ThinkingLevel::High,
         Arc::new(StaticHeaderAuth::bearer_token("xai-key")),
     );
@@ -49,14 +49,49 @@ async fn builds_xai_thinking_variant_requests() {
         .lock()
         .expect("requests lock should not be poisoned");
     let body = requests[0].body.as_ref().expect("body present");
-    assert_eq!(body["model"], "grok-4.20");
+    assert_eq!(body["model"], "grok-4.5");
     assert_eq!(body["reasoning_effort"], "high");
     assert_eq!(
         response.catalog_model_id.as_deref(),
-        Some("grok-4.20-thinking-high")
+        Some("grok-4.5-thinking-high")
     );
     assert_eq!(response.thinking_level.as_deref(), Some("high"));
-    assert_eq!(response.model_id, "grok-4.20");
+    assert_eq!(response.model_id, "grok-4.5");
+}
+
+#[tokio::test]
+async fn omits_reasoning_effort_for_grok_4_20() {
+    let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        status: 200,
+        body: json!({
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {
+                    "content": "Done",
+                    "tool_calls": []
+                }
+            }]
+        }),
+    });
+    let model = XaiModel::with_catalog_auth(
+        http_client,
+        "grok-4.20-reasoning",
+        "grok-4.20-reasoning",
+        ThinkingLevel::High,
+        Arc::new(StaticHeaderAuth::bearer_token("xai-key")),
+    );
+
+    model
+        .complete(&simple_request())
+        .await
+        .expect("xAI reasoning response should parse");
+
+    let requests = requests
+        .lock()
+        .expect("requests lock should not be poisoned");
+    let body = requests[0].body.as_ref().expect("body present");
+    assert_eq!(body["model"], "grok-4.20-reasoning");
+    assert!(body.get("reasoning_effort").is_none());
 }
 
 fn recording_http_client(
