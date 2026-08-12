@@ -1,6 +1,6 @@
 //! DeepSeek model construction and request dispatch.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult};
 use ai_models_core::{ThinkingLevel, classify_json_http_error};
@@ -13,6 +13,7 @@ use crate::DEEPSEEK_V4_PRO;
 use super::{request, response};
 
 const DEEPSEEK_CHAT_COMPLETIONS_URL: &str = "https://api.deepseek.com/chat/completions";
+const DEEPSEEK_REQUEST_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const PROVIDER: &str = "deepseek";
 
 #[derive(Debug, Eq, Error, PartialEq)]
@@ -95,6 +96,7 @@ impl Model for DeepSeekModel {
         let request = match self
             .http_client
             .post(DEEPSEEK_CHAT_COMPLETIONS_URL)
+            .timeout(DEEPSEEK_REQUEST_TIMEOUT)
             .auth(self.auth.clone())
             .json(request_body)
         {

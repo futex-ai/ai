@@ -60,6 +60,11 @@ the default high-thinking `deepseek-v4-pro`; `with_catalog_auth` accepts the
 injected client and auth, catalog id, provider id, and `ThinkingLevel`, then
 validates the selection before returning a model.
 
+Each request uses a ten-minute transport timeout. DeepSeek can keep a request
+open while it waits for inference capacity, and the provider closes a request
+that has not started inference after ten minutes. The adapter must not apply
+the shared 60-second JSON HTTP default to this endpoint.
+
 ## Known Model Catalog
 
 Both provider models advertise a 1,000,000-token context window. Enabled

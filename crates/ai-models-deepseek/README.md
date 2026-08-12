@@ -35,6 +35,11 @@ reasoning tokens map to non-overlapping usage buckets; pricing remains a
 composition-root concern. Resource-limited completions and retryable HTTP,
 transport, and auth failures become shared transient errors.
 
+Requests use a ten-minute transport timeout. DeepSeek may keep a request open
+while it waits for inference capacity, especially for Flash reasoning, and the
+provider documents a ten-minute upper bound before it closes a request that has
+not started inference.
+
 The provider is text-only: any non-empty typed `content_parts` input is rejected
 before authentication or transport. Retired aliases, vision, streaming, beta
 APIs, Anthropic-format access, custom endpoints, and ambient credentials are
