@@ -74,6 +74,49 @@ async fn rejects_required_deferred_mode_before_transport() {
     ));
 }
 
+#[tokio::test]
+async fn required_or_auto_uses_forced_required_semantics() {
+    let (http_client, requests) = recording_client();
+    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let mut request = base_request();
+    request.controls.generation.tool_choice = Some(ModelToolChoice::RequiredOrAuto);
+
+    model
+        .complete(&request)
+        .await
+        .expect("required fallback should use provider enforcement");
+
+    let requests = requests.lock().expect("request lock should be available");
+    assert_eq!(
+        requests[0].body.as_ref().expect("request body")["toolConfig"]["functionCallingConfig"]["mode"],
+        "ANY"
+    );
+}
+
+#[tokio::test]
+async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
+    for (system_prompt, expected) in [("", None), ("   ", None), ("normal", Some("normal"))] {
+        let (http_client, requests) = recording_client();
+        let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+        let mut request = base_request();
+        request.system_prompt = system_prompt.to_owned();
+
+        model
+            .complete(&request)
+            .await
+            .expect("response should parse");
+
+        let requests = requests.lock().expect("request lock should be available");
+        let body = requests[0].body.as_ref().expect("request body");
+        match expected {
+            Some(expected) => {
+                assert_eq!(body["systemInstruction"]["parts"][0]["text"], expected)
+            }
+            None => assert!(body.get("systemInstruction").is_none()),
+        }
+    }
+}
+
 fn controlled_request() -> ModelRequest {
     let mut request = base_request();
     request.tools = vec![ToolDefinition {

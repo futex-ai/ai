@@ -18,8 +18,8 @@ explicit auth and shared runtime wrappers from neighboring crates.
 `GoogleModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - Gemini request serialization
-- portable generation controls, function-calling configuration, per-call
-  timeouts, and blank-system omission
+- portable generation controls, including required-with-automatic-fallback
+  function calling, per-call timeouts, and blank-system omission
 - complete function schemas through `parametersJsonSchema`, kept separate
   from structured response schemas in `responseJsonSchema`
 - function call and function response content parts

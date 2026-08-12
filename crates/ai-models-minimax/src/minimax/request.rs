@@ -23,7 +23,7 @@ pub(super) fn build_request(
 ) -> ChatCompletionsRequest {
     let mut messages = Vec::new();
     let system_prompt = system_prompt(request);
-    if !system_prompt.is_empty() {
+    if !system_prompt.trim().is_empty() {
         messages.push(ChatCompletionsMessage {
             role: "system",
             content: Some(ChatCompletionsContent::Text(system_prompt)),
@@ -49,18 +49,21 @@ pub(super) fn build_request(
             },
         },
         tools: request.tools.iter().map(tool).collect(),
-        tool_choice: tool_choice(request),
+        tool_choice: tool_choice(model_id, request),
         temperature: request.controls.generation.temperature,
         top_p: request.controls.generation.top_p,
         max_completion_tokens: request.controls.generation.max_output_tokens,
     }
 }
 
-fn tool_choice(request: &ModelRequest) -> Option<&'static str> {
+fn tool_choice(model_id: &str, request: &ModelRequest) -> Option<&'static str> {
     match request.controls.generation.tool_choice.as_ref() {
         Some(ModelToolChoice::None) => Some("none"),
         Some(ModelToolChoice::Auto) => Some("auto"),
-        Some(ModelToolChoice::Required | ModelToolChoice::Function(_)) => None,
+        Some(ModelToolChoice::Required) => Some("required"),
+        Some(ModelToolChoice::RequiredOrAuto) if model_id == crate::MINIMAX_M3 => Some("required"),
+        Some(ModelToolChoice::RequiredOrAuto) => Some("auto"),
+        Some(ModelToolChoice::Function(_)) => None,
         None if !request.tools.is_empty() => Some("auto"),
         None => None,
     }

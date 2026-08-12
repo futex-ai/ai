@@ -5,7 +5,7 @@ use std::sync::Arc;
 use ai_interface::{
     ConversationMessage, ConversationRole, FinishReason, Logger, LoggerMock,
     MiniMaxReasoningDetail, Model, ModelCallLogEntry, ModelCallLogResult, ModelError, ModelMock,
-    ModelRequest, ModelResponse, ModelUsage, ProviderConversationItem, ToolCall,
+    ModelRequest, ModelResponse, ModelToolChoice, ModelUsage, ProviderConversationItem, ToolCall,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
@@ -99,6 +99,10 @@ async fn minimax_reasoning_is_redacted_from_failed_request_logs() {
         LoggerMock::log_model_call.next_call(matching!(_)).answers(
             &|_, entry: &ModelCallLogEntry| {
                 assert_request_is_redacted(&entry.request);
+                assert_eq!(
+                    entry.request.controls.generation.tool_choice,
+                    Some(ModelToolChoice::RequiredOrAuto)
+                );
                 assert!(matches!(entry.result, ModelCallLogResult::Error { .. }));
                 Ok(())
             },
@@ -111,7 +115,15 @@ async fn minimax_reasoning_is_redacted_from_failed_request_logs() {
         provider_context,
     )]);
 
-    let mut turn = runtime.resume(Some(1));
+    let mut turn = runtime
+        .resume(Some(1))
+        .with_controls(ai_interface::ModelCallControls {
+            generation: ai_interface::ModelGenerationControls {
+                tool_choice: Some(ModelToolChoice::RequiredOrAuto),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
     let error = turn.step().await.expect_err("model failure should surface");
 
     assert!(matches!(error, crate::Error::Model(_)));

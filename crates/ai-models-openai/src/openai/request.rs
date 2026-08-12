@@ -21,7 +21,7 @@ pub(super) fn build_request(
     let tools = request.tools.iter().map(tool).collect::<Vec<_>>();
     ResponsesRequest {
         model: model_id.to_owned(),
-        instructions: (!request.system_prompt.is_empty()).then(|| request.system_prompt.clone()),
+        instructions: request.nonblank_system_prompt().map(str::to_owned),
         input: input_items(&request.messages),
         store: false,
         include: include_items(thinking_level),
@@ -43,7 +43,9 @@ fn tool_choice(request: &ModelRequest, has_tools: bool) -> Option<ResponsesToolC
     match request.controls.generation.tool_choice.as_ref() {
         Some(ModelToolChoice::None) => Some(ResponsesToolChoice::Mode("none".to_owned())),
         Some(ModelToolChoice::Auto) => Some(ResponsesToolChoice::Mode("auto".to_owned())),
-        Some(ModelToolChoice::Required) => Some(ResponsesToolChoice::Mode("required".to_owned())),
+        Some(ModelToolChoice::Required | ModelToolChoice::RequiredOrAuto) => {
+            Some(ResponsesToolChoice::Mode("required".to_owned()))
+        }
         Some(ModelToolChoice::Function(name)) => {
             Some(ResponsesToolChoice::Function(ResponsesNamedToolChoice {
                 kind: "function".to_owned(),

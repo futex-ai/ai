@@ -21,7 +21,7 @@ async fn active_turn_forwards_controls_to_every_model_step() {
             top_p: Some(0.8),
             max_output_tokens: Some(321),
             stop_sequences: vec!["done".to_owned()],
-            tool_choice: Some(ModelToolChoice::Auto),
+            tool_choice: Some(ModelToolChoice::RequiredOrAuto),
         },
         execution: ModelExecutionControls {
             total_timeout: Some(std::time::Duration::from_secs(90)),

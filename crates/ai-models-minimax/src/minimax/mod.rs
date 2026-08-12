@@ -94,8 +94,10 @@ impl Model for MiniMaxModel {
         }
         if matches!(
             request.controls.generation.tool_choice,
-            Some(ModelToolChoice::Required | ModelToolChoice::Function(_))
-        ) {
+            Some(ModelToolChoice::Function(_))
+        ) || request.controls.generation.tool_choice == Some(ModelToolChoice::Required)
+            && self.provider_model_id != crate::MINIMAX_M3
+        {
             return Err(ModelError::unsupported_control(
                 PROVIDER,
                 &self.provider_model_id,

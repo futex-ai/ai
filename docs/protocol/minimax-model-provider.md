@@ -73,8 +73,8 @@ Every request must:
 
 1. Send the selected provider model id.
 2. Set `reasoning_split: true`.
-3. Add a nonempty normalized system prompt as the first `system` message and
-   omit an empty system prompt.
+3. Add a nonblank normalized system prompt as the first `system` message and
+   omit empty or whitespace-only system prompts.
 4. Append retained conversation messages in order.
 5. Send function tools using their name, description, and JSON Schema
    parameters.
@@ -102,11 +102,21 @@ MiniMax does not support legacy `function_call`; the adapter sends and accepts
 modern `tools` and `tool_calls` only.
 
 Portable temperature and top-p map to their native fields, and an output limit
-maps to `max_completion_tokens`. MiniMax supports portable `none` and `auto`
-tool choice at this boundary. Required or named-function choices and nonempty
-stop sequences return typed `UnsupportedControl` before transport. A total
+maps to `max_completion_tokens`. All catalog models support portable `none`
+and `auto`. MiniMax-M3 additionally maps strict `Required` and
+`RequiredOrAuto` to `tool_choice: "required"`. Other catalog models retain
+strict rejection for `Required`, while `RequiredOrAuto` preserves tools and
+maps to `auto`. Named-function choices and nonempty stop sequences return typed
+`UnsupportedControl` before transport. A total
 timeout reaches the HTTP request, `PreferDeferred` falls back to synchronous,
 and `RequireDeferred` is unsupported.
+
+MiniMax's public reference currently enumerates only `none` and `auto`. Firna
+reported a successful live MiniMax-M3 request with a real tool and
+`tool_choice: "required"`; this adapter deliberately retains that verified
+provider behavior instead of rejecting it from documentation absence alone.
+The credentialed repository suite repeats the forced-tool request and asserts
+the returned `live_probe` call whenever `LIVE_MODEL_API_KEY` is available.
 
 ## Thinking And Replay
 
@@ -244,6 +254,7 @@ Coverage includes:
 - multiple tool calls, malformed arguments, and terminal-call suppression
 - every normalized finish reason and empty-choice behavior
 - structured-output prompting, success, and validation failures
+- strict and fallback tool-choice behavior, including MiniMax-M3 required
 - cached/reasoning usage normalization and missing usage
 - HTTP and `base_resp` error classification
 - credential-free provider construction in `cargo xtask smoke-test`
@@ -252,7 +263,11 @@ The ignored workspace integration test `xtask/tests/live_models.rs` separately
 calls every MiniMax catalog entry through the production adapter when an
 explicit `LIVE_MODEL_API_KEY` is supplied. GitHub Actions runs that billable
 suite for eligible pull requests and from the scheduled/manual `Live model
-APIs` workflow.
+APIs` workflow. Before the catalog probe, it verifies MiniMax-M3 with a real
+tool and strict required selection. The implementation environment for this
+change had no MiniMax credential, so that billable assertion could not be
+re-run locally; deterministic wire coverage and the credentialed workflow
+remain mandatory.
 
 The full workspace must pass formatting, Clippy, tests, the Rust file-length
 lint, smoke tests, and `cargo xtask check`.

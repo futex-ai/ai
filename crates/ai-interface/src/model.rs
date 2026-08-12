@@ -38,6 +38,13 @@ pub struct ModelRequest {
     pub controls: ModelCallControls,
 }
 
+impl ModelRequest {
+    /// Returns the authored system prompt when it contains non-whitespace content.
+    pub fn nonblank_system_prompt(&self) -> Option<&str> {
+        (!self.system_prompt.trim().is_empty()).then_some(self.system_prompt.as_str())
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 /// Normalized reason a provider stopped generating a model response.
 pub enum FinishReason {

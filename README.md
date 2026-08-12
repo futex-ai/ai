@@ -9,7 +9,8 @@ in-memory tool-calling runtime behavior.
 - Shared `ai-interface` contracts for conversations, model calls, audio
   transcription, one-image generation and editing, tool calls, routing,
   logging, usage metering, and bounded model-visible tool output envelopes
-- Typed provider-neutral generation controls, per-call deadlines, and
+- Typed provider-neutral generation controls, including explicit
+  required-with-automatic-fallback tool selection, per-call deadlines, and
   completion preferences, with every provider adapter owning its native wire
   mapping and XAI owning deferred submission and polling
 - Provider adapters for Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,

@@ -15,7 +15,8 @@
 
 - Anthropic messages request serialization
 - portable sampling outside thinking mode, bounded output limits, stop
-  sequences, tool choice, per-call timeouts, and blank-system omission
+  sequences, strict and required-with-automatic-fallback tool choice, per-call
+  timeouts, and blank-system omission
 - Anthropic tool-use and tool-result content blocks
 - Anthropic `stop_reason` normalization into `ai_interface::FinishReason`
 - terminal Anthropic stop reasons suppress parsed tool calls unless the

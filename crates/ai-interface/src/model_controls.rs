@@ -30,6 +30,8 @@ pub enum ModelToolChoice {
     Auto,
     /// Require the model to call one or more available tools.
     Required,
+    /// Require tool use when supported, otherwise permit automatic selection.
+    RequiredOrAuto,
     /// Require one named function.
     Function(String),
 }

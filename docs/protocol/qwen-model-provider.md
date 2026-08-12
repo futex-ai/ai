@@ -86,14 +86,16 @@ normalized thinking levels other than `High` and `Disabled`.
 
 Every request sends the selected provider model id, retained conversation
 messages in order, `stream: false`, and the selected thinking controls. A
-nonempty normalized system prompt is a leading `system` message; an empty
-system prompt is omitted.
+nonblank normalized system prompt is a leading `system` message; empty and
+whitespace-only system prompts are omitted.
 
 Portable output limits map to `max_completion_tokens` and ordered stops map to
 `stop`. Temperature and top-p map only with thinking disabled; thinking mode
-keeps native sampling defaults. Non-thinking mode supports `none`, `auto`, and
-named-function choice but not portable `required`. Thinking mode supports
-`none` and `auto`; forced choices return typed `UnsupportedControl`. A total
+keeps native sampling defaults. Non-thinking mode supports all strict choices.
+Thinking mode supports `none` and `auto`; strict `required` and named-function
+choices return typed `UnsupportedControl`. `RequiredOrAuto` maps to forced
+`required` when thinking is disabled and to `auto` with tools retained when
+thinking is enabled. A total
 timeout reaches the HTTP request, `PreferDeferred` falls back to synchronous,
 and `RequireDeferred` is unsupported.
 
@@ -143,8 +145,9 @@ state participates in deterministic tool-call scope hashing.
 ## Tool Calling
 
 Non-empty shared tools become Qwen `function` tools with name, description,
-and JSON Schema parameters. The request sends `tool_choice: "auto"` and
-`parallel_tool_calls: true`; empty tool lists omit both fields.
+and JSON Schema parameters. Default tool selection sends `tool_choice: "auto"`
+and `parallel_tool_calls: true`; empty tool lists omit both fields. A thinking
+`RequiredOrAuto` request retains the same tools and explicit automatic choice.
 
 Calls are dispatchable only for a `tool_calls` finish. Each call must include
 an id, function name, and arguments that parse as JSON. Provider order, ids,

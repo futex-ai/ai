@@ -23,6 +23,13 @@ outside the chat model catalog are not part of this connectivity suite.
 Deterministic transport tests in the provider crates remain responsible for
 detailed wire behavior.
 
+MiniMax is the one additional tool-choice compatibility probe: before its
+catalog connectivity loop, the suite calls `MiniMax-M3` with a real function
+definition and strict `ModelToolChoice::Required`, then requires a matching
+tool call in the provider response. This preserves the live-verified required
+mapping even though the public MiniMax parameter reference lists only `auto`
+and `none`.
+
 ## Execution
 
 `xtask/tests/live_models.rs` owns the ignored integration tests. Every provider
@@ -44,6 +51,9 @@ test:
    runner.
 6. Continues after a model failure and reports all failures for that provider
    together.
+
+The MiniMax provider test first runs its strict required-tool probe. A failure
+there aborts that provider job before the ordinary catalog loop.
 
 Provider-specific matching is restricted to the test composition registry that
 loads catalogs, authentication, and concrete adapters. Once construction is

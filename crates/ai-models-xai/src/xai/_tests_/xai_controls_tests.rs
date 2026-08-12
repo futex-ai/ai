@@ -42,6 +42,47 @@ async fn maps_generation_controls_timeout_and_blank_system_to_final_request() {
     assert!(body.get("deferred").is_none());
 }
 
+#[tokio::test]
+async fn required_or_auto_uses_forced_required_semantics() {
+    let (http_client, requests) = recording_client();
+    let model = XaiModel::new(http_client, "grok-4", "key");
+    let mut request = controlled_request();
+    request.controls.generation.tool_choice = Some(ModelToolChoice::RequiredOrAuto);
+
+    model
+        .complete(&request)
+        .await
+        .expect("required fallback should use provider enforcement");
+
+    let requests = requests.lock().expect("request lock should be available");
+    assert_eq!(
+        requests[0].body.as_ref().expect("request body")["tool_choice"],
+        "required"
+    );
+}
+
+#[tokio::test]
+async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
+    for (system_prompt, expected) in [("", None), ("   ", None), ("normal", Some("normal"))] {
+        let (http_client, requests) = recording_client();
+        let model = XaiModel::new(http_client, "grok-4", "key");
+        let mut request = controlled_request();
+        request.system_prompt = system_prompt.to_owned();
+
+        model
+            .complete(&request)
+            .await
+            .expect("response should parse");
+
+        let requests = requests.lock().expect("request lock should be available");
+        let messages = &requests[0].body.as_ref().expect("request body")["messages"];
+        match expected {
+            Some(expected) => assert_eq!(messages[0]["content"], expected),
+            None => assert_eq!(messages[0]["role"], "user"),
+        }
+    }
+}
+
 fn controlled_request() -> ModelRequest {
     ModelRequest {
         system_prompt: String::new(),

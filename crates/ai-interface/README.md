@@ -43,7 +43,8 @@ implementation.
 - Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
 - Defines defaulted `ModelCallControls` for portable sampling, output limits,
-  ordered stops, tool choice, total call timeout, and provider-neutral
+  ordered stops, strict or explicit required-with-automatic-fallback tool
+  choice, total call timeout, and provider-neutral
   synchronous/prefer-deferred/require-deferred lifecycle intent. Explicit
   intent that cannot be honored returns a typed `UnsupportedControl` error.
 - Defines the one-image `ImageGenerator` boundary, normalized aspect/quality

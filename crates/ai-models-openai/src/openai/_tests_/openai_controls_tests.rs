@@ -63,6 +63,47 @@ async fn reasoning_models_keep_sampling_provider_fixed() {
 }
 
 #[tokio::test]
+async fn required_or_auto_uses_forced_required_semantics() {
+    let (http_client, requests) = recording_client();
+    let model = OpenAiModel::new(http_client, "gpt-5.5-mini", "key");
+    let mut request = base_request();
+    request.controls.generation.tool_choice = Some(ModelToolChoice::RequiredOrAuto);
+
+    model
+        .complete(&request)
+        .await
+        .expect("required fallback should use provider enforcement");
+
+    let requests = requests.lock().expect("request lock should be available");
+    assert_eq!(
+        requests[0].body.as_ref().expect("request body")["tool_choice"],
+        "required"
+    );
+}
+
+#[tokio::test]
+async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
+    for (system_prompt, expected) in [("", None), ("   ", None), ("normal", Some("normal"))] {
+        let (http_client, requests) = recording_client();
+        let model = OpenAiModel::new(http_client, "gpt-5.5-mini", "key");
+        let mut request = base_request();
+        request.system_prompt = system_prompt.to_owned();
+
+        model
+            .complete(&request)
+            .await
+            .expect("response should parse");
+
+        let requests = requests.lock().expect("request lock should be available");
+        let body = requests[0].body.as_ref().expect("request body");
+        match expected {
+            Some(expected) => assert_eq!(body["instructions"], expected),
+            None => assert!(body.get("instructions").is_none()),
+        }
+    }
+}
+
+#[tokio::test]
 async fn rejects_stops_and_required_deferred_mode_before_transport() {
     let model = OpenAiModel::new(no_call_client(), "gpt-5.5-mini", "key");
     let mut stop_request = base_request();

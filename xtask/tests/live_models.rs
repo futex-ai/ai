@@ -4,6 +4,8 @@
 mod provider_tests;
 #[path = "live_models/runner_tests.rs"]
 mod runner_tests;
+#[path = "live_models/tool_choice_tests.rs"]
+mod tool_choice_tests;
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -150,6 +152,7 @@ async fn kimi_catalog() {
 #[tokio::test]
 #[ignore = "requires a live MiniMax API credential"]
 async fn minimax_catalog() {
+    tool_choice_tests::run_minimax_m3_required_tool_call().await;
     run_catalog(LiveProvider::MiniMax).await;
 }
 

@@ -126,7 +126,7 @@ pub(super) fn build_request(
 
 fn system_prompt(request: &ModelRequest) -> Option<String> {
     let Some(response_schema) = request.response_schema.as_ref() else {
-        return (!request.system_prompt.is_empty()).then(|| request.system_prompt.clone());
+        return request.nonblank_system_prompt().map(str::to_owned);
     };
     Some(format!(
         "{}\n\nWhen you are ready to provide the final answer, return raw JSON only with no markdown fences or extra prose. The JSON must match schema `{}` exactly.\nSchema: {}",
@@ -144,10 +144,12 @@ fn tool_choice(choice: Option<&ModelToolChoice>) -> Option<AnthropicToolChoice> 
             kind: "auto".to_owned(),
             name: None,
         }),
-        Some(ModelToolChoice::Required) => Some(AnthropicToolChoice {
-            kind: "any".to_owned(),
-            name: None,
-        }),
+        Some(ModelToolChoice::Required | ModelToolChoice::RequiredOrAuto) => {
+            Some(AnthropicToolChoice {
+                kind: "any".to_owned(),
+                name: None,
+            })
+        }
         Some(ModelToolChoice::Function(name)) => Some(AnthropicToolChoice {
             kind: "tool".to_owned(),
             name: Some(name.clone()),
