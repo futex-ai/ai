@@ -56,13 +56,17 @@ fn interim_thought_images_are_skipped() {
 
 #[test]
 fn missing_image_and_missing_usage_are_typed() {
-    assert!(matches!(
-        parse_response(
-            "gemini-3.1-flash-image",
-            json!({"candidates": [{"finishReason": "STOP", "content": {"parts": []}}]})
-        ),
-        Err(ImageGenerationError::NoImage { .. })
-    ));
+    for body in [
+        json!({"candidates": [{"finishReason": "STOP", "content": {"parts": []}}]}),
+        json!({"candidates": [{"content": {"parts": [{
+            "inlineData": {"mimeType": "image/png", "data": ""}
+        }]}}]}),
+    ] {
+        assert!(matches!(
+            parse_response("gemini-3.1-flash-image", body),
+            Err(ImageGenerationError::NoImage { .. })
+        ));
+    }
 }
 
 #[test]
@@ -74,7 +78,7 @@ fn malformed_base64_is_an_internal_error() {
                 "inlineData": {"mimeType": "image/png", "data": "not base64"}
             }]}}]})
         ),
-        Err(ImageGenerationError::Internal { .. })
+        Err(ImageGenerationError::Internal(_))
     ));
 }
 

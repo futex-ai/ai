@@ -1,6 +1,7 @@
 //! Image generation boundary tests.
 
 use serde_json::json;
+use thiserror::Error;
 
 use crate::{
     GeneratedImage, ImageGenerationAspect, ImageGenerationError, ImageGenerationInputImage,
@@ -129,3 +130,28 @@ fn error_helpers_preserve_typed_context_and_display_contract() {
         ImageGenerationError::Provider { .. }
     ));
 }
+
+#[test]
+fn internal_error_preserves_contract_and_caller_locations() {
+    let expected_line = line!() + 1;
+    let error = ImageGenerationError::internal(TestSourceError);
+    assert_eq!(
+        error.to_string(),
+        "[ai_interface/image_generator] internal error"
+    );
+    let ImageGenerationError::Internal(internal) = error else {
+        panic!("expected internal error");
+    };
+
+    assert_eq!(
+        internal.defined_at().module_path(),
+        "ai_interface::image_generator"
+    );
+    assert_eq!(internal.caller_at().file(), file!());
+    assert_eq!(internal.caller_at().line(), expected_line);
+    assert_eq!(internal.source_ref().to_string(), "test source");
+}
+
+#[derive(Debug, Error)]
+#[error("test source")]
+struct TestSourceError;

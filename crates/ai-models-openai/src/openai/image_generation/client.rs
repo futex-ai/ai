@@ -1,17 +1,17 @@
 //! OpenAI image generation transport client.
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
-    ImageGenerationError, ImageGenerationRequest, ImageGenerationResponse, ImageGenerationResult,
-    ImageGenerator,
+    ImageGenerationRequest, ImageGenerationResponse, ImageGenerationResult, ImageGenerator,
 };
 use async_trait::async_trait;
-use reqwest::{Client, Response, multipart};
-use serde_json::Value;
+use json_http::{
+    DynJsonHttpAuth, DynJsonHttpClient, JsonHttpMultipartField, JsonHttpResponse, StaticHeaderAuth,
+};
 
 use super::{
-    error::{classify_status, request_error},
+    error::{classify_request_error, classify_status},
     request::{
         OpenAiEditRequest, OpenAiGenerationRequest, OpenAiImageApiRequest, build_request,
         media_type_extension,
@@ -26,21 +26,38 @@ const DEFAULT_IMAGE_TIMEOUT: Duration = Duration::from_secs(120);
 /// OpenAI-backed `ai_interface::ImageGenerator` implementation.
 #[derive(Clone)]
 pub struct OpenAiImageGenerator {
-    client: Client,
+    http_client: DynJsonHttpClient,
     model_id: String,
-    api_key: String,
+    auth: DynJsonHttpAuth,
     pub(super) generation_endpoint: String,
     pub(super) edit_endpoint: String,
     pub(super) timeout: Duration,
 }
 
 impl OpenAiImageGenerator {
-    /// Builds an OpenAI image generator from a model id and explicit API key.
-    pub fn new(model_id: impl Into<String>, api_key: impl Into<String>) -> Self {
+    /// Builds an OpenAI image generator from an injected client, model id, and API key.
+    pub fn new(
+        http_client: DynJsonHttpClient,
+        model_id: impl Into<String>,
+        api_key: impl Into<String>,
+    ) -> Self {
+        Self::with_auth(
+            http_client,
+            model_id,
+            Arc::new(StaticHeaderAuth::bearer_token(api_key)),
+        )
+    }
+
+    /// Builds an OpenAI image generator from an injected client and auth hook.
+    pub fn with_auth(
+        http_client: DynJsonHttpClient,
+        model_id: impl Into<String>,
+        auth: DynJsonHttpAuth,
+    ) -> Self {
         Self {
-            client: Client::new(),
+            http_client,
             model_id: model_id.into(),
-            api_key: api_key.into(),
+            auth,
             generation_endpoint: OPENAI_IMAGE_GENERATIONS_URL.to_owned(),
             edit_endpoint: OPENAI_IMAGE_EDITS_URL.to_owned(),
             timeout: DEFAULT_IMAGE_TIMEOUT,
@@ -67,70 +84,53 @@ impl OpenAiImageGenerator {
     async fn send_generation(
         &self,
         body: OpenAiGenerationRequest,
-    ) -> ImageGenerationResult<Response> {
-        match self
-            .client
+    ) -> ImageGenerationResult<JsonHttpResponse<serde_json::Value>> {
+        let request = match self
+            .http_client
             .post(&self.generation_endpoint)
-            .bearer_auth(&self.api_key)
-            .json(&body)
+            .auth(self.auth.clone())
             .timeout(self.timeout)
-            .send()
-            .await
+            .json(body)
         {
+            Ok(request) => request,
+            Err(source) => return Err(classify_request_error(source, &self.model_id)),
+        };
+        match request.send_value().await {
             Ok(response) => Ok(response),
-            Err(source) => Err(request_error(&self.model_id, source.to_string())),
+            Err(source) => Err(classify_request_error(source, &self.model_id)),
         }
     }
 
-    async fn send_edit(&self, body: OpenAiEditRequest) -> ImageGenerationResult<Response> {
-        let mut form = multipart::Form::new()
-            .text("model", body.model)
-            .text("prompt", body.prompt)
-            .text("size", body.size)
-            .text("quality", body.quality)
-            .text("n", "1");
-        for (index, image) in body.images.into_iter().enumerate() {
-            let file_name = format!("image-{index}.{}", media_type_extension(&image.mime_type));
-            let part = match multipart::Part::bytes(image.data)
-                .file_name(file_name)
-                .mime_str(&image.mime_type)
-            {
-                Ok(part) => part,
-                Err(source) => return Err(ImageGenerationError::internal(source)),
-            };
-            form = form.part("image[]", part);
-        }
-        match self
-            .client
-            .post(&self.edit_endpoint)
-            .bearer_auth(&self.api_key)
-            .multipart(form)
-            .timeout(self.timeout)
-            .send()
-            .await
-        {
-            Ok(response) => Ok(response),
-            Err(source) => Err(request_error(&self.model_id, source.to_string())),
-        }
-    }
-
-    async fn parse_http_response(
+    async fn send_edit(
         &self,
-        response: Response,
-    ) -> ImageGenerationResult<ImageGenerationResponse> {
-        let status = response.status();
-        let body = match response.text().await {
-            Ok(body) => body,
-            Err(source) => return Err(request_error(&self.model_id, source.to_string())),
-        };
-        if status.is_client_error() || status.is_server_error() {
-            return Err(classify_status(status, &self.model_id, &body));
+        body: OpenAiEditRequest,
+    ) -> ImageGenerationResult<JsonHttpResponse<serde_json::Value>> {
+        match self
+            .http_client
+            .post(&self.edit_endpoint)
+            .auth(self.auth.clone())
+            .timeout(self.timeout)
+            .multipart(edit_fields(body))
+            .send_value()
+            .await
+        {
+            Ok(response) => Ok(response),
+            Err(source) => Err(classify_request_error(source, &self.model_id)),
         }
-        let body = match serde_json::from_str::<Value>(&body) {
-            Ok(body) => body,
-            Err(source) => return Err(ImageGenerationError::internal(source)),
-        };
-        parse_response(&self.model_id, body)
+    }
+
+    fn parse_http_response(
+        &self,
+        response: JsonHttpResponse<serde_json::Value>,
+    ) -> ImageGenerationResult<ImageGenerationResponse> {
+        if response.status >= 400 {
+            return Err(classify_status(
+                response.status,
+                &self.model_id,
+                &response.body,
+            ));
+        }
+        parse_response(&self.model_id, response.body)
     }
 }
 
@@ -144,6 +144,27 @@ impl ImageGenerator for OpenAiImageGenerator {
             OpenAiImageApiRequest::Generation(body) => self.send_generation(body).await?,
             OpenAiImageApiRequest::Edit(body) => self.send_edit(body).await?,
         };
-        self.parse_http_response(response).await
+        self.parse_http_response(response)
     }
+}
+
+fn edit_fields(body: OpenAiEditRequest) -> Vec<JsonHttpMultipartField> {
+    let mut fields = vec![
+        text_field("model", body.model),
+        text_field("prompt", body.prompt),
+        text_field("size", body.size),
+        text_field("quality", body.quality),
+        text_field("n", "1"),
+    ];
+    fields.extend(body.images.into_iter().enumerate().map(|(index, image)| {
+        let file_name = format!("image-{index}.{}", media_type_extension(&image.mime_type));
+        JsonHttpMultipartField::bytes("image[]", image.data)
+            .filename(file_name)
+            .content_type(image.mime_type)
+    }));
+    fields
+}
+
+fn text_field(name: &str, value: impl Into<String>) -> JsonHttpMultipartField {
+    JsonHttpMultipartField::bytes(name, value.into().into_bytes())
 }

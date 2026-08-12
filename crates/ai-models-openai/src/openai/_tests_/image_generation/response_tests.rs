@@ -57,7 +57,12 @@ fn missing_usage_defaults_to_zero() {
 
 #[test]
 fn absent_image_is_a_typed_no_image_error() {
-    for body in [json!({}), json!({"data": []}), json!({"data": [{}]})] {
+    for body in [
+        json!({}),
+        json!({"data": []}),
+        json!({"data": [{}]}),
+        json!({"data": [{"b64_json": ""}], "output_format": "png"}),
+    ] {
         assert!(matches!(
             parse_response("gpt-image-2", body),
             Err(ImageGenerationError::NoImage { .. })
@@ -69,6 +74,6 @@ fn absent_image_is_a_typed_no_image_error() {
 fn malformed_base64_is_an_internal_error() {
     assert!(matches!(
         parse_response("gpt-image-2", json!({"data": [{"b64_json": "not base64"}]})),
-        Err(ImageGenerationError::Internal { .. })
+        Err(ImageGenerationError::Internal(_))
     ));
 }

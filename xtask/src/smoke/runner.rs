@@ -38,7 +38,7 @@ pub(crate) fn run() -> Result<()> {
     let _kimi = KimiModel::new(client.clone(), "kimi-key");
     let _minimax = MiniMaxModel::new(client.clone(), MINIMAX_M3, "minimax-key");
     let _openai = OpenAiModel::new(client.clone(), GPT_5_6_SOL, "openai-key");
-    let _openai_image = OpenAiImageGenerator::new(GPT_IMAGE_2, "openai-key");
+    let _openai_image = OpenAiImageGenerator::new(client.clone(), GPT_IMAGE_2, "openai-key");
     let _qwen = QwenModel::new(client.clone(), "qwen-key");
     let _xai = XaiModel::new(client, GROK_4_5, "xai-key");
     let _transcriber = OpenAiAudioTranscriber::new("gpt-4o-mini-transcribe", "openai-key");

@@ -3,7 +3,7 @@
 ## Purpose And Status
 
 This protocol defines a provider-agnostic, one-image generation and editing
-boundary for agent runtimes. It is implemented by the completed
+boundary for agent runtimes. It is implemented under the
 [image generation implementation plan](../../plans/add-image-generation-support.md).
 
 `ai-interface` owns the stable DTO, error, and trait contract.
@@ -82,9 +82,11 @@ tokens nor cost. Missing usage becomes `ModelUsage::default()`.
 | `Internal` | local serialization, decoding, or invariant failure | internal failure |
 
 All provider variants retain provider, configured model id, and the available
-provider message. Error display strings use the
-`[ai_interface/image_generator]` prefix. Invalid provider base64 is `Internal`;
-a valid response without a final image is `NoImage`.
+provider message. `Internal` uses the shared tracked `InternalError` carrier so
+the boundary preserves its definition and failure call sites. Error display
+strings use the `[ai_interface/image_generator]` prefix. Invalid provider
+base64 is `Internal`; a valid response without non-empty final image bytes is
+`NoImage`.
 
 ## OpenAI Mapping
 
@@ -92,8 +94,8 @@ The current catalog model is `gpt-image-2` (`GPT_IMAGE_2`). It advertises
 `ImageGeneration` and `Vision`; the model catalog has no provider-advertised
 context window for this specialized endpoint, so its context value is zero.
 
-`OpenAiImageGenerator` uses explicit API-key construction, a two-minute default
-timeout, and overridable endpoints for tests:
+`OpenAiImageGenerator` uses an injected `DynJsonHttpClient`, explicit API key or
+auth hook, a two-minute default timeout, and overridable endpoints for tests:
 
 - No input images: JSON `POST https://api.openai.com/v1/images/generations`.
 - Input images present: multipart `POST https://api.openai.com/v1/images/edits`
@@ -104,7 +106,7 @@ does not request output format, compression, transparency, masks, moderation
 level, streaming, or partial images. GPT Image returns base64 in
 `data[0].b64_json`; `output_format` maps `png`, `jpeg`, or `webp` to a MIME type,
 with byte-signature inference when absent. An optional item `revised_prompt` is
-preserved when supplied.
+preserved when supplied. Decoded zero-byte payloads are `NoImage`.
 
 HTTP error bodies are decoded enough to inspect `error.code` and `error.type`.
 The normalized codes `content_policy_violation`, `moderation_blocked`,
@@ -128,7 +130,8 @@ is sent as `generationConfig.responseFormat.image.aspectRatio`.
 The adapter scans candidates and parts in provider order, skips parts with
 `thought: true`, and returns the first final `inlineData` image. Interim thought
 images must never become the user-visible result. Quality is intentionally
-omitted. An absent final image is `NoImage` unless a policy block is present.
+omitted. An absent or zero-byte final image is `NoImage` unless a policy block
+is present.
 
 Prompt `blockReason` values `SAFETY`, `BLOCKLIST`, `PROHIBITED_CONTENT`, and
 `IMAGE_SAFETY` are `ContentPolicy`. Candidate finish reasons `SAFETY`,
@@ -141,9 +144,11 @@ are `Provider`. `finishMessage` is retained when available.
 
 Unit tests are credential-free and cover DTO serde/defaults, the deterministic
 mock, routing feature, request mapping, response/usage parsing, thought-image
-filtering, every error class, and catalog metadata. Provider live smoke tests
-are ignored by default, read their API key only in test code, generate one
-low-cost image, and assert non-empty bytes plus an `image/*` MIME type.
+filtering, non-empty image enforcement, tracked internal-error metadata, every
+error class, OpenAI transport/auth behavior, and catalog metadata. Provider
+live smoke tests are ignored by default, read their API key only in test code,
+generate one low-cost image, and assert non-empty bytes plus an `image/*` MIME
+type.
 
 The full workspace must pass formatting, Clippy, tests, file-length lint,
 credential-free smoke tests, and `cargo xtask check` before commit and push.

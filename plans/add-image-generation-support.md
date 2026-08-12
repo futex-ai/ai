@@ -159,3 +159,31 @@ The pushed implementation revision at review time was
 `f1b972fa2cbd27f677d4649bd31d1d3cbbc3667c`. This is not the eventual merged
 revision. The PR description must record that merged revision after landing so
 juno can update its `futex-ai/ai` git pins.
+
+## Milestone 6: AI Review Follow-Up
+
+Address the three findings approved after the first mandatory AI review. At the
+end of this milestone, successful responses always contain image bytes, shared
+internal failures retain caller metadata, and OpenAI image HTTP behavior is
+fully testable without provider credentials.
+
+- [x] Add failing regression tests for empty decoded image payloads from both
+      providers, then return the typed `NoImage` error for those responses.
+- [x] Add a failing shared-error regression test, adopt the canonical
+      `InternalError` and `ErrorContract` shape, and verify caller metadata.
+- [x] Add failing credential-free OpenAI client tests for authentication, JSON
+      generation requests, multipart edits, timeouts, status handling, and
+      transport failures.
+- [x] Replace the concrete OpenAI image client with injected `json-http` client
+      and auth trait objects, updating construction roots and public docs.
+- [x] Update the protocol and crate READMEs with the strengthened guarantees.
+- [x] Run targeted tests, formatting, strict Clippy, file-length lint, smoke
+      tests, and `cargo xtask check` until every check passes.
+- [x] Review `git diff origin/main...` for scope, docs, public API, tests, and
+      untracked files.
+- [ ] Move this plan back to Completed after every follow-up task passes.
+- [ ] Run `git add -A`, commit with a Conventional Commit message, and push the
+      current branch without renaming it.
+- [ ] Run `cargo xtask review` after the push against `origin/main`.
+- [ ] Do not auto-fix new review findings; report each with a number, severity,
+      context, impact, lettered options, and a recommended option.

@@ -59,6 +59,9 @@ pub(super) fn parse_response(
         Ok(data) => data,
         Err(source) => return Err(ImageGenerationError::internal(source)),
     };
+    if data.is_empty() {
+        return Err(ImageGenerationError::no_image(PROVIDER, model_id));
+    }
     let mime_type = match image_mime_type(response.output_format.as_deref(), &data) {
         Ok(mime_type) => mime_type,
         Err(source) => return Err(ImageGenerationError::internal(source)),

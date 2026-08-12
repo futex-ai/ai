@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use internal_error::InternalError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -88,7 +89,7 @@ pub struct ImageGenerationResponse {
 }
 
 /// Errors returned by the image generation boundary.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, internal_error::ErrorContract)]
 pub enum ImageGenerationError {
     /// The client submitted a blank prompt.
     #[error("[ai_interface/image_generator] prompt must not be empty")]
@@ -156,11 +157,8 @@ pub enum ImageGenerationError {
         message: String,
     },
     /// Unhandled image-generation-boundary failure.
-    #[error("[ai_interface/image_generator] internal error: {source}")]
-    Internal {
-        /// Underlying local failure.
-        source: Box<dyn std::error::Error + Send + Sync>,
-    },
+    #[error("[ai_interface/image_generator] internal error")]
+    Internal(#[from] InternalError),
 }
 
 impl ImageGenerationError {
@@ -228,13 +226,6 @@ impl ImageGenerationError {
             provider: provider.into(),
             model_id: model_id.into(),
             message: message.into(),
-        }
-    }
-
-    /// Wraps an internal image-generation-boundary error.
-    pub fn internal(source: impl std::error::Error + Send + Sync + 'static) -> Self {
-        Self::Internal {
-            source: Box::new(source),
         }
     }
 }

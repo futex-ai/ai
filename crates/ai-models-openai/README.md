@@ -73,11 +73,14 @@ transcription model. It expects the caller to provide the API key and the
 uploaded audio media type. It applies a 60-second request timeout and surfaces
 retryable OpenAI transcription statuses as transient errors.
 
-`OpenAiImageGenerator` accepts an explicit model id; `GPT_IMAGE_2` identifies
-the current image catalog entry. Requests without source images use the JSON generation endpoint;
-requests with source images use multipart edit requests. The adapter decodes
-the single returned image, preserves any revised prompt, normalizes usage, and
-keeps content-policy refusals distinct from retryable provider failures.
+`OpenAiImageGenerator` accepts an injected `json-http` client and explicit
+model id; `GPT_IMAGE_2` identifies the current image catalog entry. Requests
+without source images use the JSON generation endpoint; requests with source
+images use multipart edit requests. The injected client makes auth,
+serialization, timeout, transport, and status behavior credential-free to
+test. The adapter rejects empty decoded payloads, preserves any revised prompt,
+normalizes usage, and keeps content-policy refusals distinct from retryable
+provider failures.
 
 ## Quick Start
 
@@ -108,7 +111,11 @@ fn build_transcriber() -> OpenAiAudioTranscriber {
 }
 
 fn build_image_generator() -> OpenAiImageGenerator {
-    OpenAiImageGenerator::new(GPT_IMAGE_2, "sk-demo")
+    OpenAiImageGenerator::new(
+        Arc::new(ReqwestJsonHttpClient::new()),
+        GPT_IMAGE_2,
+        "sk-demo",
+    )
 }
 ```
 

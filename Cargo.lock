@@ -30,6 +30,7 @@ name = "ai-interface"
 version = "0.3.0"
 dependencies = [
  "async-trait",
+ "internal-error",
  "serde",
  "serde_json",
  "thiserror",
@@ -1058,6 +1059,26 @@ checksum = "cb68373c0d6620ef8105e855e7745e18b0d00d3bdb07fb532e434244cdb9a714"
 dependencies = [
  "icu_normalizer",
  "icu_properties",
+]
+
+[[package]]
+name = "internal-error"
+version = "0.1.0"
+source = "git+https://github.com/futex-ai/internal-error.git?rev=6477922a1c4db8c3e35189af69f0147464004b99#6477922a1c4db8c3e35189af69f0147464004b99"
+dependencies = [
+ "internal-error-derive",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "internal-error-derive"
+version = "0.1.0"
+source = "git+https://github.com/futex-ai/internal-error.git?rev=6477922a1c4db8c3e35189af69f0147464004b99#6477922a1c4db8c3e35189af69f0147464004b99"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
 ]
 
 [[package]]

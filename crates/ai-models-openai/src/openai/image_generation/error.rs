@@ -1,8 +1,8 @@
 //! OpenAI image generation error classification.
 
 use ai_interface::ImageGenerationError;
-use reqwest::StatusCode;
 use serde::Deserialize;
+use serde_json::Value;
 
 const PROVIDER: &str = "openai";
 
@@ -19,18 +19,17 @@ struct ErrorBody {
     message: Option<String>,
 }
 
-pub(super) fn classify_status(
-    status: StatusCode,
-    model_id: &str,
-    body: &str,
-) -> ImageGenerationError {
-    let parsed = serde_json::from_str::<ErrorEnvelope>(body).ok();
+pub(super) fn classify_status(status: u16, model_id: &str, body: &Value) -> ImageGenerationError {
+    let parsed = serde_json::from_value::<ErrorEnvelope>(body.clone()).ok();
     let details = parsed.as_ref().and_then(|envelope| envelope.error.as_ref());
     let message = details
         .and_then(|error| error.message.as_deref())
-        .unwrap_or(body)
-        .to_owned();
-    if status == StatusCode::TOO_MANY_REQUESTS {
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| {
+            body.as_str()
+                .map_or_else(|| body.to_string(), ToOwned::to_owned)
+        });
+    if status == 429 {
         return ImageGenerationError::rate_limited(PROVIDER, model_id, message);
     }
     if is_transient_status(status) {
@@ -42,8 +41,17 @@ pub(super) fn classify_status(
     ImageGenerationError::provider(PROVIDER, model_id, message)
 }
 
-pub(super) fn request_error(model_id: &str, message: impl Into<String>) -> ImageGenerationError {
-    ImageGenerationError::transient_provider(PROVIDER, model_id, message)
+pub(super) fn classify_request_error(
+    source: json_http::Error,
+    model_id: &str,
+) -> ImageGenerationError {
+    match source {
+        json_http::Error::Transport { .. } | json_http::Error::Auth { .. } => {
+            ImageGenerationError::transient_provider(PROVIDER, model_id, source.to_string())
+        }
+        json_http::Error::SerializeRequest { .. }
+        | json_http::Error::DeserializeResponse { .. } => ImageGenerationError::internal(source),
+    }
 }
 
 fn is_content_policy(error: &ErrorBody) -> bool {
@@ -61,8 +69,6 @@ fn is_content_policy(error: &ErrorBody) -> bool {
         })
 }
 
-fn is_transient_status(status: StatusCode) -> bool {
-    matches!(status, StatusCode::REQUEST_TIMEOUT | StatusCode::CONFLICT)
-        || status.as_u16() == 425
-        || status.is_server_error()
+fn is_transient_status(status: u16) -> bool {
+    matches!(status, 408 | 409 | 425) || (500..=599).contains(&status)
 }

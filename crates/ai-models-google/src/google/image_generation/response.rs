@@ -125,6 +125,9 @@ pub(super) fn parse_response(
                 Ok(data) => data,
                 Err(source) => return Err(ImageGenerationError::internal(source)),
             };
+            if data.is_empty() {
+                return Err(ImageGenerationError::no_image(PROVIDER, model_id));
+            }
             return Ok(ImageGenerationResponse {
                 provider: PROVIDER.to_owned(),
                 model_id: model_id.to_owned(),

@@ -44,7 +44,8 @@ implementation.
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
 - Defines the one-image `ImageGenerator` boundary, normalized aspect/quality
   controls, edit input images, decoded output bytes, and typed policy/retry
-  errors. `ModelFeature::ImageGeneration` is the stable routing capability.
+  errors. Internal failures use the shared tracked `InternalError` contract.
+  `ModelFeature::ImageGeneration` is the stable routing capability.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
   tool idempotency key alongside the model-visible tool name and JSON input.
 - Defines `ToolOutputEnvelope` as the model-visible success payload for tools.
@@ -182,6 +183,7 @@ tool dispatch live in `ai-tool-calling`.
 
 ### Related Docs
 
+- [`futex-ai/internal-error`](https://github.com/futex-ai/internal-error)
 - [`../ai-tool-calling/README.md`](../ai-tool-calling/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../../docs/protocol/minimax-model-provider.md`](../../docs/protocol/minimax-model-provider.md)
