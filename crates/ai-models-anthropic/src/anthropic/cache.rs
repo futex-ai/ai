@@ -64,13 +64,15 @@ pub(super) fn apply_prompt_cache(
 }
 
 fn mark_prefix(request: &mut AnthropicRequest, cache_control: AnthropicCacheControl) {
-    if let Some(system) = request.system.last_mut() {
-        let AnthropicSystemBlock::Text {
-            cache_control: marker,
-            ..
-        } = system;
-        *marker = Some(cache_control);
-    } else if let Some(tool) = request.tools.last_mut() {
+    if request
+        .system
+        .iter_mut()
+        .rev()
+        .any(|block| mark_system_block(block, cache_control))
+    {
+        return;
+    }
+    if let Some(tool) = request.tools.last_mut() {
         tool.cache_control = Some(cache_control);
     }
 }
@@ -82,27 +84,50 @@ fn mark_message_tail(request: &mut AnthropicRequest, cache_control: AnthropicCac
 
     for message in request.messages.iter_mut().rev() {
         for block in message.content.iter_mut().rev() {
-            if tail_offset == next_marker_offset {
-                mark_block(block, cache_control);
+            if tail_offset >= next_marker_offset && mark_block(block, cache_control) {
                 marker_count += 1;
                 if marker_count == MAX_MESSAGE_MARKERS {
                     return;
                 }
-                next_marker_offset = next_marker_offset.saturating_add(MESSAGE_MARKER_STRIDE);
+                next_marker_offset = tail_offset.saturating_add(MESSAGE_MARKER_STRIDE);
             }
             tail_offset = tail_offset.saturating_add(1);
         }
     }
 }
 
-fn mark_block(block: &mut AnthropicBlock, cache_control: AnthropicCacheControl) {
+fn mark_system_block(
+    block: &mut AnthropicSystemBlock,
+    cache_control: AnthropicCacheControl,
+) -> bool {
+    let AnthropicSystemBlock::Text {
+        text,
+        cache_control: marker,
+    } = block;
+    if text.trim().is_empty() {
+        return false;
+    }
+    *marker = Some(cache_control);
+    true
+}
+
+fn mark_block(block: &mut AnthropicBlock, cache_control: AnthropicCacheControl) -> bool {
     let marker = match block {
-        AnthropicBlock::Text { cache_control, .. }
-        | AnthropicBlock::Image { cache_control, .. }
+        AnthropicBlock::Text {
+            text,
+            cache_control,
+        } => {
+            if text.trim().is_empty() {
+                return false;
+            }
+            cache_control
+        }
+        AnthropicBlock::Image { cache_control, .. }
         | AnthropicBlock::ToolUse { cache_control, .. }
         | AnthropicBlock::ToolResult { cache_control, .. } => cache_control,
     };
     *marker = Some(cache_control);
+    true
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]

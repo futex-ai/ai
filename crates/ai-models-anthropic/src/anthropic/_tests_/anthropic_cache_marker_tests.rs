@@ -59,6 +59,69 @@ fn multi_turn_tool_loop_marks_the_final_block() {
 }
 
 #[test]
+fn blank_final_text_uses_the_nearest_earlier_eligible_block() {
+    let body = serialized_request(&ModelRequest {
+        system_prompt: String::new(),
+        messages: vec![
+            ConversationMessage::user("cacheable"),
+            ConversationMessage::user(" \n\t "),
+        ],
+        tools: Vec::new(),
+        response_schema: None,
+    });
+    let blocks = message_blocks(&body);
+
+    assert_eq!(blocks.len(), 2);
+    assert_eq!(blocks[0]["cache_control"], json!({"type": "ephemeral"}));
+    assert!(blocks[1].get("cache_control").is_none());
+    assert_eq!(blocks[1]["text"], " \n\t ");
+}
+
+#[test]
+fn blank_stride_target_uses_the_nearest_earlier_eligible_block() {
+    let messages = (0..23)
+        .map(|index| {
+            let text = if index == 2 {
+                " \n\t ".to_owned()
+            } else {
+                format!("block {index}")
+            };
+            ConversationMessage::user(text)
+        })
+        .collect();
+    let body = serialized_request(&ModelRequest {
+        system_prompt: String::new(),
+        messages,
+        tools: Vec::new(),
+        response_schema: None,
+    });
+    let blocks = message_blocks(&body);
+    let marked_indices = blocks
+        .iter()
+        .enumerate()
+        .filter_map(|(index, block)| block.get("cache_control").map(|_| index))
+        .collect::<Vec<_>>();
+
+    assert_eq!(marked_indices, vec![1, 22]);
+    assert!(blocks[2].get("cache_control").is_none());
+}
+
+#[test]
+fn all_blank_text_blocks_emit_no_message_marker() {
+    let body = serialized_request(&ModelRequest {
+        system_prompt: String::new(),
+        messages: vec![
+            ConversationMessage::user(""),
+            ConversationMessage::user(" \n\t "),
+        ],
+        tools: Vec::new(),
+        response_schema: None,
+    });
+
+    assert_eq!(cache_control_count(&body), 0);
+}
+
+#[test]
 fn long_history_uses_tail_stride_and_four_marker_budget() {
     let body = serialized_request(&ModelRequest {
         system_prompt: "system".to_owned(),

@@ -144,6 +144,42 @@ fn non_empty_system_places_prefix_marker_on_system() {
 }
 
 #[test]
+fn blank_system_places_prefix_marker_on_last_tool() {
+    let body = serialized_request(
+        five_minute_cache(),
+        &ModelRequest {
+            system_prompt: " \n\t ".to_owned(),
+            messages: Vec::new(),
+            tools: vec![tool("first"), tool("last")],
+            response_schema: None,
+        },
+    );
+
+    assert!(body["system"][0].get("cache_control").is_none());
+    assert_eq!(body["system"][0]["text"], " \n\t ");
+    assert_eq!(
+        body["tools"][1]["cache_control"],
+        json!({"type": "ephemeral"})
+    );
+}
+
+#[test]
+fn blank_system_without_tools_emits_no_prefix_marker() {
+    let body = serialized_request(
+        five_minute_cache(),
+        &ModelRequest {
+            system_prompt: " \n\t ".to_owned(),
+            messages: Vec::new(),
+            tools: Vec::new(),
+            response_schema: None,
+        },
+    );
+
+    assert_eq!(body["system"][0]["text"], " \n\t ");
+    assert_eq!(cache_control_count(&body), 0);
+}
+
+#[test]
 fn empty_system_places_prefix_marker_on_last_tool() {
     let body = serialized_request(
         five_minute_cache(),

@@ -116,22 +116,30 @@ plus identical configuration produces identical marker positions.
   `[{"type": "text", "text": <system prompt>}]`. When the effective system
   prompt (including the appended structured-output schema instruction) is
   empty, the `system` field is omitted entirely.
-- When caching is enabled and the system prompt is non-empty, the last system
-  block carries `cache_control`. This caches tools plus system as a shared
-  prefix across conversations that reuse the same agent configuration.
-- When the system prompt is empty and `tools` is non-empty, the last tool
-  definition carries `cache_control` instead.
-- When both are empty, no prefix marker is emitted.
+- When caching is enabled, the last system block whose text contains at least
+  one non-whitespace character carries `cache_control`. This caches tools plus
+  system as a shared prefix across conversations that reuse the same agent
+  configuration.
+- When no system block is eligible and `tools` is non-empty, the last tool
+  definition carries `cache_control` instead. The builder preserves an
+  ineligible system block unchanged; eligibility affects only marker placement.
+- When neither an eligible system block nor a tool exists, no prefix marker is
+  emitted.
 
 ### Message markers (at most 3)
 
 Flatten the content blocks of the built Anthropic messages, in order, and
-traverse from the final block toward the first:
+traverse from the final block toward the first. Image, `tool_use`, and
+`tool_result` blocks are eligible for markers. Text blocks are eligible only
+when their text contains at least one non-whitespace character:
 
-1. Place a marker on the final content block.
-2. After placing a marker, traverse 20 further blocks and place the next
-   marker on the block reached.
-3. Stop after 3 message markers or when the list is exhausted.
+1. Starting at the final content block, place a marker on the first eligible
+   block encountered.
+2. After placing a marker, traverse 20 further blocks. If the block reached is
+   ineligible, continue toward the first block and place the marker on the
+   nearest eligible block. Blank text blocks still count toward the stride.
+3. Measure the next 20-block stride from the marker actually placed.
+4. Stop after 3 message markers or when the list is exhausted.
 
 Rationale: consecutive requests in an agent loop share all previous blocks.
 The previous request's final marker sits `A` blocks behind the new final
@@ -148,6 +156,9 @@ degrade to a cache write without a read, never to an error.
 - Marker serialization: `"cache_control": {"type": "ephemeral"}` for the
   five-minute TTL and `"cache_control": {"type": "ephemeral", "ttl": "1h"}`
   for the one-hour TTL. The field is omitted from unmarked blocks.
+- Empty and whitespace-only text blocks never carry `cache_control`, because
+  Anthropic rejects cache markers on those blocks. If no eligible block exists
+  for a marker search, that marker is omitted.
 - Markers never change block ordering, block content, or any other request
   field, and are never attached to block types Anthropic rejects.
 
@@ -231,7 +242,8 @@ degrade to uncached behavior, never to failures.
 - Request-builder unit tests assert exact marker positions and TTL
   serialization for: defaults, disabled caching, one-hour TTL, empty system
   with and without tools, single-turn requests, multi-turn tool loops, a
-  history long enough to require stride markers, and the 4-marker budget.
+  history long enough to require stride markers, blank text at prefix, tail,
+  and stride targets, and the 4-marker budget.
 - Response tests assert the three-way usage split and totals.
 - Pricing tests assert the cache-write line, including unpriced and free
   states.

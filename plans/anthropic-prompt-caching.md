@@ -259,3 +259,44 @@ pushed and review findings are ready for the user to assess.
 - [x] Do not auto-fix review findings. Report each item with a number,
       severity, codebase/feature context, impact of doing nothing, lettered
       solution options, and the recommended option.
+
+## Milestone 4: Blank-Text Marker Eligibility
+
+Keep cache markers off empty and whitespace-only text blocks, which Anthropic
+rejects when they carry `cache_control`. At the end of this milestone, caching
+preserves caller content while placing each marker on the nearest earlier
+eligible block when its nominal target is blank.
+
+**Files:**
+
+- Modify `crates/ai-models-anthropic/src/anthropic/cache.rs`.
+- Modify tests under
+  `crates/ai-models-anthropic/src/anthropic/_tests_/`.
+- Modify `crates/ai-models-anthropic/README.md`.
+- Modify `docs/protocol/anthropic-prompt-caching.md`.
+- Modify `plans/README.md` after verification.
+
+- [x] Add failing regression tests for blank system and message text at prefix,
+      tail, and stride marker targets.
+- [x] Make prefix placement skip blank system text and fall back to the final
+      tool definition without changing any block content or ordering.
+- [x] Make message placement skip blank text and use the nearest earlier
+      eligible block, with each later stride measured from the marker actually
+      placed.
+- [x] Document marker eligibility and blank-text behavior in the protocol and
+      Anthropic crate README.
+- [x] Run `cargo fmt --all -- --check`; if it fails, run `cargo fmt --all` and
+      re-run the check.
+- [x] Run `cargo xtask rust-file-length-lint --all`.
+- [x] Run `cargo clippy --workspace --all-targets --all-features`.
+- [x] Run `cargo test --workspace --all-features` with a 100% pass rate.
+- [x] Run `cargo xtask smoke-test` and `cargo xtask check`; fix failures and
+      repeat until both pass.
+- [x] Audit `git diff origin/main...` for unrelated changes, documentation
+      alignment, and lockfile drift.
+- [ ] Run `git add -A`, commit the completed work with a Conventional Commit
+      title and body, and push the current branch.
+- [ ] Run `cargo xtask review` after the push and report every finding without
+      automatically fixing it.
+- [ ] Mark this milestone complete, move the plan back to Completed, and commit
+      and push the documentation-only status update.

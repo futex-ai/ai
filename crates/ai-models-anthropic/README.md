@@ -21,8 +21,11 @@ from neighboring crates.
 - Anthropic messages request serialization
 - prompt caching enabled by default with a five-minute lifetime; callers can
   disable caching or select the one-hour lifetime with `with_prompt_cache`
-- a shared-prefix breakpoint on the system prompt, or on the final tool when
-  no system prompt exists, plus up to three message breakpoints from the tail
+- a shared-prefix breakpoint on an eligible system prompt, or on the final
+  tool when no system text is eligible, plus up to three message breakpoints
+  from the tail
+- marker eligibility that preserves blank text while keeping `cache_control`
+  off text blocks Anthropic rejects as cache breakpoints
 - Anthropic tool-use and tool-result content blocks
 - Anthropic `stop_reason` normalization into `ai_interface::FinishReason`
 - terminal Anthropic stop reasons suppress parsed tool calls unless the
