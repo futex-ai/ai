@@ -161,8 +161,10 @@ cargo xtask review
 ## CI
 
 GitHub Actions runs the same Rust verification expected locally on pull requests
-and branch pushes: formatting, Clippy, tests, Rust file-length lint,
-credential-free smoke tests, and `cargo xtask check`. A separate scheduled and
+and pushes to `main`: formatting, Clippy, tests, Rust file-length lint,
+credential-free smoke tests, and `cargo xtask check`. Limiting push-triggered CI
+to `main` prevents an open pull request from running the same commit once for
+the branch push and again for the pull-request event. A separate scheduled and
 manual workflow makes billable calls through the production adapters for every
 catalog entry; it is intentionally excluded from pull requests so untrusted
 code cannot access provider credentials and upstream incidents do not block
