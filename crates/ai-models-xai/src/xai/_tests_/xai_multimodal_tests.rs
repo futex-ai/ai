@@ -55,6 +55,7 @@ async fn serializes_image_context_message() {
             ],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("xAI response should parse");

@@ -18,6 +18,10 @@ explicit auth and shared runtime wrappers from neighboring crates.
 `GoogleModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - Gemini request serialization
+- portable generation controls, function-calling configuration, per-call
+  timeouts, and blank-system omission
+- complete function schemas through `parametersJsonSchema`, kept separate
+  from structured response schemas in `responseJsonSchema`
 - function call and function response content parts
 - Gemini `finishReason` normalization into `ai_interface::FinishReason`,
   including deriving normal tool-call completion from parsed `functionCall`
@@ -111,6 +115,7 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [Latest Gemini models](https://ai.google.dev/gemini-api/docs/latest-model)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)

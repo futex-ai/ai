@@ -29,12 +29,15 @@ network requests or require real credentials.
 
 `tests/live_models.rs` is a separate, ignored integration suite. Each provider
 test reads one explicit `LIVE_MODEL_API_KEY`, constructs every chat-capable
-entry returned by that provider's `known_models()`, sends a minimal real
-completion, and validates normalized provider, catalog, model, thinking,
-finish, text, tool, and usage fields. Image-generation entries are excluded
-because they use the separate `ImageGenerator` interface. The suite never runs
-as part of `check` or `smoke-test`. The dedicated GitHub Actions workflow
-invokes it for eligible pull requests, daily verification, and manual dispatch.
+entry returned by that provider's `known_models()`, erases it behind `DynModel`,
+and sends a real one-step turn through `ToolCallingRuntime`. Every provider gets
+the same portable no-tools, ten-minute, `PreferDeferred` controls; the adapter
+owns the native lifecycle. The suite validates normalized provider, catalog,
+model, thinking, finish, text, tool, and usage fields. Image-generation entries
+are excluded because they use the separate `ImageGenerator` interface. The
+suite never runs as part of `check` or `smoke-test`. The dedicated GitHub Actions
+workflow invokes it for eligible pull requests, daily verification, and manual
+dispatch.
 
 ## Quick Start
 

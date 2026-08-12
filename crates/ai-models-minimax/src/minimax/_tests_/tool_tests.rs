@@ -47,6 +47,7 @@ async fn serializes_modern_tool_definitions_and_continuation_messages() {
                 activity_verb: Some("Remembering".to_owned()),
             }],
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("MiniMax tool response should parse");
@@ -141,6 +142,7 @@ async fn omits_unavailable_assistant_content() {
             )],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("MiniMax response should parse");
@@ -166,6 +168,7 @@ async fn preserves_empty_tool_result_content() {
             messages: vec![ConversationMessage::tool("", "memory_read", "call_empty")],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("MiniMax response should parse");
@@ -236,6 +239,7 @@ fn simple_request() -> ModelRequest {
         }],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }
 

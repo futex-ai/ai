@@ -83,6 +83,7 @@ async fn preserves_and_replays_complete_reasoning_context_without_disclosure() {
             ],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("continuation response should parse");
@@ -129,6 +130,7 @@ fn simple_request() -> ModelRequest {
         messages: vec![ConversationMessage::user("Check memory")],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }
 

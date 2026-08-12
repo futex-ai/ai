@@ -25,8 +25,10 @@ or auth hook. It sends non-streaming requests to
 model ids, and supports high, max, and disabled thinking configurations for
 `deepseek-v4-pro` and `deepseek-v4-flash`. Standard and parallel custom
 function calls retain provider ids, order, raw JSON arguments, assistant
-content, and reasoning across tool continuations. `tool_choice` and sampling
-parameters are omitted.
+content, and reasoning across tool continuations. Portable output limits and
+stops map in all modes. Sampling and forced tool choice map only when thinking
+is disabled; thinking keeps native sampling and automatic tool semantics.
+Blank system prompts are omitted and per-call timeouts reach the transport.
 
 Structured requests use provider JSON-object mode plus a schema-specific
 system instruction, then validate naturally stopped output against the caller's
@@ -93,6 +95,7 @@ credential or network access is required.
 
 ### Related Docs
 
+- [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

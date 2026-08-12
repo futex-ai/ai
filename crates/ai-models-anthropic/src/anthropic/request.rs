@@ -1,7 +1,8 @@
 //! Anthropic messages request mapping.
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, ModelRequest, ToolDefinition,
+    ConversationContentPart, ConversationMessage, ConversationRole, ModelRequest, ModelToolChoice,
+    ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 use serde::Serialize;
@@ -13,7 +14,8 @@ const ANTHROPIC_MAX_TOKENS: u32 = 4096;
 pub(super) struct AnthropicRequest {
     model: String,
     max_tokens: u32,
-    system: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system: Option<String>,
     messages: Vec<AnthropicMessage>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     tools: Vec<AnthropicTool>,
@@ -21,6 +23,14 @@ pub(super) struct AnthropicRequest {
     thinking: Option<AnthropicThinking>,
     #[serde(skip_serializing_if = "Option::is_none")]
     output_config: Option<AnthropicOutputConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    top_p: Option<f64>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    stop_sequences: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_choice: Option<AnthropicToolChoice>,
 }
 
 #[derive(Debug, Serialize)]
@@ -77,6 +87,14 @@ struct AnthropicOutputConfig {
     effort: String,
 }
 
+#[derive(Debug, Serialize)]
+struct AnthropicToolChoice {
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+}
+
 pub(super) fn build_request(
     model_id: &str,
     thinking_level: ThinkingLevel,
@@ -84,23 +102,58 @@ pub(super) fn build_request(
 ) -> AnthropicRequest {
     AnthropicRequest {
         model: model_id.to_owned(),
-        max_tokens: ANTHROPIC_MAX_TOKENS,
+        max_tokens: request
+            .controls
+            .generation
+            .max_output_tokens
+            .unwrap_or(ANTHROPIC_MAX_TOKENS)
+            .min(ANTHROPIC_MAX_TOKENS),
         system: system_prompt(request),
         messages: anthropic_messages(&request.messages),
         tools: request.tools.iter().map(tool).collect(),
         thinking: thinking(thinking_level),
         output_config: output_config(thinking_level),
+        temperature: (!thinking_level.is_enabled())
+            .then_some(request.controls.generation.temperature)
+            .flatten(),
+        top_p: (!thinking_level.is_enabled())
+            .then_some(request.controls.generation.top_p)
+            .flatten(),
+        stop_sequences: request.controls.generation.stop_sequences.clone(),
+        tool_choice: tool_choice(request.controls.generation.tool_choice.as_ref()),
     }
 }
 
-fn system_prompt(request: &ModelRequest) -> String {
+fn system_prompt(request: &ModelRequest) -> Option<String> {
     let Some(response_schema) = request.response_schema.as_ref() else {
-        return request.system_prompt.clone();
+        return (!request.system_prompt.is_empty()).then(|| request.system_prompt.clone());
     };
-    format!(
+    Some(format!(
         "{}\n\nWhen you are ready to provide the final answer, return raw JSON only with no markdown fences or extra prose. The JSON must match schema `{}` exactly.\nSchema: {}",
         request.system_prompt, response_schema.name, response_schema.schema
-    )
+    ))
+}
+
+fn tool_choice(choice: Option<&ModelToolChoice>) -> Option<AnthropicToolChoice> {
+    match choice {
+        Some(ModelToolChoice::None) => Some(AnthropicToolChoice {
+            kind: "none".to_owned(),
+            name: None,
+        }),
+        Some(ModelToolChoice::Auto) => Some(AnthropicToolChoice {
+            kind: "auto".to_owned(),
+            name: None,
+        }),
+        Some(ModelToolChoice::Required) => Some(AnthropicToolChoice {
+            kind: "any".to_owned(),
+            name: None,
+        }),
+        Some(ModelToolChoice::Function(name)) => Some(AnthropicToolChoice {
+            kind: "tool".to_owned(),
+            name: Some(name.clone()),
+        }),
+        None => None,
+    }
 }
 
 fn anthropic_messages(messages: &[ConversationMessage]) -> Vec<AnthropicMessage> {

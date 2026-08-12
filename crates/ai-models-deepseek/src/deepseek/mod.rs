@@ -62,3 +62,7 @@ mod response_shape_tests;
 #[cfg(test)]
 #[path = "_tests_/error_tests.rs"]
 mod error_tests;
+
+#[cfg(test)]
+#[path = "_tests_/controls_tests.rs"]
+mod controls_tests;

@@ -21,6 +21,11 @@ auth hook. It sends requests to the international MiniMax endpoint, sets
 `reasoning_split`, applies the selected thinking mode, and records both the
 catalog id and upstream model id in normalized responses.
 
+Portable sampling and output limits map to the current OpenAI-compatible
+fields. MiniMax accepts `none` and `auto` tool choice; forced named/required
+choices and stop sequences return typed unsupported-control errors. Blank
+system prompts are omitted and per-call timeouts reach the transport.
+
 Modern `tools` and `tool_calls` retain MiniMax provider call ids across
 assistant and tool-result messages. MiniMax `reasoning_content` and ordered
 `reasoning_details` are stored as provider-owned replay context for subsequent
@@ -85,6 +90,7 @@ cargo clippy -p ai-models-minimax --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

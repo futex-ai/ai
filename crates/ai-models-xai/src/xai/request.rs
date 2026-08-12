@@ -1,15 +1,17 @@
 //! xAI chat-completions request mapping.
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, ModelRequest,
-    ProviderConversationItem, StructuredOutputSchema, ToolCall, ToolDefinition,
+    ConversationContentPart, ConversationMessage, ConversationRole, ModelCompletionMode,
+    ModelRequest, ModelToolChoice, ProviderConversationItem, StructuredOutputSchema, ToolCall,
+    ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 
 use super::request_types::{
     ChatCompletionsContent, ChatCompletionsContentPart, ChatCompletionsImageUrl,
-    ChatCompletionsJsonSchema, ChatCompletionsMessage, ChatCompletionsRequest,
-    ChatCompletionsResponseFormat, ChatCompletionsTool, ChatCompletionsToolCall,
+    ChatCompletionsJsonSchema, ChatCompletionsMessage, ChatCompletionsNamedFunction,
+    ChatCompletionsNamedToolChoice, ChatCompletionsRequest, ChatCompletionsResponseFormat,
+    ChatCompletionsTool, ChatCompletionsToolCall, ChatCompletionsToolChoice,
     ChatCompletionsToolDefinition, ChatCompletionsToolFunction,
 };
 
@@ -18,23 +20,49 @@ pub(super) fn build_request(
     thinking_level: ThinkingLevel,
     request: &ModelRequest,
 ) -> ChatCompletionsRequest {
-    let mut messages = vec![ChatCompletionsMessage {
-        role: "system".to_owned(),
-        content: Some(ChatCompletionsContent::Text(request.system_prompt.clone())),
-        name: None,
-        tool_call_id: None,
-        tool_calls: Vec::new(),
-        function_call: None,
-    }];
+    let mut messages = Vec::new();
+    if !request.system_prompt.is_empty() {
+        messages.push(ChatCompletionsMessage {
+            role: "system".to_owned(),
+            content: Some(ChatCompletionsContent::Text(request.system_prompt.clone())),
+            name: None,
+            tool_call_id: None,
+            tool_calls: Vec::new(),
+            function_call: None,
+        });
+    }
     messages.extend(conversation_messages(&request.messages));
 
     ChatCompletionsRequest {
         model: model_id.to_owned(),
         messages,
         tools: request.tools.iter().map(tool).collect(),
-        tool_choice: (!request.tools.is_empty()).then(|| "auto".to_owned()),
+        tool_choice: tool_choice(request, !request.tools.is_empty()),
         response_format: request.response_schema.as_ref().map(response_format),
         reasoning_effort: reasoning_effort(model_id, thinking_level).map(str::to_owned),
+        temperature: request.controls.generation.temperature,
+        top_p: request.controls.generation.top_p,
+        max_tokens: request.controls.generation.max_output_tokens,
+        stop: request.controls.generation.stop_sequences.clone(),
+        deferred: request.controls.execution.completion_mode != ModelCompletionMode::Synchronous,
+    }
+}
+
+fn tool_choice(request: &ModelRequest, has_tools: bool) -> Option<ChatCompletionsToolChoice> {
+    match request.controls.generation.tool_choice.as_ref() {
+        Some(ModelToolChoice::None) => Some(ChatCompletionsToolChoice::Mode("none".to_owned())),
+        Some(ModelToolChoice::Auto) => Some(ChatCompletionsToolChoice::Mode("auto".to_owned())),
+        Some(ModelToolChoice::Required) => {
+            Some(ChatCompletionsToolChoice::Mode("required".to_owned()))
+        }
+        Some(ModelToolChoice::Function(name)) => Some(ChatCompletionsToolChoice::Function(
+            ChatCompletionsNamedToolChoice {
+                kind: "function".to_owned(),
+                function: ChatCompletionsNamedFunction { name: name.clone() },
+            },
+        )),
+        None if has_tools => Some(ChatCompletionsToolChoice::Mode("auto".to_owned())),
+        None => None,
     }
 }
 

@@ -49,6 +49,7 @@ async fn complete_no_id_tool_call(content: &str) -> ai_interface::ModelResponse 
             messages: vec![ConversationMessage::user(content)],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("Google no-id function call should parse")

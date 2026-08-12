@@ -40,6 +40,7 @@ async fn omits_name_from_tool_role_continuation_messages() {
             ],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("xAI response should parse");
@@ -118,6 +119,7 @@ async fn serializes_legacy_function_call_continuation_messages() {
             ],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("xAI response should parse");

@@ -9,6 +9,9 @@ in-memory tool-calling runtime behavior.
 - Shared `ai-interface` contracts for conversations, model calls, audio
   transcription, one-image generation and editing, tool calls, routing,
   logging, usage metering, and bounded model-visible tool output envelopes
+- Typed provider-neutral generation controls, per-call deadlines, and
+  completion preferences, with every provider adapter owning its native wire
+  mapping and XAI owning deferred submission and polling
 - Provider adapters for Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, OpenAI and Gemini image generation,
@@ -26,6 +29,9 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [Provider call controls](docs/protocol/provider-call-controls.md) defines
+  portable generation and execution intent, provider compatibility, blank
+  system handling, full Google schemas, and XAI deferred completion.
 - [Image generation](docs/protocol/image-generation.md) defines the shared
   one-image generation/editing boundary and the OpenAI and Google mappings.
 - [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) defines
@@ -101,10 +107,12 @@ The smoke test constructs every provider adapter with placeholder credentials
 and exercises the in-memory tool runtime. It performs no provider requests and
 does not require credentials or network access.
 
-Credentialed model checks live in `xtask/tests/live_models.rs`. To test one
-provider and every chat-capable model variant in its catalog against the real
-API, set `LIVE_MODEL_API_KEY` and run the corresponding ignored test, for
-example:
+Credentialed model checks live in `xtask/tests/live_models.rs`. They construct
+provider adapters only at the composition boundary, then call every
+chat-capable catalog variant through the same `DynModel` and
+`ToolCallingRuntime` path with portable controls. To test one provider against
+the real API, set `LIVE_MODEL_API_KEY` and run the corresponding ignored test,
+for example:
 
 ```sh
 LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_models \
@@ -129,7 +137,7 @@ cargo xtask review
 
 - `Cargo.toml`: workspace membership and shared internal crate dependencies
 - `crates/ai-interface`: shared AI contracts, including
-  `src/output/` envelope DTOs
+  call controls and `src/output/` envelope DTOs
 - `crates/ai-models-core`: provider-agnostic model wrappers and helpers
 - `crates/ai-models-deepseek`: DeepSeek V4 catalog, typed client, thinking,
   request/replay, structured-output, response, usage, and error mapping
@@ -153,6 +161,8 @@ cargo xtask review
   management contract
 - `docs/protocol/image-generation.md`: normative shared image generation and
   provider mapping contract
+- `docs/protocol/provider-call-controls.md`: normative model-call control and
+  provider wire-compatibility contract
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
   contract
 - `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract
@@ -169,11 +179,11 @@ credential-free smoke tests, and `cargo xtask check`. Limiting push-triggered CI
 to `main` prevents an open pull request from running the same commit once for
 the branch push and again for the pull-request event. The separate `Live model
 APIs` workflow makes billable calls through the production adapters for every
-chat-capable catalog entry on eligible pull requests as well as its daily
-schedule and manual dispatch. Image-generation entries use a separate typed
-interface and are not sent through chat adapters. Forked and Dependabot pull
-requests skip credentialed jobs because GitHub does not provide them repository
-Actions secrets.
+chat-capable catalog entry through the generic tool-calling runtime on eligible
+pull requests as well as its daily schedule and manual dispatch.
+Image-generation entries use a separate typed interface and are not sent
+through chat adapters. Forked and Dependabot pull requests skip credentialed
+jobs because GitHub does not provide them repository Actions secrets.
 
 ## Plans
 

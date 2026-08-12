@@ -1,6 +1,35 @@
-use ai_interface::{ModelUsage, ModelUsageMeasurementState, ModelUsageUnitKind};
+use std::sync::Arc;
 
-use crate::{ModelPricing, price_usage};
+use ai_interface::{
+    FinishReason, Model, ModelGenerationControls, ModelMock, ModelRequest, ModelResponse,
+    ModelUsage, ModelUsageMeasurementState, ModelUsageUnitKind,
+};
+use unimock::{MockFn, Unimock, matching};
+
+use crate::{ModelPricing, UsagePricingModel, price_usage};
+
+#[tokio::test]
+async fn pricing_wrapper_forwards_call_controls_unchanged() {
+    let inner: Arc<dyn Model> = Arc::new(Unimock::new(
+        ModelMock::complete
+            .next_call(matching!(_))
+            .answers(&|_, request: &ModelRequest| {
+                assert_eq!(request.controls.generation.max_output_tokens, Some(4321));
+                Ok(success_response())
+            }),
+    ));
+    let model = UsagePricingModel::new(inner, ModelPricing::default());
+    let mut request = empty_request();
+    request.controls.generation = ModelGenerationControls {
+        max_output_tokens: Some(4321),
+        ..Default::default()
+    };
+
+    model
+        .complete(&request)
+        .await
+        .expect("pricing wrapper should succeed");
+}
 
 #[test]
 fn price_usage_calculates_measured_line_costs() {
@@ -85,4 +114,29 @@ fn price_usage_marks_unpriced_usage_unknown() {
         priced.cost_lines[0].measurement_state,
         ModelUsageMeasurementState::Unknown
     );
+}
+
+fn empty_request() -> ModelRequest {
+    ModelRequest {
+        system_prompt: "system".to_owned(),
+        messages: Vec::new(),
+        tools: Vec::new(),
+        response_schema: None,
+        controls: Default::default(),
+    }
+}
+
+fn success_response() -> ModelResponse {
+    ModelResponse {
+        provider: "mock".to_owned(),
+        model_id: "mock".to_owned(),
+        catalog_model_id: None,
+        thinking_level: None,
+        assistant_message: "ok".to_owned(),
+        tool_calls: Vec::new(),
+        finish_reason: FinishReason::Stop,
+        structured_output: None,
+        provider_context: Vec::new(),
+        usage: ModelUsage::default(),
+    }
 }

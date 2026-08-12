@@ -14,6 +14,11 @@
 `XaiModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - xAI chat-completions request serialization
+- portable sampling, output limits, stops, tool choice, per-call deadlines,
+  and blank-system omission
+- provider-owned deferred submission and same-id polling that retries pending,
+  rate-limited, transient transport, and server states without resubmitting an
+  accepted completion
 - xAI modern `tool_calls` and legacy `function_call` parsing, including
   deterministic request-scoped local ids for legacy calls and legacy
   continuation replay without sending synthetic `tool_call_id` fields
@@ -73,7 +78,8 @@ cargo clippy -p ai-models-xai --all-targets --all-features -- -D warnings
 
 ### Key Code
 
-- `src/xai/mod.rs` - `Model` implementation and request dispatch
+- `src/xai/client.rs` - `Model` implementation and request dispatch
+- `src/xai/deferred.rs` - deferred submission, polling, and deadline handling
 - `src/catalog.rs` - known xAI model ids and routing metadata
 - `src/xai/request.rs` - xAI request DTO mapping
 - `src/xai/request_types.rs` - xAI request serialization DTOs
@@ -81,6 +87,8 @@ cargo clippy -p ai-models-xai --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [Grok 4.5 model details](https://docs.x.ai/developers/models/grok-4.5)
 - [xAI model catalog](https://docs.x.ai/developers/models)
 - [Grok 4.20 model details](https://docs.x.ai/developers/models/grok-4.20)
 - [`../ai-interface/README.md`](../ai-interface/README.md)

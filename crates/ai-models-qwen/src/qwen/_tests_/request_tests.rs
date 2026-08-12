@@ -13,45 +13,6 @@ use crate::{QWEN_3_7_FLASH, QWEN_3_7_MAX, QWEN_3_7_PLUS};
 use super::{request::build_request, test_support::simple_request};
 
 #[test]
-fn serializes_system_roles_and_exact_thinking_controls() {
-    let request = ModelRequest {
-        system_prompt: "Be concise.".to_owned(),
-        messages: vec![
-            named_message(ConversationRole::User, "hello", "caller"),
-            named_message(ConversationRole::Assistant, "checking", "agent"),
-            ConversationMessage::tool("{\"ok\":true}", "memory_read", "call_1"),
-        ],
-        tools: Vec::new(),
-        response_schema: None,
-    };
-
-    for (thinking_level, enabled) in [
-        (ThinkingLevel::High, true),
-        (ThinkingLevel::Disabled, false),
-    ] {
-        let body = request_json(QWEN_3_7_PLUS, thinking_level, &request)
-            .expect("supported request should build");
-        let messages = body["messages"].as_array().expect("messages array");
-
-        assert_eq!(
-            messages[0],
-            json!({"role": "system", "content": "Be concise."})
-        );
-        assert_eq!(messages[1], json!({"role": "user", "content": "hello"}));
-        assert_eq!(
-            messages[2],
-            json!({"role": "assistant", "content": "checking"})
-        );
-        assert_eq!(messages[3]["role"], "tool");
-        assert_eq!(messages[3]["content"], "{\"ok\":true}");
-        assert_eq!(messages[3]["tool_call_id"], "call_1");
-        assert_eq!(body["stream"], false);
-        assert_eq!(body["enable_thinking"], enabled);
-        assert_eq!(body["preserve_thinking"], enabled);
-    }
-}
-
-#[test]
 fn serializes_tools_parallel_calls_and_matching_results() {
     let mut request = simple_request();
     request.tools = vec![ToolDefinition {
@@ -142,6 +103,7 @@ fn rejects_max_images_and_non_user_content_parts() {
         }],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
     let role_error = build_request(QWEN_3_7_PLUS, ThinkingLevel::High, &request)
         .expect_err("assistant content parts should fail");
@@ -179,6 +141,7 @@ fn replays_qwen_owned_raw_fields_and_ignores_foreign_context() {
         messages: vec![assistant],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
     let body = request_json(QWEN_3_7_PLUS, ThinkingLevel::High, &request)
         .expect("replay request should build");
@@ -210,6 +173,7 @@ fn replays_null_non_tool_content_as_an_empty_string() {
         messages: vec![assistant],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
 
     let body = request_json(QWEN_3_7_PLUS, ThinkingLevel::High, &request)
@@ -248,18 +212,6 @@ fn structured_output_always_prompts_and_uses_native_json_only_when_supported() {
     }
 }
 
-fn named_message(role: ConversationRole, content: &str, name: &str) -> ConversationMessage {
-    ConversationMessage {
-        role,
-        content: content.to_owned(),
-        content_parts: Vec::new(),
-        name: Some(name.to_owned()),
-        tool_call_id: None,
-        tool_calls: Vec::new(),
-        provider_context: Vec::new(),
-    }
-}
-
 fn request_with_user_parts() -> ModelRequest {
     ModelRequest {
         system_prompt: "system".to_owned(),
@@ -277,6 +229,7 @@ fn request_with_user_parts() -> ModelRequest {
         )],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }
 

@@ -51,6 +51,7 @@ fn response_context_survives_serde_and_replays_exactly_before_tool_results() {
         ],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
     let body = request_json(&request);
     let messages = body["messages"].as_array().expect("messages array");
@@ -100,6 +101,7 @@ fn deepseek_context_precedes_normalized_fields_and_foreign_context_is_ignored() 
         )],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
     let body = request_json(&request);
     let assistant = &body["messages"][1];

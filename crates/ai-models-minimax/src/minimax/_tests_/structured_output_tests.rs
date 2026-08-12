@@ -123,6 +123,7 @@ fn request_with_schema(schema: StructuredOutputSchema) -> ModelRequest {
         messages: Vec::new(),
         tools: Vec::new(),
         response_schema: Some(schema),
+        controls: Default::default(),
     }
 }
 

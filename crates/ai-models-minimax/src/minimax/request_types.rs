@@ -15,6 +15,12 @@ pub(super) struct ChatCompletionsRequest {
     pub(super) tools: Vec<ChatCompletionsTool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) tool_choice: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) temperature: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) top_p: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) max_completion_tokens: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]

@@ -21,6 +21,11 @@ Max is intentionally text-only. Replay emits null assistant content only for
 tool-call turns, and invalid provider tool-call identities are rejected before
 they reach the shared runtime.
 
+Portable sampling maps only when thinking is disabled; enabled thinking keeps
+provider sampling defaults. Output limits, stops, and supported tool choices
+map natively, forced thinking-mode choices are typed as unsupported, blank
+system prompts are omitted, and per-call timeouts reach the transport.
+
 Streaming, Qwen Coding Plan endpoints, preview model snapshots, built-in tools,
 and ambient credential lookup are outside this crate's boundary.
 
@@ -58,6 +63,7 @@ cargo xtask check
 
 ### Related Docs
 
+- [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/qwen-model-provider.md`](../../docs/protocol/qwen-model-provider.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

@@ -68,6 +68,7 @@ fn simple_request() -> ModelRequest {
         messages: Vec::new(),
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }
 

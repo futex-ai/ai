@@ -22,6 +22,9 @@ endpoint with explicit auth and shared runtime wrappers from neighboring crates.
 `OpenAiModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - OpenAI Responses request serialization
+- portable temperature and top-p outside reasoning mode, output-limit and
+  tool-choice mapping, per-call timeouts, blank-instruction omission, and
+  typed rejection of unsupported stop sequences
 - OpenAI tool-call parsing
 - OpenAI `finish_reason` normalization into `ai_interface::FinishReason`
   before exposing tool calls, so incomplete or failed Responses results cannot
@@ -139,6 +142,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [OpenAI model catalog](https://developers.openai.com/api/docs/models)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)

@@ -42,6 +42,10 @@ implementation.
   `qwen`, plus typed Qwen raw tool-call replay state.
 - Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
+- Defines defaulted `ModelCallControls` for portable sampling, output limits,
+  ordered stops, tool choice, total call timeout, and provider-neutral
+  synchronous/prefer-deferred/require-deferred lifecycle intent. Explicit
+  intent that cannot be honored returns a typed `UnsupportedControl` error.
 - Defines the one-image `ImageGenerator` boundary, normalized aspect/quality
   controls, edit input images, decoded output bytes, and typed policy/retry
   errors. Internal failures use the shared tracked `InternalError` contract.
@@ -90,6 +94,7 @@ async fn call_model() -> ai_interface::ModelResult<String> {
             messages: vec![ConversationMessage::user("Summarize the status")],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await?;
 
@@ -167,6 +172,7 @@ tool dispatch live in `ai-tool-calling`.
   MiniMax reasoning details, and provider replay context.
 - `src/model.rs` - model trait, request/response DTOs, finish reasons, and
   typed model errors.
+- `src/model_controls.rs` - portable generation and execution controls.
 - `src/router.rs` - model route request DTOs and router trait.
 - `src/audio_transcriber.rs` - speech-to-text trait, request/response DTOs,
   and typed transcription errors.
@@ -183,6 +189,7 @@ tool dispatch live in `ai-tool-calling`.
 
 ### Related Docs
 
+- [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`futex-ai/internal-error`](https://github.com/futex-ai/internal-error)
 - [`../ai-tool-calling/README.md`](../ai-tool-calling/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

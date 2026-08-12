@@ -3,8 +3,8 @@
 ## Purpose
 
 Continuously verify that every real chat-provider adapter and every
-chat-capable exported catalog variant can complete a request through its
-upstream production API.
+chat-capable exported catalog variant can complete a request through the
+generic tool-calling runtime and its upstream production API.
 
 ## Scope
 
@@ -32,10 +32,23 @@ test:
 2. Selects every catalog entry that does not advertise image generation, then
    constructs it with `ReqwestJsonHttpClient`, the production chat adapter,
    explicit provider authentication, and catalog thinking metadata.
-3. Sends a minimal text-only completion request with no tools or schema.
-4. Applies the standard transient retry wrapper.
-5. Continues after a model failure and reports all failures for that provider
+3. Erases the concrete adapter behind `DynModel` and applies the standard
+   transient retry wrapper.
+4. Injects that model into `ToolCallingRuntime`, sends one text-only turn with
+   no application tools or schema, and captures the normalized response through
+   the runtime's provider-neutral response-checkpoint boundary.
+5. Applies one portable control set to every provider: no tool calls, a
+   ten-minute adapter-call deadline, and `PreferDeferred`. XAI resolves that
+   preference to its native deferred lifecycle; every other adapter falls back
+   to its ordinary synchronous lifecycle without a provider branch in the
+   runner.
+6. Continues after a model failure and reports all failures for that provider
    together.
+
+Provider-specific matching is restricted to the test composition registry that
+loads catalogs, authentication, and concrete adapters. Once construction is
+complete, the execution path depends only on `DynModel`, `ModelCallControls`,
+and `ToolCallingRuntime`.
 
 The normal workspace test and `cargo xtask check` commands compile the suite,
 run its credential-free coverage guards, and leave the eight credentialed
@@ -45,6 +58,7 @@ tests ignored.
 
 Each live completion must:
 
+- complete one generic runtime step;
 - return the expected normalized provider id;
 - retain the catalog id, upstream model id, and thinking level selected by the
   catalog entry;

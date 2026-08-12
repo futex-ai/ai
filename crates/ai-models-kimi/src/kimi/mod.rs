@@ -42,3 +42,7 @@ mod continuation_tests;
 #[cfg(test)]
 #[path = "_tests_/client_tests.rs"]
 mod client_tests;
+
+#[cfg(test)]
+#[path = "_tests_/controls_tests.rs"]
+mod controls_tests;

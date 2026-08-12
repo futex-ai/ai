@@ -52,6 +52,7 @@ async fn builds_text_request_and_parses_stopped_response() {
             ],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("MiniMax response should parse");
@@ -151,6 +152,7 @@ fn simple_request() -> ModelRequest {
         messages: Vec::new(),
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }
 

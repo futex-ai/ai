@@ -45,6 +45,7 @@ fn replays_exact_kimi_assistant_before_matching_tool_results() {
         ],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
     let body = request_json(&request);
     let messages = body["messages"].as_array().expect("messages array");
@@ -87,6 +88,7 @@ fn kimi_context_takes_precedence_over_normalized_assistant_fields() {
         )],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
     let body = request_json(&request);
     let assistant = &body["messages"][1];

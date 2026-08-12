@@ -4,6 +4,7 @@ mod image_generation;
 mod request;
 mod response;
 mod thinking;
+mod tool_config;
 
 pub use image_generation::GoogleImageGenerator;
 
@@ -92,12 +93,24 @@ impl Model for GoogleModel {
         &self,
         request: &ModelRequest,
     ) -> std::result::Result<ModelResponse, ModelError> {
+        if let Err(control) = request.controls.execution.resolve_deferred(false) {
+            return Err(ModelError::unsupported_control(
+                PROVIDER,
+                &self.provider_model_id,
+                control,
+            ));
+        }
         let response_schema = request.response_schema.as_ref();
         let synthetic_tool_call_scope = synthetic_tool_call_scope(request);
-        let request = self
+        let builder = self
             .http_client
             .post(&self.endpoint())
-            .auth(self.auth.clone())
+            .auth(self.auth.clone());
+        let builder = match request.controls.execution.total_timeout {
+            Some(timeout) => builder.timeout(timeout),
+            None => builder,
+        };
+        let request = builder
             .json(request::build_request(
                 &self.provider_model_id,
                 request,

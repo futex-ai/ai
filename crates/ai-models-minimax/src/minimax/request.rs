@@ -2,7 +2,8 @@
 
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, MiniMaxReasoningDetail,
-    ModelRequest, ProviderConversationItem, StructuredOutputSchema, ToolCall, ToolDefinition,
+    ModelRequest, ModelToolChoice, ProviderConversationItem, StructuredOutputSchema, ToolCall,
+    ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 
@@ -20,15 +21,19 @@ pub(super) fn build_request(
     thinking_level: ThinkingLevel,
     request: &ModelRequest,
 ) -> ChatCompletionsRequest {
-    let mut messages = vec![ChatCompletionsMessage {
-        role: "system",
-        content: Some(ChatCompletionsContent::Text(system_prompt(request))),
-        name: None,
-        tool_call_id: None,
-        tool_calls: Vec::new(),
-        reasoning_content: None,
-        reasoning_details: Vec::new(),
-    }];
+    let mut messages = Vec::new();
+    let system_prompt = system_prompt(request);
+    if !system_prompt.is_empty() {
+        messages.push(ChatCompletionsMessage {
+            role: "system",
+            content: Some(ChatCompletionsContent::Text(system_prompt)),
+            name: None,
+            tool_call_id: None,
+            tool_calls: Vec::new(),
+            reasoning_content: None,
+            reasoning_details: Vec::new(),
+        });
+    }
     messages.extend(request.messages.iter().map(chat_message));
 
     ChatCompletionsRequest {
@@ -44,7 +49,20 @@ pub(super) fn build_request(
             },
         },
         tools: request.tools.iter().map(tool).collect(),
-        tool_choice: (!request.tools.is_empty()).then_some("auto"),
+        tool_choice: tool_choice(request),
+        temperature: request.controls.generation.temperature,
+        top_p: request.controls.generation.top_p,
+        max_completion_tokens: request.controls.generation.max_output_tokens,
+    }
+}
+
+fn tool_choice(request: &ModelRequest) -> Option<&'static str> {
+    match request.controls.generation.tool_choice.as_ref() {
+        Some(ModelToolChoice::None) => Some("none"),
+        Some(ModelToolChoice::Auto) => Some("auto"),
+        Some(ModelToolChoice::Required | ModelToolChoice::Function(_)) => None,
+        None if !request.tools.is_empty() => Some("auto"),
+        None => None,
     }
 }
 

@@ -10,6 +10,7 @@ mod mock_audio_transcriber;
 mod mock_image_generator;
 mod mock_model;
 mod model;
+mod model_controls;
 pub mod output;
 mod router;
 mod tools;
@@ -40,6 +41,10 @@ pub use mock_model::MockModel;
 pub use model::{
     DynModel, FinishReason, Model, ModelError, ModelRequest, ModelResponse, ModelResult,
     StructuredOutputSchema,
+};
+pub use model_controls::{
+    ModelCallControls, ModelCompletionMode, ModelControl, ModelExecutionControls,
+    ModelGenerationControls, ModelToolChoice,
 };
 pub use output::{
     ToolOutputEnvelope, ToolOutputEnvelopeError, ToolOutputEnvelopeResult, ToolOutputId,

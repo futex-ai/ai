@@ -37,6 +37,7 @@ async fn serializes_ordered_text_and_image_parts_as_data_urls() {
             )],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("multimodal response should parse");

@@ -146,6 +146,7 @@ fn request_with_message(content: &str) -> ModelRequest {
         messages: vec![ConversationMessage::user(content)],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }
 
@@ -173,6 +174,7 @@ fn kimi_request(
         )],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }
 
@@ -200,5 +202,6 @@ fn deepseek_request(
         )],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }

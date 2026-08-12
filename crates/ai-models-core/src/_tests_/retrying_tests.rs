@@ -7,7 +7,8 @@ use std::{
 };
 
 use ai_interface::{
-    FinishReason, Model, ModelError, ModelMock, ModelRequest, ModelResponse, ModelUsage,
+    FinishReason, Model, ModelError, ModelGenerationControls, ModelMock, ModelRequest,
+    ModelResponse, ModelUsage,
 };
 use unimock::{MockFn, Unimock, matching};
 
@@ -68,6 +69,29 @@ async fn returns_the_last_transient_error_after_exhausting_retries() {
     assert!(matches!(error, ModelError::TransientProvider { .. }));
 }
 
+#[tokio::test]
+async fn forwards_call_controls_unchanged() {
+    let model = Arc::new(Unimock::new(
+        ModelMock::complete
+            .next_call(matching!(_))
+            .answers(&|_, request: &ModelRequest| {
+                assert_eq!(request.controls.generation.max_output_tokens, Some(4321));
+                Ok(success_response())
+            }),
+    ));
+    let retrying = RetryingModel::new(model, Arc::new(Unimock::new(())), Vec::new());
+    let mut request = empty_request();
+    request.controls.generation = ModelGenerationControls {
+        max_output_tokens: Some(4321),
+        ..Default::default()
+    };
+
+    retrying
+        .complete(&request)
+        .await
+        .expect("wrapped model should succeed");
+}
+
 fn scripted_model(
     responses: Vec<std::result::Result<ModelResponse, ModelError>>,
 ) -> Arc<dyn Model> {
@@ -106,6 +130,7 @@ fn empty_request() -> ModelRequest {
         messages: Vec::new(),
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }
 

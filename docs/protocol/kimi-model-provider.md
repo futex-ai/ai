@@ -73,16 +73,22 @@ invented parameter mappings.
 
 ## Request Contract
 
-Every request contains the selected provider model id, one leading `system`
-message containing `ModelRequest::system_prompt`, and the retained
-conversation messages in order.
+Every request contains the selected provider model id and retained conversation
+messages in order. A nonempty `ModelRequest::system_prompt` is one leading
+`system` message; an empty prompt is omitted.
 
 K3 request mapping must:
 
 - map `ThinkingLevel::Low`, `High`, and `Max` to top-level
   `reasoning_effort: "low"`, `"high"`, and `"max"`;
 - omit fixed K3 parameters such as `temperature`, `top_p`, `n`, presence
-  penalty, and frequency penalty;
+  penalty, and frequency penalty, including when portable sampling is supplied;
+- map portable output limits to `max_completion_tokens`, ordered stops to
+  `stop`, and `none`, `auto`, `required`, or named-function tool choice to the
+  native `tool_choice` shape;
+- apply a portable total timeout to the HTTP request, use ordinary synchronous
+  completion for `PreferDeferred`, and reject `RequireDeferred` with typed
+  `UnsupportedControl`;
 - serialize plain content as a string and typed text/image parts as content
   arrays, using base64 data URLs for images; empty user and tool content
   remains an empty string, while unavailable assistant content may be null;

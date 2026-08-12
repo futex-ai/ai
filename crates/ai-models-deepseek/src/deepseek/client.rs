@@ -91,15 +91,26 @@ impl DeepSeekModel {
 #[async_trait]
 impl Model for DeepSeekModel {
     async fn complete(&self, model_request: &ModelRequest) -> ModelResult<ModelResponse> {
+        if let Err(control) = model_request.controls.execution.resolve_deferred(false) {
+            return Err(ModelError::unsupported_control(
+                PROVIDER,
+                &self.provider_model_id,
+                control,
+            ));
+        }
         let request_body =
             request::build_request(&self.provider_model_id, self.thinking_level, model_request)?;
-        let request = match self
+        let builder = self
             .http_client
             .post(DEEPSEEK_CHAT_COMPLETIONS_URL)
-            .timeout(DEEPSEEK_REQUEST_TIMEOUT)
-            .auth(self.auth.clone())
-            .json(request_body)
-        {
+            .auth(self.auth.clone());
+        let timeout = model_request
+            .controls
+            .execution
+            .total_timeout
+            .unwrap_or(DEEPSEEK_REQUEST_TIMEOUT);
+        let builder = builder.timeout(timeout);
+        let request = match builder.json(request_body) {
             Ok(request) => request,
             Err(source) => return Err(ModelError::internal(source)),
         };

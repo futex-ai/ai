@@ -21,6 +21,7 @@ fn serializes_leading_system_and_every_shared_role() {
         ],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
     let body = request_json(&request, KimiReasoningEffort::Max);
     let messages = body["messages"].as_array().expect("messages array");
@@ -51,6 +52,7 @@ fn serializes_empty_user_and_tool_content_as_strings() {
         ],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
     let body = request_json(&request, KimiReasoningEffort::Max);
     let messages = body["messages"].as_array().expect("messages array");
@@ -80,6 +82,7 @@ fn serializes_text_and_image_content_parts_as_data_urls() {
         )],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
     let body = request_json(&request, KimiReasoningEffort::Max);
 
@@ -135,6 +138,7 @@ fn ignores_foreign_provider_context_and_uses_normalized_assistant_fields() {
         messages: vec![assistant],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
     let body = request_json(&request, KimiReasoningEffort::Max);
     let assistant = &body["messages"][1];

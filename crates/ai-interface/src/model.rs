@@ -8,7 +8,8 @@ use serde_json::Value;
 use thiserror::Error;
 
 use crate::{
-    ConversationMessage, ProviderConversationItem, ToolCall, ToolDefinition, usage::ModelUsage,
+    ConversationMessage, ModelCallControls, ModelControl, ProviderConversationItem, ToolCall,
+    ToolDefinition, usage::ModelUsage,
 };
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -32,6 +33,9 @@ pub struct ModelRequest {
     /// Optional JSON Schema the final assistant response must satisfy.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_schema: Option<StructuredOutputSchema>,
+    /// Optional generation and execution intent for this call.
+    #[serde(default, skip_serializing_if = "ModelCallControls::is_default")]
+    pub controls: ModelCallControls,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -128,6 +132,18 @@ pub enum ModelError {
         /// Provider-supplied failure details.
         message: String,
     },
+    /// The selected provider or model cannot honor an explicit call control.
+    #[error(
+        "[ai_interface/model] unsupported {control:?} control for `{provider}` model `{model_id}`"
+    )]
+    UnsupportedControl {
+        /// Provider selected for the call.
+        provider: String,
+        /// Model identifier selected for the call.
+        model_id: String,
+        /// Portable control that cannot be honored.
+        control: ModelControl,
+    },
     /// Unhandled model-boundary failure.
     #[error("[ai_interface/model] internal error: {source}")]
     Internal {
@@ -186,6 +202,19 @@ impl ModelError {
             provider: provider.into(),
             model_id: model_id.into(),
             message: message.into(),
+        }
+    }
+
+    /// Builds an unsupported-control model error.
+    pub fn unsupported_control(
+        provider: impl Into<String>,
+        model_id: impl Into<String>,
+        control: ModelControl,
+    ) -> Self {
+        Self::UnsupportedControl {
+            provider: provider.into(),
+            model_id: model_id.into(),
+            control,
         }
     }
 

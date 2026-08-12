@@ -152,5 +152,6 @@ fn simple_request() -> ModelRequest {
             activity_verb: None,
         }],
         response_schema: None,
+        controls: Default::default(),
     }
 }
