@@ -1,4 +1,4 @@
-//! Credentialed end-to-end checks for every catalog model.
+//! Credentialed end-to-end checks for every chat-capable catalog model.
 
 #[path = "live_models/provider_tests.rs"]
 mod provider_tests;
@@ -9,6 +9,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use ai_interface::ProviderKind;
+use ai_models_core::ModelFeature;
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 
 use self::provider_tests::LiveProvider;
@@ -47,10 +48,38 @@ fn covers_every_real_provider() {
                 .all(|model| model.provider == provider.kind()),
             "{provider:?} catalog contained another provider"
         );
+        let chat_catalog = provider.chat_catalog();
+        assert!(
+            !chat_catalog.is_empty(),
+            "{provider:?} chat catalog must not be empty"
+        );
         let auth = provider.auth("credential-free-construction-key".to_owned());
-        for model in &catalog {
+        for model in &chat_catalog {
             let _model = provider.build(client.clone(), auth.clone(), model);
         }
+    }
+}
+
+#[test]
+fn chat_catalog_excludes_image_generation_models() {
+    let image_model_count = LiveProvider::ALL
+        .iter()
+        .flat_map(|provider| provider.catalog())
+        .filter(|model| model.has_feature(ModelFeature::ImageGeneration))
+        .count();
+    assert!(
+        image_model_count > 0,
+        "expected image-only catalog coverage"
+    );
+
+    for provider in LiveProvider::ALL {
+        assert!(
+            provider
+                .chat_catalog()
+                .iter()
+                .all(|model| !model.has_feature(ModelFeature::ImageGeneration)),
+            "{provider:?} chat catalog included an image-generation model"
+        );
     }
 }
 

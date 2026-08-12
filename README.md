@@ -102,8 +102,9 @@ and exercises the in-memory tool runtime. It performs no provider requests and
 does not require credentials or network access.
 
 Credentialed model checks live in `xtask/tests/live_models.rs`. To test one
-provider and every model variant in its catalog against the real API, set
-`LIVE_MODEL_API_KEY` and run the corresponding ignored test, for example:
+provider and every chat-capable model variant in its catalog against the real
+API, set `LIVE_MODEL_API_KEY` and run the corresponding ignored test, for
+example:
 
 ```sh
 LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_models \
@@ -168,9 +169,11 @@ credential-free smoke tests, and `cargo xtask check`. Limiting push-triggered CI
 to `main` prevents an open pull request from running the same commit once for
 the branch push and again for the pull-request event. The separate `Live model
 APIs` workflow makes billable calls through the production adapters for every
-catalog entry on eligible pull requests as well as its daily schedule and
-manual dispatch. Forked and Dependabot pull requests skip credentialed jobs
-because GitHub does not provide them repository Actions secrets.
+chat-capable catalog entry on eligible pull requests as well as its daily
+schedule and manual dispatch. Image-generation entries use a separate typed
+interface and are not sent through chat adapters. Forked and Dependabot pull
+requests skip credentialed jobs because GitHub does not provide them repository
+Actions secrets.
 
 ## Plans
 

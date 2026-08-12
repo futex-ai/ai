@@ -2,21 +2,26 @@
 
 ## Purpose
 
-Continuously verify that every real provider adapter and every exported catalog
-variant can complete a request through its upstream production API.
+Continuously verify that every real chat-provider adapter and every
+chat-capable exported catalog variant can complete a request through its
+upstream production API.
 
 ## Scope
 
 The credentialed suite covers Anthropic, DeepSeek, Google Gemini, Kimi,
 MiniMax, OpenAI, QwenCloud, and xAI. Each provider test obtains its models from
-that crate's `known_models()` function, so new catalog variants enter the live
-test automatically. Logical variants that share an upstream model id still run
-separately because they exercise different thinking controls.
+that crate's `known_models()` function, so new chat-capable catalog variants
+enter the live test automatically. Logical variants that share an upstream
+model id still run separately because they exercise different thinking
+controls. Entries advertising `ModelFeature::ImageGeneration` are routed
+through `ImageGenerator`, not `Model`, and are therefore outside this chat
+connectivity suite.
 
-Audio transcription, streaming, provider-built tools, multimodal input,
-multi-turn tool replay, pricing, and provider features outside the model
-catalog are not part of this connectivity suite. Deterministic transport tests
-in the provider crates remain responsible for detailed wire behavior.
+Audio transcription, image generation, streaming, provider-built tools,
+multimodal input, multi-turn tool replay, pricing, and provider features
+outside the chat model catalog are not part of this connectivity suite.
+Deterministic transport tests in the provider crates remain responsible for
+detailed wire behavior.
 
 ## Execution
 
@@ -24,8 +29,9 @@ in the provider crates remain responsible for detailed wire behavior.
 test:
 
 1. Requires a non-empty `LIVE_MODEL_API_KEY`.
-2. Constructs every catalog entry with `ReqwestJsonHttpClient`, the production
-   adapter, explicit provider authentication, and catalog thinking metadata.
+2. Selects every catalog entry that does not advertise image generation, then
+   constructs it with `ReqwestJsonHttpClient`, the production chat adapter,
+   explicit provider authentication, and catalog thinking metadata.
 3. Sends a minimal text-only completion request with no tools or schema.
 4. Applies the standard transient retry wrapper.
 5. Continues after a model failure and reports all failures for that provider

@@ -28,12 +28,13 @@ an in-memory tool-output pagination flow. Provider construction does not send
 network requests or require real credentials.
 
 `tests/live_models.rs` is a separate, ignored integration suite. Each provider
-test reads one explicit `LIVE_MODEL_API_KEY`, constructs every entry returned
-by that provider's `known_models()`, sends a minimal real completion, and
-validates normalized provider, catalog, model, thinking, finish, text, tool,
-and usage fields. The suite never runs as part of `check` or `smoke-test`.
-The dedicated GitHub Actions workflow invokes it for eligible pull requests,
-daily verification, and manual dispatch.
+test reads one explicit `LIVE_MODEL_API_KEY`, constructs every chat-capable
+entry returned by that provider's `known_models()`, sends a minimal real
+completion, and validates normalized provider, catalog, model, thinking,
+finish, text, tool, and usage fields. Image-generation entries are excluded
+because they use the separate `ImageGenerator` interface. The suite never runs
+as part of `check` or `smoke-test`. The dedicated GitHub Actions workflow
+invokes it for eligible pull requests, daily verification, and manual dispatch.
 
 ## Quick Start
 
@@ -43,7 +44,7 @@ cargo xtask rust-file-length-lint --all
 cargo xtask smoke-test
 cargo xtask review
 
-# Billable: tests every OpenAI catalog entry against the real API.
+# Billable: tests every chat-capable OpenAI catalog entry against the real API.
 LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_models \
   openai_catalog -- --ignored --exact --nocapture
 ```
@@ -61,7 +62,7 @@ cargo clippy -p xtask --all-targets --all-features
 - `src/check.rs` - local verification command plan
 - `src/file_length.rs` - Rust line-count audit
 - `src/smoke/` - credential-free provider, MCP, OAuth, and pagination smoke tests
-- `tests/live_models.rs` - ignored credentialed tests over every provider catalog
+- `tests/live_models.rs` - ignored credentialed tests over chat-provider catalogs
 - `src/review.rs` - Codex CLI review delegation
 
 ### Related Docs

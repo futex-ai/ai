@@ -22,7 +22,7 @@ pub(super) async fn run_catalog(provider: LiveProvider) {
 
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
     let auth = provider.auth(api_key);
-    let catalog = provider.catalog();
+    let catalog = provider.chat_catalog();
     assert!(
         !catalog.is_empty(),
         "{provider:?} catalog must not be empty"

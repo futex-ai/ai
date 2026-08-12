@@ -85,7 +85,7 @@ jobs:
             live-models-${{ runner.os }}-
             cargo-${{ runner.os }}-
 
-      - name: Test every catalog model
+      - name: Test every chat catalog model
         env:
           LIVE_MODEL_API_KEY: ${{ secrets[matrix.api_key] }}
         run: cargo test --locked -p xtask --test live_models "${{ matrix.test }}" -- --ignored --exact --nocapture

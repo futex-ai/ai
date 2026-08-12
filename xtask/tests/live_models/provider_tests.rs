@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use ai_interface::{DynModel, ProviderKind};
 use ai_models_anthropic::AnthropicModel;
-use ai_models_core::KnownModelSpec;
+use ai_models_core::{KnownModelSpec, ModelFeature};
 use ai_models_deepseek::DeepSeekModel;
 use ai_models_google::GoogleModel;
 use ai_models_kimi::KimiModel;
@@ -103,6 +103,13 @@ impl LiveProvider {
             Self::Qwen => ai_models_qwen::known_models(),
             Self::Xai => ai_models_xai::known_models(),
         }
+    }
+
+    pub(super) fn chat_catalog(self) -> Vec<KnownModelSpec> {
+        self.catalog()
+            .into_iter()
+            .filter(|model| !model.has_feature(ModelFeature::ImageGeneration))
+            .collect()
     }
 
     pub(super) fn auth(self, api_key: String) -> DynJsonHttpAuth {

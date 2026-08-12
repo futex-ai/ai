@@ -44,10 +44,12 @@ constants for Gemini 3.6 Flash and Gemini 3.5 Flash-Lite.
 `GEMINI_3_6_FLASH` is the first catalog entry and the default used by workspace
 examples. Its high-thinking variant sends provider model id
 `gemini-3.6-flash` with `thinkingLevel: "high"`. Gemini 3.5 Flash-Lite leaves
-the thinking control unset so the provider uses its minimal default. All
-existing Gemini 2.5 entries remain available and continue to use fixed
-`thinkingBudget` values. Response parts marked as provider thoughts are
-ignored and are not surfaced as assistant text.
+the thinking control unset so the provider uses its minimal default. Gemini
+2.5 models are not advertised in the routing catalog because the API does not
+make them available to new users. Callers can still construct an explicit
+model id using the retained Gemini 2.5 constants, and the request mapper keeps
+fixed `thinkingBudget` compatibility for those models. Response parts marked
+as provider thoughts are ignored and are not surfaced as assistant text.
 
 `GoogleImageGenerator` uses the current `v1` compatibility endpoint with an
 injected `json-http` client and explicit API key or auth hook. It maps text and

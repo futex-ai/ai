@@ -30,10 +30,10 @@ pub const GPT_5_6_SOL_THINKING_MAX: &str = "gpt-5.6-sol-thinking-max";
 pub const GPT_5_5: &str = "gpt-5.5";
 
 /// OpenAI mid-tier model id with a balanced speed/cost profile.
-pub const GPT_5_5_MINI: &str = "gpt-5.5-mini";
+pub const GPT_5_4_MINI: &str = "gpt-5.4-mini";
 
 /// OpenAI low-latency model id for short, cheap turns.
-pub const GPT_5_5_NANO: &str = "gpt-5.5-nano";
+pub const GPT_5_4_NANO: &str = "gpt-5.4-nano";
 
 /// OpenAI flagship model id with explicit low reasoning effort.
 pub const GPT_5_5_THINKING_LOW: &str = "gpt-5.5-thinking-low";
@@ -63,15 +63,13 @@ const GPT_5_5_FEATURES: &[ModelFeature] = &[
     ModelFeature::Reasoning,
 ];
 
-const GPT_5_5_MINI_FEATURES: &[ModelFeature] = &[
+const GPT_5_4_EFFICIENT_FEATURES: &[ModelFeature] = &[
     ModelFeature::ToolCalling,
     ModelFeature::StructuredOutput,
     ModelFeature::Vision,
     ModelFeature::LongContext,
+    ModelFeature::Reasoning,
 ];
-
-const GPT_5_5_NANO_FEATURES: &[ModelFeature] =
-    &[ModelFeature::ToolCalling, ModelFeature::StructuredOutput];
 
 const GPT_IMAGE_2_FEATURES: &[ModelFeature] =
     &[ModelFeature::ImageGeneration, ModelFeature::Vision];
@@ -157,25 +155,25 @@ pub fn known_models() -> Vec<KnownModelSpec> {
         ),
         KnownModelSpec {
             provider: ProviderKind::OpenAi,
-            id: GPT_5_5_MINI,
-            provider_model_id: GPT_5_5_MINI,
+            id: GPT_5_4_MINI,
+            provider_model_id: GPT_5_4_MINI,
             context_window_tokens: 400_000,
             intelligence_score: IntelligenceScore::Eight,
             speed: SpeedTier::Fast,
             cost: CostTier::Medium,
             thinking_level: ThinkingLevel::Disabled,
-            features: GPT_5_5_MINI_FEATURES,
+            features: GPT_5_4_EFFICIENT_FEATURES,
         },
         KnownModelSpec {
             provider: ProviderKind::OpenAi,
-            id: GPT_5_5_NANO,
-            provider_model_id: GPT_5_5_NANO,
-            context_window_tokens: 128_000,
+            id: GPT_5_4_NANO,
+            provider_model_id: GPT_5_4_NANO,
+            context_window_tokens: 400_000,
             intelligence_score: IntelligenceScore::Six,
             speed: SpeedTier::VeryFast,
             cost: CostTier::Low,
             thinking_level: ThinkingLevel::Disabled,
-            features: GPT_5_5_NANO_FEATURES,
+            features: GPT_5_4_EFFICIENT_FEATURES,
         },
         KnownModelSpec {
             provider: ProviderKind::OpenAi,
