@@ -1,8 +1,11 @@
 //! Google Gemini generate-content model client.
 
+mod image_generation;
 mod request;
 mod response;
 mod thinking;
+
+pub use image_generation::GoogleImageGenerator;
 
 use std::{collections::BTreeMap, sync::Arc};
 

@@ -7,12 +7,12 @@ in-memory tool-calling runtime behavior.
 ## Features
 
 - Shared `ai-interface` contracts for conversations, model calls, audio
-  transcription, tool calls, routing, logging, usage metering, and bounded
-  model-visible tool output envelopes
+  transcription, one-image generation and editing, tool calls, routing,
+  logging, usage metering, and bounded model-visible tool output envelopes
 - Provider adapters for Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
-  reasoning replay, vision where supported, structured output, usage
-  normalization, and typed errors
+  reasoning replay, vision where supported, OpenAI and Gemini image generation,
+  structured output, usage normalization, and typed errors
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, and usage pricing
 - Ordered fallback model composition through `ai-models-multi`
@@ -26,6 +26,8 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [Image generation](docs/protocol/image-generation.md) defines the shared
+  one-image generation/editing boundary and the OpenAI and Google mappings.
 - [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) defines
   the DeepSeek V4 Pro/Flash catalog, text-only request boundary, thinking,
   replay, tool-calling, JSON-object, usage, and error contract.
@@ -57,11 +59,11 @@ boundary they need:
 - `ai-models-anthropic`: Anthropic model adapter
 - `ai-models-deepseek`: DeepSeek V4 Pro/Flash model adapter and known-model
   catalog
-- `ai-models-google`: Google Gemini model adapter
+- `ai-models-google`: Google Gemini chat and image adapters
 - `ai-models-kimi`: Kimi K3 model adapter
 - `ai-models-minimax`: MiniMax Chat Completions model adapter and known-model
   catalog
-- `ai-models-openai`: OpenAI model and transcription adapters
+- `ai-models-openai`: OpenAI model, transcription, and image adapters
 - `ai-models-qwen`: Qwen 3.7 Max/Plus/Flash Chat Completions adapter and
   known-model catalog
 - `ai-models-xai`: xAI model adapter
@@ -128,6 +130,8 @@ cargo xtask review
   review
 - `docs/protocol/tool-output-management.md`: normative universal tool output
   management contract
+- `docs/protocol/image-generation.md`: normative shared image generation and
+  provider mapping contract
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
   contract
 - `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract
