@@ -111,14 +111,19 @@ Finish with a fully checked, pin-ready repository revision.
 
 Publish the verified work and collect review findings without changing them.
 
-- [ ] Move this plan from Active to Completed in `plans/README.md`.
+- [x] Move this plan from Active to Completed in `plans/README.md`.
 - [x] Stage every changed and newly created tracked file with `git add -A`.
-- [ ] Commit with a Conventional Commit title of at most 50 characters and a
+- [x] Commit with a Conventional Commit title of at most 50 characters and a
       descriptive body.
-- [ ] Push the current branch without renaming it.
-- [ ] Run `cargo xtask review` after the push against `origin/main`.
-- [ ] Report numbered review findings with severity, context, impact, lettered
+- [x] Push the current branch without renaming it.
+- [x] Run `cargo xtask review` after the push against `origin/main`.
+- [x] Report numbered review findings with severity, context, impact, lettered
       solution options, and a recommended option; do not automatically fix
       review findings.
-- [ ] Report the commit SHA, tests, public migration, and intentionally
+- [x] Report the commit SHA, tests, public migration, and intentionally
       unsupported controls for Firna.
+
+The post-push review reported one P2 finding: omission checks treat only an
+empty system prompt as blank, while the protocol wording also covers
+whitespace-only prompts. The reviewed implementation was left unchanged so
+the finding can be resolved through the repository's normal review decision.
