@@ -37,8 +37,9 @@ transport, and auth failures become shared transient errors.
 
 The provider is text-only: any non-empty typed `content_parts` input is rejected
 before authentication or transport. Retired aliases, vision, streaming, beta
-APIs, Anthropic-format access, custom endpoints, ambient credentials, and live
-credential-dependent tests are outside this crate's contract.
+APIs, Anthropic-format access, custom endpoints, and ambient credentials are
+outside this crate's contract. Credentialed whole-catalog checks live in the
+workspace `xtask` suite rather than this crate's deterministic unit tests.
 
 ## Quick Start
 
@@ -91,4 +92,5 @@ credential or network access is required.
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [DeepSeek provider protocol](../../docs/protocol/deepseek-model-provider.md)
+- [Live model API test protocol](../../docs/protocol/live-model-api-tests.md)
 - [DeepSeek implementation plan](../../plans/add-deepseek-model-provider.md)

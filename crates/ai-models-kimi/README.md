@@ -25,10 +25,11 @@ parallel custom function calls, non-strict provider JSON-schema generation
 with local validation, cached-input usage normalization, and lossless
 assistant replay across tool continuations.
 
-The crate does not read environment variables, load deployment config, price
-usage, or make credential-dependent calls during tests. K2.x and Moonshot V1
-models, streaming, Partial Mode, video/file upload, dynamic or official tools,
-and provider cache-key tuning are outside its initial contract.
+The crate does not read environment variables, load deployment config, or
+price usage. Its unit tests remain credential-free; credentialed whole-catalog
+checks live in the workspace `xtask` suite. K2.x and Moonshot V1 models,
+streaming, Partial Mode, video/file upload, dynamic or official tools, and
+provider cache-key tuning are outside its initial contract.
 
 ## Quick Start
 
@@ -79,4 +80,5 @@ credentials or network access are required.
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
+- [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [`../../plans/add-kimi-model-provider.md`](../../plans/add-kimi-model-provider.md)

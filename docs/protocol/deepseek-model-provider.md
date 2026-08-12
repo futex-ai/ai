@@ -23,8 +23,8 @@ reasoning usage.
 The initial provider does not support the retired `deepseek-chat` or
 `deepseek-reasoner` aliases, streaming, image input, the Anthropic-format API,
 third-party or custom endpoints, FIM completion, chat prefix completion,
-strict tool mode, beta endpoints, or live credential-dependent tests. These
-capabilities require separate contracts rather than silent partial support.
+strict tool mode, or beta endpoints. These capabilities require separate
+contracts rather than silent partial support.
 
 ## Ownership
 
@@ -256,6 +256,11 @@ thinking controls; parallel tools and raw replay; reasoning non-disclosure,
 redaction, serde, and hashing; JSON prompting and validation; finish and
 response shapes; cache/reasoning usage; error classification; and
 credential-free smoke construction.
+
+The ignored workspace integration test `xtask/tests/live_models.rs` separately
+calls every DeepSeek catalog entry through the production adapter when an
+explicit `LIVE_MODEL_API_KEY` is supplied. GitHub Actions runs that billable
+suite only from the scheduled/manual `Live model APIs` workflow.
 
 Full formatting, Rust file-length lint, Clippy, workspace tests, smoke tests,
 and `cargo xtask check` must pass before commit and push. `cargo xtask review`

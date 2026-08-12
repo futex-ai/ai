@@ -38,6 +38,9 @@ in-memory tool-calling runtime behavior.
 - [Qwen model provider](docs/protocol/qwen-model-provider.md) defines the stable
   Qwen 3.7 Max/Plus/Flash catalog, thinking, vision, replay, tool-calling,
   structured-output, usage, and error contract.
+- [Live model API tests](docs/protocol/live-model-api-tests.md) define the
+  credentialed provider/catalog coverage, assertions, CI schedule, and secret
+  boundary.
 - [Tool output management](docs/protocol/tool-output-management.md) defines the
   universal output-id, bounded-envelope, pagination, and raw-output isolation
   contract for tool calls.
@@ -96,6 +99,21 @@ The smoke test constructs every provider adapter with placeholder credentials
 and exercises the in-memory tool runtime. It performs no provider requests and
 does not require credentials or network access.
 
+Credentialed model checks live in `xtask/tests/live_models.rs`. To test one
+provider and every model variant in its catalog against the real API, set
+`LIVE_MODEL_API_KEY` and run the corresponding ignored test, for example:
+
+```sh
+LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_models \
+  openai_catalog -- --ignored --exact --nocapture
+```
+
+These calls are billable. The dedicated `Live model APIs` workflow runs all
+eight provider catalogs every day and on manual dispatch. It requires the
+repository Actions secrets `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`,
+`GOOGLE_API_KEY`, `KIMI_API_KEY`, `MINIMAX_API_KEY`, `OPENAI_API_KEY`,
+`QWEN_API_KEY`, and `XAI_API_KEY`. A missing secret fails its provider job.
+
 Run local AI review after checks pass and the branch has been pushed:
 
 ```sh
@@ -140,7 +158,11 @@ cargo xtask review
 
 GitHub Actions runs the same Rust verification expected locally on pull requests
 and branch pushes: formatting, Clippy, tests, Rust file-length lint,
-credential-free smoke tests, and `cargo xtask check`.
+credential-free smoke tests, and `cargo xtask check`. A separate scheduled and
+manual workflow makes billable calls through the production adapters for every
+catalog entry; it is intentionally excluded from pull requests so untrusted
+code cannot access provider credentials and upstream incidents do not block
+ordinary changes.
 
 ## Plans
 

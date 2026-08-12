@@ -21,10 +21,10 @@ locally validated structured output, and normalized cache usage.
 
 Token Plan and Coding Plan endpoints, snapshot and preview ids, legacy Qwen
 models, built-in tools, web search, video and audio content, streaming,
-Responses and Anthropic-compatible APIs, custom endpoints, and live
-credential-dependent tests are outside this initial contract. Those
-capabilities have different availability, billing, or wire behavior and
-require explicit contracts rather than silent partial support.
+Responses and Anthropic-compatible APIs, and custom endpoints are outside this
+initial contract. Those capabilities have different availability, billing, or
+wire behavior and require explicit contracts rather than silent partial
+support.
 
 ## Ownership
 
@@ -206,14 +206,19 @@ must never contain credentials or authorization headers.
 
 ## Required Verification
 
-Tests use `JsonHttpTransportMock` through `TransportBackedJsonHttpClient` and
-never call QwenCloud. Coverage includes provider serde, catalog metadata,
+Unit tests use `JsonHttpTransportMock` through `TransportBackedJsonHttpClient`
+and never call QwenCloud. Coverage includes provider serde, catalog metadata,
 construction, bearer auth and endpoint, every message role, image mapping and
 Max rejection, thinking controls, private replay and foreign-context
 isolation, parallel tools, terminal-call suppression, structured-output
 modes and validation, finish reasons, response shape, cache usage, HTTP and
 transport errors, logger redaction, deterministic hashing, and credential-free
 smoke construction.
+
+The ignored workspace integration test `xtask/tests/live_models.rs` separately
+calls every Qwen catalog entry through the production adapter when an explicit
+`LIVE_MODEL_API_KEY` is supplied. GitHub Actions runs that billable suite only
+from the scheduled/manual `Live model APIs` workflow.
 
 Full formatting, file-length lint, Clippy, workspace tests, smoke tests,
 `cargo xtask check`, commit and push, and post-push `cargo xtask review` are

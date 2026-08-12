@@ -2716,6 +2716,7 @@ dependencies = [
  "ai-mcp",
  "ai-mcp-oauth",
  "ai-models-anthropic",
+ "ai-models-core",
  "ai-models-deepseek",
  "ai-models-google",
  "ai-models-kimi",
@@ -2731,6 +2732,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

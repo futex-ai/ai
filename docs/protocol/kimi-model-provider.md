@@ -22,9 +22,8 @@ and K3 reasoning-effort variants.
 
 The initial version does not support K2.x models, Moonshot V1 models,
 streaming, Partial Mode, video or file upload, dynamic or official Kimi tools,
-`prompt_cache_key`, `safety_identifier`, or live credential-dependent tests.
-Those capabilities require separate contracts rather than silent partial
-support.
+`prompt_cache_key`, or `safety_identifier`. Those capabilities require
+separate contracts rather than silent partial support.
 
 ## Ownership
 
@@ -237,9 +236,12 @@ usage normalization, HTTP classification, transport failures, and malformed
 responses.
 
 The credential-free workspace smoke test must construct the default Kimi
-model. Full formatting, file-length lint, Clippy, workspace tests,
-`cargo xtask check`, commit and push, and post-push `cargo xtask review` are
-required before implementation handoff.
+model. The ignored workspace integration test `xtask/tests/live_models.rs`
+separately calls every Kimi catalog entry through the production adapter when
+an explicit `LIVE_MODEL_API_KEY` is supplied; GitHub Actions runs it only from
+the scheduled/manual `Live model APIs` workflow. Full formatting, file-length
+lint, Clippy, workspace tests, `cargo xtask check`, commit and push, and
+post-push `cargo xtask review` are required before implementation handoff.
 
 ## References
 
