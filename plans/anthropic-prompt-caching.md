@@ -294,9 +294,9 @@ eligible block when its nominal target is blank.
       repeat until both pass.
 - [x] Audit `git diff origin/main...` for unrelated changes, documentation
       alignment, and lockfile drift.
-- [ ] Run `git add -A`, commit the completed work with a Conventional Commit
+- [x] Run `git add -A`, commit the completed work with a Conventional Commit
       title and body, and push the current branch.
-- [ ] Run `cargo xtask review` after the push and report every finding without
+- [x] Run `cargo xtask review` after the push and report every finding without
       automatically fixing it.
-- [ ] Mark this milestone complete, move the plan back to Completed, and commit
+- [x] Mark this milestone complete, move the plan back to Completed, and commit
       and push the documentation-only status update.

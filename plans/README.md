@@ -6,10 +6,11 @@ milestones are finished.
 
 ## Active
 
-- [Anthropic prompt caching](anthropic-prompt-caching.md)
+None.
 
 ## Completed
 
+- [Anthropic prompt caching](anthropic-prompt-caching.md)
 - [Add DeepSeek model provider](add-deepseek-model-provider.md)
 - [OAuth callback no-state constructors](oauth-callback-no-state-constructors.md)
 - [MCP error SSE body decoding](mcp-error-sse-body-decoding.md)
