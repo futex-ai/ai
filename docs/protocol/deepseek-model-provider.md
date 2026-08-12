@@ -87,9 +87,10 @@ thinking levels other than `Disabled`, `High`, and `Max`.
 
 ## Request Mapping
 
-Every request sends the provider model id, a leading normalized `system`
-message, and retained messages in order. `User`, `Assistant`, and `Tool` map
-to `user`, `assistant`, and `tool`.
+Every request sends the provider model id and retained messages in order. A
+nonempty normalized system prompt is a leading `system` message; an empty
+prompt is omitted. `User`, `Assistant`, and `Tool` map to `user`, `assistant`,
+and `tool`.
 
 Plain content remains a JSON string. Empty user, assistant, and tool content
 remains an empty string. User and assistant names are sent only when present;
@@ -100,9 +101,13 @@ DeepSeek V4 is text-only at this boundary. A message with any typed
 error before authentication or transport is invoked. The adapter must not
 drop an image, use only its text fallback, or claim vision support.
 
-The request omits unrepresented sampling parameters and `tool_choice`;
-DeepSeek V4 thinking rejects `tool_choice`, while `tools` alone enables
-automatic selection.
+Portable output limits map to `max_tokens` and ordered stops map to `stop` in
+every thinking mode. With thinking disabled, temperature, top-p, and all
+portable tool choices map to native fields. With thinking enabled, sampling
+keeps provider defaults, `auto` uses omission plus `tools`, `none` omits tools,
+and required or named-function choice returns typed `UnsupportedControl`.
+A total timeout reaches the HTTP request, `PreferDeferred` falls back to
+synchronous, and `RequireDeferred` is unsupported.
 
 ## Thinking Controls
 

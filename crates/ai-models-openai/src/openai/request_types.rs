@@ -7,7 +7,8 @@ use serde_json::Value;
 #[derive(Debug, Serialize)]
 pub(super) struct ResponsesRequest {
     pub(super) model: String,
-    pub(super) instructions: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) instructions: Option<String>,
     pub(super) input: Vec<ResponsesInputItem>,
     pub(super) store: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -15,11 +16,31 @@ pub(super) struct ResponsesRequest {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(super) tools: Vec<ResponsesTool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) tool_choice: Option<String>,
+    pub(super) tool_choice: Option<ResponsesToolChoice>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) text: Option<ResponsesText>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) reasoning: Option<ResponsesReasoning>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) temperature: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) top_p: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) max_output_tokens: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub(super) enum ResponsesToolChoice {
+    Mode(String),
+    Function(ResponsesNamedToolChoice),
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct ResponsesNamedToolChoice {
+    #[serde(rename = "type")]
+    pub(super) kind: String,
+    pub(super) name: String,
 }
 
 #[derive(Debug, Serialize)]

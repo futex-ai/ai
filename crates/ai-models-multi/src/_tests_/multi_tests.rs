@@ -6,7 +6,8 @@ use std::sync::{
 };
 
 use ai_interface::{
-    FinishReason, Model, ModelError, ModelMock, ModelRequest, ModelResponse, ModelUsage,
+    FinishReason, Model, ModelError, ModelGenerationControls, ModelMock, ModelRequest,
+    ModelResponse, ModelUsage,
 };
 use unimock::{MockFn, Unimock, matching};
 
@@ -147,6 +148,52 @@ async fn falls_back_on_internal_failures() {
     assert_eq!(second_calls.load(Ordering::SeqCst), 1);
 }
 
+#[tokio::test]
+async fn forwards_call_controls_to_each_fallback_candidate() {
+    let first_calls = Arc::new(AtomicUsize::new(0));
+    let second_calls = Arc::new(AtomicUsize::new(0));
+    let model = MultiModel::new(vec![
+        control_asserting_model(
+            first_calls.clone(),
+            Err(ModelError::transient_provider("one", "one", "retry")),
+        ),
+        control_asserting_model(second_calls.clone(), Ok(success_response("two", "two"))),
+    ]);
+    let mut request = empty_request();
+    request.controls.generation = ModelGenerationControls {
+        max_output_tokens: Some(4321),
+        ..Default::default()
+    };
+
+    model
+        .complete(&request)
+        .await
+        .expect("fallback should succeed");
+
+    assert_eq!(first_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(second_calls.load(Ordering::SeqCst), 1);
+}
+
+fn control_asserting_model(
+    calls: Arc<AtomicUsize>,
+    result: std::result::Result<ModelResponse, ModelError>,
+) -> Arc<dyn Model> {
+    let result = Arc::new(Mutex::new(Some(result)));
+    Arc::new(Unimock::new(
+        ModelMock::complete
+            .next_call(matching!(_))
+            .answers_arc(Arc::new(move |_, request: &ModelRequest| {
+                assert_eq!(request.controls.generation.max_output_tokens, Some(4321));
+                calls.fetch_add(1, Ordering::SeqCst);
+                result
+                    .lock()
+                    .expect("result lock should not be poisoned")
+                    .take()
+                    .expect("unexpected model call")
+            })),
+    ))
+}
+
 fn scripted_model(
     calls: Arc<AtomicUsize>,
     result: std::result::Result<ModelResponse, ModelError>,
@@ -173,6 +220,7 @@ fn empty_request() -> ModelRequest {
         messages: Vec::new(),
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }
 

@@ -1,8 +1,9 @@
 //! Shared request-to-QwenCloud Chat Completions mapping.
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, ModelError, ModelRequest,
-    ModelResult, ProviderConversationItem, QwenToolCallContext, ToolCall, ToolDefinition,
+    ConversationContentPart, ConversationMessage, ConversationRole, ModelControl, ModelError,
+    ModelRequest, ModelResult, ModelToolChoice, ProviderConversationItem, QwenToolCallContext,
+    ToolCall, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 
@@ -10,8 +11,9 @@ use crate::{QWEN_3_7_FLASH, QWEN_3_7_MAX, QWEN_3_7_PLUS};
 
 use super::request_types::{
     ChatCompletionsContent, ChatCompletionsContentPart, ChatCompletionsImageUrl,
-    ChatCompletionsMessage, ChatCompletionsRequest, ChatCompletionsResponseFormat,
-    ChatCompletionsTool, ChatCompletionsToolCall, ChatCompletionsToolDefinition,
+    ChatCompletionsMessage, ChatCompletionsNamedFunction, ChatCompletionsNamedToolChoice,
+    ChatCompletionsRequest, ChatCompletionsResponseFormat, ChatCompletionsTool,
+    ChatCompletionsToolCall, ChatCompletionsToolChoice, ChatCompletionsToolDefinition,
     ChatCompletionsToolFunction,
 };
 
@@ -24,26 +26,72 @@ pub(super) fn build_request(
 ) -> ModelResult<ChatCompletionsRequest> {
     validate_content_parts(model_id, request)?;
     let thinking_enabled = thinking_level.is_enabled();
-    let mut messages = vec![ChatCompletionsMessage {
-        role: "system".to_owned(),
-        content: Some(ChatCompletionsContent::Text(system_prompt(request))),
-        tool_call_id: None,
-        reasoning_content: None,
-        tool_calls: Vec::new(),
-    }];
+    validate_controls(model_id, thinking_enabled, request)?;
+    let mut messages = Vec::new();
+    let system_prompt = system_prompt(request);
+    if !system_prompt.is_empty() {
+        messages.push(ChatCompletionsMessage {
+            role: "system".to_owned(),
+            content: Some(ChatCompletionsContent::Text(system_prompt)),
+            tool_call_id: None,
+            reasoning_content: None,
+            tool_calls: Vec::new(),
+        });
+    }
     messages.extend(request.messages.iter().map(message));
     let has_tools = !request.tools.is_empty();
     Ok(ChatCompletionsRequest {
         model: model_id.to_owned(),
         messages,
         tools: request.tools.iter().map(tool).collect(),
-        tool_choice: has_tools.then(|| "auto".to_owned()),
+        tool_choice: tool_choice(request, has_tools),
         parallel_tool_calls: has_tools.then_some(true),
         stream: false,
         enable_thinking: thinking_enabled,
         preserve_thinking: thinking_enabled,
         response_format: native_json_format(model_id, thinking_level, request),
+        temperature: (!thinking_enabled)
+            .then_some(request.controls.generation.temperature)
+            .flatten(),
+        top_p: (!thinking_enabled)
+            .then_some(request.controls.generation.top_p)
+            .flatten(),
+        max_completion_tokens: request.controls.generation.max_output_tokens,
+        stop: request.controls.generation.stop_sequences.clone(),
     })
+}
+
+fn validate_controls(
+    model_id: &str,
+    thinking_enabled: bool,
+    request: &ModelRequest,
+) -> ModelResult<()> {
+    let unsupported = match request.controls.generation.tool_choice.as_ref() {
+        Some(ModelToolChoice::Required) => Some(ModelControl::ToolChoice),
+        Some(ModelToolChoice::Function(_)) if thinking_enabled => Some(ModelControl::ToolChoice),
+        Some(ModelToolChoice::None | ModelToolChoice::Auto | ModelToolChoice::Function(_))
+        | None => None,
+    };
+    match unsupported {
+        Some(control) => Err(ModelError::unsupported_control(PROVIDER, model_id, control)),
+        None => Ok(()),
+    }
+}
+
+fn tool_choice(request: &ModelRequest, has_tools: bool) -> Option<ChatCompletionsToolChoice> {
+    match request.controls.generation.tool_choice.as_ref() {
+        Some(ModelToolChoice::None) => Some(ChatCompletionsToolChoice::Mode("none".to_owned())),
+        Some(ModelToolChoice::Auto) => Some(ChatCompletionsToolChoice::Mode("auto".to_owned())),
+        Some(ModelToolChoice::Function(name)) => Some(ChatCompletionsToolChoice::Function(
+            ChatCompletionsNamedToolChoice {
+                kind: "function".to_owned(),
+                function: ChatCompletionsNamedFunction { name: name.clone() },
+            },
+        )),
+        Some(ModelToolChoice::Required) => None,
+        None if has_tools => Some(ChatCompletionsToolChoice::Mode("auto".to_owned())),
+        None => None,
+    }
 }
 
 fn system_prompt(request: &ModelRequest) -> String {

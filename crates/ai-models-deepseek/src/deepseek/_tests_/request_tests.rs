@@ -68,6 +68,7 @@ async fn applies_custom_auth_and_serializes_plain_roles_in_order() {
         ],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
 
     model
@@ -114,6 +115,7 @@ async fn preserves_empty_plain_content_as_strings() {
         ],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     };
 
     DeepSeekModel::new(http_client, "deepseek-key")

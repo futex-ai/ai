@@ -84,6 +84,7 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
             ],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("OpenAI response should parse");
@@ -142,6 +143,7 @@ async fn replays_assistant_message_phase_before_function_call_context() {
             ],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("OpenAI response should parse");
@@ -192,6 +194,7 @@ async fn replays_phase_less_assistant_message_before_function_call_context() {
             ],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("OpenAI response should parse");

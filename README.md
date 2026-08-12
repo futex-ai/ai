@@ -9,6 +9,9 @@ in-memory tool-calling runtime behavior.
 - Shared `ai-interface` contracts for conversations, model calls, audio
   transcription, one-image generation and editing, tool calls, routing,
   logging, usage metering, and bounded model-visible tool output envelopes
+- Typed provider-neutral generation controls, per-call deadlines, and
+  completion preferences, with every provider adapter owning its native wire
+  mapping and XAI owning deferred submission and polling
 - Provider adapters for Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, OpenAI and Gemini image generation,
@@ -26,6 +29,9 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [Provider call controls](docs/protocol/provider-call-controls.md) defines
+  portable generation and execution intent, provider compatibility, blank
+  system handling, full Google schemas, and XAI deferred completion.
 - [Image generation](docs/protocol/image-generation.md) defines the shared
   one-image generation/editing boundary and the OpenAI and Google mappings.
 - [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) defines
@@ -108,7 +114,7 @@ cargo xtask review
 
 - `Cargo.toml`: workspace membership and shared internal crate dependencies
 - `crates/ai-interface`: shared AI contracts, including
-  `src/output/` envelope DTOs
+  call controls and `src/output/` envelope DTOs
 - `crates/ai-models-core`: provider-agnostic model wrappers and helpers
 - `crates/ai-models-deepseek`: DeepSeek V4 catalog, typed client, thinking,
   request/replay, structured-output, response, usage, and error mapping
@@ -132,6 +138,8 @@ cargo xtask review
   management contract
 - `docs/protocol/image-generation.md`: normative shared image generation and
   provider mapping contract
+- `docs/protocol/provider-call-controls.md`: normative model-call control and
+  provider wire-compatibility contract
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
   contract
 - `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract

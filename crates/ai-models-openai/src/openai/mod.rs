@@ -8,7 +8,7 @@ mod transcription;
 
 use std::sync::Arc;
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse};
+use ai_interface::{Model, ModelControl, ModelError, ModelRequest, ModelResponse};
 use ai_models_core::{ThinkingLevel, classify_json_http_error};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
@@ -85,11 +85,30 @@ impl Model for OpenAiModel {
         &self,
         request: &ModelRequest,
     ) -> std::result::Result<ModelResponse, ModelError> {
+        if let Err(control) = request.controls.execution.resolve_deferred(false) {
+            return Err(ModelError::unsupported_control(
+                PROVIDER,
+                &self.provider_model_id,
+                control,
+            ));
+        }
+        if !request.controls.generation.stop_sequences.is_empty() {
+            return Err(ModelError::unsupported_control(
+                PROVIDER,
+                &self.provider_model_id,
+                ModelControl::StopSequences,
+            ));
+        }
         let response_schema = request.response_schema.as_ref();
-        let request = self
+        let builder = self
             .http_client
             .post(&self.endpoint)
-            .auth(self.auth.clone())
+            .auth(self.auth.clone());
+        let builder = match request.controls.execution.total_timeout {
+            Some(timeout) => builder.timeout(timeout),
+            None => builder,
+        };
+        let request = builder
             .json(request::build_request(
                 &self.provider_model_id,
                 self.thinking_level,
@@ -147,3 +166,7 @@ mod openai_reasoning_replay_tests;
 #[cfg(test)]
 #[path = "_tests_/openai_thinking_tests.rs"]
 mod openai_thinking_tests;
+
+#[cfg(test)]
+#[path = "_tests_/openai_controls_tests.rs"]
+mod openai_controls_tests;

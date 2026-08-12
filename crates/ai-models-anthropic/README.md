@@ -14,6 +14,8 @@
 `AnthropicModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - Anthropic messages request serialization
+- portable sampling outside thinking mode, bounded output limits, stop
+  sequences, tool choice, per-call timeouts, and blank-system omission
 - Anthropic tool-use and tool-result content blocks
 - Anthropic `stop_reason` normalization into `ai_interface::FinishReason`
 - terminal Anthropic stop reasons suppress parsed tool calls unless the
@@ -74,6 +76,7 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [Anthropic model overview](https://platform.claude.com/docs/en/about-claude/models/overview)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

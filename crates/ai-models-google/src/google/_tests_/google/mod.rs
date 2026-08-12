@@ -15,6 +15,7 @@ use unimock::{MockFn, Unimock, matching};
 
 use super::GoogleModel;
 
+mod controls_tests;
 mod finish_reason_tests;
 mod multimodal_tests;
 mod operation_id_tests;
@@ -61,6 +62,7 @@ fn simple_request() -> ModelRequest {
         messages: vec![ConversationMessage::user("hello")],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }
 

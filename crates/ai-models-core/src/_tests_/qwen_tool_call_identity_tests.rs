@@ -81,5 +81,6 @@ fn qwen_request(
         )],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }

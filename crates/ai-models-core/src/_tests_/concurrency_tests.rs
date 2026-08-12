@@ -8,7 +8,10 @@ use std::{
     time::Duration,
 };
 
-use ai_interface::{FinishReason, Model, ModelMock, ModelRequest, ModelResponse, ModelUsage};
+use ai_interface::{
+    FinishReason, Model, ModelGenerationControls, ModelMock, ModelRequest, ModelResponse,
+    ModelUsage,
+};
 use unimock::{MockFn, Unimock, matching};
 
 use crate::ConcurrencyLimitedModel;
@@ -24,13 +27,13 @@ async fn enforces_the_max_concurrent_limit() {
     ));
 
     let first_model = wrapped.clone();
-    let first = tokio::spawn(async move { first_model.complete(&empty_request()).await });
+    let first = tokio::spawn(async move { first_model.complete(&controlled_request()).await });
     while !first_entered.load(Ordering::SeqCst) {
         tokio::task::yield_now().await;
     }
 
     let second_model = wrapped.clone();
-    let second = tokio::spawn(async move { second_model.complete(&empty_request()).await });
+    let second = tokio::spawn(async move { second_model.complete(&controlled_request()).await });
     tokio::time::sleep(Duration::from_millis(30)).await;
 
     assert!(
@@ -57,7 +60,8 @@ fn blocking_model(
         ModelMock::complete.each_call(matching!(_)).answers_arc({
             let first_entered = first_entered.clone();
             let second_entered = second_entered.clone();
-            Arc::new(move |_, _request: &ModelRequest| {
+            Arc::new(move |_, request: &ModelRequest| {
+                assert_eq!(request.controls.generation.max_output_tokens, Some(4321));
                 if first_entered
                     .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
                     .is_ok()
@@ -78,7 +82,17 @@ fn empty_request() -> ModelRequest {
         messages: Vec::new(),
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
+}
+
+fn controlled_request() -> ModelRequest {
+    let mut request = empty_request();
+    request.controls.generation = ModelGenerationControls {
+        max_output_tokens: Some(4321),
+        ..Default::default()
+    };
+    request
 }
 
 fn success_response() -> ModelResponse {

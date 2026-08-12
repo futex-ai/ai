@@ -1,6 +1,8 @@
 //! Concrete turn state machine for the in-memory tool-calling runtime.
 
-use ai_interface::{ConversationMessage, FinishReason, ModelRequest, TurnOutcomeLogEntry};
+use ai_interface::{
+    ConversationMessage, FinishReason, ModelCallControls, ModelRequest, TurnOutcomeLogEntry,
+};
 use async_trait::async_trait;
 
 use crate::{Error, Result, ToolCallingRuntime};
@@ -23,6 +25,7 @@ pub struct ActiveTurn<'a> {
     assistant_message: String,
     successful_tool_calls: Vec<ToolExecutionRecord>,
     terminal_outcome: Option<StepOutcome>,
+    controls: ModelCallControls,
 }
 
 impl<'a> ActiveTurn<'a> {
@@ -34,7 +37,14 @@ impl<'a> ActiveTurn<'a> {
             assistant_message: String::new(),
             successful_tool_calls: Vec::new(),
             terminal_outcome: None,
+            controls: ModelCallControls::default(),
         }
+    }
+
+    /// Applies generation and execution controls to every model step in this turn.
+    pub fn with_controls(mut self, controls: ModelCallControls) -> Self {
+        self.controls = controls;
+        self
     }
 
     /// Executes one model round with caller-provided tool checkpoints.
@@ -156,6 +166,7 @@ impl<'a> ActiveTurn<'a> {
             messages,
             tools,
             response_schema: None,
+            controls: self.controls.clone(),
         }
     }
 

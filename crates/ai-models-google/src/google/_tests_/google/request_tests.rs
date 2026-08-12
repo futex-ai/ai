@@ -61,6 +61,7 @@ async fn builds_google_tool_requests_and_parses_response() {
                 activity_verb: Some("Remembering".to_owned()),
             }],
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("Google response should parse");
@@ -159,6 +160,7 @@ async fn builds_google_structured_output_requests_and_parses_response() {
                     "required": ["summary", "done"]
                 }),
             }),
+            controls: Default::default(),
         })
         .await
         .expect("Google structured response should parse");

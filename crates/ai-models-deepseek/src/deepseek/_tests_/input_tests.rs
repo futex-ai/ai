@@ -29,6 +29,7 @@ async fn rejects_every_non_empty_content_parts_value_before_external_calls() {
                 messages: vec![ConversationMessage::user_with_parts("fallback", vec![part])],
                 tools: Vec::new(),
                 response_schema: None,
+                controls: Default::default(),
             })
             .await
             .expect_err("typed content should be rejected");

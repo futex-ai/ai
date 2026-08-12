@@ -10,10 +10,33 @@ pub(super) struct ChatCompletionsRequest {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(super) tools: Vec<ChatCompletionsTool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) tool_choice: Option<String>,
+    pub(super) tool_choice: Option<ChatCompletionsToolChoice>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) response_format: Option<ChatCompletionsResponseFormat>,
     pub(super) reasoning_effort: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) max_completion_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(super) stop: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub(super) enum ChatCompletionsToolChoice {
+    Mode(String),
+    Function(ChatCompletionsNamedToolChoice),
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct ChatCompletionsNamedToolChoice {
+    #[serde(rename = "type")]
+    pub(super) kind: String,
+    pub(super) function: ChatCompletionsNamedFunction,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct ChatCompletionsNamedFunction {
+    pub(super) name: String,
 }
 
 #[derive(Debug, Serialize)]

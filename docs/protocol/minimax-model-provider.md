@@ -73,7 +73,8 @@ Every request must:
 
 1. Send the selected provider model id.
 2. Set `reasoning_split: true`.
-3. Add the normalized system prompt as the first `system` message.
+3. Add a nonempty normalized system prompt as the first `system` message and
+   omit an empty system prompt.
 4. Append retained conversation messages in order.
 5. Send function tools using their name, description, and JSON Schema
    parameters.
@@ -99,6 +100,13 @@ as MiniMax reasoning.
 
 MiniMax does not support legacy `function_call`; the adapter sends and accepts
 modern `tools` and `tool_calls` only.
+
+Portable temperature and top-p map to their native fields, and an output limit
+maps to `max_completion_tokens`. MiniMax supports portable `none` and `auto`
+tool choice at this boundary. Required or named-function choices and nonempty
+stop sequences return typed `UnsupportedControl` before transport. A total
+timeout reaches the HTTP request, `PreferDeferred` falls back to synchronous,
+and `RequireDeferred` is unsupported.
 
 ## Thinking And Replay
 

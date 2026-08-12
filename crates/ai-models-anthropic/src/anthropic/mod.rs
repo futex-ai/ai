@@ -83,12 +83,24 @@ impl Model for AnthropicModel {
         &self,
         request: &ModelRequest,
     ) -> std::result::Result<ModelResponse, ModelError> {
+        if let Err(control) = request.controls.execution.resolve_deferred(false) {
+            return Err(ModelError::unsupported_control(
+                PROVIDER,
+                &self.provider_model_id,
+                control,
+            ));
+        }
         let response_schema = request.response_schema.as_ref();
-        let request = self
+        let builder = self
             .http_client
             .post(&self.endpoint)
             .auth(self.auth.clone())
-            .header("anthropic-version", ANTHROPIC_API_VERSION)
+            .header("anthropic-version", ANTHROPIC_API_VERSION);
+        let builder = match request.controls.execution.total_timeout {
+            Some(timeout) => builder.timeout(timeout),
+            None => builder,
+        };
+        let request = builder
             .json(request::build_request(
                 &self.provider_model_id,
                 self.thinking_level,
@@ -142,3 +154,7 @@ mod anthropic_multimodal_tests;
 #[cfg(test)]
 #[path = "_tests_/anthropic_thinking_tests.rs"]
 mod anthropic_thinking_tests;
+
+#[cfg(test)]
+#[path = "_tests_/anthropic_controls_tests.rs"]
+mod anthropic_controls_tests;

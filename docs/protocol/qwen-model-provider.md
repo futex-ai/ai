@@ -84,9 +84,18 @@ normalized thinking levels other than `High` and `Disabled`.
 
 ## Request Mapping
 
-Every request sends the selected provider model id, a leading `system`
-message, retained conversation messages in order, `stream: false`, and the
-selected thinking controls.
+Every request sends the selected provider model id, retained conversation
+messages in order, `stream: false`, and the selected thinking controls. A
+nonempty normalized system prompt is a leading `system` message; an empty
+system prompt is omitted.
+
+Portable output limits map to `max_completion_tokens` and ordered stops map to
+`stop`. Temperature and top-p map only with thinking disabled; thinking mode
+keeps native sampling defaults. Non-thinking mode supports `none`, `auto`, and
+named-function choice but not portable `required`. Thinking mode supports
+`none` and `auto`; forced choices return typed `UnsupportedControl`. A total
+timeout reaches the HTTP request, `PreferDeferred` falls back to synchronous,
+and `RequireDeferred` is unsupported.
 
 Shared roles map directly to `user`, `assistant`, and `tool`. Plain content is
 sent as a string. Empty user and tool content remains an empty string. Empty

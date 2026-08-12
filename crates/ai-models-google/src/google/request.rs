@@ -8,16 +8,20 @@ use serde::Serialize;
 use serde_json::Value;
 
 use super::thinking::{GoogleThinkingConfig, thinking_config};
+use super::tool_config::{GoogleToolConfig, tool_config};
 
 #[derive(Debug, Serialize)]
 pub(super) struct GoogleRequest {
     #[serde(rename = "systemInstruction")]
-    system_instruction: GoogleInstruction,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system_instruction: Option<GoogleInstruction>,
     contents: Vec<GoogleContent>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     tools: Vec<GoogleToolGroup>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "generationConfig")]
     generation_config: Option<GoogleGenerationConfig>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "toolConfig")]
+    tool_config: Option<GoogleToolConfig>,
 }
 
 #[derive(Debug, Serialize)]
@@ -81,7 +85,8 @@ struct GoogleToolGroup {
 struct GoogleFunctionDeclaration {
     name: String,
     description: String,
-    parameters: Value,
+    #[serde(rename = "parametersJsonSchema")]
+    parameters_json_schema: Value,
 }
 
 #[derive(Debug, Serialize)]
@@ -92,6 +97,14 @@ struct GoogleGenerationConfig {
     response_json_schema: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "thinkingConfig")]
     thinking_config: Option<GoogleThinkingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "topP")]
+    top_p: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "maxOutputTokens")]
+    max_output_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Vec::is_empty", rename = "stopSequences")]
+    stop_sequences: Vec<String>,
 }
 
 pub(super) fn build_request(
@@ -102,14 +115,14 @@ pub(super) fn build_request(
     let generation_config = generation_config(model_id, request, thinking_level);
 
     GoogleRequest {
-        system_instruction: GoogleInstruction {
+        system_instruction: (!request.system_prompt.is_empty()).then(|| GoogleInstruction {
             parts: vec![GooglePart {
                 text: Some(request.system_prompt.clone()),
                 function_call: None,
                 function_response: None,
                 inline_data: None,
             }],
-        },
+        }),
         contents: google_contents(&request.messages),
         tools: if request.tools.is_empty() {
             Vec::new()
@@ -119,6 +132,7 @@ pub(super) fn build_request(
             }]
         },
         generation_config,
+        tool_config: tool_config(request.controls.generation.tool_choice.as_ref()),
     }
 }
 
@@ -132,7 +146,14 @@ fn generation_config(
         .as_ref()
         .map(|response_schema| response_schema.schema.clone());
     let thinking_config = thinking_config(model_id, thinking_level);
-    if response_schema.is_none() && thinking_config.is_none() {
+    let controls = &request.controls.generation;
+    if response_schema.is_none()
+        && thinking_config.is_none()
+        && controls.temperature.is_none()
+        && controls.top_p.is_none()
+        && controls.max_output_tokens.is_none()
+        && controls.stop_sequences.is_empty()
+    {
         return None;
     }
     Some(GoogleGenerationConfig {
@@ -141,6 +162,10 @@ fn generation_config(
             .map(|_| "application/json".to_owned()),
         response_json_schema: response_schema,
         thinking_config,
+        temperature: controls.temperature,
+        top_p: controls.top_p,
+        max_output_tokens: controls.max_output_tokens,
+        stop_sequences: controls.stop_sequences.clone(),
     })
 }
 
@@ -249,6 +274,6 @@ fn tool(tool: &ToolDefinition) -> GoogleFunctionDeclaration {
     GoogleFunctionDeclaration {
         name: tool.name.clone(),
         description: tool.description.clone(),
-        parameters: tool.input_schema.clone(),
+        parameters_json_schema: tool.input_schema.clone(),
     }
 }

@@ -31,6 +31,7 @@ async fn builds_openai_tool_requests_and_parses_response() {
             messages: vec![ConversationMessage::user("hello")],
             tools: vec![memory_read_tool()],
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("OpenAI response should parse");
@@ -100,6 +101,7 @@ async fn serializes_multimodal_messages_and_tool_history() {
             ],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("OpenAI response should parse");
@@ -148,6 +150,7 @@ async fn builds_structured_output_requests_and_parses_response() {
                     "required": ["summary", "done"]
                 }),
             }),
+            controls: Default::default(),
         })
         .await
         .expect("OpenAI structured response should parse");

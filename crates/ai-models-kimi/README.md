@@ -25,6 +25,12 @@ parallel custom function calls, non-strict provider JSON-schema generation
 with local validation, cached-input usage normalization, and lossless
 assistant replay across tool continuations.
 
+Portable output limits use `max_completion_tokens`; ordered stops and all
+shared tool choices map to Kimi fields. K3 keeps temperature and top-p at its
+provider-fixed values, blank system prompts are omitted, and execution controls
+apply a per-call timeout while provider-neutral `PreferDeferred` falls back to
+the ordinary synchronous request.
+
 The crate does not read environment variables, load deployment config, price
 usage, or make credential-dependent calls during tests. K2.x and Moonshot V1
 models, streaming, Partial Mode, video/file upload, dynamic or official tools,
@@ -75,6 +81,7 @@ credentials or network access are required.
 
 ### Related Docs
 
+- [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

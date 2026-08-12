@@ -96,5 +96,6 @@ fn simple_request() -> ModelRequest {
         messages: vec![ConversationMessage::user("hello")],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }

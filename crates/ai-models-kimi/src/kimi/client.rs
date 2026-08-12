@@ -94,18 +94,28 @@ impl Model for KimiModel {
         &self,
         model_request: &ModelRequest,
     ) -> std::result::Result<ModelResponse, ModelError> {
+        if let Err(control) = model_request.controls.execution.resolve_deferred(false) {
+            return Err(ModelError::unsupported_control(
+                PROVIDER,
+                &self.provider_model_id,
+                control,
+            ));
+        }
         let response_schema = model_request.response_schema.as_ref();
         let request_body = request::build_request(
             &self.provider_model_id,
             self.reasoning_effort,
             model_request,
         );
-        let request = match self
+        let builder = self
             .http_client
             .post(&self.endpoint)
-            .auth(self.auth.clone())
-            .json(request_body)
-        {
+            .auth(self.auth.clone());
+        let builder = match model_request.controls.execution.total_timeout {
+            Some(timeout) => builder.timeout(timeout),
+            None => builder,
+        };
+        let request = match builder.json(request_body) {
             Ok(request) => request,
             Err(source) => return Err(ModelError::internal(source)),
         };

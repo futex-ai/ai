@@ -72,6 +72,7 @@ async fn builds_xai_tool_requests_and_parses_response() {
                 activity_verb: Some("Remembering".to_owned()),
             }],
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("xAI response should parse");
@@ -140,6 +141,7 @@ async fn builds_xai_structured_output_requests_and_parses_response() {
                     "required": ["summary", "done"]
                 }),
             }),
+            controls: Default::default(),
         })
         .await
         .expect("xAI structured response should parse");
@@ -259,6 +261,7 @@ fn simple_request() -> ModelRequest {
         messages: vec![ConversationMessage::user("hello")],
         tools: Vec::new(),
         response_schema: None,
+        controls: Default::default(),
     }
 }
 

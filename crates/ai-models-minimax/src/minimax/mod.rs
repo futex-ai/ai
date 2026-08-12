@@ -6,7 +6,7 @@ mod response;
 
 use std::sync::Arc;
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse};
+use ai_interface::{Model, ModelControl, ModelError, ModelRequest, ModelResponse, ModelToolChoice};
 use ai_models_core::{ThinkingLevel, classify_json_http_error};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
@@ -78,11 +78,40 @@ impl Model for MiniMaxModel {
         &self,
         request: &ModelRequest,
     ) -> std::result::Result<ModelResponse, ModelError> {
+        if let Err(control) = request.controls.execution.resolve_deferred(false) {
+            return Err(ModelError::unsupported_control(
+                PROVIDER,
+                &self.provider_model_id,
+                control,
+            ));
+        }
+        if !request.controls.generation.stop_sequences.is_empty() {
+            return Err(ModelError::unsupported_control(
+                PROVIDER,
+                &self.provider_model_id,
+                ModelControl::StopSequences,
+            ));
+        }
+        if matches!(
+            request.controls.generation.tool_choice,
+            Some(ModelToolChoice::Required | ModelToolChoice::Function(_))
+        ) {
+            return Err(ModelError::unsupported_control(
+                PROVIDER,
+                &self.provider_model_id,
+                ModelControl::ToolChoice,
+            ));
+        }
         let response_schema = request.response_schema.as_ref();
-        let request = self
+        let builder = self
             .http_client
             .post(CHAT_COMPLETIONS_URL)
-            .auth(self.auth.clone())
+            .auth(self.auth.clone());
+        let builder = match request.controls.execution.total_timeout {
+            Some(timeout) => builder.timeout(timeout),
+            None => builder,
+        };
+        let request = builder
             .json(request::build_request(
                 &self.provider_model_id,
                 self.thinking_level,
@@ -157,3 +186,7 @@ mod tool_tests;
 #[cfg(test)]
 #[path = "_tests_/usage_tests.rs"]
 mod usage_tests;
+
+#[cfg(test)]
+#[path = "_tests_/controls_tests.rs"]
+mod controls_tests;

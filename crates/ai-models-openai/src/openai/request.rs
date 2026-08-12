@@ -1,15 +1,16 @@
 //! OpenAI Responses request mapping.
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, ModelRequest,
+    ConversationContentPart, ConversationMessage, ConversationRole, ModelRequest, ModelToolChoice,
     ProviderConversationItem, StructuredOutputSchema, ToolCall, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 
 use super::request_types::{
     ResponsesContentPart, ResponsesFunctionCallInput, ResponsesFunctionCallOutput,
-    ResponsesInputItem, ResponsesMessage, ResponsesMessageContent, ResponsesReasoning,
-    ResponsesReasoningInput, ResponsesRequest, ResponsesText, ResponsesTextFormat, ResponsesTool,
+    ResponsesInputItem, ResponsesMessage, ResponsesMessageContent, ResponsesNamedToolChoice,
+    ResponsesReasoning, ResponsesReasoningInput, ResponsesRequest, ResponsesText,
+    ResponsesTextFormat, ResponsesTool, ResponsesToolChoice,
 };
 
 pub(super) fn build_request(
@@ -20,14 +21,37 @@ pub(super) fn build_request(
     let tools = request.tools.iter().map(tool).collect::<Vec<_>>();
     ResponsesRequest {
         model: model_id.to_owned(),
-        instructions: request.system_prompt.clone(),
+        instructions: (!request.system_prompt.is_empty()).then(|| request.system_prompt.clone()),
         input: input_items(&request.messages),
         store: false,
         include: include_items(thinking_level),
-        tool_choice: (!tools.is_empty()).then(|| "auto".to_owned()),
+        tool_choice: tool_choice(request, !tools.is_empty()),
         tools,
         text: request.response_schema.as_ref().map(text_format),
         reasoning: reasoning(thinking_level),
+        temperature: (!thinking_level.is_enabled())
+            .then_some(request.controls.generation.temperature)
+            .flatten(),
+        top_p: (!thinking_level.is_enabled())
+            .then_some(request.controls.generation.top_p)
+            .flatten(),
+        max_output_tokens: request.controls.generation.max_output_tokens,
+    }
+}
+
+fn tool_choice(request: &ModelRequest, has_tools: bool) -> Option<ResponsesToolChoice> {
+    match request.controls.generation.tool_choice.as_ref() {
+        Some(ModelToolChoice::None) => Some(ResponsesToolChoice::Mode("none".to_owned())),
+        Some(ModelToolChoice::Auto) => Some(ResponsesToolChoice::Mode("auto".to_owned())),
+        Some(ModelToolChoice::Required) => Some(ResponsesToolChoice::Mode("required".to_owned())),
+        Some(ModelToolChoice::Function(name)) => {
+            Some(ResponsesToolChoice::Function(ResponsesNamedToolChoice {
+                kind: "function".to_owned(),
+                name: name.clone(),
+            }))
+        }
+        None if has_tools => Some(ResponsesToolChoice::Mode("auto".to_owned())),
+        None => None,
     }
 }
 

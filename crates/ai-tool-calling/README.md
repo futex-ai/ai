@@ -24,6 +24,9 @@ output, and exposes explicit mutation APIs for embedding services.
   `resume(...)`.
 - Calls an injected model with the active system prompt, conversation, and tool
   definitions.
+- Lets callers apply `ModelCallControls` to a turn with
+  `ActiveTurn::with_controls(...)`; every model step receives the controls
+  unchanged.
 - Always advertises the reserved intrinsic `tool_output_read` tool. Injecting a
   normal tool with that name fails during runtime construction or
   `replace_tools(...)`.
@@ -178,6 +181,7 @@ cargo clippy -p ai-tool-calling --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)

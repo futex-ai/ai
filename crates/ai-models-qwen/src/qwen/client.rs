@@ -90,14 +90,24 @@ impl QwenModel {
 #[async_trait]
 impl Model for QwenModel {
     async fn complete(&self, model_request: &ModelRequest) -> ModelResult<ModelResponse> {
+        if let Err(control) = model_request.controls.execution.resolve_deferred(false) {
+            return Err(ModelError::unsupported_control(
+                PROVIDER,
+                &self.provider_model_id,
+                control,
+            ));
+        }
         let request_body =
             request::build_request(&self.provider_model_id, self.thinking_level, model_request)?;
-        let request = match self
+        let builder = self
             .http_client
             .post(QWEN_CHAT_COMPLETIONS_URL)
-            .auth(self.auth.clone())
-            .json(request_body)
-        {
+            .auth(self.auth.clone());
+        let builder = match model_request.controls.execution.total_timeout {
+            Some(timeout) => builder.timeout(timeout),
+            None => builder,
+        };
+        let request = match builder.json(request_body) {
             Ok(request) => request,
             Err(source) => return Err(ModelError::internal(source)),
         };

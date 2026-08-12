@@ -13,6 +13,7 @@ async fn mock_model_returns_acknowledged_subject_and_usage() {
             messages: vec![ConversationMessage::user("- body: inspect the queue")],
             tools: Vec::new(),
             response_schema: None,
+            controls: Default::default(),
         })
         .await
         .expect("mock model should succeed");
@@ -45,6 +46,7 @@ async fn mock_model_returns_structured_output_when_requested() {
                     "required": ["message", "accepted"]
                 }),
             }),
+            controls: Default::default(),
         })
         .await
         .expect("mock model should return structured output");
