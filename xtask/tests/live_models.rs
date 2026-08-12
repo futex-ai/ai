@@ -88,6 +88,10 @@ fn workflow_runs_for_trusted_pull_requests() {
         workflow.contains("github.event.pull_request.user.login != 'dependabot[bot]'"),
         "workflow must not expose Actions secrets to Dependabot jobs"
     );
+    assert!(
+        workflow.contains("github.ref_name == github.event.repository.default_branch"),
+        "scheduled and manual jobs must remain restricted to the default branch"
+    );
 }
 
 #[tokio::test]

@@ -53,12 +53,12 @@ treated as skipped or successful coverage.
 ## CI And Credentials
 
 `.github/workflows/live-models.yml` runs for pull requests targeting `main`, on
-the default branch on a daily schedule, and by manual dispatch. It uses one
-matrix job per provider, keeps matrix failures independent, and limits
-parallelism to reduce rate pressure. A newer revision of the same pull request
-cancels its superseded live run. The workflow has read-only repository
-permissions and exposes only the current provider's secret, only to the
-credential check and test steps.
+the default branch on a daily schedule, and by manual dispatch from the default
+branch. It uses one matrix job per provider, keeps matrix failures independent,
+and limits parallelism to reduce rate pressure. A newer revision of the same
+pull request cancels its superseded live run. The workflow has read-only
+repository permissions and exposes only the current provider's secret, only to
+the credential check and test steps.
 
 The required repository Actions secrets are:
 
