@@ -26,6 +26,9 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [Anthropic prompt caching](docs/protocol/anthropic-prompt-caching.md)
+  defines the `cache_control` breakpoint placement, cache configuration, and
+  cache-write usage and pricing contract for the Anthropic adapter.
 - [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) defines
   the DeepSeek V4 Pro/Flash catalog, text-only request boundary, thinking,
   replay, tool-calling, JSON-object, usage, and error contract.
@@ -128,6 +131,8 @@ cargo xtask review
   review
 - `docs/protocol/tool-output-management.md`: normative universal tool output
   management contract
+- `docs/protocol/anthropic-prompt-caching.md`: normative Anthropic prompt
+  caching contract
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
   contract
 - `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract
