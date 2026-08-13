@@ -58,9 +58,10 @@ as provider thoughts are ignored and are not surfaced as assistant text.
 `GoogleImageGenerator` uses the current `v1` compatibility endpoint with an
 injected `json-http` client and explicit API key or auth hook. It maps text and
 ordered source images to Gemini content parts, requests exactly one final image
-modality, and supports the shared aspect preferences. The adapter intentionally
-does not map shared quality preferences, because Gemini's resolution control is
-a different contract. It skips interim thought images, rejects empty decoded
+modality, and maps shared aspect preferences to Google's typed
+`ImageResponseFormat.AspectRatio` enum values. The adapter intentionally does
+not map shared quality preferences, because Gemini's resolution control is a
+different contract. It skips interim thought images, rejects empty decoded
 payloads, decodes the first final image, normalizes usage, and retains safety
 messages in typed content-policy errors. `GEMINI_3_1_FLASH_IMAGE` identifies
 the balanced image catalog entry.

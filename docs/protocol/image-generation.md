@@ -46,12 +46,12 @@ boundary has no count parameter and ignores extra provider images.
 
 Aspect expresses geometry, not exact pixels. Providers map it best-effort:
 
-| Shared aspect | OpenAI `size` | Google aspect ratio |
+| Shared aspect | OpenAI `size` | Google `ImageResponseFormat.AspectRatio` |
 | --- | --- | --- |
 | `Auto` | `auto` | omitted |
-| `Square` | `1024x1024` | `1:1` |
-| `Landscape` | `1536x1024` | `3:2` |
-| `Portrait` | `1024x1536` | `2:3` |
+| `Square` | `1024x1024` | `ASPECT_RATIO_ONE_BY_ONE` (`1:1`) |
+| `Landscape` | `1536x1024` | `ASPECT_RATIO_THREE_BY_TWO` (`3:2`) |
+| `Portrait` | `1024x1536` | `ASPECT_RATIO_TWO_BY_THREE` (`2:3`) |
 
 OpenAI maps quality to `auto`, `low`, `medium`, or `high`. Google intentionally
 omits quality because its image-size control is not the same semantic contract.
@@ -128,7 +128,8 @@ auth hook, and an overridable endpoint. It posts JSON to
 `https://generativelanguage.googleapis.com/v1/models/{model}:generateContent`.
 The single user content contains the prompt followed by ordered `inline_data`
 parts. `generationConfig.responseModalities` is `["IMAGE"]`; a non-auto aspect
-is sent as `generationConfig.responseFormat.image.aspectRatio`.
+is sent as `generationConfig.responseFormat.image.aspectRatio` using Google's
+`ASPECT_RATIO_*` enum spelling, not a colon-delimited ratio string.
 
 The adapter scans candidates and parts in provider order, skips parts with
 `thought: true`, and returns the first final `inlineData` image. Interim thought

@@ -150,11 +150,12 @@ review findings are ready for user decision without automatic fixes.
 
 ## Live Verification Status
 
-On 2026-08-13, the OpenAI `gpt-image-2` catalog probe passed locally through
-the production adapter. Google live verification remains blocked: this
-workspace has no `GOOGLE_API_KEY`, and the branch has no open pull request that
-could trigger an eligible trusted workflow run. This status does not claim a
-Google live pass.
+On 2026-08-13, the OpenAI `gpt-image-2` catalog probe passed locally and again
+on pull request #13 through the production adapter. The first eligible Google
+run reached the provider but exposed an invalid request mapping: the adapter
+sent colon-delimited aspect ratios to the enum-typed
+`ImageResponseFormat.aspectRatio` field. Milestone 8 corrects that mapping; a
+passing Google rerun is still required before this status claims live coverage.
 
 ## Post-Push Review Status
 
@@ -188,3 +189,30 @@ the complete publish-and-review workflow.
       `git add -A`, commit with a Conventional Commit message, and push.
 - [x] Run `cargo xtask review` after the push and report every finding without
       automatically fixing it.
+
+## Milestone 8: Google Aspect-Ratio Contract Fix
+
+Correct the provider contract exposed by the first eligible Google live-image
+run. At the end of this milestone, Google receives the documented
+`ImageResponseFormat.AspectRatio` enum values, deterministic coverage prevents
+the invalid wire representation from returning, and both live-image CI jobs
+pass on the pull request.
+
+- [x] Change the Google request-mapping regression first and confirm the old
+      colon-delimited aspect-ratio strings fail the provider-enum contract.
+- [x] Map square, landscape, and portrait to Google's documented
+      `ASPECT_RATIO_*` enum values while continuing to omit `Auto`.
+- [x] Align the image-generation protocol and Google crate README with the
+      provider wire contract and record the live-CI failure cause.
+- [x] Run focused Google request and image tests, the credential-free
+      `live_images` suite, formatting, strict Clippy, file-length lint, smoke
+      tests, workflow lint, and diff validation.
+- [x] Run the full workspace Clippy and test suites with a 100% pass rate.
+- [x] Run `cargo xtask check` and fix failures until it passes.
+- [x] Commit with a Conventional Commit message and push the current branch.
+- [ ] Run `cargo xtask review` after the push and report every finding without
+      automatically fixing it.
+- [ ] Require the rerun Google and OpenAI live-image jobs to pass and record
+      their results without retaining generated image output.
+- [ ] Move this plan back to Completed, commit and push the closure update, and
+      run `cargo xtask review` after the final push.
