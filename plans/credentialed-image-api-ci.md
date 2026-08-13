@@ -150,12 +150,13 @@ review findings are ready for user decision without automatic fixes.
 
 ## Live Verification Status
 
-On 2026-08-13, the OpenAI `gpt-image-2` catalog probe passed locally and again
-on pull request #13 through the production adapter. The first eligible Google
-run reached the provider but exposed an invalid request mapping: the adapter
-sent colon-delimited aspect ratios to the enum-typed
-`ImageResponseFormat.aspectRatio` field. Milestone 8 corrects that mapping; a
-passing Google rerun is still required before this status claims live coverage.
+On 2026-08-13, the OpenAI `gpt-image-2` catalog probe passed locally and on
+pull request #13 through the production adapter. The first eligible Google run
+exposed an invalid request mapping: the adapter sent colon-delimited aspect
+ratios to the enum-typed `ImageResponseFormat.aspectRatio` field. After
+Milestone 8 corrected that mapping and the repository credential was updated
+to a paid-project key, the Google `gemini-3.1-flash-image` probe passed on pull
+request #13. Both live-image provider jobs now pass without retaining output.
 
 ## Post-Push Review Status
 
@@ -165,6 +166,8 @@ integration-test target did not use the required directory-root module layout.
 No review finding was automatically fixed. The user subsequently selected
 option A for both findings, authorizing the corrections in Milestone 7.
 The follow-up post-push review of commit `7e3d001` found no functional defects.
+The post-push review of the Google contract fix in commit `20486dd` found no
+actionable defects.
 
 ## Milestone 7: User-Selected Review Follow-Up
 
@@ -210,9 +213,9 @@ pass on the pull request.
 - [x] Run the full workspace Clippy and test suites with a 100% pass rate.
 - [x] Run `cargo xtask check` and fix failures until it passes.
 - [x] Commit with a Conventional Commit message and push the current branch.
-- [ ] Run `cargo xtask review` after the push and report every finding without
+- [x] Run `cargo xtask review` after the push and report every finding without
       automatically fixing it.
-- [ ] Require the rerun Google and OpenAI live-image jobs to pass and record
+- [x] Require the rerun Google and OpenAI live-image jobs to pass and record
       their results without retaining generated image output.
-- [ ] Move this plan back to Completed, commit and push the closure update, and
+- [x] Move this plan back to Completed, commit and push the closure update, and
       run `cargo xtask review` after the final push.
