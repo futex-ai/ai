@@ -11,6 +11,9 @@ boundary for agent runtimes. It is implemented by the completed
 Composition roots own credentials, routing, retries, storage, retention,
 pricing, and wire-level base64 encoding.
 
+Credentialed production-API verification is defined by the planned
+[live image API test protocol](live-image-api-tests.md).
+
 ## Shared Boundary
 
 `ImageGenerator::generate` accepts an `ImageGenerationRequest` and returns an
@@ -148,7 +151,9 @@ filtering, non-empty image enforcement, tracked internal-error metadata, every
 error class, OpenAI transport/auth behavior, and catalog metadata. Provider
 live smoke tests are ignored by default, read their API key only in test code,
 generate one low-cost image, and assert non-empty bytes plus an `image/*` MIME
-type.
+type. The planned centralized credentialed CI suite will replace those local
+smoke tests and strengthen validation without changing ordinary credential-free
+checks.
 
 The full workspace must pass formatting, Clippy, tests, file-length lint,
 credential-free smoke tests, and `cargo xtask check` before commit and push.

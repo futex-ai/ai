@@ -6,7 +6,7 @@ milestones are finished.
 
 ## Active
 
-No active plans.
+- [Credentialed image API CI](credentialed-image-api-ci.md)
 
 ## Completed
 

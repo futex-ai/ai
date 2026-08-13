@@ -35,6 +35,9 @@ in-memory tool-calling runtime behavior.
   system handling, full Google schemas, and XAI deferred completion.
 - [Image generation](docs/protocol/image-generation.md) defines the shared
   one-image generation/editing boundary and the OpenAI and Google mappings.
+- [Live image API tests](docs/protocol/live-image-api-tests.md) defines the
+  planned credentialed catalog coverage, low-cost probe, response validation,
+  and CI secret boundary for image providers.
 - [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) defines
   the DeepSeek V4 Pro/Flash catalog, text-only request boundary, thinking,
   replay, tool-calling, JSON-object, usage, and error contract.
@@ -162,6 +165,8 @@ cargo xtask review
   management contract
 - `docs/protocol/image-generation.md`: normative shared image generation and
   provider mapping contract
+- `docs/protocol/live-image-api-tests.md`: planned credentialed image-provider
+  catalog and CI verification contract
 - `docs/protocol/provider-call-controls.md`: normative model-call control and
   provider wire-compatibility contract
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
