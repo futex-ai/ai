@@ -36,6 +36,7 @@ const GEMINI_3_FEATURES: &[ModelFeature] = &[
     ModelFeature::ToolCalling,
     ModelFeature::StructuredOutput,
     ModelFeature::Vision,
+    ModelFeature::VideoInput,
     ModelFeature::LongContext,
     ModelFeature::Reasoning,
 ];

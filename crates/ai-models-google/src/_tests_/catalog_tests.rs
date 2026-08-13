@@ -36,6 +36,7 @@ fn gemini_3_1_flash_image_is_routable_for_image_generation() {
     assert_eq!(model.context_window_tokens, 131_072);
     assert!(model.has_feature(ModelFeature::ImageGeneration));
     assert!(model.has_feature(ModelFeature::Vision));
+    assert!(!model.has_feature(ModelFeature::VideoInput));
     assert!(!model.has_feature(ModelFeature::ToolCalling));
 }
 
@@ -52,6 +53,7 @@ fn latest_gemini_models_have_current_metadata() {
         assert_eq!(model.context_window_tokens, 1_048_576);
         assert!(model.has_feature(ModelFeature::Reasoning));
         assert!(model.has_feature(ModelFeature::Vision));
+        assert!(model.has_feature(ModelFeature::VideoInput));
     }
 
     let high = models

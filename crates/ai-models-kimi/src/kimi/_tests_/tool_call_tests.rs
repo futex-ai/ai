@@ -39,8 +39,9 @@ fn serializes_custom_tools_auto_choice_and_normalized_assistant_calls() {
         "memory_read",
         "call_1",
     ));
-    let body = serde_json::to_value(build_request(KIMI_K3, KimiReasoningEffort::Max, &request))
-        .expect("Kimi request should serialize");
+    let body = build_request(KIMI_K3, KimiReasoningEffort::Max, &request)
+        .expect("Kimi request should build");
+    let body = serde_json::to_value(body).expect("Kimi request should serialize");
     let tool = &body["tools"][0];
     let assistant = &body["messages"][2];
     let result = &body["messages"][3];

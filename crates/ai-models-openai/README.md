@@ -22,6 +22,8 @@ endpoint with explicit auth and shared runtime wrappers from neighboring crates.
 `OpenAiModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - OpenAI Responses request serialization
+- shared text and image parts as Responses input content, with typed rejection
+  of shared video parts before transport
 - portable temperature and top-p outside reasoning mode, output-limit and
   strict or required-with-automatic-fallback tool-choice mapping, per-call
   timeouts, blank-instruction omission, and typed rejection of unsupported

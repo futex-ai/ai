@@ -36,7 +36,8 @@ The crate does not read environment variables, load deployment config, price
 usage, or make credential-dependent calls during unit tests. Credentialed
 whole-catalog checks live in the workspace `xtask` suite. K2.x and Moonshot V1 models,
 streaming, Partial Mode, video/file upload, dynamic or official tools, and
-provider cache-key tuning are outside its initial contract.
+provider cache-key tuning are outside its initial contract. Shared video
+content parts are rejected with a typed provider error before transport.
 
 ## Quick Start
 

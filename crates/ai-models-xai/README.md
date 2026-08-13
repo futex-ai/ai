@@ -14,6 +14,8 @@
 `XaiModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - xAI chat-completions request serialization
+- shared text and image parts as chat-completions content parts, with typed
+  rejection of shared video parts before transport
 - portable sampling, output limits, stops, strict or
   required-with-automatic-fallback tool choice, per-call deadlines, and
   blank-system omission

@@ -15,8 +15,9 @@ in-memory tool-calling runtime behavior.
   mapping and XAI owning deferred submission and polling
 - Provider adapters for Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
-  reasoning replay, vision where supported, OpenAI and Gemini image generation,
-  structured output, usage normalization, and typed errors
+  reasoning replay, vision where supported, Google and MiniMax inline video
+  input, OpenAI and Gemini image generation, structured output, usage
+  normalization, and typed errors
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, and usage pricing
 - Ordered fallback model composition through `ai-models-multi`
@@ -38,6 +39,8 @@ in-memory tool-calling runtime behavior.
 - [Live image API tests](docs/protocol/live-image-api-tests.md) defines the
   implemented credentialed catalog coverage, low-cost probe, response
   validation, and CI secret boundary for image providers.
+- [Video input](docs/protocol/video-input.md) defines the shared video content
+  part, the Google and MiniMax mappings, and typed rejection elsewhere.
 - [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) defines
   the DeepSeek V4 Pro/Flash catalog, text-only request boundary, thinking,
   replay, tool-calling, JSON-object, usage, and error contract.

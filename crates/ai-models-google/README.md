@@ -23,6 +23,7 @@ explicit auth and shared runtime wrappers from neighboring crates.
 - complete function schemas through `parametersJsonSchema`, kept separate
   from structured response schemas in `responseJsonSchema`
 - function call and function response content parts
+- inline `inlineData` parts for shared base64 image and video user content
 - Gemini `finishReason` normalization into `ai_interface::FinishReason`,
   including deriving normal tool-call completion from parsed `functionCall`
   parts and preserving prompt-level safety blocks as filtered responses even

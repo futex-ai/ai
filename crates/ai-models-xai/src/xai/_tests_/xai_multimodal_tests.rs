@@ -5,7 +5,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ai_interface::{ConversationContentPart, ConversationMessage, Model, ModelRequest, ToolCall};
+use ai_interface::{
+    ConversationContentPart, ConversationMessage, Model, ModelError, ModelRequest, ToolCall,
+};
 use json_http::{
     JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
     TransportBackedJsonHttpClient,
@@ -72,6 +74,44 @@ async fn serializes_image_context_message() {
         messages[3]["content"][1]["image_url"]["url"],
         "data:image/png;base64,abc123"
     );
+}
+
+#[tokio::test]
+async fn rejects_video_content_parts_before_transport() {
+    let http_client: Arc<dyn JsonHttpClient> = Arc::new(TransportBackedJsonHttpClient::new(
+        Arc::new(Unimock::new(())),
+    ));
+    let model = XaiModel::new(http_client, "grok-4", "xai-key");
+
+    let error = model
+        .complete(&ModelRequest {
+            system_prompt: "system".to_owned(),
+            messages: vec![ConversationMessage::user_with_parts(
+                "fallback",
+                vec![ConversationContentPart::Video {
+                    mime_type: "video/mp4".to_owned(),
+                    data_base64: "dmlkZW8=".to_owned(),
+                }],
+            )],
+            tools: Vec::new(),
+            response_schema: None,
+            controls: Default::default(),
+        })
+        .await
+        .expect_err("video parts must be rejected");
+
+    match error {
+        ModelError::Provider {
+            provider,
+            model_id,
+            message,
+        } => {
+            assert_eq!(provider, "xai");
+            assert_eq!(model_id, "grok-4");
+            assert_eq!(message, "xAI accepts text and image content parts only");
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 }
 
 fn recording_http_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {

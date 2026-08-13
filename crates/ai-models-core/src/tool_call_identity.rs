@@ -99,6 +99,14 @@ impl StableHasher {
                 self.write_str(mime_type);
                 self.write_str(data_base64);
             }
+            ConversationContentPart::Video {
+                mime_type,
+                data_base64,
+            } => {
+                self.write_str("video");
+                self.write_str(mime_type);
+                self.write_str(data_base64);
+            }
         }
     }
 

@@ -10,15 +10,17 @@ use super::request_types::{
 };
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, KimiToolCallContext,
-    ModelRequest, ModelToolChoice, ProviderConversationItem, StructuredOutputSchema, ToolCall,
-    ToolDefinition,
+    ModelError, ModelRequest, ModelResult, ModelToolChoice, ProviderConversationItem,
+    StructuredOutputSchema, ToolCall, ToolDefinition,
 };
+
+const PROVIDER: &str = "kimi";
 
 pub(super) fn build_request(
     model_id: &str,
     reasoning_effort: KimiReasoningEffort,
     request: &ModelRequest,
-) -> ChatCompletionsRequest {
+) -> ModelResult<ChatCompletionsRequest> {
     let mut messages = Vec::new();
     if let Some(system_prompt) = request.nonblank_system_prompt() {
         messages.push(ChatCompletionsMessage {
@@ -30,8 +32,10 @@ pub(super) fn build_request(
             tool_calls: Vec::new(),
         });
     }
-    messages.extend(request.messages.iter().map(message));
-    ChatCompletionsRequest {
+    for conversation_message in &request.messages {
+        messages.push(message(model_id, conversation_message)?);
+    }
+    Ok(ChatCompletionsRequest {
         model: model_id.to_owned(),
         messages,
         tools: request.tools.iter().map(tool).collect(),
@@ -40,7 +44,7 @@ pub(super) fn build_request(
         reasoning_effort: reasoning_effort.as_str().to_owned(),
         max_completion_tokens: request.controls.generation.max_output_tokens,
         stop: request.controls.generation.stop_sequences.clone(),
-    }
+    })
 }
 
 fn tool_choice(request: &ModelRequest, has_tools: bool) -> Option<ChatCompletionsToolChoice> {
@@ -61,15 +65,15 @@ fn tool_choice(request: &ModelRequest, has_tools: bool) -> Option<ChatCompletion
     }
 }
 
-fn message(message: &ConversationMessage) -> ChatCompletionsMessage {
+fn message(model_id: &str, message: &ConversationMessage) -> ModelResult<ChatCompletionsMessage> {
     if message.role == ConversationRole::Assistant
         && let Some(replay) = kimi_replay(message)
     {
-        return replay_message(replay);
+        return Ok(replay_message(replay));
     }
-    ChatCompletionsMessage {
+    Ok(ChatCompletionsMessage {
         role: role(message.role).to_owned(),
-        content: message_content(message),
+        content: message_content(model_id, message)?,
         name: message_name(message),
         tool_call_id: message.tool_call_id.clone(),
         reasoning_content: None,
@@ -78,7 +82,7 @@ fn message(message: &ConversationMessage) -> ChatCompletionsMessage {
         } else {
             Vec::new()
         },
-    }
+    })
 }
 
 fn kimi_replay(message: &ConversationMessage) -> Option<&ProviderConversationItem> {
@@ -129,32 +133,47 @@ fn message_name(message: &ConversationMessage) -> Option<String> {
     }
 }
 
-fn message_content(message: &ConversationMessage) -> Option<ChatCompletionsContent> {
+fn message_content(
+    model_id: &str,
+    message: &ConversationMessage,
+) -> ModelResult<Option<ChatCompletionsContent>> {
     if !message.content_parts.is_empty() {
-        return Some(ChatCompletionsContent::Parts(
-            message.content_parts.iter().map(content_part).collect(),
-        ));
+        return Ok(Some(ChatCompletionsContent::Parts(
+            message
+                .content_parts
+                .iter()
+                .map(|part| content_part(model_id, part))
+                .collect::<ModelResult<Vec<_>>>()?,
+        )));
     }
     if message.role == ConversationRole::Assistant && message.content.is_empty() {
-        None
+        Ok(None)
     } else {
-        Some(ChatCompletionsContent::Text(message.content.clone()))
+        Ok(Some(ChatCompletionsContent::Text(message.content.clone())))
     }
 }
 
-fn content_part(part: &ConversationContentPart) -> ChatCompletionsContentPart {
+fn content_part(
+    model_id: &str,
+    part: &ConversationContentPart,
+) -> ModelResult<ChatCompletionsContentPart> {
     match part {
         ConversationContentPart::Text { text } => {
-            ChatCompletionsContentPart::Text { text: text.clone() }
+            Ok(ChatCompletionsContentPart::Text { text: text.clone() })
         }
         ConversationContentPart::Image {
             mime_type,
             data_base64,
-        } => ChatCompletionsContentPart::ImageUrl {
+        } => Ok(ChatCompletionsContentPart::ImageUrl {
             image_url: ChatCompletionsImageUrl {
                 url: format!("data:{mime_type};base64,{data_base64}"),
             },
-        },
+        }),
+        ConversationContentPart::Video { .. } => Err(ModelError::provider(
+            PROVIDER,
+            model_id,
+            "Kimi accepts text and image content parts only",
+        )),
     }
 }
 

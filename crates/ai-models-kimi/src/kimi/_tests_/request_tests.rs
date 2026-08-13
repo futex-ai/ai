@@ -2,7 +2,7 @@
 
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, DeepSeekToolCallContext,
-    ModelRequest, OpenAiReasoningSummary, ProviderConversationItem, ToolCall,
+    ModelError, ModelRequest, OpenAiReasoningSummary, ProviderConversationItem, ToolCall,
 };
 use serde_json::{Value, json};
 
@@ -62,6 +62,39 @@ fn serializes_empty_user_and_tool_content_as_strings() {
     assert_eq!(messages[2]["role"], "tool");
     assert_eq!(messages[2]["content"], "");
     assert_eq!(messages[2]["tool_call_id"], "call_1");
+}
+
+#[test]
+fn rejects_video_content_parts_with_typed_provider_error() {
+    let request = ModelRequest {
+        system_prompt: "system".to_owned(),
+        messages: vec![ConversationMessage::user_with_parts(
+            "fallback",
+            vec![ConversationContentPart::Video {
+                mime_type: "video/mp4".to_owned(),
+                data_base64: "dmlkZW8=".to_owned(),
+            }],
+        )],
+        tools: Vec::new(),
+        response_schema: None,
+        controls: Default::default(),
+    };
+
+    let error = build_request(KIMI_K3, KimiReasoningEffort::Max, &request)
+        .expect_err("video parts must be rejected");
+
+    match error {
+        ModelError::Provider {
+            provider,
+            model_id,
+            message,
+        } => {
+            assert_eq!(provider, "kimi");
+            assert_eq!(model_id, KIMI_K3);
+            assert_eq!(message, "Kimi accepts text and image content parts only");
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
 }
 
 #[test]
@@ -197,6 +230,6 @@ fn named_message(role: ConversationRole, content: &str, name: &str) -> Conversat
 }
 
 fn request_json(request: &ModelRequest, effort: KimiReasoningEffort) -> Value {
-    serde_json::to_value(build_request(KIMI_K3, effort, request))
-        .expect("Kimi request should serialize")
+    let body = build_request(KIMI_K3, effort, request).expect("Kimi request should build");
+    serde_json::to_value(body).expect("Kimi request should serialize")
 }

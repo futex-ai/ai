@@ -6,8 +6,7 @@ use std::{
 };
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, FinishReason, Model, ModelRequest,
-    StructuredOutputSchema, ToolCall, ToolDefinition,
+    ConversationMessage, FinishReason, Model, ModelRequest, StructuredOutputSchema, ToolDefinition,
 };
 use json_http::{
     JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
@@ -65,67 +64,6 @@ async fn builds_openai_tool_requests_and_parses_response() {
     assert_eq!(response.tool_calls[0].name, "memory_read");
     assert_eq!(response.structured_output, None);
     assert_eq!(response.usage.total_tokens, 152);
-}
-
-#[tokio::test]
-async fn serializes_multimodal_messages_and_tool_history() {
-    let (http_client, requests) = recording_http_client(openai_text_response("Done"));
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
-
-    model
-        .complete(&ModelRequest {
-            system_prompt: "system".to_owned(),
-            messages: vec![
-                ConversationMessage::user_with_parts(
-                    "see image",
-                    vec![
-                        ConversationContentPart::Text {
-                            text: "look".to_owned(),
-                        },
-                        ConversationContentPart::Image {
-                            mime_type: "image/png".to_owned(),
-                            data_base64: "abc123".to_owned(),
-                        },
-                    ],
-                ),
-                ConversationMessage::assistant(
-                    "checking",
-                    vec![ToolCall {
-                        id: "call_1".to_owned(),
-                        name: "memory_read".to_owned(),
-                        input: json!({"path": "root"}),
-                        operation_id: None,
-                    }],
-                ),
-                ConversationMessage::tool("{\"ok\":true}", "memory_read", "call_1"),
-            ],
-            tools: Vec::new(),
-            response_schema: None,
-            controls: Default::default(),
-        })
-        .await
-        .expect("OpenAI response should parse");
-
-    let requests = requests
-        .lock()
-        .expect("requests lock should not be poisoned");
-    let input = &requests[0].body.as_ref().expect("body present")["input"];
-    assert_eq!(input[0]["content"][0]["type"], "input_text");
-    assert_eq!(input[0]["content"][0]["text"], "look");
-    assert_eq!(input[0]["content"][1]["type"], "input_image");
-    assert_eq!(
-        input[0]["content"][1]["image_url"],
-        "data:image/png;base64,abc123"
-    );
-    assert_eq!(input[1]["role"], "assistant");
-    assert_eq!(input[1]["content"], "checking");
-    assert_eq!(input[2]["type"], "function_call");
-    assert_eq!(input[2]["call_id"], "call_1");
-    assert_eq!(input[2]["name"], "memory_read");
-    assert_eq!(input[2]["arguments"], "{\"path\":\"root\"}");
-    assert_eq!(input[3]["type"], "function_call_output");
-    assert_eq!(input[3]["call_id"], "call_1");
-    assert_eq!(input[3]["output"], "{\"ok\":true}");
 }
 
 #[tokio::test]

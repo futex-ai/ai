@@ -2,6 +2,7 @@
 
 mod client;
 mod request;
+mod request_messages;
 mod request_types;
 mod response;
 

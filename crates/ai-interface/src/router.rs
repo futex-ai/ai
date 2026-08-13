@@ -83,6 +83,8 @@ pub enum ModelFeature {
     StructuredOutput,
     /// Supports image or screenshot inputs.
     Vision,
+    /// Supports video inputs.
+    VideoInput,
     /// Advertises a notably large context window.
     LongContext,
     /// Advertises stronger reasoning behavior.
@@ -98,6 +100,7 @@ impl ModelFeature {
             Self::ToolCalling => "tool_calling",
             Self::StructuredOutput => "structured_output",
             Self::Vision => "vision",
+            Self::VideoInput => "video_input",
             Self::LongContext => "long_context",
             Self::Reasoning => "reasoning",
             Self::ImageGeneration => "image_generation",

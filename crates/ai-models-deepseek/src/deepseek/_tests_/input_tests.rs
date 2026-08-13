@@ -18,6 +18,10 @@ async fn rejects_every_non_empty_content_parts_value_before_external_calls() {
             mime_type: "image/png".to_owned(),
             data_base64: "abc123".to_owned(),
         },
+        ConversationContentPart::Video {
+            mime_type: "video/mp4".to_owned(),
+            data_base64: "dmlkZW8=".to_owned(),
+        },
     ];
 
     for part in cases {

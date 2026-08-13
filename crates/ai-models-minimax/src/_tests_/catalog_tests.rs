@@ -27,6 +27,7 @@ fn catalog_matches_supported_minimax_models() {
                 ModelFeature::ToolCalling,
                 ModelFeature::StructuredOutput,
                 ModelFeature::Vision,
+                ModelFeature::VideoInput,
                 ModelFeature::LongContext,
                 ModelFeature::Reasoning,
             ],
@@ -46,6 +47,7 @@ fn catalog_matches_supported_minimax_models() {
                 ModelFeature::ToolCalling,
                 ModelFeature::StructuredOutput,
                 ModelFeature::Vision,
+                ModelFeature::VideoInput,
                 ModelFeature::LongContext,
             ],
         },
@@ -97,6 +99,20 @@ fn vision_is_advertised_only_by_m3_variants() {
             model.has_feature(ModelFeature::Vision),
             should_have_vision,
             "unexpected vision capability for {}",
+            model.id
+        );
+    }
+}
+
+#[test]
+fn video_input_is_advertised_only_by_m3_variants() {
+    let models = known_models();
+    for model in models {
+        let should_have_video = matches!(model.id, MINIMAX_M3 | MINIMAX_M3_THINKING_DISABLED);
+        assert_eq!(
+            model.has_feature(ModelFeature::VideoInput),
+            should_have_video,
+            "unexpected video capability for {}",
             model.id
         );
     }

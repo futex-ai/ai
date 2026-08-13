@@ -10,6 +10,7 @@ No active plans.
 
 ## Completed
 
+- [Add video input support](add-video-input-support.md)
 - [Credentialed image API CI](credentialed-image-api-ci.md)
 - [Provider call controls](provider-call-controls.md)
 - [Add image generation support](add-image-generation-support.md)

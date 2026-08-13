@@ -151,7 +151,7 @@ impl Model for XaiModel {
         let response_schema = request.response_schema.as_ref();
         let synthetic_tool_call_scope = synthetic_tool_call_scope(request);
         let request_body =
-            request::build_request(&self.provider_model_id, self.thinking_level, request);
+            request::build_request(&self.provider_model_id, self.thinking_level, request)?;
         let body = if use_deferred {
             self.deferred_completion
                 .complete(

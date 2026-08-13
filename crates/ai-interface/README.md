@@ -29,6 +29,10 @@ implementation.
 
 - Defines `ConversationMessage`, `ConversationRole`, `ToolCall`, and
   `ToolDefinition`, including provider replay context on assistant messages.
+  User messages carry ordered typed content parts: text, base64 images, and
+  base64 videos. `ModelFeature::Vision` and `ModelFeature::VideoInput` are the
+  stable routing capabilities for image and video inputs; providers without a
+  video wire contract reject video parts with a typed provider error.
   DeepSeek replay items retain normalized assistant content, optional provider
   reasoning, and ordered raw tool calls so a later tool continuation can
   reproduce the original assistant message exactly. Kimi and Qwen have

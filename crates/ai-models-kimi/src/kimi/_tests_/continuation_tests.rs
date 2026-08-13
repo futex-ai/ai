@@ -102,8 +102,9 @@ fn kimi_context_takes_precedence_over_normalized_assistant_fields() {
 }
 
 fn request_json(request: &ModelRequest) -> Value {
-    serde_json::to_value(build_request(KIMI_K3, KimiReasoningEffort::Max, request))
-        .expect("Kimi continuation should serialize")
+    let body = build_request(KIMI_K3, KimiReasoningEffort::Max, request)
+        .expect("Kimi continuation should build");
+    serde_json::to_value(body).expect("Kimi continuation should serialize")
 }
 
 fn normalized_call(id: &str, name: &str, input: Value) -> ToolCall {

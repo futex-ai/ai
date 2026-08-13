@@ -1,14 +1,15 @@
 //! Anthropic messages request mapping.
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, ModelRequest, ModelToolChoice,
-    ToolDefinition,
+    ConversationContentPart, ConversationMessage, ConversationRole, ModelError, ModelRequest,
+    ModelResult, ModelToolChoice, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 use serde::Serialize;
 use serde_json::Value;
 
 const ANTHROPIC_MAX_TOKENS: u32 = 4096;
+const PROVIDER: &str = "anthropic";
 
 #[derive(Debug, Serialize)]
 pub(super) struct AnthropicRequest {
@@ -99,8 +100,8 @@ pub(super) fn build_request(
     model_id: &str,
     thinking_level: ThinkingLevel,
     request: &ModelRequest,
-) -> AnthropicRequest {
-    AnthropicRequest {
+) -> ModelResult<AnthropicRequest> {
+    Ok(AnthropicRequest {
         model: model_id.to_owned(),
         max_tokens: request
             .controls
@@ -109,7 +110,7 @@ pub(super) fn build_request(
             .unwrap_or(ANTHROPIC_MAX_TOKENS)
             .min(ANTHROPIC_MAX_TOKENS),
         system: system_prompt(request),
-        messages: anthropic_messages(&request.messages),
+        messages: anthropic_messages(model_id, &request.messages)?,
         tools: request.tools.iter().map(tool).collect(),
         thinking: thinking(thinking_level),
         output_config: output_config(thinking_level),
@@ -121,7 +122,7 @@ pub(super) fn build_request(
             .flatten(),
         stop_sequences: request.controls.generation.stop_sequences.clone(),
         tool_choice: tool_choice(request.controls.generation.tool_choice.as_ref()),
-    }
+    })
 }
 
 fn system_prompt(request: &ModelRequest) -> Option<String> {
@@ -158,13 +159,16 @@ fn tool_choice(choice: Option<&ModelToolChoice>) -> Option<AnthropicToolChoice> 
     }
 }
 
-fn anthropic_messages(messages: &[ConversationMessage]) -> Vec<AnthropicMessage> {
+fn anthropic_messages(
+    model_id: &str,
+    messages: &[ConversationMessage],
+) -> ModelResult<Vec<AnthropicMessage>> {
     let mut output = Vec::new();
 
     for message in messages {
         match message.role {
             ConversationRole::User => {
-                append_blocks(&mut output, "user", user_blocks(message));
+                append_blocks(&mut output, "user", user_blocks(model_id, message)?);
             }
             ConversationRole::Assistant => {
                 let mut blocks = Vec::new();
@@ -198,31 +202,40 @@ fn anthropic_messages(messages: &[ConversationMessage]) -> Vec<AnthropicMessage>
         }
     }
 
-    output
+    Ok(output)
 }
 
-fn user_blocks(message: &ConversationMessage) -> Vec<AnthropicBlock> {
+fn user_blocks(model_id: &str, message: &ConversationMessage) -> ModelResult<Vec<AnthropicBlock>> {
     if message.content_parts.is_empty() {
-        return vec![AnthropicBlock::Text {
+        return Ok(vec![AnthropicBlock::Text {
             text: message.content.clone(),
-        }];
+        }]);
     }
-    message.content_parts.iter().map(content_part).collect()
+    message
+        .content_parts
+        .iter()
+        .map(|part| content_part(model_id, part))
+        .collect()
 }
 
-fn content_part(part: &ConversationContentPart) -> AnthropicBlock {
+fn content_part(model_id: &str, part: &ConversationContentPart) -> ModelResult<AnthropicBlock> {
     match part {
-        ConversationContentPart::Text { text } => AnthropicBlock::Text { text: text.clone() },
+        ConversationContentPart::Text { text } => Ok(AnthropicBlock::Text { text: text.clone() }),
         ConversationContentPart::Image {
             mime_type,
             data_base64,
-        } => AnthropicBlock::Image {
+        } => Ok(AnthropicBlock::Image {
             source: AnthropicImageSource {
                 kind: "base64".to_owned(),
                 media_type: mime_type.clone(),
                 data: data_base64.clone(),
             },
-        },
+        }),
+        ConversationContentPart::Video { .. } => Err(ModelError::provider(
+            PROVIDER,
+            model_id,
+            "Anthropic accepts text and image content parts only",
+        )),
     }
 }
 
