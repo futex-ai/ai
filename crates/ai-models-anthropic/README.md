@@ -35,6 +35,11 @@ This crate does not load config, read environment variables, or resolve
 credentials on its own. It exports `known_models()` and typed catalog id
 constants for Claude Sonnet 5, Opus 5, and Fable 5. `CLAUDE_SONNET_5` is the
 first catalog entry and the balanced default used by workspace examples.
+The `new` and `with_auth` constructors resolve known catalog ids to their
+provider model id and thinking level, so adaptive-thinking models omit caller
+sampling controls as required by Anthropic. Unknown ids remain available as
+direct provider ids with thinking disabled; callers that need an explicit
+custom mapping can use `with_catalog_auth`.
 `CLAUDE_OPUS_5_THINKING_MAX` sends provider model id `claude-opus-5`, enables
 adaptive thinking, sets `output_config.effort` to `max`, and requests omitted
 thinking display. All existing Sonnet 4.6, Opus 4.7, and Haiku 4.5 entries

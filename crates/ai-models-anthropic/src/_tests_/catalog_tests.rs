@@ -4,7 +4,7 @@ use ai_models_core::{ModelFeature, ProviderKind, ThinkingLevel};
 
 use super::{
     CLAUDE_FABLE_5, CLAUDE_HAIKU_4_5, CLAUDE_OPUS_4_7, CLAUDE_OPUS_4_7_THINKING_MAX, CLAUDE_OPUS_5,
-    CLAUDE_OPUS_5_THINKING_MAX, CLAUDE_SONNET_4_6, CLAUDE_SONNET_5, known_models,
+    CLAUDE_OPUS_5_THINKING_MAX, CLAUDE_SONNET_4_6, CLAUDE_SONNET_5, find_known_model, known_models,
 };
 
 #[test]
@@ -43,4 +43,14 @@ fn claude_5_family_has_current_metadata() {
         .expect("Claude Opus 5 max-thinking model should exist");
     assert_eq!(max.provider_model_id, CLAUDE_OPUS_5);
     assert_eq!(max.thinking_level, ThinkingLevel::Max);
+}
+
+#[test]
+fn finds_known_catalog_ids_without_accepting_provider_aliases() {
+    let (provider_model_id, thinking_level) = find_known_model(CLAUDE_OPUS_5_THINKING_MAX)
+        .expect("max-thinking catalog id should resolve");
+
+    assert_eq!(provider_model_id, CLAUDE_OPUS_5);
+    assert_eq!(thinking_level, ThinkingLevel::Max);
+    assert!(find_known_model("custom-claude").is_none());
 }

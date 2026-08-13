@@ -142,6 +142,13 @@ pub fn known_models() -> Vec<KnownModelSpec> {
     ]
 }
 
+pub(crate) fn find_known_model(model_id: &str) -> Option<(&'static str, ThinkingLevel)> {
+    known_models()
+        .into_iter()
+        .find(|model| model.id == model_id)
+        .map(|model| (model.provider_model_id, model.thinking_level))
+}
+
 fn claude_5(
     id: &'static str,
     provider_model_id: &'static str,

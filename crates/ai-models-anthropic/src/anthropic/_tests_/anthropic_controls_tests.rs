@@ -15,6 +15,8 @@ use json_http::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::{CLAUDE_FABLE_5, CLAUDE_OPUS_5, CLAUDE_OPUS_5_THINKING_MAX};
+
 use super::AnthropicModel;
 
 #[tokio::test]
@@ -52,6 +54,62 @@ async fn maps_controls_bounds_output_and_keeps_thinking_sampling_fixed() {
     assert!(thinking.get("temperature").is_none());
     assert!(thinking.get("top_p").is_none());
     assert_eq!(thinking["max_tokens"], 4096);
+}
+
+#[tokio::test]
+async fn known_fable_constructor_omits_temperature_for_adaptive_thinking() {
+    let (http_client, requests) = recording_client();
+    let model = AnthropicModel::new(http_client, CLAUDE_FABLE_5, "key");
+    let mut request = base_request();
+    request.controls.generation.temperature = Some(0.0);
+
+    model
+        .complete(&request)
+        .await
+        .expect("Fable adaptive-thinking response should parse");
+
+    let requests = requests.lock().expect("request lock should be available");
+    let body = requests[0].body.as_ref().expect("request body");
+    assert_eq!(body["model"], CLAUDE_FABLE_5);
+    assert_eq!(body["thinking"]["type"], "adaptive");
+    assert_eq!(body["output_config"]["effort"], "high");
+    assert!(body.get("temperature").is_none());
+}
+
+#[tokio::test]
+async fn known_catalog_alias_constructor_resolves_provider_model_and_effort() {
+    let (http_client, requests) = recording_client();
+    let model = AnthropicModel::new(http_client, CLAUDE_OPUS_5_THINKING_MAX, "key");
+
+    model
+        .complete(&base_request())
+        .await
+        .expect("Opus max-thinking response should parse");
+
+    let requests = requests.lock().expect("request lock should be available");
+    let body = requests[0].body.as_ref().expect("request body");
+    assert_eq!(body["model"], CLAUDE_OPUS_5);
+    assert_eq!(body["thinking"]["type"], "adaptive");
+    assert_eq!(body["output_config"]["effort"], "max");
+}
+
+#[tokio::test]
+async fn unknown_model_constructor_remains_direct_with_thinking_disabled() {
+    let (http_client, requests) = recording_client();
+    let model = AnthropicModel::new(http_client, "custom-claude", "key");
+    let mut request = base_request();
+    request.controls.generation.temperature = Some(0.0);
+
+    model
+        .complete(&request)
+        .await
+        .expect("custom model response should parse");
+
+    let requests = requests.lock().expect("request lock should be available");
+    let body = requests[0].body.as_ref().expect("request body");
+    assert_eq!(body["model"], "custom-claude");
+    assert!(body.get("thinking").is_none());
+    assert_eq!(body["temperature"], 0.0);
 }
 
 #[tokio::test]

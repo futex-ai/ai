@@ -10,6 +10,8 @@ use ai_models_core::{ThinkingLevel, classify_json_http_error};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 
+use crate::catalog::find_known_model;
+
 const ANTHROPIC_MESSAGES_URL: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_API_VERSION: &str = "2023-06-01";
 const PROVIDER: &str = "anthropic";
@@ -27,6 +29,9 @@ pub struct AnthropicModel {
 
 impl AnthropicModel {
     /// Builds an Anthropic model from an explicit API key.
+    ///
+    /// Known catalog ids retain their provider model id and thinking level.
+    /// Unknown ids are treated as direct provider ids with thinking disabled.
     pub fn new(
         http_client: DynJsonHttpClient,
         model_id: impl Into<String>,
@@ -43,17 +48,26 @@ impl AnthropicModel {
     }
 
     /// Builds an Anthropic model from an explicit auth hook.
+    ///
+    /// Known catalog ids retain their provider model id and thinking level.
+    /// Unknown ids are treated as direct provider ids with thinking disabled.
     pub fn with_auth(
         http_client: DynJsonHttpClient,
         model_id: impl Into<String>,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        let model_id = model_id.into();
+        let catalog_model_id = model_id.into();
+        let model = find_known_model(&catalog_model_id);
+        let provider_model_id = model.map_or_else(
+            || catalog_model_id.clone(),
+            |(provider_model_id, _)| provider_model_id.to_owned(),
+        );
+        let thinking_level = model.map_or(ThinkingLevel::Disabled, |(_, level)| level);
         Self::with_catalog_auth(
             http_client,
-            model_id.clone(),
-            model_id,
-            ThinkingLevel::Disabled,
+            catalog_model_id,
+            provider_model_id,
+            thinking_level,
             auth,
         )
     }
