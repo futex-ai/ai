@@ -131,7 +131,7 @@ manual dispatch. It requires the repository Actions secrets
 `QWEN_API_KEY`, and `XAI_API_KEY`. On an eligible run, a missing secret fails
 its provider job.
 
-Credentialed image checks live in `xtask/tests/live_images.rs`. They select
+Credentialed image checks live in `xtask/tests/live_images/mod.rs`. They select
 every Google and OpenAI catalog entry advertising `ImageGeneration`, construct
 the production adapter behind `DynImageGenerator`, and request one square image
 per attempt. Run the credential-free guards or one billable provider catalog
@@ -140,7 +140,8 @@ with:
 ```sh
 cargo test --locked -p xtask --test live_images
 LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
-  --test live_images openai_image_catalog -- --ignored --exact --nocapture
+  --test live_images catalog_tests::openai_image_catalog \
+  -- --ignored --exact --nocapture
 ```
 
 The `Live image APIs` workflow runs both provider catalogs for trusted

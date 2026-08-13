@@ -30,7 +30,7 @@ separate change, but that change must register the provider with this suite.
 
 ## Execution
 
-`xtask/tests/live_images.rs` owns ignored provider integration tests and their
+`xtask/tests/live_images/mod.rs` owns ignored provider integration tests and their
 credential-free registry, workflow, runner, retry, and validation tests. Every
 provider test:
 
@@ -112,7 +112,8 @@ Run one provider explicitly with its billable credential:
 
 ```sh
 LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
-  --test live_images openai_image_catalog -- --ignored --exact --nocapture
+  --test live_images catalog_tests::openai_image_catalog \
+  -- --ignored --exact --nocapture
 ```
 
 Run all credential-free registry, runner, retry, validation, and workflow tests
@@ -137,8 +138,9 @@ Adding another image provider requires all of the following in the same change:
 2. Add the provider catalog to the all-provider coverage guard and add its
    identity, authentication, adapter construction, test name, and secret name
    to `LiveImageProvider`.
-3. Add one ignored provider test in `xtask/tests/live_images.rs` that delegates
-   to the shared runner.
+3. Add one ignored provider test in
+   `xtask/tests/live_images/catalog_tests.rs` that delegates to the shared
+   runner.
 4. Add the matching provider, test, and repository secret mapping to the
    `live-images.yml` matrix.
 5. Extend this protocol's credential table and run the complete

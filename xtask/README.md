@@ -40,7 +40,7 @@ workflow invokes it for eligible pull requests, daily verification, and manual
 dispatch. The MiniMax job first sends MiniMax-M3 a real tool with strict
 `Required` selection and asserts that the provider returns that tool call.
 
-`tests/live_images.rs` is the corresponding ignored image suite. It selects
+`tests/live_images/mod.rs` is the corresponding ignored image suite. It selects
 every Google and OpenAI catalog entry advertising `ImageGeneration`, constructs
 the production adapter behind `DynImageGenerator`, and runs the same safe
 square, low-quality request through each entry sequentially. Transient and
@@ -68,7 +68,7 @@ LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_mo
 
 # Billable: tests every image-capable OpenAI catalog entry against the real API.
 LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_images \
-  openai_image_catalog -- --ignored --exact --nocapture
+  catalog_tests::openai_image_catalog -- --ignored --exact --nocapture
 ```
 
 ## Development
@@ -85,8 +85,8 @@ cargo clippy -p xtask --all-targets --all-features
 - `src/file_length.rs` - Rust line-count audit
 - `src/smoke/` - credential-free provider, MCP, OAuth, and pagination smoke tests
 - `tests/live_models.rs` - ignored credentialed tests over chat-provider catalogs
-- `tests/live_images.rs` - ignored credentialed tests and credential-free guards
-  over image-provider catalogs
+- `tests/live_images/mod.rs` - ignored credentialed tests and credential-free
+  guards over image-provider catalogs
 - `src/review.rs` - Codex CLI review delegation
 
 ### Related Docs

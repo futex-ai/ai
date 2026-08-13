@@ -75,8 +75,9 @@ catalog-driven runner without making live calls during ordinary tests.
 - [x] Implement the safe square, low-quality, one-image probe and ensure logs
       contain identifiers and concise failures but never image bytes or
       credentials.
-- [x] Add ignored `google_image_catalog` and `openai_image_catalog` tests that
-      call the production adapters through the shared runner.
+- [x] Add ignored `catalog_tests::google_image_catalog` and
+      `catalog_tests::openai_image_catalog` tests that call the production
+      adapters through the shared runner.
 - [x] Remove the superseded provider-local ignored live smoke tests while
       retaining their deterministic transport and response tests.
 - [x] Keep source and test modules cohesive and every changed Rust file below
@@ -157,7 +158,32 @@ Google live pass.
 
 ## Post-Push Review Status
 
-The 2026-08-13 post-push review reported two P3 findings, retained for user
-decision as required: the exclusion test assumes every provider has a non-image
-catalog entry, and the split integration-test target does not use the required
-directory-root module layout. No review finding was automatically fixed.
+The initial 2026-08-13 post-push review reported two P3 findings: the exclusion
+test assumed every provider had a non-image catalog entry, and the split
+integration-test target did not use the required directory-root module layout.
+No review finding was automatically fixed. The user subsequently selected
+option A for both findings, authorizing the corrections in Milestone 7.
+
+## Milestone 7: User-Selected Review Follow-Up
+
+Implement the user's selected option A for both P3 review findings. At the end
+of this milestone, image-only provider catalogs are valid, the split integration
+target follows the required module layout, and the corrected branch has passed
+the complete publish-and-review workflow.
+
+- [x] Add a failing regression test proving an image-only catalog remains valid.
+- [x] Replace the per-provider non-image requirement with a global mixed-catalog
+      exclusion check.
+- [x] Add a failing layout guard for the prohibited split-root test structure.
+- [x] Register `tests/live_images/mod.rs` as the integration target, use normal
+      module declarations, and keep all test bodies in `*_tests.rs` leaves.
+- [x] Align workflow test names, local commands, README references, and protocol
+      extension guidance with the directory-root target.
+- [x] Run focused live-image tests, strict Clippy, formatting, file-length lint,
+      smoke tests, workflow lint, and diff validation.
+- [x] Run the full workspace Clippy and test suites with a 100% pass rate.
+- [x] Run `cargo xtask check` and fix failures until it passes.
+- [ ] Review the complete diff, move this plan back to Completed, run
+      `git add -A`, commit with a Conventional Commit message, and push.
+- [ ] Run `cargo xtask review` after the push and report every finding without
+      automatically fixing it.

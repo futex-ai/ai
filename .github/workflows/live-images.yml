@@ -32,10 +32,10 @@ jobs:
       matrix:
         include:
           - provider: Google
-            test: google_image_catalog
+            test: catalog_tests::google_image_catalog
             api_key: GOOGLE_API_KEY
           - provider: OpenAI
-            test: openai_image_catalog
+            test: catalog_tests::openai_image_catalog
             api_key: OPENAI_API_KEY
     steps:
       - name: Require provider credential

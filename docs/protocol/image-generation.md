@@ -149,7 +149,7 @@ Unit tests are credential-free and cover DTO serde/defaults, the deterministic
 mock, routing feature, request mapping, response/usage parsing, thought-image
 filtering, non-empty image enforcement, tracked internal-error metadata, every
 error class, OpenAI transport/auth behavior, and catalog metadata. The
-centralized `xtask/tests/live_images.rs` suite owns ignored, catalog-driven
+centralized `xtask/tests/live_images/mod.rs` suite owns ignored, catalog-driven
 Google and OpenAI production-API checks. It validates provider/model identity,
 non-empty bytes, supported MIME types, and matching PNG/JPEG/WebP signatures.
 Ordinary workspace checks compile the ignored cases and run their registry,

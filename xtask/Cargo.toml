@@ -6,6 +6,10 @@ license.workspace = true
 authors.workspace = true
 publish = false
 
+[[test]]
+name = "live_images"
+path = "tests/live_images/mod.rs"
+
 [dependencies]
 ai-interface.workspace = true
 ai-mcp.workspace = true

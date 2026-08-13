@@ -45,8 +45,8 @@ impl LiveImageProvider {
 
     pub(super) fn workflow_test(self) -> &'static str {
         match self {
-            Self::Google => "google_image_catalog",
-            Self::OpenAi => "openai_image_catalog",
+            Self::Google => "catalog_tests::google_image_catalog",
+            Self::OpenAi => "catalog_tests::openai_image_catalog",
         }
     }
 
@@ -65,10 +65,7 @@ impl LiveImageProvider {
     }
 
     pub(super) fn image_catalog(self) -> Vec<KnownModelSpec> {
-        self.catalog()
-            .into_iter()
-            .filter(|model| model.has_feature(ModelFeature::ImageGeneration))
-            .collect()
+        filter_image_catalog(self.catalog())
     }
 
     pub(super) fn auth(self, api_key: String) -> DynJsonHttpAuth {
@@ -100,6 +97,13 @@ impl LiveImageProvider {
             )),
         }
     }
+}
+
+fn filter_image_catalog(catalog: Vec<KnownModelSpec>) -> Vec<KnownModelSpec> {
+    catalog
+        .into_iter()
+        .filter(|model| model.has_feature(ModelFeature::ImageGeneration))
+        .collect()
 }
 
 #[test]
@@ -142,20 +146,35 @@ fn every_registered_provider_has_only_its_image_entries() {
 }
 
 #[test]
+fn image_only_catalog_is_a_valid_filter_input() {
+    let catalog = LiveImageProvider::ALL
+        .into_iter()
+        .flat_map(LiveImageProvider::catalog)
+        .filter(|model| model.has_feature(ModelFeature::ImageGeneration))
+        .collect::<Vec<_>>();
+
+    assert!(!catalog.is_empty(), "expected image-only catalog entries");
+    assert_eq!(filter_image_catalog(catalog.clone()), catalog);
+}
+
+#[test]
 fn image_catalog_excludes_non_image_entries() {
-    for provider in LiveImageProvider::ALL {
-        assert!(
-            provider.catalog().len() > provider.image_catalog().len(),
-            "{provider:?} test requires a non-image exclusion case"
-        );
-        assert!(
-            provider
-                .image_catalog()
-                .iter()
-                .all(|model| model.has_feature(ModelFeature::ImageGeneration)),
-            "{provider:?} image catalog included a non-image model"
-        );
-    }
+    let catalog = LiveImageProvider::ALL
+        .into_iter()
+        .flat_map(LiveImageProvider::catalog)
+        .collect::<Vec<_>>();
+    let image_catalog = filter_image_catalog(catalog.clone());
+
+    assert!(
+        catalog.len() > image_catalog.len(),
+        "registered catalogs must provide a global non-image exclusion case"
+    );
+    assert!(
+        image_catalog
+            .iter()
+            .all(|model| model.has_feature(ModelFeature::ImageGeneration)),
+        "image catalog included a non-image model"
+    );
 }
 
 #[test]
