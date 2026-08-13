@@ -11,8 +11,8 @@ file-length audits, or AI review.
 - Run a credential-free smoke test for chat, transcription, and image-provider
   construction, tool-calling registration, MCP tools, and the resource-bound
   MCP OAuth hook
-- Host credentialed integration tests for every chat-provider catalog against
-  real APIs
+- Host credentialed integration tests for every chat and image-provider
+  catalog against real APIs
 - Delegate local AI review to the Codex CLI
 
 ## What This Crate Does
@@ -40,6 +40,17 @@ workflow invokes it for eligible pull requests, daily verification, and manual
 dispatch. The MiniMax job first sends MiniMax-M3 a real tool with strict
 `Required` selection and asserts that the provider returns that tool call.
 
+`tests/live_images/mod.rs` is the corresponding ignored image suite. It selects
+every Google and OpenAI catalog entry advertising `ImageGeneration`, constructs
+the production adapter behind `DynImageGenerator`, and runs the same safe
+square, low-quality request through each entry sequentially. Transient and
+rate-limit failures use the shared 100ms/250ms retry schedule, for no more than
+three attempts. Successful responses must contain matching PNG, JPEG, or WebP
+bytes and the expected provider/model identity. Credential-free tests enforce
+catalog registration, adapter construction, retry classes, response
+validation, and workflow secret/event boundaries. Neither live suite runs as
+part of `check` or `smoke-test`.
+
 ## Quick Start
 
 ```sh
@@ -48,9 +59,16 @@ cargo xtask rust-file-length-lint --all
 cargo xtask smoke-test
 cargo xtask review
 
+# Credential-free: runs image registry, runner, retry, and workflow guards.
+cargo test --locked -p xtask --test live_images
+
 # Billable: tests every chat-capable OpenAI catalog entry against the real API.
 LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_models \
   openai_catalog -- --ignored --exact --nocapture
+
+# Billable: tests every image-capable OpenAI catalog entry against the real API.
+LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_images \
+  catalog_tests::openai_image_catalog -- --ignored --exact --nocapture
 ```
 
 ## Development
@@ -67,10 +85,13 @@ cargo clippy -p xtask --all-targets --all-features
 - `src/file_length.rs` - Rust line-count audit
 - `src/smoke/` - credential-free provider, MCP, OAuth, and pagination smoke tests
 - `tests/live_models.rs` - ignored credentialed tests over chat-provider catalogs
+- `tests/live_images/mod.rs` - ignored credentialed tests and credential-free
+  guards over image-provider catalogs
 - `src/review.rs` - Codex CLI review delegation
 
 ### Related Docs
 
 - [`../README.md`](../README.md)
 - [`../docs/protocol/live-model-api-tests.md`](../docs/protocol/live-model-api-tests.md)
+- [`../docs/protocol/live-image-api-tests.md`](../docs/protocol/live-image-api-tests.md)
 - [`../plans/README.md`](../plans/README.md)
