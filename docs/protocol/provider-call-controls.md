@@ -77,6 +77,12 @@ applies to sampling on reasoning models that require native sampling defaults;
 it does not permit silently dropping unsupported stops, limits, or forced tool
 choices.
 
+Anthropic's `new` and `with_auth` convenience constructors resolve known
+catalog ids to their declared provider model id and `ThinkingLevel`. This
+ensures models with adaptive thinking use the fixed-sampling path even when a
+caller supplies a temperature. Unknown ids remain direct provider ids with
+thinking disabled; `with_catalog_auth` remains the explicit construction path.
+
 Malformed provider responses, terminal provider failures, and transport
 failures retain the existing typed `ModelError` classification.
 
