@@ -36,8 +36,8 @@ in-memory tool-calling runtime behavior.
 - [Image generation](docs/protocol/image-generation.md) defines the shared
   one-image generation/editing boundary and the OpenAI and Google mappings.
 - [Live image API tests](docs/protocol/live-image-api-tests.md) defines the
-  planned credentialed catalog coverage, low-cost probe, response validation,
-  and CI secret boundary for image providers.
+  implemented credentialed catalog coverage, low-cost probe, response
+  validation, and CI secret boundary for image providers.
 - [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) defines
   the DeepSeek V4 Pro/Flash catalog, text-only request boundary, thinking,
   replay, tool-calling, JSON-object, usage, and error contract.
@@ -131,6 +131,23 @@ manual dispatch. It requires the repository Actions secrets
 `QWEN_API_KEY`, and `XAI_API_KEY`. On an eligible run, a missing secret fails
 its provider job.
 
+Credentialed image checks live in `xtask/tests/live_images.rs`. They select
+every Google and OpenAI catalog entry advertising `ImageGeneration`, construct
+the production adapter behind `DynImageGenerator`, and request one square image
+per attempt. Run the credential-free guards or one billable provider catalog
+with:
+
+```sh
+cargo test --locked -p xtask --test live_images
+LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
+  --test live_images openai_image_catalog -- --ignored --exact --nocapture
+```
+
+The `Live image APIs` workflow runs both provider catalogs for trusted
+same-repository pull requests, daily, and on manual dispatch. It uses
+`GOOGLE_API_KEY` and `OPENAI_API_KEY`, runs providers sequentially, and may make
+up to three billable attempts per catalog model after transient failures.
+
 Run local AI review after checks pass and the branch has been pushed:
 
 ```sh
@@ -165,7 +182,7 @@ cargo xtask review
   management contract
 - `docs/protocol/image-generation.md`: normative shared image generation and
   provider mapping contract
-- `docs/protocol/live-image-api-tests.md`: planned credentialed image-provider
+- `docs/protocol/live-image-api-tests.md`: implemented credentialed image-provider
   catalog and CI verification contract
 - `docs/protocol/provider-call-controls.md`: normative model-call control and
   provider wire-compatibility contract
@@ -186,10 +203,12 @@ to `main` prevents an open pull request from running the same commit once for
 the branch push and again for the pull-request event. The separate `Live model
 APIs` workflow makes billable calls through the production adapters for every
 chat-capable catalog entry through the generic tool-calling runtime on eligible
-pull requests as well as its daily schedule and manual dispatch.
-Image-generation entries use a separate typed interface and are not sent
-through chat adapters. Forked and Dependabot pull requests skip credentialed
-jobs because GitHub does not provide them repository Actions secrets.
+pull requests as well as its daily schedule and manual dispatch. The separate
+`Live image APIs` workflow exercises every Google and OpenAI image-capable
+catalog entry through `DynImageGenerator` with image-specific validation and
+sequential provider jobs. Forked and Dependabot pull requests skip both
+credentialed workflows because GitHub does not provide them repository Actions
+secrets.
 
 ## Plans
 

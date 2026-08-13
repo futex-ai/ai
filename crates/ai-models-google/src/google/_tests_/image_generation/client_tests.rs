@@ -1,4 +1,4 @@
-//! Google image client transport and live smoke tests.
+//! Google image client transport tests.
 
 use std::{
     collections::VecDeque,
@@ -6,12 +6,10 @@ use std::{
     time::Duration,
 };
 
-use ai_interface::{
-    ImageGenerationAspect, ImageGenerationQuality, ImageGenerationRequest, ImageGenerator,
-};
+use ai_interface::{ImageGenerationRequest, ImageGenerator};
 use json_http::{
     JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    ReqwestJsonHttpClient, TransportBackedJsonHttpClient,
+    TransportBackedJsonHttpClient,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
@@ -51,33 +49,6 @@ async fn client_uses_v1_endpoint_auth_and_supports_override() {
         .with_timeout(Duration::from_secs(3));
     assert_eq!(generator.endpoint(), "http://images.test/generate");
     assert_eq!(generator.timeout, Duration::from_secs(3));
-}
-
-#[tokio::test]
-#[ignore = "requires GOOGLE_API_KEY and live provider access"]
-async fn live_google_image_generation_smoke() {
-    let Ok(api_key) = std::env::var("GOOGLE_API_KEY") else {
-        return;
-    };
-    if api_key.trim().is_empty() {
-        return;
-    }
-    let response = GoogleImageGenerator::new(
-        Arc::new(ReqwestJsonHttpClient::new()),
-        "gemini-3.1-flash-image",
-        api_key,
-    )
-    .generate(&ImageGenerationRequest {
-        prompt: "A simple solid blue circle on white".to_owned(),
-        aspect: ImageGenerationAspect::Square,
-        quality: ImageGenerationQuality::Low,
-        ..ImageGenerationRequest::default()
-    })
-    .await
-    .unwrap();
-
-    assert!(!response.image.data.is_empty());
-    assert!(response.image.mime_type.starts_with("image/"));
 }
 
 type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;

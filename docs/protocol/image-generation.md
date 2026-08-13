@@ -11,7 +11,7 @@ boundary for agent runtimes. It is implemented by the completed
 Composition roots own credentials, routing, retries, storage, retention,
 pricing, and wire-level base64 encoding.
 
-Credentialed production-API verification is defined by the planned
+Credentialed production-API verification is defined by the implemented
 [live image API test protocol](live-image-api-tests.md).
 
 ## Shared Boundary
@@ -148,12 +148,13 @@ are `Provider`. `finishMessage` is retained when available.
 Unit tests are credential-free and cover DTO serde/defaults, the deterministic
 mock, routing feature, request mapping, response/usage parsing, thought-image
 filtering, non-empty image enforcement, tracked internal-error metadata, every
-error class, OpenAI transport/auth behavior, and catalog metadata. Provider
-live smoke tests are ignored by default, read their API key only in test code,
-generate one low-cost image, and assert non-empty bytes plus an `image/*` MIME
-type. The planned centralized credentialed CI suite will replace those local
-smoke tests and strengthen validation without changing ordinary credential-free
-checks.
+error class, OpenAI transport/auth behavior, and catalog metadata. The
+centralized `xtask/tests/live_images.rs` suite owns ignored, catalog-driven
+Google and OpenAI production-API checks. It validates provider/model identity,
+non-empty bytes, supported MIME types, and matching PNG/JPEG/WebP signatures.
+Ordinary workspace checks compile the ignored cases and run their registry,
+runner, retry, validation, and workflow guards without credentials or network
+access.
 
 The full workspace must pass formatting, Clippy, tests, file-length lint,
 credential-free smoke tests, and `cargo xtask check` before commit and push.

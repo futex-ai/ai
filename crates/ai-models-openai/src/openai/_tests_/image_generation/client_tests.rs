@@ -1,4 +1,4 @@
-//! OpenAI image client configuration and live smoke tests.
+//! OpenAI image client configuration tests.
 
 use std::{
     collections::VecDeque,
@@ -7,8 +7,7 @@ use std::{
 };
 
 use ai_interface::{
-    ImageGenerationAspect, ImageGenerationError, ImageGenerationInputImage, ImageGenerationQuality,
-    ImageGenerationRequest, ImageGenerator,
+    ImageGenerationError, ImageGenerationInputImage, ImageGenerationRequest, ImageGenerator,
 };
 use json_http::{
     JsonHttpBody, JsonHttpClient, JsonHttpMultipartField, JsonHttpRequest, JsonHttpResponse,
@@ -141,33 +140,6 @@ async fn client_classifies_injected_status_and_transport_failures() {
     assert!(
         matches!(error, ImageGenerationError::TransientProvider { message, .. } if message.contains("offline"))
     );
-}
-
-#[tokio::test]
-#[ignore = "requires OPENAI_API_KEY and live provider access"]
-async fn live_openai_image_generation_smoke() {
-    let Ok(api_key) = std::env::var("OPENAI_API_KEY") else {
-        return;
-    };
-    if api_key.trim().is_empty() {
-        return;
-    }
-    let response = OpenAiImageGenerator::new(
-        Arc::new(json_http::ReqwestJsonHttpClient::new()),
-        "gpt-image-2",
-        api_key,
-    )
-    .generate(&ImageGenerationRequest {
-        prompt: "A simple solid blue circle on white".to_owned(),
-        aspect: ImageGenerationAspect::Square,
-        quality: ImageGenerationQuality::Low,
-        ..ImageGenerationRequest::default()
-    })
-    .await
-    .unwrap();
-
-    assert!(!response.image.data.is_empty());
-    assert!(response.image.mime_type.starts_with("image/"));
 }
 
 type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
