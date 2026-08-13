@@ -73,3 +73,54 @@ async fn serializes_image_context_message() {
     );
     assert_eq!(contents[1]["parts"][2]["inlineData"]["data"], "abc123");
 }
+
+#[tokio::test]
+async fn serializes_video_context_message_as_inline_data() {
+    let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        status: 200,
+        body: json!({
+            "candidates": [{
+                "finishReason": "STOP",
+                "content": { "parts": [{ "text": "Watched." }] }
+            }]
+        }),
+    });
+    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "google-key");
+
+    model
+        .complete(&ModelRequest {
+            system_prompt: "system".to_owned(),
+            messages: vec![ConversationMessage::user_with_parts(
+                "fallback should not be sent",
+                vec![
+                    ConversationContentPart::Text {
+                        text: "What happens in this clip?".to_owned(),
+                    },
+                    ConversationContentPart::Video {
+                        mime_type: "video/mp4".to_owned(),
+                        data_base64: "dmlkZW8=".to_owned(),
+                    },
+                ],
+            )],
+            tools: Vec::new(),
+            response_schema: None,
+            controls: Default::default(),
+        })
+        .await
+        .expect("Google response should parse");
+
+    let requests = requests
+        .lock()
+        .expect("requests lock should not be poisoned");
+    let contents = &requests[0].body.as_ref().expect("body present")["contents"];
+    assert_eq!(contents[0]["role"], "user");
+    assert_eq!(
+        contents[0]["parts"][0]["text"],
+        "What happens in this clip?"
+    );
+    assert_eq!(
+        contents[0]["parts"][1]["inlineData"]["mimeType"],
+        "video/mp4"
+    );
+    assert_eq!(contents[0]["parts"][1]["inlineData"]["data"], "dmlkZW8=");
+}

@@ -105,7 +105,7 @@ impl Model for AnthropicModel {
                 &self.provider_model_id,
                 self.thinking_level,
                 request,
-            ))
+            )?)
             .map_err(ModelError::internal)?;
         let response = request
             .send_value()

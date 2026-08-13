@@ -1,20 +1,18 @@
 //! Shared request-to-QwenCloud Chat Completions mapping.
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, ModelControl, ModelError,
-    ModelRequest, ModelResult, ModelToolChoice, ProviderConversationItem, QwenToolCallContext,
-    ToolCall, ToolDefinition,
+    ConversationRole, ModelControl, ModelError, ModelRequest, ModelResult, ModelToolChoice,
+    ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 
 use crate::{QWEN_3_7_FLASH, QWEN_3_7_MAX, QWEN_3_7_PLUS};
 
+use super::request_messages::message;
 use super::request_types::{
-    ChatCompletionsContent, ChatCompletionsContentPart, ChatCompletionsImageUrl,
-    ChatCompletionsMessage, ChatCompletionsNamedFunction, ChatCompletionsNamedToolChoice,
-    ChatCompletionsRequest, ChatCompletionsResponseFormat, ChatCompletionsTool,
-    ChatCompletionsToolCall, ChatCompletionsToolChoice, ChatCompletionsToolDefinition,
-    ChatCompletionsToolFunction,
+    ChatCompletionsContent, ChatCompletionsMessage, ChatCompletionsNamedFunction,
+    ChatCompletionsNamedToolChoice, ChatCompletionsRequest, ChatCompletionsResponseFormat,
+    ChatCompletionsTool, ChatCompletionsToolChoice, ChatCompletionsToolDefinition,
 };
 
 const PROVIDER: &str = "qwen";
@@ -38,7 +36,9 @@ pub(super) fn build_request(
             tool_calls: Vec::new(),
         });
     }
-    messages.extend(request.messages.iter().map(message));
+    for conversation_message in &request.messages {
+        messages.push(message(model_id, conversation_message)?);
+    }
     let has_tools = !request.tools.is_empty();
     Ok(ChatCompletionsRequest {
         model: model_id.to_owned(),
@@ -159,128 +159,6 @@ fn validate_content_parts(model_id: &str, request: &ModelRequest) -> ModelResult
         }
     }
     Ok(())
-}
-
-fn message(message: &ConversationMessage) -> ChatCompletionsMessage {
-    if message.role == ConversationRole::Assistant
-        && let Some(replay) = qwen_replay(message)
-    {
-        return replay_message(replay);
-    }
-    ChatCompletionsMessage {
-        role: role(message.role).to_owned(),
-        content: message_content(message),
-        tool_call_id: (message.role == ConversationRole::Tool)
-            .then(|| message.tool_call_id.clone())
-            .flatten(),
-        reasoning_content: None,
-        tool_calls: if message.role == ConversationRole::Assistant {
-            message.tool_calls.iter().map(tool_call).collect()
-        } else {
-            Vec::new()
-        },
-    }
-}
-
-fn qwen_replay(message: &ConversationMessage) -> Option<&ProviderConversationItem> {
-    message
-        .provider_context
-        .iter()
-        .find(|item| matches!(item, ProviderConversationItem::QwenAssistantMessage { .. }))
-}
-
-fn replay_message(item: &ProviderConversationItem) -> ChatCompletionsMessage {
-    let ProviderConversationItem::QwenAssistantMessage {
-        content,
-        reasoning_content,
-        tool_calls,
-    } = item
-    else {
-        return empty_assistant_message();
-    };
-    ChatCompletionsMessage {
-        role: "assistant".to_owned(),
-        content: match content {
-            Some(content) => Some(ChatCompletionsContent::Text(content.clone())),
-            None if tool_calls.is_empty() => Some(ChatCompletionsContent::Text(String::new())),
-            None => None,
-        },
-        tool_call_id: None,
-        reasoning_content: reasoning_content.clone(),
-        tool_calls: tool_calls.iter().map(raw_tool_call).collect(),
-    }
-}
-
-fn empty_assistant_message() -> ChatCompletionsMessage {
-    ChatCompletionsMessage {
-        role: "assistant".to_owned(),
-        content: None,
-        tool_call_id: None,
-        reasoning_content: None,
-        tool_calls: Vec::new(),
-    }
-}
-
-fn role(role: ConversationRole) -> &'static str {
-    match role {
-        ConversationRole::User => "user",
-        ConversationRole::Assistant => "assistant",
-        ConversationRole::Tool => "tool",
-    }
-}
-
-fn message_content(message: &ConversationMessage) -> Option<ChatCompletionsContent> {
-    if !message.content_parts.is_empty() {
-        return Some(ChatCompletionsContent::Parts(
-            message.content_parts.iter().map(content_part).collect(),
-        ));
-    }
-    if message.role == ConversationRole::Assistant
-        && message.content.is_empty()
-        && !message.tool_calls.is_empty()
-    {
-        None
-    } else {
-        Some(ChatCompletionsContent::Text(message.content.clone()))
-    }
-}
-
-fn content_part(part: &ConversationContentPart) -> ChatCompletionsContentPart {
-    match part {
-        ConversationContentPart::Text { text } => {
-            ChatCompletionsContentPart::Text { text: text.clone() }
-        }
-        ConversationContentPart::Image {
-            mime_type,
-            data_base64,
-        } => ChatCompletionsContentPart::ImageUrl {
-            image_url: ChatCompletionsImageUrl {
-                url: format!("data:{mime_type};base64,{data_base64}"),
-            },
-        },
-    }
-}
-
-fn tool_call(call: &ToolCall) -> ChatCompletionsToolCall {
-    ChatCompletionsToolCall {
-        id: call.id.clone(),
-        kind: "function".to_owned(),
-        function: ChatCompletionsToolFunction {
-            name: call.name.clone(),
-            arguments: call.input.to_string(),
-        },
-    }
-}
-
-fn raw_tool_call(call: &QwenToolCallContext) -> ChatCompletionsToolCall {
-    ChatCompletionsToolCall {
-        id: call.id.clone(),
-        kind: "function".to_owned(),
-        function: ChatCompletionsToolFunction {
-            name: call.name.clone(),
-            arguments: call.arguments.clone(),
-        },
-    }
 }
 
 fn tool(tool: &ToolDefinition) -> ChatCompletionsTool {

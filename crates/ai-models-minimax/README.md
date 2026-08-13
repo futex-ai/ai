@@ -12,7 +12,8 @@ Chat Completions models with explicit credentials and shared runtime wrappers.
 - Map shared messages to MiniMax's non-streaming Chat Completions API.
 - Normalize finish reasons, usage, provider codes, HTTP failures, and
   transport failures into shared model contracts.
-- Serialize M3 image inputs and validate requested structured output locally.
+- Serialize M3 image and video inputs and validate requested structured output
+  locally.
 
 ## What This Crate Does
 
@@ -44,11 +45,12 @@ Structured-output requests append raw-JSON and JSON Schema instructions to the
 system prompt, then locally validate only naturally stopped responses; the
 adapter does not claim native provider schema enforcement.
 
-Ordered shared text/image parts are sent as Chat Completions content parts,
-with base64 image bytes encoded as `data:` URLs. The M3 catalog variants
-advertise vision; M2.7 variants do not. Video, streaming, provider server
+Ordered shared text, image, and video parts are sent as Chat Completions
+content parts, with base64 image and video bytes encoded as `data:` URLs in
+`image_url` and `video_url` parts. The M3 catalog variants advertise vision
+and video input; M2.7 variants advertise neither. Streaming, provider server
 tools, regional endpoint selection, and legacy MiniMax models remain outside
-this crate's V1 boundary.
+this crate's boundary.
 
 The crate exports `known_models()` and typed constants for `MiniMax-M3`,
 `MiniMax-M3-thinking-disabled`, `MiniMax-M2.7`, and

@@ -18,6 +18,8 @@
   sequences, strict and required-with-automatic-fallback tool choice, per-call
   timeouts, and blank-system omission
 - Anthropic tool-use and tool-result content blocks
+- shared text and image parts as Anthropic text and base64 image blocks, with
+  typed rejection of shared video parts before transport
 - Anthropic `stop_reason` normalization into `ai_interface::FinishReason`
 - terminal Anthropic stop reasons suppress parsed tool calls unless the
   normalized finish reason is `ToolCalls`

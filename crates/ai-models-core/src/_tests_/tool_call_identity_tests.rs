@@ -1,6 +1,6 @@
 use ai_interface::{
-    ConversationMessage, DeepSeekToolCallContext, KimiToolCallContext, ModelRequest,
-    ProviderConversationItem,
+    ConversationContentPart, ConversationMessage, DeepSeekToolCallContext, KimiToolCallContext,
+    ModelRequest, ProviderConversationItem,
 };
 
 use crate::{synthetic_tool_call_id, synthetic_tool_call_scope};
@@ -32,6 +32,47 @@ fn synthetic_tool_call_id_changes_with_arguments() {
     );
 
     assert_ne!(first, second);
+}
+
+#[test]
+fn synthetic_scope_distinguishes_video_parts_from_image_parts() {
+    let image_scope =
+        synthetic_tool_call_scope(&request_with_part(ConversationContentPart::Image {
+            mime_type: "video/mp4".to_owned(),
+            data_base64: "c2FtZQ==".to_owned(),
+        }));
+    let video_scope =
+        synthetic_tool_call_scope(&request_with_part(ConversationContentPart::Video {
+            mime_type: "video/mp4".to_owned(),
+            data_base64: "c2FtZQ==".to_owned(),
+        }));
+
+    assert_ne!(image_scope, video_scope);
+}
+
+#[test]
+fn synthetic_scope_changes_with_video_part_fields() {
+    let baseline = synthetic_tool_call_scope(&request_with_part(ConversationContentPart::Video {
+        mime_type: "video/mp4".to_owned(),
+        data_base64: "b25l".to_owned(),
+    }));
+    let variants = [
+        ConversationContentPart::Video {
+            mime_type: "video/webm".to_owned(),
+            data_base64: "b25l".to_owned(),
+        },
+        ConversationContentPart::Video {
+            mime_type: "video/mp4".to_owned(),
+            data_base64: "dHdv".to_owned(),
+        },
+    ];
+
+    for variant in variants {
+        assert_ne!(
+            synthetic_tool_call_scope(&request_with_part(variant)),
+            baseline
+        );
+    }
 }
 
 #[test]
@@ -144,6 +185,16 @@ fn request_with_message(content: &str) -> ModelRequest {
     ModelRequest {
         system_prompt: "system".to_owned(),
         messages: vec![ConversationMessage::user(content)],
+        tools: Vec::new(),
+        response_schema: None,
+        controls: Default::default(),
+    }
+}
+
+fn request_with_part(part: ConversationContentPart) -> ModelRequest {
+    ModelRequest {
+        system_prompt: "system".to_owned(),
+        messages: vec![ConversationMessage::user_with_parts("fallback", vec![part])],
         tools: Vec::new(),
         response_schema: None,
         controls: Default::default(),

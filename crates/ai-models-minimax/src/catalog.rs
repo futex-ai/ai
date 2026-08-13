@@ -21,6 +21,7 @@ const M3_FEATURES: &[ModelFeature] = &[
     ModelFeature::ToolCalling,
     ModelFeature::StructuredOutput,
     ModelFeature::Vision,
+    ModelFeature::VideoInput,
     ModelFeature::LongContext,
     ModelFeature::Reasoning,
 ];
@@ -29,6 +30,7 @@ const M3_DISABLED_FEATURES: &[ModelFeature] = &[
     ModelFeature::ToolCalling,
     ModelFeature::StructuredOutput,
     ModelFeature::Vision,
+    ModelFeature::VideoInput,
     ModelFeature::LongContext,
 ];
 

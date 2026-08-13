@@ -102,9 +102,10 @@ remains an empty string. User and assistant names are sent only when present;
 tool messages omit `name` and include the matching `tool_call_id`.
 
 DeepSeek V4 is text-only at this boundary. A message with any typed
-`content_parts`, including an image part, fails locally with a typed provider
-error before authentication or transport is invoked. The adapter must not
-drop an image, use only its text fallback, or claim vision support.
+`content_parts`, including an image or video part, fails locally with a typed
+provider error before authentication or transport is invoked. The adapter must
+not drop an image or video, use only its text fallback, or claim vision
+support.
 
 Portable output limits map to `max_tokens` and ordered stops map to `stop` in
 every thinking mode. With thinking disabled, temperature, top-p, and all

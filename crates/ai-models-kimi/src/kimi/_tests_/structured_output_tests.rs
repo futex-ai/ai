@@ -15,8 +15,9 @@ use super::{
 fn sends_actual_schema_with_non_strict_response_format() {
     let mut request = simple_request();
     request.response_schema = Some(status_schema());
-    let body = serde_json::to_value(build_request(KIMI_K3, KimiReasoningEffort::Max, &request))
-        .expect("Kimi request should serialize");
+    let body = build_request(KIMI_K3, KimiReasoningEffort::Max, &request)
+        .expect("Kimi request should build");
+    let body = serde_json::to_value(body).expect("Kimi request should serialize");
 
     assert_eq!(body["response_format"]["type"], "json_schema");
     assert_eq!(

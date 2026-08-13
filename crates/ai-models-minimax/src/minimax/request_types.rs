@@ -54,10 +54,17 @@ pub(super) enum ChatCompletionsContentPart {
     Text { text: String },
     #[serde(rename = "image_url")]
     ImageUrl { image_url: ChatCompletionsImageUrl },
+    #[serde(rename = "video_url")]
+    VideoUrl { video_url: ChatCompletionsVideoUrl },
 }
 
 #[derive(Debug, Serialize)]
 pub(super) struct ChatCompletionsImageUrl {
+    pub(super) url: String,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct ChatCompletionsVideoUrl {
     pub(super) url: String,
 }
 

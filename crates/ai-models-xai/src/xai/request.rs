@@ -2,8 +2,8 @@
 
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, ModelCompletionMode,
-    ModelRequest, ModelToolChoice, ProviderConversationItem, StructuredOutputSchema, ToolCall,
-    ToolDefinition,
+    ModelError, ModelRequest, ModelResult, ModelToolChoice, ProviderConversationItem,
+    StructuredOutputSchema, ToolCall, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 
@@ -15,11 +15,13 @@ use super::request_types::{
     ChatCompletionsToolDefinition, ChatCompletionsToolFunction,
 };
 
+const PROVIDER: &str = "xai";
+
 pub(super) fn build_request(
     model_id: &str,
     thinking_level: ThinkingLevel,
     request: &ModelRequest,
-) -> ChatCompletionsRequest {
+) -> ModelResult<ChatCompletionsRequest> {
     let mut messages = Vec::new();
     if let Some(system_prompt) = request.nonblank_system_prompt() {
         messages.push(ChatCompletionsMessage {
@@ -31,9 +33,9 @@ pub(super) fn build_request(
             function_call: None,
         });
     }
-    messages.extend(conversation_messages(&request.messages));
+    messages.extend(conversation_messages(model_id, &request.messages)?);
 
-    ChatCompletionsRequest {
+    Ok(ChatCompletionsRequest {
         model: model_id.to_owned(),
         messages,
         tools: request.tools.iter().map(tool).collect(),
@@ -45,7 +47,7 @@ pub(super) fn build_request(
         max_tokens: request.controls.generation.max_output_tokens,
         stop: request.controls.generation.stop_sequences.clone(),
         deferred: request.controls.execution.completion_mode != ModelCompletionMode::Synchronous,
-    }
+    })
 }
 
 fn tool_choice(request: &ModelRequest, has_tools: bool) -> Option<ChatCompletionsToolChoice> {
@@ -73,29 +75,33 @@ struct LegacyFunctionCall {
     arguments: String,
 }
 
-fn conversation_messages(messages: &[ConversationMessage]) -> Vec<ChatCompletionsMessage> {
+fn conversation_messages(
+    model_id: &str,
+    messages: &[ConversationMessage],
+) -> ModelResult<Vec<ChatCompletionsMessage>> {
     let mut legacy_calls = Vec::new();
     let mut output = Vec::new();
 
     for conversation_message in messages {
-        output.push(chat_message(conversation_message, &legacy_calls));
+        output.push(chat_message(model_id, conversation_message, &legacy_calls)?);
         if let Some(function_call) = legacy_function_call(conversation_message) {
             legacy_calls.push(function_call);
         }
     }
 
-    output
+    Ok(output)
 }
 
 fn chat_message(
+    model_id: &str,
     message: &ConversationMessage,
     legacy_calls: &[LegacyFunctionCall],
-) -> ChatCompletionsMessage {
+) -> ModelResult<ChatCompletionsMessage> {
     let legacy_function_call = legacy_function_call(message);
     let legacy_tool_name = legacy_tool_name(message, legacy_calls);
-    ChatCompletionsMessage {
+    Ok(ChatCompletionsMessage {
         role: message_role(message.role, legacy_tool_name.is_some()).to_owned(),
-        content: message_content(message),
+        content: message_content(model_id, message)?,
         name: message_name(message, legacy_tool_name),
         tool_call_id: message_tool_call_id(message, legacy_tool_name),
         tool_calls: message_tool_calls(message, legacy_function_call.is_some()),
@@ -103,7 +109,7 @@ fn chat_message(
             name: function_call.name,
             arguments: function_call.arguments,
         }),
-    }
+    })
 }
 
 fn message_role(role: ConversationRole, is_legacy_tool_result: bool) -> &'static str {
@@ -137,32 +143,47 @@ fn message_tool_call_id(
     message.tool_call_id.clone()
 }
 
-fn message_content(message: &ConversationMessage) -> Option<ChatCompletionsContent> {
+fn message_content(
+    model_id: &str,
+    message: &ConversationMessage,
+) -> ModelResult<Option<ChatCompletionsContent>> {
     if !message.content_parts.is_empty() {
-        return Some(ChatCompletionsContent::Parts(
-            message.content_parts.iter().map(content_part).collect(),
-        ));
+        return Ok(Some(ChatCompletionsContent::Parts(
+            message
+                .content_parts
+                .iter()
+                .map(|part| content_part(model_id, part))
+                .collect::<ModelResult<Vec<_>>>()?,
+        )));
     }
     if message.content.is_empty() {
-        None
+        Ok(None)
     } else {
-        Some(ChatCompletionsContent::Text(message.content.clone()))
+        Ok(Some(ChatCompletionsContent::Text(message.content.clone())))
     }
 }
 
-fn content_part(part: &ConversationContentPart) -> ChatCompletionsContentPart {
+fn content_part(
+    model_id: &str,
+    part: &ConversationContentPart,
+) -> ModelResult<ChatCompletionsContentPart> {
     match part {
         ConversationContentPart::Text { text } => {
-            ChatCompletionsContentPart::Text { text: text.clone() }
+            Ok(ChatCompletionsContentPart::Text { text: text.clone() })
         }
         ConversationContentPart::Image {
             mime_type,
             data_base64,
-        } => ChatCompletionsContentPart::ImageUrl {
+        } => Ok(ChatCompletionsContentPart::ImageUrl {
             image_url: ChatCompletionsImageUrl {
                 url: format!("data:{mime_type};base64,{data_base64}"),
             },
-        },
+        }),
+        ConversationContentPart::Video { .. } => Err(ModelError::provider(
+            PROVIDER,
+            model_id,
+            "xAI accepts text and image content parts only",
+        )),
     }
 }
 

@@ -10,6 +10,7 @@ No active plans.
 
 ## Completed
 
+- [Add video input support](add-video-input-support.md)
 - [Provider call controls](provider-call-controls.md)
 - [Add image generation support](add-image-generation-support.md)
 - [Add DeepSeek model provider](add-deepseek-model-provider.md)

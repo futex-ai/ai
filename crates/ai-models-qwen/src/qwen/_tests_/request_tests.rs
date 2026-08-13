@@ -212,6 +212,41 @@ fn structured_output_always_prompts_and_uses_native_json_only_when_supported() {
     }
 }
 
+#[test]
+fn rejects_video_parts_with_typed_provider_error() {
+    for tested_model in [QWEN_3_7_PLUS, QWEN_3_7_FLASH] {
+        let request = ModelRequest {
+            system_prompt: "system".to_owned(),
+            messages: vec![ConversationMessage::user_with_parts(
+                "fallback",
+                vec![ConversationContentPart::Video {
+                    mime_type: "video/mp4".to_owned(),
+                    data_base64: "dmlkZW8=".to_owned(),
+                }],
+            )],
+            tools: Vec::new(),
+            response_schema: None,
+            controls: Default::default(),
+        };
+
+        let error = request_json(tested_model, ThinkingLevel::Disabled, &request)
+            .expect_err("video parts must be rejected");
+
+        match error {
+            ModelError::Provider {
+                provider,
+                model_id,
+                message,
+            } => {
+                assert_eq!(provider, "qwen");
+                assert_eq!(model_id, tested_model);
+                assert_eq!(message, "Qwen accepts text and image content parts only");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+}
+
 fn request_with_user_parts() -> ModelRequest {
     ModelRequest {
         system_prompt: "system".to_owned(),

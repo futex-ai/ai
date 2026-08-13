@@ -53,8 +53,8 @@ The initial catalog contains current, non-legacy agent models:
 
 | Catalog id | Provider model id | Context | Intelligence | Speed | Cost | Thinking | Features |
 | --- | --- | ---: | --- | --- | --- | --- | --- |
-| `MiniMax-M3` | `MiniMax-M3` | 1,000,000 | Nine | Medium | Low | Medium/adaptive | tools, structured output, vision, long context, reasoning |
-| `MiniMax-M3-thinking-disabled` | `MiniMax-M3` | 1,000,000 | Nine | Fast | Low | Disabled | tools, structured output, vision, long context |
+| `MiniMax-M3` | `MiniMax-M3` | 1,000,000 | Nine | Medium | Low | Medium/adaptive | tools, structured output, vision, video input, long context, reasoning |
+| `MiniMax-M3-thinking-disabled` | `MiniMax-M3` | 1,000,000 | Nine | Fast | Low | Disabled | tools, structured output, vision, video input, long context |
 | `MiniMax-M2.7` | `MiniMax-M2.7` | 204,800 | Eight | Medium | Low | Medium/always enabled | tools, structured output, long context, reasoning |
 | `MiniMax-M2.7-highspeed` | `MiniMax-M2.7-highspeed` | 204,800 | Eight | Fast | Medium | Medium/always enabled | tools, structured output, long context, reasoning |
 
@@ -86,10 +86,12 @@ Conversation roles map as follows:
 - `Assistant` -> `assistant`
 - `Tool` -> `tool`
 
-Plain content is sent as a string. Shared text and image content parts are sent
-as OpenAI-compatible `text` and `image_url` parts. Base64 images use a
-`data:<mime-type>;base64,<data>` URL. The shared interface has no video content
-part, so video input is outside V1 even though MiniMax-M3 supports it.
+Plain content is sent as a string. Shared text, image, and video content parts
+are sent as OpenAI-compatible `text`, `image_url`, and `video_url` parts.
+Base64 images and videos use a `data:<mime-type>;base64,<data>` URL. MiniMax-M3
+supports video input, and only its catalog entries advertise the shared
+`video_input` feature; the
+[video input protocol](video-input.md) defines the shared contract.
 
 Assistant history must include visible content, normalized tool calls, and any
 retained MiniMax reasoning context. Tool results include `content` and the
@@ -248,7 +250,8 @@ Coverage includes:
 - catalog ids, provider ids, context windows, features, and thinking variants
 - provider config parsing and serde round trips
 - endpoint and bearer/custom authentication
-- text, image, assistant, tool-call, and tool-result request serialization
+- text, image, video, assistant, tool-call, and tool-result request
+  serialization
 - thinking control and reasoning-split serialization
 - reasoning-context parsing, non-disclosure, serde, and continuation replay
 - multiple tool calls, malformed arguments, and terminal-call suppression

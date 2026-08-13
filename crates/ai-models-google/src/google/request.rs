@@ -244,6 +244,10 @@ fn content_part(part: &ConversationContentPart) -> GooglePart {
         ConversationContentPart::Image {
             mime_type,
             data_base64,
+        }
+        | ConversationContentPart::Video {
+            mime_type,
+            data_base64,
         } => GooglePart {
             text: None,
             function_call: None,

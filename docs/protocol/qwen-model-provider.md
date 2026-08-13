@@ -109,7 +109,9 @@ Plus and Flash map shared text and image parts to OpenAI-compatible `text` and
 `data:<mime-type>;base64,<data>`. Max rejects every typed content-part message
 before authentication or transport. All models reject typed content parts on
 assistant and tool messages because those roles accept string content at this
-boundary.
+boundary. All models also reject shared video parts defined by the
+[video input protocol](video-input.md) with a typed provider error before
+transport.
 
 Provider context owned by another adapter is never serialized as Qwen state.
 Without Qwen context, assistant calls are reconstructed from normalized calls.

@@ -1,4 +1,4 @@
-//! Multimodal serialization tests for Anthropic.
+//! Multimodal serialization tests for OpenAI.
 
 use std::{
     collections::VecDeque,
@@ -15,38 +15,24 @@ use json_http::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
-use super::AnthropicModel;
+use super::OpenAiModel;
 
 type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 
 #[tokio::test]
-async fn serializes_image_context_message() {
-    let (http_client, requests) = recording_http_client();
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "anthropic-key");
+async fn serializes_multimodal_messages_and_tool_history() {
+    let (http_client, requests) = recording_http_client(openai_text_response("Done"));
+    let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
 
     model
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
             messages: vec![
-                ConversationMessage::assistant(
-                    "looking",
-                    vec![ToolCall {
-                        id: "call-view".to_owned(),
-                        name: "attachment_view".to_owned(),
-                        input: json!({"attachment_id": "attachment://image-id"}),
-                        operation_id: None,
-                    }],
-                ),
-                ConversationMessage::tool(
-                    "{\"context_accepted\":true}",
-                    "attachment_view",
-                    "call-view",
-                ),
                 ConversationMessage::user_with_parts(
-                    "Visual context is available.",
+                    "see image",
                     vec![
                         ConversationContentPart::Text {
-                            text: "Visual context is available.".to_owned(),
+                            text: "look".to_owned(),
                         },
                         ConversationContentPart::Image {
                             mime_type: "image/png".to_owned(),
@@ -54,28 +40,44 @@ async fn serializes_image_context_message() {
                         },
                     ],
                 ),
+                ConversationMessage::assistant(
+                    "checking",
+                    vec![ToolCall {
+                        id: "call_1".to_owned(),
+                        name: "memory_read".to_owned(),
+                        input: json!({"path": "root"}),
+                        operation_id: None,
+                    }],
+                ),
+                ConversationMessage::tool("{\"ok\":true}", "memory_read", "call_1"),
             ],
             tools: Vec::new(),
             response_schema: None,
             controls: Default::default(),
         })
         .await
-        .expect("Anthropic response should parse");
+        .expect("OpenAI response should parse");
 
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let messages = &requests[0].body.as_ref().expect("body present")["messages"];
-    assert_eq!(messages[1]["content"][0]["type"], "tool_result");
-    assert_eq!(messages[1]["content"][0]["tool_use_id"], "call-view");
-    assert_eq!(messages[1]["content"][1]["type"], "text");
-    assert_eq!(messages[1]["content"][2]["type"], "image");
-    assert_eq!(messages[1]["content"][2]["source"]["type"], "base64");
+    let input = &requests[0].body.as_ref().expect("body present")["input"];
+    assert_eq!(input[0]["content"][0]["type"], "input_text");
+    assert_eq!(input[0]["content"][0]["text"], "look");
+    assert_eq!(input[0]["content"][1]["type"], "input_image");
     assert_eq!(
-        messages[1]["content"][2]["source"]["media_type"],
-        "image/png"
+        input[0]["content"][1]["image_url"],
+        "data:image/png;base64,abc123"
     );
-    assert_eq!(messages[1]["content"][2]["source"]["data"], "abc123");
+    assert_eq!(input[1]["role"], "assistant");
+    assert_eq!(input[1]["content"], "checking");
+    assert_eq!(input[2]["type"], "function_call");
+    assert_eq!(input[2]["call_id"], "call_1");
+    assert_eq!(input[2]["name"], "memory_read");
+    assert_eq!(input[2]["arguments"], "{\"path\":\"root\"}");
+    assert_eq!(input[3]["type"], "function_call_output");
+    assert_eq!(input[3]["call_id"], "call_1");
+    assert_eq!(input[3]["output"], "{\"ok\":true}");
 }
 
 #[tokio::test]
@@ -83,7 +85,7 @@ async fn rejects_video_content_parts_before_transport() {
     let http_client: Arc<dyn JsonHttpClient> = Arc::new(TransportBackedJsonHttpClient::new(
         Arc::new(Unimock::new(())),
     ));
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "anthropic-key");
+    let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
 
     let error = model
         .complete(&ModelRequest {
@@ -108,27 +110,19 @@ async fn rejects_video_content_parts_before_transport() {
             model_id,
             message,
         } => {
-            assert_eq!(provider, "anthropic");
-            assert_eq!(model_id, "claude-sonnet-4-6");
-            assert_eq!(
-                message,
-                "Anthropic accepts text and image content parts only"
-            );
+            assert_eq!(provider, "openai");
+            assert_eq!(model_id, "gpt-5.5");
+            assert_eq!(message, "OpenAI accepts text and image content parts only");
         }
         other => panic!("unexpected error: {other:?}"),
     }
 }
 
-fn recording_http_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
+fn recording_http_client(
+    response: JsonHttpResponse<serde_json::Value>,
+) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
     let requests = Arc::new(Mutex::new(Vec::new()));
-    let responses = Arc::new(Mutex::new(VecDeque::from([JsonHttpResponse {
-        status: 200,
-        body: json!({
-            "stop_reason": "end_turn",
-            "content": [{ "type": "text", "text": "Done" }],
-            "usage": { "input_tokens": 1, "output_tokens": 1 }
-        }),
-    }])));
+    let responses = Arc::new(Mutex::new(VecDeque::from([response])));
     let transport = Arc::new(Unimock::new(
         JsonHttpTransportMock::execute
             .each_call(matching!(_))
@@ -153,4 +147,23 @@ fn recording_http_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
         Arc::new(TransportBackedJsonHttpClient::new(transport)),
         requests,
     )
+}
+
+fn openai_text_response(text: &str) -> JsonHttpResponse<serde_json::Value> {
+    JsonHttpResponse {
+        status: 200,
+        body: json!({
+            "status": "completed",
+            "output": [{
+                "type": "message",
+                "role": "assistant",
+                "content": [{ "type": "output_text", "text": text }]
+            }],
+            "usage": {
+                "input_tokens": 120,
+                "output_tokens": 32,
+                "total_tokens": 152
+            }
+        }),
+    }
 }

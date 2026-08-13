@@ -2,6 +2,7 @@
 
 mod image_generation;
 mod request;
+mod request_input;
 mod request_types;
 mod response;
 mod transcription;
@@ -113,7 +114,7 @@ impl Model for OpenAiModel {
                 &self.provider_model_id,
                 self.thinking_level,
                 request,
-            ))
+            )?)
             .map_err(ModelError::internal)?;
         let response = request
             .send_value()
@@ -150,6 +151,10 @@ fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
 #[cfg(test)]
 #[path = "_tests_/openai_tests.rs"]
 mod openai_tests;
+
+#[cfg(test)]
+#[path = "_tests_/openai_multimodal_tests.rs"]
+mod openai_multimodal_tests;
 
 #[cfg(test)]
 #[path = "_tests_/openai_response/mod.rs"]

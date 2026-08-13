@@ -23,7 +23,9 @@ and K3 reasoning-effort variants.
 The initial version does not support K2.x models, Moonshot V1 models,
 streaming, Partial Mode, video or file upload, dynamic or official Kimi tools,
 `prompt_cache_key`, or `safety_identifier`. Those capabilities require
-separate contracts rather than silent partial support.
+separate contracts rather than silent partial support. Shared video content
+parts defined by the [video input protocol](video-input.md) are rejected with
+a typed provider error before transport.
 
 ## Ownership
 
@@ -90,7 +92,8 @@ K3 request mapping must:
   completion for `PreferDeferred`, and reject `RequireDeferred` with typed
   `UnsupportedControl`;
 - serialize plain content as a string and typed text/image parts as content
-  arrays, using base64 data URLs for images; empty user and tool content
+  arrays, using base64 data URLs for images; reject shared video parts with a
+  typed provider error before transport; empty user and tool content
   remains an empty string, while unavailable assistant content may be null;
 - serialize user and assistant names only when present and supported;
 - ignore provider context owned by other providers;

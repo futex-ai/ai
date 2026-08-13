@@ -10,7 +10,8 @@ use ai_models_core::ThinkingLevel;
 use super::request_types::{
     ChatCompletionsContent, ChatCompletionsContentPart, ChatCompletionsImageUrl,
     ChatCompletionsMessage, ChatCompletionsRequest, ChatCompletionsTool, ChatCompletionsToolCall,
-    ChatCompletionsToolDefinition, ChatCompletionsToolFunction, ThinkingControl,
+    ChatCompletionsToolDefinition, ChatCompletionsToolFunction, ChatCompletionsVideoUrl,
+    ThinkingControl,
 };
 
 const STRUCTURED_OUTPUT_INSTRUCTION: &str = "Return only raw JSON that validates against the \
@@ -128,6 +129,14 @@ fn content_part(part: &ConversationContentPart) -> ChatCompletionsContentPart {
             data_base64,
         } => ChatCompletionsContentPart::ImageUrl {
             image_url: ChatCompletionsImageUrl {
+                url: format!("data:{mime_type};base64,{data_base64}"),
+            },
+        },
+        ConversationContentPart::Video {
+            mime_type,
+            data_base64,
+        } => ChatCompletionsContentPart::VideoUrl {
+            video_url: ChatCompletionsVideoUrl {
                 url: format!("data:{mime_type};base64,{data_base64}"),
             },
         },

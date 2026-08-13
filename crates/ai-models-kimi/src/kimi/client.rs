@@ -106,7 +106,7 @@ impl Model for KimiModel {
             &self.provider_model_id,
             self.reasoning_effort,
             model_request,
-        );
+        )?;
         let builder = self
             .http_client
             .post(&self.endpoint)
