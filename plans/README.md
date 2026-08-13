@@ -6,10 +6,11 @@ milestones are finished.
 
 ## Active
 
-- [Credentialed image API CI](credentialed-image-api-ci.md)
+No active plans.
 
 ## Completed
 
+- [Credentialed image API CI](credentialed-image-api-ci.md)
 - [Provider call controls](provider-call-controls.md)
 - [Add image generation support](add-image-generation-support.md)
 - [Add DeepSeek model provider](add-deepseek-model-provider.md)

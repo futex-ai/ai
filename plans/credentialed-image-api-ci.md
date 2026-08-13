@@ -134,16 +134,16 @@ review findings are ready for user decision without automatic fixes.
 - [x] Run `cargo xtask check` and fix failures until it passes.
 - [x] Review `git diff origin/main...` for scope, stale docs, untracked files,
       secrets, generated media, and workflow safety.
-- [ ] Move this plan from Active to Completed in `plans/README.md` only after
+- [x] Move this plan from Active to Completed in `plans/README.md` only after
       every implementation and pre-push verification task is complete.
-- [ ] Run `git add -A`, commit with a Conventional Commit title no longer than
+- [x] Run `git add -A`, commit with a Conventional Commit title no longer than
       50 characters and a descriptive body, and push the current branch without
       renaming it.
 - [x] On an eligible trusted run, require both Google and OpenAI live-image jobs
       to pass; if credentials or an eligible event are unavailable, report that
       as an explicit live-verification blocker rather than claiming coverage.
-- [ ] Run `cargo xtask review` after the push against `origin/main`.
-- [ ] Report every review finding without automatically fixing it; number each
+- [x] Run `cargo xtask review` after the push against `origin/main`.
+- [x] Report every review finding without automatically fixing it; number each
       item, assign severity, explain image/CI context and the impact of doing
       nothing, provide lettered solution options, and recommend one option.
 
@@ -154,3 +154,10 @@ the production adapter. Google live verification remains blocked: this
 workspace has no `GOOGLE_API_KEY`, and the branch has no open pull request that
 could trigger an eligible trusted workflow run. This status does not claim a
 Google live pass.
+
+## Post-Push Review Status
+
+The 2026-08-13 post-push review reported two P3 findings, retained for user
+decision as required: the exclusion test assumes every provider has a non-image
+catalog entry, and the split integration-test target does not use the required
+directory-root module layout. No review finding was automatically fixed.
