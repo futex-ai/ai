@@ -91,6 +91,8 @@ pub enum ModelFeature {
     Reasoning,
     /// Supports generating or editing images.
     ImageGeneration,
+    /// Supports generating videos.
+    VideoGeneration,
 }
 
 impl ModelFeature {
@@ -104,6 +106,7 @@ impl ModelFeature {
             Self::LongContext => "long_context",
             Self::Reasoning => "reasoning",
             Self::ImageGeneration => "image_generation",
+            Self::VideoGeneration => "video_generation",
         }
     }
 }

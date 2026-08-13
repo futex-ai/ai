@@ -164,3 +164,19 @@ fn video_input_feature_has_stable_config_display_and_serde_values() {
         feature
     );
 }
+
+#[test]
+fn video_generation_feature_has_stable_config_display_and_serde_values() {
+    let feature = ModelFeature::VideoGeneration;
+
+    assert_eq!(feature.as_str(), "video_generation");
+    assert_eq!(feature.to_string(), "video_generation");
+    assert_eq!(
+        serde_json::to_value(feature).unwrap(),
+        json!("video_generation")
+    );
+    assert_eq!(
+        serde_json::from_value::<ModelFeature>(json!("video_generation")).unwrap(),
+        feature
+    );
+}

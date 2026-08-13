@@ -5,6 +5,7 @@
 mod catalog;
 mod concurrency;
 mod errors;
+mod polling;
 mod pricing;
 mod retrying;
 mod sleeper;
@@ -19,6 +20,9 @@ pub use errors::{
     assistant_text, classify_json_http_error, parse_structured_output, parse_tool_call_arguments,
     validate_structured_output,
 };
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub use polling::PollingRuntimeMock;
+pub use polling::{DynPollingRuntime, PollingRuntime, TokioPollingRuntime};
 pub use pricing::{ModelPricing, UsagePricingModel, price_usage};
 pub use retrying::{RetryingModel, STANDARD_TRANSIENT_RETRY_DELAYS};
 #[cfg(any(test, doctest))]

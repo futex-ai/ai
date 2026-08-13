@@ -25,6 +25,9 @@ pub type DynJsonHttpTransport = Arc<dyn JsonHttpTransport>;
 pub trait JsonHttpTransport: Send + Sync {
     /// Executes one serialized JSON request and returns the raw JSON response body.
     async fn execute(&self, request: &JsonHttpRequest) -> Result<JsonHttpResponse<Value>>;
+
+    /// Executes one request and returns the raw response bytes.
+    async fn execute_bytes(&self, request: &JsonHttpRequest) -> Result<JsonHttpResponse<Vec<u8>>>;
 }
 
 /// Builder-oriented JSON HTTP client boundary.
@@ -137,6 +140,29 @@ struct ReqwestJsonHttpTransport {
 #[async_trait]
 impl JsonHttpTransport for ReqwestJsonHttpTransport {
     async fn execute(&self, request: &JsonHttpRequest) -> Result<JsonHttpResponse<Value>> {
+        let response = self.execute_request(request).await?;
+        let status = response.status().as_u16();
+        let text = match response.text().await {
+            Ok(text) => text,
+            Err(source) => return Err(crate::Error::transport(source.to_string())),
+        };
+        let body = serde_json::from_str(&text).unwrap_or(Value::String(text));
+        Ok(JsonHttpResponse { status, body })
+    }
+
+    async fn execute_bytes(&self, request: &JsonHttpRequest) -> Result<JsonHttpResponse<Vec<u8>>> {
+        let response = self.execute_request(request).await?;
+        let status = response.status().as_u16();
+        let body = match response.bytes().await {
+            Ok(body) => body.to_vec(),
+            Err(source) => return Err(crate::Error::transport(source.to_string())),
+        };
+        Ok(JsonHttpResponse { status, body })
+    }
+}
+
+impl ReqwestJsonHttpTransport {
+    async fn execute_request(&self, request: &JsonHttpRequest) -> Result<reqwest::Response> {
         let method = match request.method {
             JsonHttpMethod::Get => reqwest::Method::GET,
             JsonHttpMethod::Post => reqwest::Method::POST,
@@ -162,17 +188,10 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
             }
         }
 
-        let response = builder
-            .send()
-            .await
-            .map_err(|source| crate::Error::transport(source.to_string()))?;
-        let status = response.status().as_u16();
-        let text = response
-            .text()
-            .await
-            .map_err(|source| crate::Error::transport(source.to_string()))?;
-        let body = serde_json::from_str(&text).unwrap_or(Value::String(text));
-        Ok(JsonHttpResponse { status, body })
+        match builder.send().await {
+            Ok(response) => Ok(response),
+            Err(source) => Err(Error::transport(source.to_string())),
+        }
     }
 }
 

@@ -1,0 +1,75 @@
+name: Live video APIs
+
+on:
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-video-apis-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  provider:
+    name: ${{ matrix.provider }} video catalog
+    if: >-
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]') ||
+      (github.event_name != 'pull_request' &&
+      github.ref_name == github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - provider: Google
+            test: catalog_tests::google_video_catalog
+            api_key: GOOGLE_API_KEY
+          - provider: OpenAI
+            test: catalog_tests::openai_video_catalog
+            api_key: OPENAI_API_KEY
+    steps:
+      - name: Require provider credential
+        env:
+          LIVE_VIDEO_API_KEY: ${{ secrets[matrix.api_key] }}
+        run: |
+          if [[ -z "$LIVE_VIDEO_API_KEY" ]]; then
+            echo "::error::Missing required Actions secret ${{ matrix.api_key }}"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup default 1.95.0
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: live-videos-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'xtask/Cargo.toml') }}
+          restore-keys: |
+            live-videos-${{ runner.os }}-
+            cargo-${{ runner.os }}-
+
+      - name: Test every video catalog model
+        env:
+          LIVE_VIDEO_API_KEY: ${{ secrets[matrix.api_key] }}
+        run: cargo test --locked -p xtask --test live_videos "${{ matrix.test }}" -- --ignored --exact --nocapture
