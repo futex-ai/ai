@@ -50,7 +50,17 @@ struct GoogleResponseFormat {
 #[derive(Debug, Serialize)]
 struct GoogleImageFormat {
     #[serde(rename = "aspectRatio")]
-    aspect_ratio: &'static str,
+    aspect_ratio: GoogleAspectRatio,
+}
+
+#[derive(Debug, Serialize)]
+enum GoogleAspectRatio {
+    #[serde(rename = "ASPECT_RATIO_ONE_BY_ONE")]
+    OneByOne,
+    #[serde(rename = "ASPECT_RATIO_THREE_BY_TWO")]
+    ThreeByTwo,
+    #[serde(rename = "ASPECT_RATIO_TWO_BY_THREE")]
+    TwoByThree,
 }
 
 pub(super) fn build_request(
@@ -94,11 +104,11 @@ fn validate_media_type(content_type: &str) -> ImageGenerationResult<()> {
     }
 }
 
-fn map_aspect(aspect: ImageGenerationAspect) -> Option<&'static str> {
+fn map_aspect(aspect: ImageGenerationAspect) -> Option<GoogleAspectRatio> {
     match aspect {
         ImageGenerationAspect::Auto => None,
-        ImageGenerationAspect::Square => Some("1:1"),
-        ImageGenerationAspect::Landscape => Some("3:2"),
-        ImageGenerationAspect::Portrait => Some("2:3"),
+        ImageGenerationAspect::Square => Some(GoogleAspectRatio::OneByOne),
+        ImageGenerationAspect::Landscape => Some(GoogleAspectRatio::ThreeByTwo),
+        ImageGenerationAspect::Portrait => Some(GoogleAspectRatio::TwoByThree),
     }
 }

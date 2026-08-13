@@ -23,6 +23,11 @@ outside the chat model catalog are not part of this connectivity suite.
 Deterministic transport tests in the provider crates remain responsible for
 detailed wire behavior.
 
+Credentialed image generation is specified separately by the implemented
+[live image API test protocol](live-image-api-tests.md). Keeping the suites
+separate preserves their distinct traits, success contracts, costs, and CI
+controls.
+
 MiniMax is the one additional tool-choice compatibility probe: before its
 catalog connectivity loop, the suite calls `MiniMax-M3` with a real function
 definition and strict `ModelToolChoice::Required`, then requires a matching

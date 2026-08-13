@@ -11,6 +11,9 @@ boundary for agent runtimes. It is implemented by the completed
 Composition roots own credentials, routing, retries, storage, retention,
 pricing, and wire-level base64 encoding.
 
+Credentialed production-API verification is defined by the implemented
+[live image API test protocol](live-image-api-tests.md).
+
 ## Shared Boundary
 
 `ImageGenerator::generate` accepts an `ImageGenerationRequest` and returns an
@@ -43,12 +46,12 @@ boundary has no count parameter and ignores extra provider images.
 
 Aspect expresses geometry, not exact pixels. Providers map it best-effort:
 
-| Shared aspect | OpenAI `size` | Google aspect ratio |
+| Shared aspect | OpenAI `size` | Google `ImageResponseFormat.AspectRatio` |
 | --- | --- | --- |
 | `Auto` | `auto` | omitted |
-| `Square` | `1024x1024` | `1:1` |
-| `Landscape` | `1536x1024` | `3:2` |
-| `Portrait` | `1024x1536` | `2:3` |
+| `Square` | `1024x1024` | `ASPECT_RATIO_ONE_BY_ONE` (`1:1`) |
+| `Landscape` | `1536x1024` | `ASPECT_RATIO_THREE_BY_TWO` (`3:2`) |
+| `Portrait` | `1024x1536` | `ASPECT_RATIO_TWO_BY_THREE` (`2:3`) |
 
 OpenAI maps quality to `auto`, `low`, `medium`, or `high`. Google intentionally
 omits quality because its image-size control is not the same semantic contract.
@@ -125,7 +128,8 @@ auth hook, and an overridable endpoint. It posts JSON to
 `https://generativelanguage.googleapis.com/v1/models/{model}:generateContent`.
 The single user content contains the prompt followed by ordered `inline_data`
 parts. `generationConfig.responseModalities` is `["IMAGE"]`; a non-auto aspect
-is sent as `generationConfig.responseFormat.image.aspectRatio`.
+is sent as `generationConfig.responseFormat.image.aspectRatio` using Google's
+`ASPECT_RATIO_*` enum spelling, not a colon-delimited ratio string.
 
 The adapter scans candidates and parts in provider order, skips parts with
 `thought: true`, and returns the first final `inlineData` image. Interim thought
@@ -145,10 +149,13 @@ are `Provider`. `finishMessage` is retained when available.
 Unit tests are credential-free and cover DTO serde/defaults, the deterministic
 mock, routing feature, request mapping, response/usage parsing, thought-image
 filtering, non-empty image enforcement, tracked internal-error metadata, every
-error class, OpenAI transport/auth behavior, and catalog metadata. Provider
-live smoke tests are ignored by default, read their API key only in test code,
-generate one low-cost image, and assert non-empty bytes plus an `image/*` MIME
-type.
+error class, OpenAI transport/auth behavior, and catalog metadata. The
+centralized `xtask/tests/live_images/mod.rs` suite owns ignored, catalog-driven
+Google and OpenAI production-API checks. It validates provider/model identity,
+non-empty bytes, supported MIME types, and matching PNG/JPEG/WebP signatures.
+Ordinary workspace checks compile the ignored cases and run their registry,
+runner, retry, validation, and workflow guards without credentials or network
+access.
 
 The full workspace must pass formatting, Clippy, tests, file-length lint,
 credential-free smoke tests, and `cargo xtask check` before commit and push.

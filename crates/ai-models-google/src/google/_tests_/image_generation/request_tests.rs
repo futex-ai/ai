@@ -40,7 +40,9 @@ fn prompt_and_ordered_inputs_map_to_image_only_request() {
             }],
             "generationConfig": {
                 "responseModalities": ["IMAGE"],
-                "responseFormat": {"image": {"aspectRatio": "3:2"}}
+                "responseFormat": {
+                    "image": {"aspectRatio": "ASPECT_RATIO_THREE_BY_TWO"}
+                }
             }
         })
     );
@@ -50,9 +52,18 @@ fn prompt_and_ordered_inputs_map_to_image_only_request() {
 fn aspects_map_exhaustively_and_auto_omits_response_format() {
     for (aspect, expected) in [
         (ImageGenerationAspect::Auto, None),
-        (ImageGenerationAspect::Square, Some("1:1")),
-        (ImageGenerationAspect::Landscape, Some("3:2")),
-        (ImageGenerationAspect::Portrait, Some("2:3")),
+        (
+            ImageGenerationAspect::Square,
+            Some("ASPECT_RATIO_ONE_BY_ONE"),
+        ),
+        (
+            ImageGenerationAspect::Landscape,
+            Some("ASPECT_RATIO_THREE_BY_TWO"),
+        ),
+        (
+            ImageGenerationAspect::Portrait,
+            Some("ASPECT_RATIO_TWO_BY_THREE"),
+        ),
     ] {
         let body = serde_json::to_value(
             build_request(&ImageGenerationRequest {

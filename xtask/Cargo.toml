@@ -6,6 +6,10 @@ license.workspace = true
 authors.workspace = true
 publish = false
 
+[[test]]
+name = "live_images"
+path = "tests/live_images/mod.rs"
+
 [dependencies]
 ai-interface.workspace = true
 ai-mcp.workspace = true
@@ -27,6 +31,8 @@ serde_json = "1.0.150"
 thiserror = "2.0.18"
 
 [dev-dependencies]
+ai-interface = { workspace = true, features = ["test-support"] }
 ai-models-core.workspace = true
 tempfile = "3.27.0"
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
+unimock = "0.6.8"
