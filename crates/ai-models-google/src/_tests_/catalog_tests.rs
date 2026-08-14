@@ -4,7 +4,7 @@ use ai_models_core::{ModelFeature, ProviderKind, ThinkingLevel};
 
 use super::{
     GEMINI_3_1_FLASH_IMAGE, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH,
-    GEMINI_3_6_FLASH_THINKING_HIGH, known_models,
+    GEMINI_3_6_FLASH_THINKING_HIGH, VEO_3_1_GENERATE_PREVIEW, known_models,
 };
 
 #[test]
@@ -12,6 +12,23 @@ fn gemini_3_6_flash_is_the_first_catalog_model() {
     let models = known_models();
 
     assert_eq!(models.first().map(|model| model.id), Some(GEMINI_3_6_FLASH));
+}
+
+#[test]
+fn veo_3_1_is_routable_for_video_generation() {
+    let models = known_models();
+    let model = models
+        .iter()
+        .find(|model| model.id == VEO_3_1_GENERATE_PREVIEW)
+        .expect("Veo 3.1 should exist");
+
+    assert_eq!(model.provider, ProviderKind::Google);
+    assert_eq!(model.provider_model_id, VEO_3_1_GENERATE_PREVIEW);
+    assert_eq!(model.context_window_tokens, 1_024);
+    assert!(model.has_feature(ModelFeature::VideoGeneration));
+    assert!(model.has_feature(ModelFeature::Vision));
+    assert!(!model.has_feature(ModelFeature::ImageGeneration));
+    assert!(!model.has_feature(ModelFeature::VideoInput));
 }
 
 #[test]

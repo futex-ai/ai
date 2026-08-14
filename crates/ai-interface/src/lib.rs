@@ -9,12 +9,14 @@ mod messages;
 mod mock_audio_transcriber;
 mod mock_image_generator;
 mod mock_model;
+mod mock_video_generator;
 mod model;
 mod model_controls;
 pub mod output;
 mod router;
 mod tools;
 mod usage;
+mod video_generator;
 
 pub use audio_transcriber::{
     AudioTranscriber, AudioTranscriptionRequest, AudioTranscriptionResponse, DynAudioTranscriber,
@@ -38,6 +40,7 @@ pub use messages::{
 pub use mock_audio_transcriber::MockAudioTranscriber;
 pub use mock_image_generator::MockImageGenerator;
 pub use mock_model::MockModel;
+pub use mock_video_generator::MockVideoGenerator;
 pub use model::{
     DynModel, FinishReason, Model, ModelError, ModelRequest, ModelResponse, ModelResult,
     StructuredOutputSchema,
@@ -57,6 +60,11 @@ pub use router::{
 };
 pub use tools::{DynTool, Tool, ToolCall, ToolDefinition, ToolError, ToolInvocation, ToolResult};
 pub use usage::{ModelUsage, ModelUsageCostLine, ModelUsageMeasurementState, ModelUsageUnitKind};
+pub use video_generator::{
+    DynVideoGenerator, GeneratedVideo, VideoGenerationAspect, VideoGenerationDuration,
+    VideoGenerationError, VideoGenerationInputImage, VideoGenerationRequest,
+    VideoGenerationResolution, VideoGenerationResponse, VideoGenerationResult, VideoGenerator,
+};
 
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use audio_transcriber::AudioTranscriberMock;
@@ -70,6 +78,8 @@ pub use model::ModelMock;
 pub use router::ModelRouterMock;
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use tools::ToolMock;
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub use video_generator::VideoGeneratorMock;
 
 #[cfg(test)]
 #[path = "_tests_/mod.rs"]

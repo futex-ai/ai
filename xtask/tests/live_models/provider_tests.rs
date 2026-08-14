@@ -108,7 +108,10 @@ impl LiveProvider {
     pub(super) fn chat_catalog(self) -> Vec<KnownModelSpec> {
         self.catalog()
             .into_iter()
-            .filter(|model| !model.has_feature(ModelFeature::ImageGeneration))
+            .filter(|model| {
+                !model.has_feature(ModelFeature::ImageGeneration)
+                    && !model.has_feature(ModelFeature::VideoGeneration)
+            })
             .collect()
     }
 

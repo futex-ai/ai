@@ -6,6 +6,7 @@ mod request_input;
 mod request_types;
 mod response;
 mod transcription;
+mod video_generation;
 
 use std::sync::Arc;
 
@@ -18,6 +19,7 @@ use crate::catalog::known_models;
 
 pub use image_generation::OpenAiImageGenerator;
 pub use transcription::OpenAiAudioTranscriber;
+pub use video_generation::OpenAiVideoGenerator;
 
 const OPENAI_RESPONSES_URL: &str = "https://api.openai.com/v1/responses";
 const PROVIDER: &str = "openai";

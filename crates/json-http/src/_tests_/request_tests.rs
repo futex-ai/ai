@@ -11,9 +11,9 @@ use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{
-    JsonHttpBody, JsonHttpClient, JsonHttpMethod, JsonHttpMultipart, JsonHttpMultipartField,
-    JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock, StaticHeaderAuth,
-    TransportBackedJsonHttpClient,
+    JsonHttpAuthMock, JsonHttpBody, JsonHttpClient, JsonHttpMethod, JsonHttpMultipart,
+    JsonHttpMultipartField, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
+    StaticHeaderAuth, TransportBackedJsonHttpClient,
 };
 
 type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
@@ -153,6 +153,69 @@ async fn builder_attaches_custom_timeout_to_request() {
         .lock()
         .expect("requests lock should not be poisoned");
     assert_eq!(requests[0].timeout, Duration::from_secs(20 * 60));
+}
+
+#[tokio::test]
+async fn builder_can_return_authenticated_raw_bytes() {
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let transport = Arc::new(Unimock::new(
+        JsonHttpTransportMock::execute_bytes
+            .next_call(matching!(_))
+            .answers_arc({
+                let requests = requests.clone();
+                Arc::new(move |_, request: &JsonHttpRequest| {
+                    requests
+                        .lock()
+                        .expect("requests lock should not be poisoned")
+                        .push(request.clone());
+                    Ok(JsonHttpResponse {
+                        status: 200,
+                        body: b"video-bytes".to_vec(),
+                    })
+                })
+            }),
+    ));
+    let client = TransportBackedJsonHttpClient::new(transport);
+
+    let response = client
+        .get("https://example.com/v1/videos/1/content")
+        .auth(Arc::new(StaticHeaderAuth::bearer_token("token")))
+        .timeout(Duration::from_secs(9))
+        .send_bytes()
+        .await
+        .expect("byte response should succeed");
+
+    assert_eq!(response.status, 200);
+    assert_eq!(response.body, b"video-bytes");
+    let requests = requests
+        .lock()
+        .expect("requests lock should not be poisoned");
+    assert_eq!(requests[0].method, JsonHttpMethod::Get);
+    assert_eq!(requests[0].timeout, Duration::from_secs(9));
+    assert_eq!(
+        requests[0].headers.get("Authorization").map(String::as_str),
+        Some("Bearer token")
+    );
+}
+
+#[tokio::test]
+async fn byte_dispatch_does_not_run_when_auth_fails() {
+    let transport = Arc::new(Unimock::new(()));
+    let client = TransportBackedJsonHttpClient::new(transport);
+    let auth = Arc::new(Unimock::new(
+        JsonHttpAuthMock::apply_headers
+            .next_call(matching!(_))
+            .returns(Err(crate::Error::auth("denied"))),
+    ));
+
+    let error = client
+        .get("https://example.com/v1/videos/1/content")
+        .auth(auth)
+        .send_bytes()
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, crate::Error::Auth { .. }));
 }
 
 fn recording_client(

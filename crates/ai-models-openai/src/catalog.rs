@@ -47,6 +47,9 @@ pub const GPT_5_5_THINKING_EXTRA_HIGH: &str = "gpt-5.5-thinking-extra-high";
 /// Current OpenAI image generation and editing model id.
 pub const GPT_IMAGE_2: &str = "gpt-image-2";
 
+/// Current OpenAI video generation model id.
+pub const SORA_2: &str = "sora-2";
+
 const GPT_5_6_FEATURES: &[ModelFeature] = &[
     ModelFeature::ToolCalling,
     ModelFeature::StructuredOutput,
@@ -73,6 +76,8 @@ const GPT_5_4_EFFICIENT_FEATURES: &[ModelFeature] = &[
 
 const GPT_IMAGE_2_FEATURES: &[ModelFeature] =
     &[ModelFeature::ImageGeneration, ModelFeature::Vision];
+
+const SORA_2_FEATURES: &[ModelFeature] = &[ModelFeature::VideoGeneration, ModelFeature::Vision];
 
 /// Returns OpenAI models known to this provider crate.
 pub fn known_models() -> Vec<KnownModelSpec> {
@@ -185,6 +190,17 @@ pub fn known_models() -> Vec<KnownModelSpec> {
             cost: CostTier::Premium,
             thinking_level: ThinkingLevel::Disabled,
             features: GPT_IMAGE_2_FEATURES,
+        },
+        KnownModelSpec {
+            provider: ProviderKind::OpenAi,
+            id: SORA_2,
+            provider_model_id: SORA_2,
+            context_window_tokens: 0,
+            intelligence_score: IntelligenceScore::Ten,
+            speed: SpeedTier::Slow,
+            cost: CostTier::Premium,
+            thinking_level: ThinkingLevel::Disabled,
+            features: SORA_2_FEATURES,
         },
     ]
 }

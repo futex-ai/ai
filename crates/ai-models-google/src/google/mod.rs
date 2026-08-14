@@ -5,8 +5,10 @@ mod request;
 mod response;
 mod thinking;
 mod tool_config;
+mod video_generation;
 
 pub use image_generation::GoogleImageGenerator;
+pub use video_generation::GoogleVideoGenerator;
 
 use std::{collections::BTreeMap, sync::Arc};
 

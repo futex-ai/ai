@@ -1,4 +1,4 @@
-//! Typed JSON-first HTTP client boundary with builder-style request assembly.
+//! Typed JSON and binary HTTP client boundary with builder-style request assembly.
 
 #![warn(unreachable_pub)]
 
