@@ -125,10 +125,13 @@ the returned `live_probe` call whenever `LIVE_MODEL_API_KEY` is available.
 MiniMax-M3 thinking maps from `ThinkingLevel`:
 
 - `Disabled` -> `{ "thinking": { "type": "disabled" } }`
-- Any enabled level -> `{ "thinking": { "type": "adaptive" } }`
+- `Medium` -> `{ "thinking": { "type": "adaptive" } }`
+- `Low` downgrades to `Disabled`
+- `High`, `ExtraHigh`, and `Max` downgrade to `Medium`
 
 M2.x reasoning cannot be disabled. The known M2.7 catalog entries therefore
 use an enabled thinking level and never advertise a disabled variant.
+Responses record the effective catalog level after downgrade resolution.
 
 With `reasoning_split: true`, the provider may return both
 `reasoning_content` and `reasoning_details`. A reasoning detail preserves all

@@ -14,21 +14,21 @@ use super::{MiniMaxModel, support::recording_http_client};
 #[tokio::test]
 async fn maps_disabled_and_enabled_thinking_controls() {
     let cases = [
-        (ThinkingLevel::Disabled, "disabled"),
-        (ThinkingLevel::Low, "adaptive"),
-        (ThinkingLevel::Medium, "adaptive"),
-        (ThinkingLevel::High, "adaptive"),
-        (ThinkingLevel::ExtraHigh, "adaptive"),
-        (ThinkingLevel::Max, "adaptive"),
+        (ThinkingLevel::Disabled, ThinkingLevel::Disabled, "disabled"),
+        (ThinkingLevel::Low, ThinkingLevel::Disabled, "disabled"),
+        (ThinkingLevel::Medium, ThinkingLevel::Medium, "adaptive"),
+        (ThinkingLevel::High, ThinkingLevel::Medium, "adaptive"),
+        (ThinkingLevel::ExtraHigh, ThinkingLevel::Medium, "adaptive"),
+        (ThinkingLevel::Max, ThinkingLevel::Medium, "adaptive"),
     ];
 
-    for (level, expected) in cases {
+    for (requested, effective, expected_control) in cases {
         let (http_client, requests) = recording_http_client([stopped_response()]);
         let model = MiniMaxModel::with_catalog_auth(
             http_client,
             "catalog-id",
             "MiniMax-M3",
-            level,
+            requested,
             Arc::new(StaticHeaderAuth::bearer_token("minimax-key")),
         );
         let response = model
@@ -44,9 +44,9 @@ async fn maps_disabled_and_enabled_thinking_controls() {
             .and_then(|body| body.as_json())
             .expect("JSON body should be present");
 
-        assert_eq!(body["thinking"]["type"], expected);
+        assert_eq!(body["thinking"]["type"], expected_control);
         assert_eq!(body["reasoning_split"], true);
-        assert_eq!(response.thinking_level.as_deref(), Some(level.as_str()));
+        assert_eq!(response.thinking_level.as_deref(), Some(effective.as_str()));
     }
 }
 

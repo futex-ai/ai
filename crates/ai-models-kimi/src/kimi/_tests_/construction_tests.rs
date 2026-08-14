@@ -34,26 +34,44 @@ fn rejects_unsupported_provider_model_id() {
 }
 
 #[test]
-fn rejects_every_unsupported_thinking_level() {
-    for thinking_level in [
+fn rejects_thinking_below_the_lowest_supported_level() {
+    let result = KimiModel::with_catalog_auth(
+        unused_http_client(),
+        KIMI_K3,
+        KIMI_K3,
         ThinkingLevel::Disabled,
-        ThinkingLevel::Medium,
-        ThinkingLevel::ExtraHigh,
-    ] {
-        let result = KimiModel::with_catalog_auth(
-            unused_http_client(),
-            KIMI_K3,
-            KIMI_K3,
-            thinking_level,
-            Arc::new(StaticHeaderAuth::default()),
-        );
+        Arc::new(StaticHeaderAuth::default()),
+    );
 
-        assert!(matches!(
-            result,
-            Err(KimiConfigurationError::UnsupportedThinkingLevel {
-                thinking_level: actual
-            }) if actual == thinking_level.as_str()
-        ));
+    assert!(matches!(
+        result,
+        Err(KimiConfigurationError::UnsupportedThinkingLevel {
+            thinking_level: "disabled"
+        })
+    ));
+}
+
+#[tokio::test]
+async fn downgrades_unsupported_thinking_levels() {
+    for (requested, effective) in [
+        (ThinkingLevel::Medium, ThinkingLevel::Low),
+        (ThinkingLevel::ExtraHigh, ThinkingLevel::High),
+    ] {
+        let (http_client, _) = recording_http_client(successful_response(Some("Done")));
+        let model = KimiModel::with_catalog_auth(
+            http_client,
+            KIMI_K3,
+            KIMI_K3,
+            requested,
+            Arc::new(StaticHeaderAuth::default()),
+        )
+        .expect("unsupported thinking level should downgrade");
+        let response = model
+            .complete(&simple_request())
+            .await
+            .expect("Kimi response should parse");
+
+        assert_eq!(response.thinking_level.as_deref(), Some(effective.as_str()));
     }
 }
 

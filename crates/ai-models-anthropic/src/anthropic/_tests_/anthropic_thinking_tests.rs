@@ -14,6 +14,8 @@ use json_http::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::CLAUDE_SONNET_5;
+
 use super::AnthropicModel;
 
 type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
@@ -66,6 +68,37 @@ async fn builds_anthropic_thinking_variant_requests_and_ignores_hidden_blocks() 
     assert_eq!(response.model_id, "claude-opus-4-7");
     assert_eq!(response.assistant_message, "Done");
     assert!(!response.assistant_message.contains("hidden provider trace"));
+}
+
+#[tokio::test]
+async fn downgrades_max_to_sonnet_high() {
+    let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        status: 200,
+        body: json!({
+            "stop_reason": "end_turn",
+            "content": [{ "type": "text", "text": "Done" }],
+            "usage": { "input_tokens": 12, "output_tokens": 6 }
+        }),
+    });
+    let model = AnthropicModel::with_catalog_auth(
+        http_client,
+        "custom-sonnet-max",
+        CLAUDE_SONNET_5,
+        ThinkingLevel::Max,
+        Arc::new(StaticHeaderAuth::default()),
+    );
+
+    let response = model
+        .complete(&simple_request())
+        .await
+        .expect("Anthropic downgraded response should parse");
+
+    let requests = requests
+        .lock()
+        .expect("requests lock should not be poisoned");
+    let body = requests[0].body.as_ref().expect("body present");
+    assert_eq!(body["output_config"]["effort"], "high");
+    assert_eq!(response.thinking_level.as_deref(), Some("high"));
 }
 
 fn recording_http_client(

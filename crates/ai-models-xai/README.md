@@ -36,6 +36,8 @@
   structured outputs, with local response validation through shared helpers
 - xAI `reasoning_effort` mapping from catalog `ThinkingLevel` for Grok 4.5;
   fixed-reasoning Grok 4.20 requests omit the unsupported parameter
+- catalog-aware downgrade to the highest configured reasoning effort not above
+  an unsupported request, with the effective effort retained in responses
 - provider response usage extraction into normalized input, cached input,
   output, and reasoning token counts when xAI returns compatible usage details
 - status, transport, and structured-output validation failure mapping onto

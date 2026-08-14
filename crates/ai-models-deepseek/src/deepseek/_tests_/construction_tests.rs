@@ -110,26 +110,27 @@ fn rejects_unknown_provider_model_ids() {
     ));
 }
 
-#[test]
-fn rejects_unsupported_thinking_levels() {
-    for thinking_level in [
-        ThinkingLevel::Low,
-        ThinkingLevel::Medium,
-        ThinkingLevel::ExtraHigh,
+#[tokio::test]
+async fn downgrades_unsupported_thinking_levels() {
+    for (requested, effective) in [
+        (ThinkingLevel::Low, ThinkingLevel::Disabled),
+        (ThinkingLevel::Medium, ThinkingLevel::Disabled),
+        (ThinkingLevel::ExtraHigh, ThinkingLevel::High),
     ] {
-        let result = DeepSeekModel::with_catalog_auth(
-            unused_http_client(),
+        let (http_client, _) = recording_http_client(successful_response(Some("Done")));
+        let model = DeepSeekModel::with_catalog_auth(
+            http_client,
             DEEPSEEK_V4_PRO,
             DEEPSEEK_V4_PRO,
-            thinking_level,
+            requested,
             Arc::new(StaticHeaderAuth::default()),
-        );
+        )
+        .expect("unsupported thinking level should downgrade");
+        let response = model
+            .complete(&simple_request())
+            .await
+            .expect("DeepSeek response should parse");
 
-        assert!(matches!(
-            result,
-            Err(DeepSeekConfigurationError::UnsupportedThinkingLevel {
-                thinking_level: actual
-            }) if actual == thinking_level.as_str()
-        ));
+        assert_eq!(response.thinking_level.as_deref(), Some(effective.as_str()));
     }
 }

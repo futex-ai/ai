@@ -5,12 +5,12 @@ mod response;
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse};
-use ai_models_core::{ThinkingLevel, classify_json_http_error};
+use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ProviderKind};
+use ai_models_core::{ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 
-use crate::catalog::find_known_model;
+use crate::catalog::{find_known_model, known_models};
 
 const ANTHROPIC_MESSAGES_URL: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_API_VERSION: &str = "2023-06-01";
@@ -80,10 +80,19 @@ impl AnthropicModel {
         thinking_level: ThinkingLevel,
         auth: DynJsonHttpAuth,
     ) -> Self {
+        let provider_model_id = provider_model_id.into();
+        let models = known_models();
+        let thinking_level = resolve_catalog_thinking_level(
+            &models,
+            ProviderKind::Anthropic,
+            &provider_model_id,
+            thinking_level,
+        )
+        .unwrap_or(thinking_level);
         Self {
             http_client,
             catalog_model_id: catalog_model_id.into(),
-            provider_model_id: provider_model_id.into(),
+            provider_model_id,
             thinking_level,
             auth,
             endpoint: ANTHROPIC_MESSAGES_URL.to_owned(),

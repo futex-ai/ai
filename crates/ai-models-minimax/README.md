@@ -21,6 +21,10 @@ Chat Completions models with explicit credentials and shared runtime wrappers.
 auth hook. It sends requests to the international MiniMax endpoint, sets
 `reasoning_split`, applies the selected thinking mode, and records both the
 catalog id and upstream model id in normalized responses.
+Requested thinking levels above a model's configured catalog ceiling
+automatically downgrade to that ceiling, and responses record the effective
+level. For M3, `Max`, `ExtraHigh`, and `High` therefore resolve to the catalog's
+`Medium` adaptive mode.
 
 Portable sampling and output limits map to the current OpenAI-compatible
 fields. Every catalog model accepts `none` and `auto`. MiniMax-M3 also accepts

@@ -28,6 +28,12 @@ variants for the same upstream model.
 `ExtraHigh`, and `Max`. The level is normalized routing metadata; each
 provider crate owns the mapping to provider-native fields and must only expose
 catalog variants that the provider/model supports.
+`resolve_catalog_thinking_level` keeps an exact requested level when a matching
+variant exists and otherwise returns the highest variant for the same provider
+model that does not exceed the request. Provider constructors use this helper
+to downgrade unsupported levels without silently increasing reasoning cost.
+If no catalog level is at or below the request, the helper returns `None` so
+the adapter can preserve an explicit custom mapping or return a typed error.
 
 When callers request structured model responses, this crate also owns the
 shared JSON parsing and JSON Schema validation helpers used by provider crates.
@@ -85,7 +91,8 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 
 - `src/retrying.rs` - transient retry wrapper and retry schedule
 - `src/concurrency.rs` - per-model concurrency limiter wrapper
-- `src/catalog.rs` - known-model metadata, catalog lookup, and routing tiers
+- `src/catalog.rs` - known-model metadata, catalog lookup, routing tiers, and
+  safe thinking-level downgrade resolution
 - `src/pricing.rs` - model usage pricing wrapper and integer cost calculator
 - `src/errors.rs` - provider-agnostic status, JSON parsing, and structured-output validation helpers
 - `src/tool_call_identity.rs` - deterministic synthetic tool-call id helpers

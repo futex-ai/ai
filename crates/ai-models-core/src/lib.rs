@@ -13,7 +13,7 @@ mod tool_call_identity;
 
 pub use catalog::{
     CostTier, IntelligenceScore, KnownModelCatalog, KnownModelSpec, ModelFeature, ProviderKind,
-    SpeedTier, ThinkingLevel, known_mock_models,
+    SpeedTier, ThinkingLevel, known_mock_models, resolve_catalog_thinking_level,
 };
 pub use concurrency::ConcurrencyLimitedModel;
 pub use errors::{

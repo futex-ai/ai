@@ -41,6 +41,8 @@ neighboring crates.
 - Gemini `generationConfig.responseJsonSchema` mapping for structured outputs
 - Gemini 3 `generationConfig.thinkingConfig.thinkingLevel` mapping from catalog
   `ThinkingLevel`, while retaining Gemini 2.5 `thinkingBudget` mapping
+- catalog-aware downgrade to the highest configured thinking level not above
+  an unsupported request, with the effective level retained in responses
 - provider response usage extraction into normalized input, output, cached
   input, and thinking token counts
 - status, transport, and structured-output validation failure mapping onto

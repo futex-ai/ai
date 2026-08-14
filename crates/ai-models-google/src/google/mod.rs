@@ -12,10 +12,15 @@ pub use video_generation::GoogleVideoGenerator;
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse};
-use ai_models_core::{ThinkingLevel, classify_json_http_error, synthetic_tool_call_scope};
+use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ProviderKind};
+use ai_models_core::{
+    ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level,
+    synthetic_tool_call_scope,
+};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+
+use crate::catalog::known_models;
 
 const GOOGLE_GENERATE_CONTENT_URL_PREFIX: &str =
     "https://generativelanguage.googleapis.com/v1beta/models";
@@ -72,10 +77,19 @@ impl GoogleModel {
         thinking_level: ThinkingLevel,
         auth: DynJsonHttpAuth,
     ) -> Self {
+        let provider_model_id = provider_model_id.into();
+        let models = known_models();
+        let thinking_level = resolve_catalog_thinking_level(
+            &models,
+            ProviderKind::Google,
+            &provider_model_id,
+            thinking_level,
+        )
+        .unwrap_or(thinking_level);
         Self {
             http_client,
             catalog_model_id: catalog_model_id.into(),
-            provider_model_id: provider_model_id.into(),
+            provider_model_id,
             thinking_level,
             auth,
         }

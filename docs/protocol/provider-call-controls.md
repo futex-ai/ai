@@ -64,6 +64,20 @@ separate calls and may apply their own overall policy.
 An explicit output limit composes with a stricter adapter-native maximum by
 using the smaller value. Ordered stop sequences retain caller order.
 
+## Thinking-Level Resolution
+
+Thinking level is model-construction metadata rather than a per-call
+`ModelRequest` control. For a known provider model, an exact catalog level is
+retained. When the requested level has no exact variant, the adapter selects
+the highest catalog level for that provider model that does not exceed the
+request. Resolution never increases the requested level. The effective level
+drives provider serialization and is recorded in `ModelResponse`.
+
+When no catalog level exists at or below the request, adapters with validated
+model families return their typed configuration error. Explicit custom or
+unknown provider-model mappings remain caller-owned because the catalog has no
+capability data from which to derive a safe fallback.
+
 ## Error And Fixed-Value Contract
 
 If a provider cannot honor explicit caller intent, the adapter returns

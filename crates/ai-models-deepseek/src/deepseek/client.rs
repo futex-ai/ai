@@ -2,13 +2,13 @@
 
 use std::{sync::Arc, time::Duration};
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult};
-use ai_models_core::{ThinkingLevel, classify_json_http_error};
+use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult, ProviderKind};
+use ai_models_core::{ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use thiserror::Error;
 
-use crate::DEEPSEEK_V4_PRO;
+use crate::{DEEPSEEK_V4_PRO, catalog::known_models};
 
 use super::{request, response};
 
@@ -25,9 +25,9 @@ pub enum DeepSeekConfigurationError {
         /// Unsupported upstream model identifier.
         provider_model_id: String,
     },
-    /// DeepSeek V4 supports disabled, high, and max normalized thinking.
+    /// No supported DeepSeek thinking level exists at or below the request.
     #[error(
-        "[ai_models_deepseek/client] unsupported DeepSeek V4 thinking level `{thinking_level}`"
+        "[ai_models_deepseek/client] no DeepSeek V4 thinking level at or below `{thinking_level}`"
     )]
     UnsupportedThinkingLevel {
         /// Unsupported normalized thinking-level value.
@@ -77,7 +77,7 @@ impl DeepSeekModel {
         auth: DynJsonHttpAuth,
     ) -> DeepSeekConfigurationResult<Self> {
         let provider_model_id = provider_model_id.into();
-        validate_configuration(&provider_model_id, thinking_level)?;
+        let thinking_level = validate_configuration(&provider_model_id, thinking_level)?;
         Ok(Self {
             http_client,
             catalog_model_id: catalog_model_id.into(),
@@ -139,7 +139,7 @@ impl Model for DeepSeekModel {
 fn validate_configuration(
     provider_model_id: &str,
     thinking_level: ThinkingLevel,
-) -> DeepSeekConfigurationResult<()> {
+) -> DeepSeekConfigurationResult<ThinkingLevel> {
     if !matches!(
         provider_model_id,
         crate::DEEPSEEK_V4_PRO | crate::DEEPSEEK_V4_FLASH
@@ -148,15 +148,18 @@ fn validate_configuration(
             provider_model_id: provider_model_id.to_owned(),
         });
     }
-    if !matches!(
+    let models = known_models();
+    match resolve_catalog_thinking_level(
+        &models,
+        ProviderKind::DeepSeek,
+        provider_model_id,
         thinking_level,
-        ThinkingLevel::Disabled | ThinkingLevel::High | ThinkingLevel::Max
     ) {
-        return Err(DeepSeekConfigurationError::UnsupportedThinkingLevel {
+        Some(effective) => Ok(effective),
+        None => Err(DeepSeekConfigurationError::UnsupportedThinkingLevel {
             thinking_level: thinking_level.as_str(),
-        });
+        }),
     }
-    Ok(())
 }
 
 pub(super) fn request_error(source: json_http::Error, model_id: &str) -> ModelError {

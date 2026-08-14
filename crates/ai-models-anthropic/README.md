@@ -24,6 +24,8 @@
 - terminal Anthropic stop reasons suppress parsed tool calls unless the
   normalized finish reason is `ToolCalls`
 - Anthropic adaptive thinking mapping from catalog `ThinkingLevel`
+- catalog-aware downgrade to the highest configured effort not above an
+  unsupported request, with the effective effort retained in responses
 - validated structured-output requests via JSON-only final responses
 - provider response usage extraction into normalized input, output, cached
   input, and cache-creation token counts; cache creation is folded into regular

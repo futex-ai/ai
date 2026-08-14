@@ -39,6 +39,8 @@ neighboring crates.
   non-strict mode so callers can pass the broader shared schema contract
 - OpenAI `reasoning.effort` mapping from catalog `ThinkingLevel` for
   reasoning-capable catalog variants
+- catalog-aware downgrade to the highest configured effort not above an
+  unsupported request, with the effective effort retained in responses
 - stateless `store: false` generation calls using caller-owned conversation
   state
 - `reasoning.encrypted_content` inclusion for reasoning models so encrypted
