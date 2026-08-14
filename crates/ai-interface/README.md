@@ -2,15 +2,15 @@
 
 `ai-interface` is the shared contract crate for AI-facing runtime boundaries in
 this workspace. Depend on it when you need the common conversation, model, tool,
-audio transcription, image generation, routing, logging, usage, or model-visible
-tool output DTOs without taking a dependency on a stateful runtime
-implementation.
+audio transcription, image generation, video generation, routing, logging,
+usage, or model-visible tool output DTOs without taking a dependency on a
+stateful runtime implementation.
 
 ## Responsibilities
 
 - Own shared DTOs for conversations, model calls, tool calls, audio
-  transcription, image generation/editing, routing, logging, and usage
-  metering.
+  transcription, image generation/editing, video generation, routing, logging,
+  and usage metering.
 - Represent provider identity and provider-owned replay state, including
   DeepSeek, Kimi, MiniMax, and Qwen reasoning context that remains separate
   from visible assistant text.
@@ -18,7 +18,8 @@ implementation.
   opaque output ids, inline envelopes, window envelopes, read requests, and
   unavailable-remainder reasons.
 - Own the generic `Model`, `Tool`, `ModelRouter`, `AudioTranscriber`,
-  `ImageGenerator`, and `Logger` trait boundaries plus their dyn aliases.
+  `ImageGenerator`, `VideoGenerator`, and `Logger` trait boundaries plus their
+  dyn aliases.
 - Keep individual tools pagination-agnostic: `Tool::call()` and
   `Tool::call_with_invocation()` return raw `serde_json::Value`.
 - Define logger success payloads in terms of bounded model-visible envelopes,
@@ -55,6 +56,11 @@ implementation.
   controls, edit input images, decoded output bytes, and typed policy/retry
   errors. Internal failures use the shared tracked `InternalError` contract.
   `ModelFeature::ImageGeneration` is the stable routing capability.
+- Defines the one-video `VideoGenerator` boundary for text-to-video and one
+  optional first-frame image, portable landscape/portrait 720p and four/eight
+  second controls, downloaded MP4 bytes with metadata, and typed policy,
+  timeout, and retry errors. `ModelFeature::VideoGeneration` is the stable
+  routing capability.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
   tool idempotency key alongside the model-visible tool name and JSON input.
 - Defines `ToolOutputEnvelope` as the model-visible success payload for tools.
@@ -86,8 +92,9 @@ not own.
 ```rust
 use ai_interface::{
     ConversationMessage, DeepSeekToolCallContext, ImageGenerationRequest, ImageGenerator,
-    MiniMaxReasoningDetail, MockImageGenerator, Model, ModelRequest, MockModel, ProviderKind,
-    ProviderConversationItem, ToolOutputEnvelope, ToolOutputId, ToolOutputReadRequest,
+    MiniMaxReasoningDetail, MockImageGenerator, MockVideoGenerator, Model, ModelRequest, MockModel,
+    ProviderKind, ProviderConversationItem, ToolOutputEnvelope, ToolOutputId,
+    ToolOutputReadRequest, VideoGenerationRequest, VideoGenerator,
 };
 use serde_json::json;
 
@@ -116,6 +123,18 @@ async fn generate_image() -> ai_interface::ImageGenerationResult<Vec<u8>> {
         .await?;
 
     Ok(response.image.data)
+}
+
+async fn generate_video() -> ai_interface::VideoGenerationResult<Vec<u8>> {
+    let generator = MockVideoGenerator::default();
+    let response = generator
+        .generate(&VideoGenerationRequest {
+            prompt: "A geometric blue bird takes flight".to_owned(),
+            ..VideoGenerationRequest::default()
+        })
+        .await?;
+
+    Ok(response.video.data)
 }
 
 fn serialize_inline_tool_output() -> serde_json::Result<String> {
@@ -183,14 +202,16 @@ tool dispatch live in `ai-tool-calling`.
   and typed transcription errors.
 - `src/image_generator.rs` - one-image generation/editing trait, normalized
   DTOs, and typed generation errors.
+- `src/video_generator.rs` - one-video generation trait, portable controls,
+  downloaded MP4 response DTO, and typed lifecycle errors.
 - `src/tools.rs` - tool trait, tool DTOs, invocation context, and tool errors.
 - `src/output/` - model-visible tool output ids, envelopes, reasons, and read
   request DTOs.
 - `src/logger.rs` - logger trait, log payloads, `ToolCallLogResult`, and
   `NoopLogger`.
-- `src/mock_model.rs`, `src/mock_audio_transcriber.rs`, and
-  `src/mock_image_generator.rs` - built-in mocks for tests and local
-  development.
+- `src/mock_model.rs`, `src/mock_audio_transcriber.rs`,
+  `src/mock_image_generator.rs`, and `src/mock_video_generator.rs` - built-in
+  mocks for tests and local development.
 
 ### Related Docs
 
@@ -200,6 +221,7 @@ tool dispatch live in `ai-tool-calling`.
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../../docs/protocol/minimax-model-provider.md`](../../docs/protocol/minimax-model-provider.md)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
+- [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)

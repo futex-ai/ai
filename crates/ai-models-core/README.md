@@ -6,6 +6,8 @@
 
 - Provide reusable wrappers around `Arc<dyn ai_interface::Model>`
 - Keep retry, sleeping, and concurrency policy out of vendor crates
+- Provide an injectable monotonic clock and async sleep boundary for provider
+  operations that must poll within a total deadline
 - Offer provider-agnostic JSON/error helper functions shared by model crates
 - Provide shared known-model catalog metadata used by composition roots
 - Provide provider-agnostic model usage pricing wrappers and integer cost
@@ -39,6 +41,11 @@ provided `ModelPricing` snapshot to normalized usage categories. It emits
 crates keep parsing usage quantities but do not own mutable price tables.
 
 The default retry schedule preserved by this crate is `100ms` then `250ms` for transient model failures.
+
+Long-running provider adapters can use `PollingRuntime` to couple monotonic
+deadline measurement with async sleeping behind one testable trait. Production
+code uses `TokioPollingRuntime`; deterministic provider tests enable the
+`test-support` feature and inject `PollingRuntimeMock`.
 
 ## Quick Start
 
@@ -83,6 +90,8 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - `src/errors.rs` - provider-agnostic status, JSON parsing, and structured-output validation helpers
 - `src/tool_call_identity.rs` - deterministic synthetic tool-call id helpers
 - `src/sleeper.rs` - abstract sleeper boundary for retry testing
+- `src/polling.rs` - monotonic clock and async sleeper boundary for
+  deadline-aware provider polling
 
 ### Related Docs
 
@@ -90,4 +99,5 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)
+- [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
 - [`../../plans/README.md`](../../plans/README.md)

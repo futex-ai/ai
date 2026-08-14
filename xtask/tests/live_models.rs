@@ -63,24 +63,27 @@ fn covers_every_real_provider() {
 }
 
 #[test]
-fn chat_catalog_excludes_image_generation_models() {
-    let image_model_count = LiveProvider::ALL
+fn chat_catalog_excludes_specialized_generation_models() {
+    let specialized_model_count = LiveProvider::ALL
         .iter()
         .flat_map(|provider| provider.catalog())
-        .filter(|model| model.has_feature(ModelFeature::ImageGeneration))
+        .filter(|model| {
+            model.has_feature(ModelFeature::ImageGeneration)
+                || model.has_feature(ModelFeature::VideoGeneration)
+        })
         .count();
     assert!(
-        image_model_count > 0,
-        "expected image-only catalog coverage"
+        specialized_model_count > 0,
+        "expected specialized generation catalog coverage"
     );
 
     for provider in LiveProvider::ALL {
         assert!(
-            provider
-                .chat_catalog()
-                .iter()
-                .all(|model| !model.has_feature(ModelFeature::ImageGeneration)),
-            "{provider:?} chat catalog included an image-generation model"
+            provider.chat_catalog().iter().all(|model| {
+                !model.has_feature(ModelFeature::ImageGeneration)
+                    && !model.has_feature(ModelFeature::VideoGeneration)
+            }),
+            "{provider:?} chat catalog included a specialized generation model"
         );
     }
 }

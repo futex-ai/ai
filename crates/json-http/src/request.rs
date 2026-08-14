@@ -205,6 +205,13 @@ impl JsonHttpRequestBuilder {
         transport.execute(&request).await
     }
 
+    /// Executes the request and returns the raw response bytes.
+    pub async fn send_bytes(self) -> Result<JsonHttpResponse<Vec<u8>>> {
+        let transport = self.transport.clone();
+        let request = self.build_request().await?;
+        transport.execute_bytes(&request).await
+    }
+
     /// Executes the request and deserializes the response body into a typed DTO.
     pub async fn send<T>(self) -> Result<JsonHttpResponse<T>>
     where

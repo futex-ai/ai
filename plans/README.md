@@ -6,10 +6,9 @@ milestones are finished.
 
 ## Active
 
-No active plans.
-
 ## Completed
 
+- [Add video generation support](add-video-generation-support.md)
 - [Add video input support](add-video-input-support.md)
 - [Credentialed image API CI](credentialed-image-api-ci.md)
 - [Provider call controls](provider-call-controls.md)

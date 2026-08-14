@@ -7,8 +7,9 @@ in-memory tool-calling runtime behavior.
 ## Features
 
 - Shared `ai-interface` contracts for conversations, model calls, audio
-  transcription, one-image generation and editing, tool calls, routing,
-  logging, usage metering, and bounded model-visible tool output envelopes
+  transcription, one-image generation and editing, one-video generation,
+  tool calls, routing, logging, usage metering, and bounded model-visible tool
+  output envelopes
 - Typed provider-neutral generation controls, including explicit
   required-with-automatic-fallback tool selection, per-call deadlines, and
   completion preferences, with every provider adapter owning its native wire
@@ -16,8 +17,8 @@ in-memory tool-calling runtime behavior.
 - Provider adapters for Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, Google and MiniMax inline video
-  input, OpenAI and Gemini image generation, structured output, usage
-  normalization, and typed errors
+  input, OpenAI and Gemini image generation, OpenAI Sora and Google Veo video
+  generation, structured output, usage normalization, and typed errors
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, and usage pricing
 - Ordered fallback model composition through `ai-models-multi`
@@ -36,9 +37,15 @@ in-memory tool-calling runtime behavior.
   system handling, full Google schemas, and XAI deferred completion.
 - [Image generation](docs/protocol/image-generation.md) defines the shared
   one-image generation/editing boundary and the OpenAI and Google mappings.
+- [Video generation](docs/protocol/video-generation.md) defines the shared
+  one-video generation boundary, portable controls, and asynchronous OpenAI
+  and Google mappings.
 - [Live image API tests](docs/protocol/live-image-api-tests.md) defines the
   implemented credentialed catalog coverage, low-cost probe, response
   validation, and CI secret boundary for image providers.
+- [Live video API tests](docs/protocol/live-video-api-tests.md) defines the
+  implemented credentialed video catalog coverage, shortest portable probe,
+  MP4 validation, and CI secret boundary.
 - [Video input](docs/protocol/video-input.md) defines the shared video content
   part, the Google and MiniMax mappings, and typed rejection elsewhere.
 - [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) defines
@@ -75,11 +82,11 @@ boundary they need:
 - `ai-models-anthropic`: Anthropic model adapter
 - `ai-models-deepseek`: DeepSeek V4 Pro/Flash model adapter and known-model
   catalog
-- `ai-models-google`: Google Gemini chat and image adapters
+- `ai-models-google`: Google Gemini chat/image and Veo video adapters
 - `ai-models-kimi`: Kimi K3 model adapter
 - `ai-models-minimax`: MiniMax Chat Completions model adapter and known-model
   catalog
-- `ai-models-openai`: OpenAI model, transcription, and image adapters
+- `ai-models-openai`: OpenAI model, transcription, image, and video adapters
 - `ai-models-qwen`: Qwen 3.7 Max/Plus/Flash Chat Completions adapter and
   known-model catalog
 - `ai-models-xai`: xAI model adapter
@@ -152,6 +159,24 @@ same-repository pull requests, daily, and on manual dispatch. It uses
 `GOOGLE_API_KEY` and `OPENAI_API_KEY`, runs providers sequentially, and may make
 up to three billable attempts per catalog model after transient failures.
 
+Credentialed video checks live in `xtask/tests/live_videos/mod.rs`. They select
+every Google and OpenAI catalog entry advertising `VideoGeneration`, construct
+the production adapter behind `DynVideoGenerator`, and request one four-second
+720p landscape MP4. Run the credential-free guards or one billable provider
+catalog with:
+
+```sh
+cargo test --locked -p xtask --test live_videos
+LIVE_VIDEO_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
+  --test live_videos catalog_tests::openai_video_catalog \
+  -- --ignored --exact --nocapture
+```
+
+The `Live video APIs` workflow runs both provider catalogs sequentially for
+trusted same-repository pull requests, daily, and on manual dispatch. It uses
+`GOOGLE_API_KEY` and `OPENAI_API_KEY`. Video jobs are not automatically retried
+after submission because a transport failure can leave a billable job running.
+
 Run local AI review after checks pass and the branch has been pushed:
 
 ```sh
@@ -188,6 +213,10 @@ cargo xtask review
   provider mapping contract
 - `docs/protocol/live-image-api-tests.md`: implemented credentialed image-provider
   catalog and CI verification contract
+- `docs/protocol/video-generation.md`: normative shared video generation and
+  asynchronous provider mapping contract
+- `docs/protocol/live-video-api-tests.md`: implemented credentialed video-provider
+  catalog and CI verification contract
 - `docs/protocol/provider-call-controls.md`: normative model-call control and
   provider wire-compatibility contract
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
@@ -210,9 +239,11 @@ chat-capable catalog entry through the generic tool-calling runtime on eligible
 pull requests as well as its daily schedule and manual dispatch. The separate
 `Live image APIs` workflow exercises every Google and OpenAI image-capable
 catalog entry through `DynImageGenerator` with image-specific validation and
-sequential provider jobs. Forked and Dependabot pull requests skip both
-credentialed workflows because GitHub does not provide them repository Actions
-secrets.
+sequential provider jobs. The `Live video APIs` workflow similarly exercises
+every Google and OpenAI video-capable entry through `DynVideoGenerator`, with
+MP4-specific validation and no asset persistence. Forked and Dependabot pull
+requests skip all credentialed workflows because GitHub does not provide them
+repository Actions secrets.
 
 ## Plans
 

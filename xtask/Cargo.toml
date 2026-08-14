@@ -10,6 +10,10 @@ publish = false
 name = "live_images"
 path = "tests/live_images/mod.rs"
 
+[[test]]
+name = "live_videos"
+path = "tests/live_videos/mod.rs"
+
 [dependencies]
 ai-interface.workspace = true
 ai-mcp.workspace = true

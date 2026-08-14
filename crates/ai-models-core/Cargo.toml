@@ -5,6 +5,9 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 
+[features]
+test-support = ["dep:unimock"]
+
 [dependencies]
 ai-interface.workspace = true
 async-trait = "0.1.89"
@@ -12,6 +15,7 @@ jsonschema = { version = "0.46.4", default-features = false }
 serde_json = "1.0.149"
 thiserror = "2.0.18"
 tokio = { version = "1.52.1", features = ["sync", "time"] }
+unimock = { version = "0.6.8", optional = true }
 
 [dev-dependencies]
 ai-interface = { workspace = true, features = ["test-support"] }

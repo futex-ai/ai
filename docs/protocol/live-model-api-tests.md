@@ -13,12 +13,13 @@ MiniMax, OpenAI, QwenCloud, and xAI. Each provider test obtains its models from
 that crate's `known_models()` function, so new chat-capable catalog variants
 enter the live test automatically. Logical variants that share an upstream
 model id still run separately because they exercise different thinking
-controls. Entries advertising `ModelFeature::ImageGeneration` are routed
-through `ImageGenerator`, not `Model`, and are therefore outside this chat
-connectivity suite.
+controls. Entries advertising `ModelFeature::ImageGeneration` or
+`ModelFeature::VideoGeneration` are routed through `ImageGenerator` or
+`VideoGenerator`, not `Model`, and are therefore outside this chat connectivity
+suite.
 
-Audio transcription, image generation, streaming, provider-built tools,
-multimodal input, multi-turn tool replay, pricing, and provider features
+Audio transcription, image or video generation, streaming, provider-built
+tools, multimodal input, multi-turn tool replay, pricing, and provider features
 outside the chat model catalog are not part of this connectivity suite.
 Deterministic transport tests in the provider crates remain responsible for
 detailed wire behavior.
@@ -27,6 +28,9 @@ Credentialed image generation is specified separately by the implemented
 [live image API test protocol](live-image-api-tests.md). Keeping the suites
 separate preserves their distinct traits, success contracts, costs, and CI
 controls.
+
+Credentialed video generation is specified separately by the implemented
+[live video API test protocol](live-video-api-tests.md) for the same reason.
 
 MiniMax is the one additional tool-choice compatibility probe: before its
 catalog connectivity loop, the suite calls `MiniMax-M3` with a real function
@@ -41,7 +45,8 @@ and `none`.
 test:
 
 1. Requires a non-empty `LIVE_MODEL_API_KEY`.
-2. Selects every catalog entry that does not advertise image generation, then
+2. Selects every catalog entry that advertises neither image nor video
+   generation, then
    constructs it with `ReqwestJsonHttpClient`, the production chat adapter,
    explicit provider authentication, and catalog thinking metadata.
 3. Erases the concrete adapter behind `DynModel` and applies the standard

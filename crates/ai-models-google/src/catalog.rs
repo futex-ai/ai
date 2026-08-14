@@ -17,6 +17,9 @@ pub const GEMINI_3_5_FLASH_LITE: &str = "gemini-3.5-flash-lite";
 /// Google balanced image generation model id.
 pub const GEMINI_3_1_FLASH_IMAGE: &str = "gemini-3.1-flash-image";
 
+/// Google Veo 3.1 video generation preview model id.
+pub const VEO_3_1_GENERATE_PREVIEW: &str = "veo-3.1-generate-preview";
+
 /// Previous-generation Google flagship model id for existing-account access.
 pub const GEMINI_2_5_PRO: &str = "gemini-2.5-pro";
 
@@ -43,6 +46,8 @@ const GEMINI_3_FEATURES: &[ModelFeature] = &[
 
 const GEMINI_3_1_FLASH_IMAGE_FEATURES: &[ModelFeature] =
     &[ModelFeature::ImageGeneration, ModelFeature::Vision];
+
+const VEO_3_1_FEATURES: &[ModelFeature] = &[ModelFeature::VideoGeneration, ModelFeature::Vision];
 
 /// Returns Google models known to this provider crate.
 pub fn known_models() -> Vec<KnownModelSpec> {
@@ -80,6 +85,17 @@ pub fn known_models() -> Vec<KnownModelSpec> {
             cost: CostTier::Medium,
             thinking_level: ThinkingLevel::Disabled,
             features: GEMINI_3_1_FLASH_IMAGE_FEATURES,
+        },
+        KnownModelSpec {
+            provider: ProviderKind::Google,
+            id: VEO_3_1_GENERATE_PREVIEW,
+            provider_model_id: VEO_3_1_GENERATE_PREVIEW,
+            context_window_tokens: 1_024,
+            intelligence_score: IntelligenceScore::Ten,
+            speed: SpeedTier::Slow,
+            cost: CostTier::Premium,
+            thinking_level: ThinkingLevel::Disabled,
+            features: VEO_3_1_FEATURES,
         },
     ]
 }

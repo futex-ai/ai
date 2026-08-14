@@ -62,5 +62,6 @@ variant, every provider match arm, catalogs, and full deterministic tests.
   fixture, plus a `docs/protocol/live-model-api-tests.md` update
 - Video file/URL references and provider file-upload APIs for payloads larger
   than inline limits
-- A `VideoGenerator` boundary (OpenAI Sora, Google Veo) mirroring
-  `ImageGenerator` if video generation is needed
+- The implemented provider-neutral video generation boundary is tracked by the
+  [video generation plan](add-video-generation-support.md); it remains separate
+  from conversation video input.
