@@ -58,7 +58,7 @@ fn require_api_key(value: Option<String>) -> Result<String, ApiKeyError> {
 
 fn probe_request() -> VideoGenerationRequest {
     VideoGenerationRequest {
-        prompt: "A solid blue circle gently rotates on a plain white background.".to_owned(),
+        prompt: "A video of the words 'Thank you' in sparkling letters".to_owned(),
         input_image: None,
         aspect: VideoGenerationAspect::Landscape,
         duration: VideoGenerationDuration::Seconds4,
@@ -79,7 +79,10 @@ fn requires_a_present_non_empty_api_key() {
 #[test]
 fn probe_is_safe_portable_and_minimal() {
     let request = probe_request();
-    assert!(request.prompt.contains("blue circle"));
+    assert_eq!(
+        request.prompt,
+        "A video of the words 'Thank you' in sparkling letters"
+    );
     assert!(request.input_image.is_none());
     assert_eq!(request.aspect, VideoGenerationAspect::Landscape);
     assert_eq!(request.duration, VideoGenerationDuration::Seconds4);

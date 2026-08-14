@@ -42,9 +42,9 @@ test:
    when the client receives a transport error, so retrying could create a
    duplicate render.
 
-The portable probe contains a short policy-safe prompt for one rotating blue
-circle, no input image, landscape aspect, four-second duration, 720p resolution,
-and exactly one output through the shared one-video boundary.
+The portable probe contains the short prompt `A video of the words 'Thank you'
+in sparkling letters`, no input image, landscape aspect, four-second duration,
+720p resolution, and exactly one output through the shared one-video boundary.
 
 The normal workspace tests compile the ignored live cases and run every
 credential-free guard without credentials or network access. `cargo xtask
