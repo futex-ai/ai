@@ -14,7 +14,7 @@ use json_http::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
-use crate::{GPT_5_6_SOL, GPT_5_6_SOL_THINKING_MAX};
+use crate::{GPT_5_5, GPT_5_6_SOL, GPT_5_6_SOL_THINKING_MAX};
 
 use super::OpenAiModel;
 
@@ -102,6 +102,40 @@ async fn maps_openai_max_thinking_to_max_effort() {
         Some(GPT_5_6_SOL_THINKING_MAX)
     );
     assert_eq!(response.thinking_level.as_deref(), Some("max"));
+}
+
+#[tokio::test]
+async fn downgrades_max_to_gpt_5_5_extra_high() {
+    let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        status: 200,
+        body: json!({
+            "status": "completed",
+            "output": [{
+                "type": "message",
+                "role": "assistant",
+                "content": [{ "type": "output_text", "text": "Done" }]
+            }]
+        }),
+    });
+    let model = OpenAiModel::with_catalog_auth(
+        http_client,
+        "custom-gpt-5.5-max",
+        GPT_5_5,
+        ThinkingLevel::Max,
+        Arc::new(StaticHeaderAuth::bearer_token("sk-openai")),
+    );
+
+    let response = model
+        .complete(&simple_request())
+        .await
+        .expect("OpenAI downgraded response should parse");
+
+    let requests = requests
+        .lock()
+        .expect("requests lock should not be poisoned");
+    let body = requests[0].body.as_ref().expect("body present");
+    assert_eq!(body["reasoning"]["effort"], "xhigh");
+    assert_eq!(response.thinking_level.as_deref(), Some("extra_high"));
 }
 
 fn recording_http_client(

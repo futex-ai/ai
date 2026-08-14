@@ -9,10 +9,12 @@ mod transcription;
 
 use std::sync::Arc;
 
-use ai_interface::{Model, ModelControl, ModelError, ModelRequest, ModelResponse};
-use ai_models_core::{ThinkingLevel, classify_json_http_error};
+use ai_interface::{Model, ModelControl, ModelError, ModelRequest, ModelResponse, ProviderKind};
+use ai_models_core::{ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+
+use crate::catalog::known_models;
 
 pub use image_generation::OpenAiImageGenerator;
 pub use transcription::OpenAiAudioTranscriber;
@@ -69,10 +71,19 @@ impl OpenAiModel {
         thinking_level: ThinkingLevel,
         auth: DynJsonHttpAuth,
     ) -> Self {
+        let provider_model_id = provider_model_id.into();
+        let models = known_models();
+        let thinking_level = resolve_catalog_thinking_level(
+            &models,
+            ProviderKind::OpenAi,
+            &provider_model_id,
+            thinking_level,
+        )
+        .unwrap_or(thinking_level);
         Self {
             http_client,
             catalog_model_id: catalog_model_id.into(),
-            provider_model_id: provider_model_id.into(),
+            provider_model_id,
             thinking_level,
             auth,
             endpoint: OPENAI_RESPONSES_URL.to_owned(),

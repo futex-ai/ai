@@ -60,6 +60,38 @@ async fn builds_xai_thinking_variant_requests() {
 }
 
 #[tokio::test]
+async fn downgrades_max_to_grok_high() {
+    let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        status: 200,
+        body: json!({
+            "choices": [{
+                "finish_reason": "stop",
+                "message": { "content": "Done", "tool_calls": [] }
+            }]
+        }),
+    });
+    let model = XaiModel::with_catalog_auth(
+        http_client,
+        "custom-grok-4.5-max",
+        "grok-4.5",
+        ThinkingLevel::Max,
+        Arc::new(StaticHeaderAuth::bearer_token("xai-key")),
+    );
+
+    let response = model
+        .complete(&simple_request())
+        .await
+        .expect("xAI downgraded response should parse");
+
+    let requests = requests
+        .lock()
+        .expect("requests lock should not be poisoned");
+    let body = requests[0].body.as_ref().expect("body present");
+    assert_eq!(body["reasoning_effort"], "high");
+    assert_eq!(response.thinking_level.as_deref(), Some("high"));
+}
+
+#[tokio::test]
 async fn omits_reasoning_effort_for_grok_4_20() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
         status: 200,

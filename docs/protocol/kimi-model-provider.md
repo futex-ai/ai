@@ -69,9 +69,11 @@ vision, long-context, and reasoning features.
 | `kimi-k3-thinking-low` | `KIMI_K3_THINKING_LOW` | `low` | 10 | Fast | High |
 
 `KIMI_K3` is the default max-effort catalog entry because K3 always reasons
-and its provider default is `max`. Construction must reject unsupported
-thinking levels or provider model ids instead of sending K2-specific or
-invented parameter mappings.
+and its provider default is `max`. `Medium` downgrades to `Low`, and
+`ExtraHigh` downgrades to `High`. `Disabled` remains unsupported because no K3
+catalog level exists at or below it. Construction must reject that case and
+unsupported provider model ids instead of sending K2-specific or invented
+parameter mappings.
 
 ## Request Contract
 

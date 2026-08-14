@@ -2,14 +2,14 @@
 
 use std::sync::Arc;
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult};
-use ai_models_core::{ThinkingLevel, classify_json_http_error};
+use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult, ProviderKind};
+use ai_models_core::{ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use serde_json::Value;
 use thiserror::Error;
 
-use crate::{QWEN_3_7_FLASH, QWEN_3_7_MAX, QWEN_3_7_PLUS};
+use crate::{QWEN_3_7_FLASH, QWEN_3_7_MAX, QWEN_3_7_PLUS, catalog::known_models};
 
 use super::{request, response};
 
@@ -26,8 +26,8 @@ pub enum QwenConfigurationError {
         /// Unsupported upstream model identifier.
         provider_model_id: String,
     },
-    /// Qwen 3.7 catalog variants support high or disabled thinking.
-    #[error("[ai_models_qwen/client] unsupported Qwen 3.7 thinking level `{thinking_level}`")]
+    /// No supported Qwen 3.7 thinking level exists at or below the request.
+    #[error("[ai_models_qwen/client] no Qwen 3.7 thinking level at or below `{thinking_level}`")]
     UnsupportedThinkingLevel {
         /// Unsupported normalized thinking-level value.
         thinking_level: &'static str,
@@ -76,7 +76,7 @@ impl QwenModel {
         auth: DynJsonHttpAuth,
     ) -> QwenConfigurationResult<Self> {
         let provider_model_id = provider_model_id.into();
-        validate_configuration(&provider_model_id, thinking_level)?;
+        let thinking_level = validate_configuration(&provider_model_id, thinking_level)?;
         Ok(Self {
             http_client,
             catalog_model_id: catalog_model_id.into(),
@@ -135,7 +135,7 @@ impl Model for QwenModel {
 fn validate_configuration(
     provider_model_id: &str,
     thinking_level: ThinkingLevel,
-) -> QwenConfigurationResult<()> {
+) -> QwenConfigurationResult<ThinkingLevel> {
     if !matches!(
         provider_model_id,
         QWEN_3_7_MAX | QWEN_3_7_PLUS | QWEN_3_7_FLASH
@@ -144,15 +144,18 @@ fn validate_configuration(
             provider_model_id: provider_model_id.to_owned(),
         });
     }
-    if !matches!(
+    let models = known_models();
+    match resolve_catalog_thinking_level(
+        &models,
+        ProviderKind::Qwen,
+        provider_model_id,
         thinking_level,
-        ThinkingLevel::Disabled | ThinkingLevel::High
     ) {
-        return Err(QwenConfigurationError::UnsupportedThinkingLevel {
+        Some(effective) => Ok(effective),
+        None => Err(QwenConfigurationError::UnsupportedThinkingLevel {
             thinking_level: thinking_level.as_str(),
-        });
+        }),
     }
-    Ok(())
 }
 
 pub(super) fn classify_qwen_http_error(model_id: &str, status: u16, body: &Value) -> ModelError {

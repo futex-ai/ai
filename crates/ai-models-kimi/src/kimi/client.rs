@@ -2,13 +2,13 @@
 
 use std::sync::Arc;
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse};
-use ai_models_core::{ThinkingLevel, classify_json_http_error};
+use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ProviderKind};
+use ai_models_core::{ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use thiserror::Error;
 
-use crate::KIMI_K3;
+use crate::{KIMI_K3, catalog::known_models};
 
 use super::{request, response};
 
@@ -24,8 +24,8 @@ pub enum KimiConfigurationError {
         /// Unsupported upstream model identifier.
         provider_model_id: String,
     },
-    /// Kimi K3 supports only low, high, and max reasoning variants.
-    #[error("[ai_models_kimi/client] unsupported Kimi K3 thinking level `{thinking_level}`")]
+    /// No supported Kimi K3 thinking level exists at or below the request.
+    #[error("[ai_models_kimi/client] no Kimi K3 thinking level at or below `{thinking_level}`")]
     UnsupportedThinkingLevel {
         /// Unsupported normalized thinking-level value.
         thinking_level: &'static str,
@@ -143,13 +143,24 @@ impl Model for KimiModel {
 
 fn validate_configuration(
     provider_model_id: &str,
-    thinking_level: ThinkingLevel,
+    requested_thinking_level: ThinkingLevel,
 ) -> KimiConfigurationResult<KimiReasoningEffort> {
     if provider_model_id != KIMI_K3 {
         return Err(KimiConfigurationError::UnsupportedProviderModel {
             provider_model_id: provider_model_id.to_owned(),
         });
     }
+    let models = known_models();
+    let Some(thinking_level) = resolve_catalog_thinking_level(
+        &models,
+        ProviderKind::Kimi,
+        provider_model_id,
+        requested_thinking_level,
+    ) else {
+        return Err(KimiConfigurationError::UnsupportedThinkingLevel {
+            thinking_level: requested_thinking_level.as_str(),
+        });
+    };
     if thinking_level == ThinkingLevel::Low {
         return Ok(KimiReasoningEffort::Low);
     }

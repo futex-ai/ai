@@ -17,7 +17,7 @@ in-memory tool-calling runtime behavior.
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, Google and MiniMax inline video
   input, OpenAI and Gemini image generation, structured output, usage
-  normalization, and typed errors
+  normalization, catalog-aware thinking-level downgrades, and typed errors
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, and usage pricing
 - Ordered fallback model composition through `ai-models-multi`

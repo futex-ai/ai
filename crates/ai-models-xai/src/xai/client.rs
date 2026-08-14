@@ -2,10 +2,15 @@
 
 use std::{sync::Arc, time::Duration};
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult};
-use ai_models_core::{ThinkingLevel, classify_json_http_error, synthetic_tool_call_scope};
+use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult, ProviderKind};
+use ai_models_core::{
+    ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level,
+    synthetic_tool_call_scope,
+};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+
+use crate::catalog::known_models;
 
 use super::{
     deferred::{
@@ -86,6 +91,14 @@ impl XaiModel {
         runtime: Arc<dyn DeferredRuntime>,
     ) -> Self {
         let provider_model_id = provider_model_id.into();
+        let models = known_models();
+        let thinking_level = resolve_catalog_thinking_level(
+            &models,
+            ProviderKind::Xai,
+            &provider_model_id,
+            thinking_level,
+        )
+        .unwrap_or(thinking_level);
         let deferred_completion = Arc::new(XaiDeferredCompletion::new(
             http_client.clone(),
             auth.clone(),

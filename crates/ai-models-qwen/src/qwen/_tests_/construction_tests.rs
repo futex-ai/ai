@@ -32,28 +32,38 @@ fn rejects_unsupported_provider_model_id() {
     ));
 }
 
-#[test]
-fn rejects_every_unsupported_thinking_level() {
-    for thinking_level in [
-        ThinkingLevel::Low,
-        ThinkingLevel::Medium,
-        ThinkingLevel::ExtraHigh,
-        ThinkingLevel::Max,
+#[tokio::test]
+async fn downgrades_unsupported_thinking_levels() {
+    for (requested, effective, enabled) in [
+        (ThinkingLevel::Low, ThinkingLevel::Disabled, false),
+        (ThinkingLevel::Medium, ThinkingLevel::Disabled, false),
+        (ThinkingLevel::ExtraHigh, ThinkingLevel::High, true),
+        (ThinkingLevel::Max, ThinkingLevel::High, true),
     ] {
-        let result = QwenModel::with_catalog_auth(
-            unused_http_client(),
+        let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
+        let model = QwenModel::with_catalog_auth(
+            http_client,
             QWEN_3_7_MAX,
             QWEN_3_7_MAX,
-            thinking_level,
+            requested,
             Arc::new(StaticHeaderAuth::default()),
-        );
+        )
+        .expect("unsupported thinking level should downgrade");
+        let response = model
+            .complete(&simple_request())
+            .await
+            .expect("Qwen response should parse");
+        let requests = requests
+            .lock()
+            .expect("requests lock should not be poisoned");
+        let body = requests[0]
+            .body
+            .as_ref()
+            .and_then(|body| body.as_json())
+            .expect("JSON request body");
 
-        assert!(matches!(
-            result,
-            Err(QwenConfigurationError::UnsupportedThinkingLevel {
-                thinking_level: actual
-            }) if actual == thinking_level.as_str()
-        ));
+        assert_eq!(body["enable_thinking"], enabled);
+        assert_eq!(response.thinking_level.as_deref(), Some(effective.as_str()));
     }
 }
 

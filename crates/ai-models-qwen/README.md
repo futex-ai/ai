@@ -29,6 +29,10 @@ system prompts are omitted, and per-call timeouts reach the transport. The
 typed `RequiredOrAuto` policy forces required use without thinking and retains
 tools with automatic selection in thinking mode.
 
+Unsupported normalized levels downgrade without exceeding the request: low
+and medium resolve to disabled, while extra-high and max resolve to high.
+Responses record the effective level.
+
 Streaming, Qwen Coding Plan endpoints, preview model snapshots, built-in tools,
 and ambient credential lookup are outside this crate's boundary.
 

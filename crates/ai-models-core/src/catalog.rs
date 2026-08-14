@@ -126,6 +126,29 @@ impl KnownModelSpec {
     }
 }
 
+/// Resolves a requested thinking level to the highest catalog level for the
+/// provider model that does not exceed the request.
+///
+/// Returns `None` when the catalog has no level at or below the request. This
+/// lets adapters preserve explicit custom mappings or return a typed
+/// configuration error when no safe downgrade exists.
+pub fn resolve_catalog_thinking_level(
+    models: &[KnownModelSpec],
+    provider: ProviderKind,
+    provider_model_id: &str,
+    requested: ThinkingLevel,
+) -> Option<ThinkingLevel> {
+    models
+        .iter()
+        .filter(|model| {
+            model.provider == provider
+                && model.provider_model_id == provider_model_id
+                && model.thinking_level <= requested
+        })
+        .map(|model| model.thinking_level)
+        .max()
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 /// Registry of strongly typed known provider models.
 pub struct KnownModelCatalog {

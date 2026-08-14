@@ -39,6 +39,10 @@ reasoning tokens map to non-overlapping usage buckets; pricing remains a
 composition-root concern. Resource-limited completions and retryable HTTP,
 transport, and auth failures become shared transient errors.
 
+Unsupported normalized levels downgrade to the highest configured level not
+above the request: low and medium resolve to disabled, while extra-high
+resolves to high. Responses record the effective level.
+
 Requests use a ten-minute transport timeout. DeepSeek may keep a request open
 while it waits for inference capacity, especially for Flash reasoning, and the
 provider documents a ten-minute upper bound before it closes a request that has

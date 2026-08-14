@@ -83,6 +83,33 @@ async fn maps_gemini_3_thinking_to_named_level() {
     assert_thinking_response(&response, "high", GEMINI_3_6_FLASH);
 }
 
+#[tokio::test]
+async fn downgrades_gemini_3_max_to_high() {
+    let (http_client, requests) = recording_http_client(google_thinking_response());
+    let model = GoogleModel::with_catalog_auth(
+        http_client,
+        "custom-gemini-3.6-max",
+        GEMINI_3_6_FLASH,
+        ThinkingLevel::Max,
+        google_auth(),
+    );
+
+    let response = model
+        .complete(&simple_request())
+        .await
+        .expect("Gemini 3 downgraded response should parse");
+
+    let requests = requests
+        .lock()
+        .expect("requests lock should not be poisoned");
+    let body = requests[0].body.as_ref().expect("body present");
+    assert_eq!(
+        body["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+        "high"
+    );
+    assert_thinking_response(&response, "high", GEMINI_3_6_FLASH);
+}
+
 fn google_thinking_response() -> JsonHttpResponse<serde_json::Value> {
     JsonHttpResponse {
         status: 200,

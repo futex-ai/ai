@@ -59,8 +59,10 @@ fn default_catalog_id() -> &'static str {
 
 Callers retrieve the API key and inject it at the composition root. Use
 `KimiModel::with_catalog_auth` when constructing the high- or low-effort
-catalog variants; unsupported provider model ids and thinking levels are
-rejected before a request is sent.
+catalog variants. Medium downgrades to low and extra-high downgrades to high;
+disabled remains a typed configuration error because K3 has no supported level
+at or below it. Unsupported provider model ids are rejected before a request
+is sent.
 
 ## Development
 

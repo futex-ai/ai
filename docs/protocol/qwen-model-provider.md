@@ -79,8 +79,9 @@ also advertise vision. Cost is coarse routing metadata rather than a billing
 schedule.
 
 The crate exports typed constants for all six catalog ids and a
-`known_models()` function. Construction rejects unknown provider ids and
-normalized thinking levels other than `High` and `Disabled`.
+`known_models()` function. Construction rejects unknown provider ids.
+Unsupported normalized thinking levels downgrade to the highest catalog level
+that does not exceed the request.
 
 ## Request Mapping
 
@@ -125,8 +126,10 @@ Thinking maps exactly:
 | `High` | `true` | `true` |
 | `Disabled` | `false` | `false` |
 
-The adapter does not invent provider-specific budgets for other normalized
-levels. Enabled responses may include private `reasoning_content`. Qwen
+`Low` and `Medium` downgrade to `Disabled`; `ExtraHigh` and `Max` downgrade to
+`High`. The adapter does not invent provider-specific budgets for those
+levels. Responses record the effective level. Enabled responses may include
+private `reasoning_content`. Qwen
 requires the complete assistant message, including reasoning and raw tool
 calls, when a thinking-mode tool flow continues.
 

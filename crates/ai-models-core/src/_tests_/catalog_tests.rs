@@ -2,6 +2,7 @@ use ai_interface::{ModelFeature, ProviderKind};
 
 use crate::{
     IntelligenceScore, KnownModelCatalog, KnownModelSpec, ThinkingLevel, known_mock_models,
+    resolve_catalog_thinking_level,
 };
 
 #[test]
@@ -72,4 +73,91 @@ fn thinking_levels_have_stable_log_values() {
     assert_eq!(ThinkingLevel::High.as_str(), "high");
     assert_eq!(ThinkingLevel::ExtraHigh.as_str(), "extra_high");
     assert_eq!(ThinkingLevel::Max.as_str(), "max");
+}
+
+#[test]
+fn resolves_to_the_highest_catalog_thinking_level_not_above_the_request() {
+    let models = [
+        known_model("provider-a-low", "provider-a", ThinkingLevel::Low),
+        known_model("provider-a-high", "provider-a", ThinkingLevel::High),
+        known_model(
+            "provider-a-extra-high",
+            "provider-a",
+            ThinkingLevel::ExtraHigh,
+        ),
+        known_model("provider-b-high", "provider-b", ThinkingLevel::High),
+    ];
+
+    assert_eq!(
+        resolve_catalog_thinking_level(
+            &models,
+            ProviderKind::OpenAi,
+            "provider-a",
+            ThinkingLevel::Max,
+        ),
+        Some(ThinkingLevel::ExtraHigh)
+    );
+    assert_eq!(
+        resolve_catalog_thinking_level(
+            &models,
+            ProviderKind::OpenAi,
+            "provider-a",
+            ThinkingLevel::High,
+        ),
+        Some(ThinkingLevel::High)
+    );
+    assert_eq!(
+        resolve_catalog_thinking_level(
+            &models,
+            ProviderKind::OpenAi,
+            "provider-a",
+            ThinkingLevel::Medium,
+        ),
+        Some(ThinkingLevel::Low)
+    );
+    assert_eq!(
+        resolve_catalog_thinking_level(
+            &models,
+            ProviderKind::OpenAi,
+            "provider-a",
+            ThinkingLevel::Disabled,
+        ),
+        None
+    );
+    assert_eq!(
+        resolve_catalog_thinking_level(
+            &models,
+            ProviderKind::OpenAi,
+            "unknown",
+            ThinkingLevel::Max,
+        ),
+        None
+    );
+    assert_eq!(
+        resolve_catalog_thinking_level(
+            &models,
+            ProviderKind::Anthropic,
+            "provider-a",
+            ThinkingLevel::Max,
+        ),
+        None
+    );
+}
+
+fn known_model(
+    id: &'static str,
+    provider_model_id: &'static str,
+    thinking_level: ThinkingLevel,
+) -> KnownModelSpec {
+    KnownModelSpec {
+        provider: ProviderKind::OpenAi,
+        id,
+        provider_model_id,
+        context_window_tokens: 128_000,
+        intelligence_score: IntelligenceScore::Five,
+        speed: crate::SpeedTier::Medium,
+        cost: crate::CostTier::Medium,
+        thinking_level,
+        features: &[ModelFeature::Reasoning],
+    }
 }

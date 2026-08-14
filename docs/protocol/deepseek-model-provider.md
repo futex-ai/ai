@@ -87,8 +87,9 @@ The crate exports `DEEPSEEK_V4_PRO`, `DEEPSEEK_V4_PRO_THINKING_MAX`,
 `DEEPSEEK_V4_FLASH_THINKING_DISABLED`, and `known_models()`.
 
 The cost tier is coarse routing metadata rather than a hard-coded billing
-schedule. Construction rejects unknown provider model ids and normalized
-thinking levels other than `Disabled`, `High`, and `Max`.
+schedule. Construction rejects unknown provider model ids. Unsupported
+normalized thinking levels downgrade to the highest catalog level that does
+not exceed the request.
 
 ## Request Mapping
 
@@ -127,10 +128,10 @@ Catalog thinking maps exactly:
 | `High` | `enabled` | `high` |
 | `Max` | `enabled` | `max` |
 
-`Low`, `Medium`, and `ExtraHigh` are rejected during construction instead of
-depending on provider compatibility coercions. Every response records the
-selected normalized thinking level separately from its catalog and provider
-model ids.
+`Low` and `Medium` downgrade to `Disabled`; `ExtraHigh` downgrades to `High`.
+The adapter performs this resolution locally rather than depending on provider
+coercion. Every response records the effective normalized thinking level
+separately from its catalog and provider model ids.
 
 ## Preserved Assistant Context
 
