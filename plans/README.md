@@ -6,6 +6,7 @@ milestones are finished.
 
 ## Active
 
+- [Public model completion events](public-model-completion-events.md)
 - [Model completion streaming](model-completion-streaming.md)
 
 ## Completed

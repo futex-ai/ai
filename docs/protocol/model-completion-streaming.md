@@ -7,8 +7,10 @@ provider; final workspace verification and review remain in progress.
 
 Define internal SSE streaming for model completions so long reasoning and
 generation calls are governed by stream liveness rather than a short total HTTP
-timeout. The public `ai_interface::Model` contract remains buffered:
-`complete(&ModelRequest)` returns one complete `ModelResponse`.
+timeout. `Model::complete` remains buffered and returns one complete
+`ModelResponse`; the separate
+[public completion-events protocol](model-completion-events.md) defines the
+opt-in event-observing entrypoint layered over this internal stream.
 
 ## Scope
 
@@ -24,14 +26,15 @@ The following remain buffered:
 - non-completion JSON HTTP calls; and
 - `ai-mcp`, whose existing SSE transport remains independent.
 
-Incremental deltas are not exposed to workspace consumers in this version.
-OpenAI background Responses, stream reattachment, and downstream Firna changes
-are also out of scope.
+This protocol does not itself expose incremental deltas. Their normalized
+public mapping is defined by the completion-events protocol. OpenAI background
+Responses, stream reattachment, and downstream Firna implementation remain out
+of scope.
 
 ## Ownership And Compatibility
 
-- `ai-interface` owns the unchanged model request/response boundary and the
-  new normalized interruption error.
+- `ai-interface` owns the model request/response boundary, normalized public
+  completion events, and the interruption error.
 - `json-http` owns SSE framing, stream opening, connect/idle/deadline
   enforcement, and transport progress errors. It does not inspect provider
   event JSON.

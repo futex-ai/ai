@@ -36,6 +36,9 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [Model completion events](docs/protocol/model-completion-events.md) defines
+  the opt-in public assistant, reasoning, and fallback-restart event boundary,
+  terminal parity, wrapper semantics, and downstream adoption contract.
 - [Model completion streaming](docs/protocol/model-completion-streaming.md)
   defines internal SSE accumulation, idle and overall deadlines, interruption
   retry policy, provider mappings, response parity, and the Firna revision-bump
@@ -229,6 +232,8 @@ cargo xtask review
   provider wire-compatibility contract
 - `docs/protocol/model-completion-streaming.md`: approved internal SSE,
   timeout, interruption, parity, and downstream migration contract
+- `docs/protocol/model-completion-events.md`: approved public incremental
+  event, wrapper, provider, parity, and Firna adoption contract
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
   contract
 - `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract
