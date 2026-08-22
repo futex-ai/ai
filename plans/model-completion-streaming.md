@@ -193,6 +193,14 @@ and downstream handoff are aligned and independently reviewed.
       lint, and `cargo xtask check`, then audit the complete CI-fix diff.
 - [x] Stage every CI-fix file, commit conventionally, and push the current
       branch without renaming it.
+- [x] Add a regression for the credentialed MiniMax-M3 behavior that ends a
+      structurally complete stream at clean EOF without `[DONE]`, accept that
+      terminal form without weakening incomplete-stream validation, and align
+      the MiniMax README and protocol.
+- [x] Re-run formatting, strict Clippy, workspace tests, smoke tests, file-length
+      lint, and `cargo xtask check`, then audit the EOF compatibility fix.
+- [x] Stage every EOF-fix file, commit conventionally, and push the current
+      branch without renaming it.
 - [ ] Run `cargo xtask review` only after the CI-fix push so it reviews the
       local diff against `origin/main` (earlier attempts on 2026-08-22 were
       blocked because the reviewer's Codex subprocess received

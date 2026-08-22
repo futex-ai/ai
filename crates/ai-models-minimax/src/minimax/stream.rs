@@ -29,12 +29,23 @@ pub(super) async fn complete(
         let event = match stream.next().await {
             Ok(Some(event)) => event,
             Ok(None) => {
-                return Err(classify_stream_error(
-                    PROVIDER,
+                if let Err(source) = accumulator.push_data("[DONE]") {
+                    return Err(classify_stream_error(
+                        PROVIDER,
+                        provider_model_id,
+                        events_received,
+                        &source,
+                    ));
+                }
+                return finish(
+                    accumulator,
+                    normalizer,
+                    catalog_model_id,
                     provider_model_id,
+                    thinking_level,
+                    response_schema,
                     events_received,
-                    &ChatCompletionsStreamError::MissingDone,
-                ));
+                );
             }
             Err(source) => {
                 return Err(classify_json_http_stream_error(

@@ -164,8 +164,10 @@ DeepSeek, Kimi, MiniMax, QwenCloud, and synchronous xAI use one pure
 
 The completed accumulator output must be shaped for each adapter's existing
 buffered response mapper. Missing terminal state, malformed fragments,
-conflicting tool-call identity, or EOF before `[DONE]` is a stream failure and
-uses the progress classification above.
+conflicting tool-call identity, or EOF before the provider's terminal condition
+is a stream failure and uses the progress classification above. Among these
+shared-accumulator adapters, MiniMax alone may treat clean EOF as terminal after
+the accumulator validates all required response state.
 
 ## Provider Mapping
 
@@ -174,7 +176,8 @@ uses the progress classification above.
 | Anthropic | Add `"stream": true` to `/v1/messages` | Accumulate message/content block events; `message_stop` is terminal |
 | OpenAI | Add `"stream": true` to `/v1/responses` | Consume events for liveness; parse complete objects in `response.completed` and `response.incomplete` with the buffered mapper |
 | Google | Use `:streamGenerateContent?alt=sse` | Merge `GenerateContentResponse` fragments; stream EOF after a terminal candidate is terminal |
-| DeepSeek, Kimi, MiniMax, QwenCloud, xAI sync | Add `"stream": true` and request stream usage when supported | Use the shared chat-completions accumulator through `[DONE]` |
+| DeepSeek, Kimi, QwenCloud, xAI sync | Add `"stream": true` and request stream usage when supported | Use the shared chat-completions accumulator through `[DONE]` |
+| MiniMax | Add `"stream": true` and request stream usage | Use the shared accumulator through `[DONE]` or structurally validated clean EOF |
 
 ### Anthropic
 
@@ -229,13 +232,15 @@ and [usage](https://docs.x.ai/developers/cost-tracking) documentation.
 | --- | --- | --- |
 | DeepSeek | `stream: true` plus `stream_options.include_usage: true`; final empty-choice usage chunk, then `[DONE]` | Standard content, `reasoning_content`, and indexed tool-call deltas |
 | Kimi | Same opt-in; usage is on the final choice-bearing chunk, then `[DONE]` | Standard deltas; retain its direct `cached_tokens` usage field |
-| MiniMax | Same opt-in; final complete usage, then the OpenAI-compatible terminal sentinel | Accumulate M3 content deltas directly; convert M2.x cumulative content snapshots to suffix deltas; retain the last nonempty `reasoning_details` snapshot as canonical because later snapshots may revise earlier text |
+| MiniMax | Same opt-in; final complete usage, then `[DONE]` or clean EOF | Accumulate M3 content deltas directly; convert M2.x cumulative content snapshots to suffix deltas; retain the last nonempty `reasoning_details` snapshot as canonical because later snapshots may revise earlier text; accept EOF only after choices, finish reason, usage, and tool metadata validate |
 | QwenCloud | Same opt-in; final empty-choice usage chunk, then `[DONE]` | Standard content, `reasoning_content`, and indexed tool-call deltas |
 | xAI synchronous | Same opt-in; final empty-choice usage/cost chunk, then `[DONE]` | Standard content, indexed tool calls, and legacy function-call deltas; running usage is replaced by the final exact report |
 
 All five providers therefore stream without a buffered usage exception. A
 standard `error` payload is terminal. MiniMax `base_resp` failures retain their
-numeric classification. xAI deferred submit/poll execution remains buffered.
+numeric classification. The clean-EOF MiniMax terminal form was confirmed by
+the credentialed MiniMax-M3 probe on 2026-08-22. xAI deferred submit/poll
+execution remains buffered.
 
 ## Response Parity And Verification
 

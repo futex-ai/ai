@@ -88,7 +88,7 @@ async fn normalizes_cumulative_content_and_preserves_reasoning_details() {
 }
 
 #[tokio::test]
-async fn accumulates_m3_content_and_retains_latest_revised_reasoning() {
+async fn accepts_complete_m3_stream_at_clean_eof() {
     let buffered = json!({
         "choices": [{
             "message": {
@@ -161,14 +161,13 @@ async fn accumulates_m3_content_and_retains_latest_revised_reasoning() {
             }]
         })),
         event(json!({"choices": [], "usage": buffered["usage"].clone()})),
-        done_event(),
     ];
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
 
     let streamed = MiniMaxModel::new(http_client, MINIMAX_M3, "key")
         .complete(&simple_request())
         .await
-        .expect("revised reasoning snapshot should parse");
+        .expect("complete MiniMax-M3 stream should parse at clean EOF");
     let parsed = response::parse_response(
         MINIMAX_M3,
         MINIMAX_M3,

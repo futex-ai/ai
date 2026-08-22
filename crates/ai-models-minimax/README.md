@@ -40,7 +40,9 @@ Completion requests send `stream: true` with final usage enabled. M3 emits
 incremental visible-content deltas, while M2.x cumulative content is converted
 into suffix deltas before shared accumulation. The last nonempty
 `reasoning_details` snapshot is retained as the canonical replay state even
-when MiniMax revises an earlier snapshot. Streams default to a 3,600-second
+when MiniMax revises an earlier snapshot. A structurally complete stream may
+end with `[DONE]` or clean EOF; EOF still fails when choices, a finish reason,
+usage, or tool metadata are incomplete. Streams default to a 3,600-second
 overall deadline and a 120-second idle timeout. Numeric `base_resp` failures
 keep their provider classification before progress and become
 `ModelError::Interrupted` after progress.
