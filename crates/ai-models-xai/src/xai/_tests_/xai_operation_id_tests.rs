@@ -1,18 +1,10 @@
 //! Tests for xAI synthetic legacy tool-call operation identity.
 
-use std::sync::{Arc, Mutex};
-
 use ai_interface::{ConversationMessage, Model, ModelRequest, ProviderConversationItem};
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    TransportBackedJsonHttpClient,
-};
-use serde_json::{Value, json};
-use unimock::{MockFn, Unimock, matching};
+use json_http::JsonHttpResponse;
+use serde_json::json;
 
-use super::XaiModel;
-
-type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
+use super::{XaiModel, test_support::recording_http_client};
 
 #[tokio::test]
 async fn legacy_function_calls_get_request_scoped_operation_ids() {
@@ -74,29 +66,4 @@ fn legacy_context_id(response: &ai_interface::ModelResponse) -> Option<&str> {
             }
             _ => None,
         })
-}
-
-fn recording_http_client(
-    response: JsonHttpResponse<Value>,
-) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("requests lock should not be poisoned")
-                        .push(request.clone());
-                    Ok(response.clone())
-                })
-            }),
-    ));
-
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
 }

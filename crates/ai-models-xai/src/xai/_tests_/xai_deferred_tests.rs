@@ -55,6 +55,22 @@ async fn polls_one_accepted_completion_through_transient_retrieval_states() {
     );
     assert_eq!(requests.len(), 6);
     assert!(requests[0].body.as_ref().expect("submit body")["deferred"] == true);
+    assert!(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("submit body")
+            .get("stream")
+            .is_none()
+    );
+    assert!(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("submit body")
+            .get("stream_options")
+            .is_none()
+    );
     assert_eq!(
         requests[0].headers.get("Authorization").map(String::as_str),
         Some("Bearer xai-key")

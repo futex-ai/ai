@@ -15,6 +15,7 @@ neighboring crates.
 - Implement the OpenAI video client behind `ai_interface::VideoGenerator`
 - Export strongly typed known OpenAI model metadata for model routing
 - Map shared model/tool DTOs to the OpenAI Responses API
+- Consume OpenAI Responses SSE events and retain the complete terminal response
 - Map shared audio transcription DTOs to `v1/audio/transcriptions`
 - Map shared image DTOs to `v1/images/generations` and `v1/images/edits`
 - Map shared video DTOs to asynchronous `v1/videos` jobs and downloads
@@ -24,7 +25,9 @@ neighboring crates.
 
 `OpenAiModel` accepts a `json-http` client plus explicit auth input and handles:
 
-- OpenAI Responses request serialization
+- OpenAI Responses request serialization with internal SSE consumption
+- 3,600-second default overall completion deadline, 120-second stream idle
+  deadline, and explicit per-call total-timeout overrides
 - shared text and image parts as Responses input content, with typed rejection
   of shared video parts before transport
 - portable temperature and top-p outside reasoning mode, output-limit and
@@ -56,6 +59,11 @@ neighboring crates.
   Kimi, and MiniMax assistant reasoning state and raw tool calls
 - provider response usage extraction into normalized input, output, cached
   input, and reasoning token counts
+- terminal `response.completed` and `response.incomplete` objects routed
+  through the buffered response parser, preserving truncated partial results
+- typed classification of completion failures before stream progress as
+  retryable or provider errors and failures after progress as
+  `ModelError::Interrupted`
 - status, transport, and structured-output validation failure mapping onto
   `ai_interface::ModelError`, with retryable `408`, `409`, `425`, and `5xx`
   transcription statuses mapped to transient provider failures
@@ -163,6 +171,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - `src/openai/request.rs` - OpenAI Responses request mapping
 - `src/openai/request_types.rs` - OpenAI Responses request DTOs
 - `src/openai/response/mod.rs` - OpenAI Responses response parsing
+- `src/openai/stream/` - terminal event handling and stream failure mapping
 - `src/openai/transcription.rs` - OpenAI audio transcription implementation
 - `src/openai/image_generation/` - OpenAI image request, response, and error mapping
 - `src/openai/video_generation/` - OpenAI asynchronous video submission,
@@ -171,7 +180,9 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 ### Related Docs
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [OpenAI model catalog](https://developers.openai.com/api/docs/models)
+- [OpenAI Responses streaming reference](https://developers.openai.com/api/reference/typescript/resources/beta/subresources/responses/methods/create)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/live-image-api-tests.md`](../../docs/protocol/live-image-api-tests.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)

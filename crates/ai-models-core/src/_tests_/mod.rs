@@ -1,4 +1,6 @@
 mod catalog_tests;
+mod chat_completions_compatibility_tests;
+mod chat_completions_tests;
 mod concurrency_tests;
 mod errors_tests;
 mod qwen_tool_call_identity_tests;

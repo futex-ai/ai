@@ -11,6 +11,8 @@ needs Qwen 3.7 Max, Plus, or Flash with explicit thinking behavior.
   QwenCloud.
 - Preserve Qwen reasoning and raw tool calls for exact multi-turn replay.
 - Normalize responses, usage, and provider errors into `ai-interface` types.
+- Accumulate completion SSE internally while preserving the buffered model
+  interface.
 
 ## What This Crate Does
 
@@ -33,8 +35,15 @@ Unsupported normalized levels downgrade without exceeding the request: low
 and medium resolve to disabled, while extra-high and max resolve to high.
 Responses record the effective level.
 
-Streaming, Qwen Coding Plan endpoints, preview model snapshots, built-in tools,
-and ambient credential lookup are outside this crate's boundary.
+Every completion requests streamed usage and accumulates content, private
+reasoning, indexed tool calls, finish state, and the final usage chunk through
+the existing response mapper. Streams default to a 3,600-second overall
+deadline and a 120-second idle timeout; a caller timeout replaces the overall
+deadline. Failures after any event become `ModelError::Interrupted`.
+
+Public incremental streaming, Qwen Coding Plan endpoints, preview model
+snapshots, built-in tools, and ambient credential lookup are outside this
+crate's boundary.
 
 ## Quick Start
 
@@ -67,10 +76,12 @@ cargo xtask check
 - `src/qwen/client.rs` — validated construction, dispatch, and HTTP errors.
 - `src/qwen/request.rs` — request, replay, multimodal, and schema mapping.
 - `src/qwen/response.rs` — response, tool-call, replay, and usage normalization.
+- `src/qwen/stream.rs` — SSE accumulation and progress-aware failures.
 
 ### Related Docs
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/qwen-model-provider.md`](../../docs/protocol/qwen-model-provider.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

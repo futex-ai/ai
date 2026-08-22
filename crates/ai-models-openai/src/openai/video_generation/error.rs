@@ -43,11 +43,21 @@ pub(super) fn classify_request_error(
     model_id: &str,
 ) -> VideoGenerationError {
     match source {
-        json_http::Error::Transport { .. } | json_http::Error::Auth { .. } => {
+        json_http::Error::Transport { .. }
+        | json_http::Error::ReqwestTransport { .. }
+        | json_http::Error::Auth { .. } => {
             VideoGenerationError::transient_provider(PROVIDER, model_id, source.to_string())
         }
         json_http::Error::SerializeRequest { .. }
-        | json_http::Error::DeserializeResponse { .. } => VideoGenerationError::internal(source),
+        | json_http::Error::DeserializeResponse { .. }
+        | json_http::Error::ClientInitialization { .. }
+        | json_http::Error::SseUnsupported
+        | json_http::Error::HttpStatus { .. }
+        | json_http::Error::InvalidSseContentType { .. }
+        | json_http::Error::IdleTimeout { .. }
+        | json_http::Error::DeadlineExceeded { .. }
+        | json_http::Error::SseTransport { .. }
+        | json_http::Error::SseDecode { .. } => VideoGenerationError::internal(source),
     }
 }
 

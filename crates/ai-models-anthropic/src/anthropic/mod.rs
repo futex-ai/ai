@@ -2,11 +2,14 @@
 
 mod request;
 mod response;
+mod stream;
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ProviderKind};
-use ai_models_core::{ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level};
+use ai_models_core::{
+    ThinkingLevel, classify_json_http_stream_error, resolve_catalog_thinking_level,
+};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 
@@ -14,7 +17,9 @@ use crate::catalog::{find_known_model, known_models};
 
 const ANTHROPIC_MESSAGES_URL: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_API_VERSION: &str = "2023-06-01";
+const COMPLETION_TIMEOUT: Duration = Duration::from_secs(3_600);
 const PROVIDER: &str = "anthropic";
+const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Clone)]
 /// Anthropic-backed `ai_interface::Model` implementation.
@@ -114,51 +119,45 @@ impl Model for AnthropicModel {
             ));
         }
         let response_schema = request.response_schema.as_ref();
+        let timeout = request
+            .controls
+            .execution
+            .total_timeout
+            .unwrap_or(COMPLETION_TIMEOUT);
         let builder = self
             .http_client
             .post(&self.endpoint)
             .auth(self.auth.clone())
-            .header("anthropic-version", ANTHROPIC_API_VERSION);
-        let builder = match request.controls.execution.total_timeout {
-            Some(timeout) => builder.timeout(timeout),
-            None => builder,
+            .header("anthropic-version", ANTHROPIC_API_VERSION)
+            .timeout(timeout)
+            .idle_timeout(STREAM_IDLE_TIMEOUT);
+        let builder = match builder.json(request::build_request(
+            &self.provider_model_id,
+            self.thinking_level,
+            request,
+        )?) {
+            Ok(builder) => builder,
+            Err(source) => return Err(ModelError::internal(source)),
         };
-        let request = builder
-            .json(request::build_request(
-                &self.provider_model_id,
-                self.thinking_level,
-                request,
-            )?)
-            .map_err(ModelError::internal)?;
-        let response = request
-            .send_value()
-            .await
-            .map_err(|source| request_error(source, &self.provider_model_id))?;
-        if response.status >= 400 {
-            return Err(classify_json_http_error(
-                PROVIDER,
-                &self.provider_model_id,
-                response.status,
-                &response.body,
-            ));
-        }
-        response::parse_response(
+        let stream = match builder.send_sse().await {
+            Ok(stream) => stream,
+            Err(source) => {
+                return Err(classify_json_http_stream_error(
+                    PROVIDER,
+                    &self.provider_model_id,
+                    0,
+                    source,
+                ));
+            }
+        };
+        stream::complete(
+            stream,
             &self.catalog_model_id,
             &self.provider_model_id,
             self.thinking_level,
-            response.body,
             response_schema,
         )
-    }
-}
-
-fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
-    match source {
-        json_http::Error::Transport { .. } | json_http::Error::Auth { .. } => {
-            ModelError::transient_provider(PROVIDER, model_id, source.to_string())
-        }
-        json_http::Error::SerializeRequest { .. }
-        | json_http::Error::DeserializeResponse { .. } => ModelError::internal(source),
+        .await
     }
 }
 
@@ -181,3 +180,15 @@ mod anthropic_thinking_tests;
 #[cfg(test)]
 #[path = "_tests_/anthropic_controls_tests.rs"]
 mod anthropic_controls_tests;
+
+#[cfg(test)]
+#[path = "_tests_/anthropic_streaming_tests.rs"]
+mod anthropic_streaming_tests;
+
+#[cfg(test)]
+#[path = "_tests_/anthropic_stream_error_tests.rs"]
+mod anthropic_stream_error_tests;
+
+#[cfg(test)]
+#[path = "_tests_/stream_support.rs"]
+mod stream_support;

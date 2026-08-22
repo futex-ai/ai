@@ -1,48 +1,27 @@
 //! Shared MiniMax provider test support.
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
+use std::sync::Arc;
 
 use ai_interface::{ConversationMessage, ModelRequest};
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    TransportBackedJsonHttpClient,
+use ai_models_core::test_support::{
+    RecordedRequests, fixtures_for_buffered_responses, recording_streaming_client,
 };
-use unimock::{MockFn, Unimock, matching};
+use json_http::TransportBackedJsonHttpClient;
+use json_http::{JsonHttpClient, JsonHttpResponse};
+use unimock::Unimock;
 
-pub(super) type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
+pub(super) fn unused_http_client() -> Arc<dyn JsonHttpClient> {
+    Arc::new(TransportBackedJsonHttpClient::new(Arc::new(Unimock::new(
+        (),
+    ))))
+}
 
 pub(super) fn recording_http_client(
     responses: impl IntoIterator<Item = JsonHttpResponse<serde_json::Value>>,
 ) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let responses = Arc::new(Mutex::new(VecDeque::from_iter(responses)));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                let responses = responses.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("requests lock should not be poisoned")
-                        .push(request.clone());
-                    Ok(responses
-                        .lock()
-                        .expect("responses lock should not be poisoned")
-                        .pop_front()
-                        .expect("unexpected transport call"))
-                })
-            }),
-    ));
-
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
+    recording_streaming_client(fixtures_for_buffered_responses(
+        responses.into_iter().collect(),
+    ))
 }
 
 pub(super) fn simple_request() -> ModelRequest {

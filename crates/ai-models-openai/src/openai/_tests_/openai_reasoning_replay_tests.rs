@@ -1,25 +1,17 @@
 //! Tests for OpenAI Responses reasoning replay request mapping.
 
-use std::sync::{Arc, Mutex};
-
 use ai_interface::{
     ConversationMessage, DeepSeekToolCallContext, KimiToolCallContext, Model, ModelRequest,
     OpenAiReasoningSummary, ProviderConversationItem, QwenToolCallContext, ToolCall,
 };
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    TransportBackedJsonHttpClient,
-};
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
 
 use super::OpenAiModel;
-
-type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
+use crate::openai::stream_support::client_for_buffered_bodies;
 
 #[tokio::test]
 async fn replays_openai_reasoning_context_before_tool_outputs() {
-    let (http_client, requests) = recording_http_client(openai_text_response("Done"));
+    let (http_client, requests) = client_for_buffered_bodies(vec![openai_text_response("Done")]);
     let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
     let assistant = ConversationMessage::assistant_with_provider_context(
         "",
@@ -110,7 +102,7 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
 
 #[tokio::test]
 async fn replays_assistant_message_phase_before_function_call_context() {
-    let (http_client, requests) = recording_http_client(openai_text_response("Done"));
+    let (http_client, requests) = client_for_buffered_bodies(vec![openai_text_response("Done")]);
     let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
     let assistant = ConversationMessage::assistant_with_provider_context(
         "I'll inspect memory.",
@@ -163,7 +155,7 @@ async fn replays_assistant_message_phase_before_function_call_context() {
 
 #[tokio::test]
 async fn replays_phase_less_assistant_message_before_function_call_context() {
-    let (http_client, requests) = recording_http_client(openai_text_response("Done"));
+    let (http_client, requests) = client_for_buffered_bodies(vec![openai_text_response("Done")]);
     let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
     let assistant = ConversationMessage::assistant_with_provider_context(
         "I'll inspect memory.",
@@ -224,46 +216,18 @@ fn function_call_count(input: &serde_json::Value) -> usize {
         .count()
 }
 
-fn recording_http_client(
-    response: JsonHttpResponse<serde_json::Value>,
-) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("requests lock should not be poisoned")
-                        .push(request.clone());
-                    Ok(response.clone())
-                })
-            }),
-    ));
-
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
-}
-
-fn openai_text_response(text: &str) -> JsonHttpResponse<serde_json::Value> {
-    JsonHttpResponse {
-        status: 200,
-        body: json!({
-            "status": "completed",
-            "output": [{
-                "type": "message",
-                "role": "assistant",
-                "content": [{ "type": "output_text", "text": text }]
-            }],
-            "usage": {
-                "input_tokens": 120,
-                "output_tokens": 32,
-                "total_tokens": 152
-            }
-        }),
-    }
+fn openai_text_response(text: &str) -> serde_json::Value {
+    json!({
+        "status": "completed",
+        "output": [{
+            "type": "message",
+            "role": "assistant",
+            "content": [{ "type": "output_text", "text": text }]
+        }],
+        "usage": {
+            "input_tokens": 120,
+            "output_tokens": 32,
+            "total_tokens": 152
+        }
+    })
 }

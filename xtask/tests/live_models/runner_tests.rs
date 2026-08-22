@@ -20,12 +20,7 @@ const EXPECTED_TEXT: &str = "LIVE_MODEL_API_OK";
 const MODEL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 pub(super) async fn run_catalog(provider: LiveProvider) {
-    let api_key = env::var(API_KEY_ENV)
-        .unwrap_or_else(|_| panic!("{API_KEY_ENV} must contain the provider API credential"));
-    assert!(
-        !api_key.trim().is_empty(),
-        "{API_KEY_ENV} must not be empty"
-    );
+    let api_key = live_api_key();
 
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
     let auth = provider.auth(api_key);
@@ -41,7 +36,7 @@ pub(super) async fn run_catalog(provider: LiveProvider) {
         let model: DynModel = Arc::new(RetryingModel::with_standard_transient_retry(
             provider.build(client.clone(), auth.clone(), spec),
         ));
-        match complete_through_runtime(model).await {
+        match complete_through_runtime(model, ModelCompletionMode::PreferDeferred).await {
             Ok(response) => validate_response(provider, spec, &response, &mut failures),
             Err(error) => failures.push(format!("{}: request failed: {error}", spec.id)),
         }
@@ -55,7 +50,33 @@ pub(super) async fn run_catalog(provider: LiveProvider) {
     );
 }
 
-async fn complete_through_runtime(model: DynModel) -> Result<ModelResponse, String> {
+pub(super) async fn run_synchronous_stream_probe(provider: LiveProvider) {
+    let api_key = live_api_key();
+    let spec = provider
+        .chat_catalog()
+        .into_iter()
+        .next()
+        .expect("live provider chat catalog must not be empty");
+    let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
+    let model: DynModel = Arc::new(RetryingModel::with_standard_transient_retry(
+        provider.build(client, provider.auth(api_key), &spec),
+    ));
+    let response = complete_through_runtime(model, ModelCompletionMode::Synchronous)
+        .await
+        .expect("synchronous streaming probe must complete");
+    let mut failures = Vec::new();
+    validate_response(provider, &spec, &response, &mut failures);
+    assert!(
+        failures.is_empty(),
+        "synchronous stream probe failure(s):\n{}",
+        failures.join("\n")
+    );
+}
+
+async fn complete_through_runtime(
+    model: DynModel,
+    completion_mode: ModelCompletionMode,
+) -> Result<ModelResponse, String> {
     let runtime = ToolCallingRuntime::new(
         format!(
             "You are a CI connectivity probe. Reply with exactly {EXPECTED_TEXT} and no other text."
@@ -72,7 +93,7 @@ async fn complete_through_runtime(model: DynModel) -> Result<ModelResponse, Stri
             ConversationMessage::user(format!("Reply with {EXPECTED_TEXT}.")),
             Some(1),
         )
-        .with_controls(probe_controls());
+        .with_controls(probe_controls(completion_mode));
     let mut turn_checkpoint = NoopTurnCheckpoint;
     let mut response_checkpoint = ResponseCapture::default();
     let outcome = turn
@@ -87,7 +108,7 @@ async fn complete_through_runtime(model: DynModel) -> Result<ModelResponse, Stri
         .ok_or_else(|| "generic runtime did not expose the model response".to_owned())
 }
 
-fn probe_controls() -> ModelCallControls {
+fn probe_controls(completion_mode: ModelCompletionMode) -> ModelCallControls {
     ModelCallControls {
         generation: ModelGenerationControls {
             tool_choice: Some(ModelToolChoice::None),
@@ -95,7 +116,7 @@ fn probe_controls() -> ModelCallControls {
         },
         execution: ModelExecutionControls {
             total_timeout: Some(MODEL_TIMEOUT),
-            completion_mode: ModelCompletionMode::PreferDeferred,
+            completion_mode,
         },
     }
 }
@@ -114,7 +135,7 @@ impl ModelResponseCheckpoint for ResponseCapture {
 
 #[test]
 fn probe_controls_are_provider_neutral() {
-    let controls = probe_controls();
+    let controls = probe_controls(ModelCompletionMode::PreferDeferred);
 
     assert_eq!(controls.generation.tool_choice, Some(ModelToolChoice::None));
     assert_eq!(controls.execution.total_timeout, Some(MODEL_TIMEOUT));
@@ -126,12 +147,25 @@ fn probe_controls_are_provider_neutral() {
 
 #[tokio::test]
 async fn generic_runtime_executes_a_dynamic_model() {
-    let response = complete_through_runtime(Arc::new(MockModel::new("live-probe")))
-        .await
-        .expect("generic runtime should complete through the model trait");
+    let response = complete_through_runtime(
+        Arc::new(MockModel::new("live-probe")),
+        ModelCompletionMode::Synchronous,
+    )
+    .await
+    .expect("generic runtime should complete through the model trait");
 
     assert_eq!(response.provider, "mock");
     assert_eq!(response.model_id, "live-probe");
+}
+
+fn live_api_key() -> String {
+    let api_key = env::var(API_KEY_ENV)
+        .unwrap_or_else(|_| panic!("{API_KEY_ENV} must contain the provider API credential"));
+    assert!(
+        !api_key.trim().is_empty(),
+        "{API_KEY_ENV} must not be empty"
+    );
+    api_key
 }
 
 fn validate_response(

@@ -13,18 +13,19 @@ Implemented by `ai-models-qwen`, with shared routing and replay types in
 
 ## Scope
 
-The initial adapter supports the current stable Qwen3.7 Max, Plus, and Flash
-models through QwenCloud's pay-as-you-go, non-streaming, OpenAI-compatible Chat
-Completions API. It supports text, image input where the selected model accepts
-it, hybrid thinking, preserved reasoning, custom and parallel function calls,
-locally validated structured output, and normalized cache usage.
+The adapter supports the current stable Qwen3.7 Max, Plus, and Flash models
+through QwenCloud's pay-as-you-go, OpenAI-compatible Chat Completions API,
+accumulated internally over SSE. It supports text, image input where the
+selected model accepts it, hybrid thinking, preserved reasoning, custom and
+parallel function calls, locally validated structured output, and normalized
+cache usage.
 
 Token Plan and Coding Plan endpoints, snapshot and preview ids, legacy Qwen
-models, built-in tools, web search, video and audio content, streaming,
-Responses and Anthropic-compatible APIs, and custom endpoints are outside this
-initial contract. Those capabilities have different availability, billing, or
-wire behavior and require explicit contracts rather than silent partial
-support.
+models, built-in tools, web search, video and audio content, public incremental
+streaming, Responses and Anthropic-compatible APIs, and custom endpoints are
+outside this initial contract. Those capabilities have different availability,
+billing, or wire behavior and require explicit contracts rather than silent
+partial support.
 
 ## Ownership
 
@@ -54,9 +55,10 @@ Authorization: Bearer <QwenCloud API key>
 Content-Type: application/json
 ```
 
-Requests set `stream: false`. The default constructor selects
-`qwen3.7-plus` with thinking enabled. Token Plan and Coding Plan keys require
-different endpoints and are not interchangeable with this boundary.
+Requests set `stream: true` and `stream_options.include_usage: true`. The
+default constructor selects `qwen3.7-plus` with thinking enabled. Token Plan
+and Coding Plan keys require different endpoints and are not interchangeable
+with this boundary.
 
 ## Known Model Catalog
 
@@ -86,7 +88,7 @@ that does not exceed the request.
 ## Request Mapping
 
 Every request sends the selected provider model id, retained conversation
-messages in order, `stream: false`, and the selected thinking controls. A
+messages in order, streaming usage fields, and the selected thinking controls. A
 nonblank normalized system prompt is a leading `system` message; empty and
 whitespace-only system prompts are omitted.
 
@@ -96,8 +98,8 @@ keeps native sampling defaults. Non-thinking mode supports all strict choices.
 Thinking mode supports `none` and `auto`; strict `required` and named-function
 choices return typed `UnsupportedControl`. `RequiredOrAuto` maps to forced
 `required` when thinking is disabled and to `auto` with tools retained when
-thinking is enabled. A total
-timeout reaches the HTTP request, `PreferDeferred` falls back to synchronous,
+thinking is enabled. A total timeout replaces the default 3,600-second overall
+SSE deadline; the idle timeout is 120 seconds. `PreferDeferred` falls back to synchronous,
 and `RequireDeferred` is unsupported.
 
 Shared roles map directly to `user`, `assistant`, and `tool`. Plain content is
@@ -220,6 +222,10 @@ failures are internal.
 Missing choices, invalid calls, missing required reasoning, and invalid
 structured output are non-retryable provider failures. Errors and diagnostics
 must never contain credentials or authorization headers.
+
+The final empty-choice usage event and `[DONE]` are required. Stream failures
+before progress remain retryable, while failures after progress become
+`ModelError::Interrupted`.
 
 ## Required Verification
 

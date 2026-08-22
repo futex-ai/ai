@@ -12,7 +12,8 @@ use super::request_messages::message;
 use super::request_types::{
     ChatCompletionsContent, ChatCompletionsMessage, ChatCompletionsNamedFunction,
     ChatCompletionsNamedToolChoice, ChatCompletionsRequest, ChatCompletionsResponseFormat,
-    ChatCompletionsTool, ChatCompletionsToolChoice, ChatCompletionsToolDefinition,
+    ChatCompletionsStreamOptions, ChatCompletionsTool, ChatCompletionsToolChoice,
+    ChatCompletionsToolDefinition,
 };
 
 const PROVIDER: &str = "qwen";
@@ -46,7 +47,10 @@ pub(super) fn build_request(
         tools: request.tools.iter().map(tool).collect(),
         tool_choice: tool_choice(thinking_enabled, request, has_tools),
         parallel_tool_calls: has_tools.then_some(true),
-        stream: false,
+        stream: true,
+        stream_options: ChatCompletionsStreamOptions {
+            include_usage: true,
+        },
         enable_thinking: thinking_enabled,
         preserve_thinking: thinking_enabled,
         response_format: native_json_format(model_id, thinking_level, request),

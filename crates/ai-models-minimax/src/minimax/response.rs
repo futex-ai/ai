@@ -19,8 +19,10 @@ pub(super) fn parse_response(
     body: Value,
     response_schema: Option<&StructuredOutputSchema>,
 ) -> std::result::Result<ModelResponse, ModelError> {
-    let parsed: ChatCompletionsResponse =
-        serde_json::from_value(body).map_err(ModelError::internal)?;
+    let parsed: ChatCompletionsResponse = match serde_json::from_value(body) {
+        Ok(parsed) => parsed,
+        Err(source) => return Err(ModelError::internal(source)),
+    };
     check_base_response(provider_model_id, parsed.base_resp.as_ref())?;
     let choice = parsed.choices.into_iter().next().ok_or_else(|| {
         ModelError::provider(
@@ -178,12 +180,31 @@ fn check_base_response(
     provider_model_id: &str,
     base_response: Option<&MiniMaxBaseResponse>,
 ) -> std::result::Result<(), ModelError> {
-    let Some(base_response) = base_response else {
-        return Ok(());
-    };
+    match base_response_error(provider_model_id, base_response) {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
+}
+
+pub(super) fn stream_base_response_error(
+    provider_model_id: &str,
+    body: &Value,
+) -> std::result::Result<Option<ModelError>, serde_json::Error> {
+    let envelope: MiniMaxBaseResponseEnvelope = serde_json::from_value(body.clone())?;
+    Ok(base_response_error(
+        provider_model_id,
+        envelope.base_resp.as_ref(),
+    ))
+}
+
+fn base_response_error(
+    provider_model_id: &str,
+    base_response: Option<&MiniMaxBaseResponse>,
+) -> Option<ModelError> {
+    let base_response = base_response?;
     let code = base_response.status_code.unwrap_or_default();
     if code == 0 {
-        return Ok(());
+        return None;
     }
     let status_message = base_response
         .status_msg
@@ -198,7 +219,13 @@ fn check_base_response(
         1039 => ModelError::context_limit_exceeded(PROVIDER, provider_model_id, message),
         _ => ModelError::provider(PROVIDER, provider_model_id, message),
     };
-    Err(error)
+    Some(error)
+}
+
+#[derive(Debug, Deserialize)]
+struct MiniMaxBaseResponseEnvelope {
+    #[serde(default)]
+    base_resp: Option<MiniMaxBaseResponse>,
 }
 
 fn parse_tool_calls(

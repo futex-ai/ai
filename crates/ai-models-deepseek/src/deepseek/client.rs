@@ -3,17 +3,20 @@
 use std::{sync::Arc, time::Duration};
 
 use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult, ProviderKind};
-use ai_models_core::{ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level};
+use ai_models_core::{
+    ThinkingLevel, classify_json_http_stream_error, resolve_catalog_thinking_level,
+};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use thiserror::Error;
 
 use crate::{DEEPSEEK_V4_PRO, catalog::known_models};
 
-use super::{request, response};
+use super::{request, stream};
 
 const DEEPSEEK_CHAT_COMPLETIONS_URL: &str = "https://api.deepseek.com/chat/completions";
-const DEEPSEEK_REQUEST_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const COMPLETION_STREAM_TIMEOUT: Duration = Duration::from_secs(3_600);
+const COMPLETION_STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 const PROVIDER: &str = "deepseek";
 
 #[derive(Debug, Eq, Error, PartialEq)]
@@ -108,31 +111,33 @@ impl Model for DeepSeekModel {
             .controls
             .execution
             .total_timeout
-            .unwrap_or(DEEPSEEK_REQUEST_TIMEOUT);
-        let builder = builder.timeout(timeout);
+            .unwrap_or(COMPLETION_STREAM_TIMEOUT);
+        let builder = builder
+            .timeout(timeout)
+            .idle_timeout(COMPLETION_STREAM_IDLE_TIMEOUT);
         let request = match builder.json(request_body) {
             Ok(request) => request,
             Err(source) => return Err(ModelError::internal(source)),
         };
-        let response = match request.send_value().await {
-            Ok(response) => response,
-            Err(source) => return Err(request_error(source, &self.provider_model_id)),
+        let event_stream = match request.send_sse().await {
+            Ok(event_stream) => event_stream,
+            Err(source) => {
+                return Err(classify_json_http_stream_error(
+                    PROVIDER,
+                    &self.provider_model_id,
+                    0,
+                    source,
+                ));
+            }
         };
-        if response.status >= 400 {
-            return Err(classify_json_http_error(
-                PROVIDER,
-                &self.provider_model_id,
-                response.status,
-                &response.body,
-            ));
-        }
-        response::parse_response(
+        stream::complete(
+            event_stream,
             &self.catalog_model_id,
             &self.provider_model_id,
             self.thinking_level,
-            response.body,
             model_request.response_schema.as_ref(),
         )
+        .await
     }
 }
 
@@ -162,12 +167,24 @@ fn validate_configuration(
     }
 }
 
+#[cfg(test)]
 pub(super) fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
     match source {
         json_http::Error::Transport { message } | json_http::Error::Auth { message } => {
             ModelError::transient_provider(PROVIDER, model_id, message)
         }
+        json_http::Error::ReqwestTransport { .. } => {
+            ModelError::transient_provider(PROVIDER, model_id, source.to_string())
+        }
         json_http::Error::SerializeRequest { .. }
-        | json_http::Error::DeserializeResponse { .. } => ModelError::internal(source),
+        | json_http::Error::DeserializeResponse { .. }
+        | json_http::Error::ClientInitialization { .. }
+        | json_http::Error::SseUnsupported
+        | json_http::Error::HttpStatus { .. }
+        | json_http::Error::InvalidSseContentType { .. }
+        | json_http::Error::IdleTimeout { .. }
+        | json_http::Error::DeadlineExceeded { .. }
+        | json_http::Error::SseTransport { .. }
+        | json_http::Error::SseDecode { .. } => ModelError::internal(source),
     }
 }

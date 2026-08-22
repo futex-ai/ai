@@ -2,8 +2,8 @@
 
 `ai-models-kimi` is the Moonshot AI Kimi implementation of
 `ai_interface::Model`. Depend on it when a composition root needs Kimi K3
-through the non-streaming Chat Completions API with explicit credentials and
-the workspace's shared model contracts.
+through internally accumulated Chat Completions SSE with explicit credentials
+and the workspace's shared model contracts.
 
 ## Responsibilities
 
@@ -15,6 +15,8 @@ the workspace's shared model contracts.
   replay without exposing reasoning as assistant text.
 - Translate transport, HTTP, provider-payload, and validation failures into
   shared typed model errors.
+- Accumulate streamed content, reasoning, tools, and final usage while keeping
+  `Model::complete` buffered for callers.
 
 ## What This Crate Does
 
@@ -25,17 +27,23 @@ parallel custom function calls, non-strict provider JSON-schema generation
 with local validation, cached-input usage normalization, and lossless
 assistant replay across tool continuations.
 
+Synchronous completions send `stream: true` and request in-stream usage. Kimi's
+final usage, including its direct cached-token field, maps through the existing
+response normalizer. Streams default to a 3,600-second overall deadline and a
+120-second idle timeout; explicit call timeouts replace the overall deadline.
+Failures after stream progress become `ModelError::Interrupted`.
+
 Portable output limits use `max_completion_tokens`; ordered stops and all
 shared tool choices map to Kimi fields, with `RequiredOrAuto` using native
 required semantics. K3 keeps temperature and top-p at its provider-fixed
-values, blank system prompts are omitted, and execution controls apply a
-per-call timeout while provider-neutral `PreferDeferred` falls back to the
-ordinary synchronous request.
+values, blank system prompts are omitted, and provider-neutral
+`PreferDeferred` falls back to the ordinary synchronous request.
 
 The crate does not read environment variables, load deployment config, price
 usage, or make credential-dependent calls during unit tests. Credentialed
-whole-catalog checks live in the workspace `xtask` suite. K2.x and Moonshot V1 models,
-streaming, Partial Mode, video/file upload, dynamic or official tools, and
+whole-catalog checks live in the workspace `xtask` suite. K2.x and Moonshot V1
+models, public incremental streaming, Partial Mode, video/file upload, dynamic
+or official tools, and
 provider cache-key tuning are outside its initial contract. Shared video
 content parts are rejected with a typed provider error before transport.
 
@@ -83,10 +91,12 @@ credentials or network access are required.
 - `src/kimi/request_types.rs` - serialized Chat Completions request DTOs.
 - `src/kimi/response.rs` - response, tool-call, structured-output, replay, and
   usage normalization.
+- `src/kimi/stream.rs` - SSE accumulation and progress-aware failures.
 
 ### Related Docs
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

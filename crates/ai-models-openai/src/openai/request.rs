@@ -18,6 +18,7 @@ pub(super) fn build_request(
 ) -> ModelResult<ResponsesRequest> {
     let tools = request.tools.iter().map(tool).collect::<Vec<_>>();
     Ok(ResponsesRequest {
+        stream: true,
         model: model_id.to_owned(),
         instructions: request.nonblank_system_prompt().map(str::to_owned),
         input: input_items(model_id, &request.messages)?,

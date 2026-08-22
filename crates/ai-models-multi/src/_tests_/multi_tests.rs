@@ -68,6 +68,35 @@ async fn falls_back_on_transient_provider_failures() {
 }
 
 #[tokio::test]
+async fn falls_back_after_an_interrupted_generation() {
+    let first_calls = Arc::new(AtomicUsize::new(0));
+    let second_calls = Arc::new(AtomicUsize::new(0));
+    let model = MultiModel::new(vec![
+        scripted_model(
+            first_calls.clone(),
+            Err(ModelError::interrupted(
+                "openai",
+                "gpt-5.5",
+                "stream ended after output",
+            )),
+        ),
+        scripted_model(
+            second_calls.clone(),
+            Ok(success_response("google", "gemini-2.5-pro")),
+        ),
+    ]);
+
+    let response = model
+        .complete(&empty_request())
+        .await
+        .expect("fallback should succeed");
+
+    assert_eq!(response.provider, "google");
+    assert_eq!(first_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(second_calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
 async fn falls_back_on_provider_failures() {
     let first_calls = Arc::new(AtomicUsize::new(0));
     let second_calls = Arc::new(AtomicUsize::new(0));

@@ -15,14 +15,14 @@ the completed implementation milestones.
 
 ## Scope
 
-The initial provider supports Kimi K3 through Moonshot AI's non-streaming Chat
-Completions API. It includes text and image input, custom function tools,
-parallel tool calls, structured JSON output, automatic cache usage reporting,
-and K3 reasoning-effort variants.
+The provider supports Kimi K3 through Moonshot AI's Chat Completions API,
+accumulated internally over SSE. It includes text and image input, custom
+function tools, parallel tool calls, structured JSON output, automatic cache
+usage reporting, and K3 reasoning-effort variants.
 
-The initial version does not support K2.x models, Moonshot V1 models,
-streaming, Partial Mode, video or file upload, dynamic or official Kimi tools,
-`prompt_cache_key`, or `safety_identifier`. Those capabilities require
+The provider does not support K2.x models, Moonshot V1 models, public
+incremental streaming, Partial Mode, video or file upload, dynamic or official
+Kimi tools, `prompt_cache_key`, or `safety_identifier`. Those capabilities require
 separate contracts rather than silent partial support. Shared video content
 parts defined by the [video input protocol](video-input.md) are rejected with
 a typed provider error before transport.
@@ -90,7 +90,7 @@ K3 request mapping must:
 - map portable output limits to `max_completion_tokens`, ordered stops to
   `stop`, and `none`, `auto`, `required`, or named-function tool choice to the
   native `tool_choice` shape;
-- apply a portable total timeout to the HTTP request, use ordinary synchronous
+- apply a portable total timeout to the overall SSE deadline, use ordinary synchronous
   completion for `PreferDeferred`, and reject `RequireDeferred` with typed
   `UnsupportedControl`;
 - serialize plain content as a string and typed text/image parts as content
@@ -99,7 +99,12 @@ K3 request mapping must:
   remains an empty string, while unavailable assistant content may be null;
 - serialize user and assistant names only when present and supported;
 - ignore provider context owned by other providers;
-- send no streaming, partial, file, video, or K2 `thinking` fields.
+- send `stream: true` and `stream_options.include_usage: true`, while sending
+  no partial, file, video, or K2 `thinking` fields.
+
+The default overall deadline is 3,600 seconds and the maximum idle gap is 120
+seconds. Kimi reports usage on the final choice-bearing event; its direct
+`cached_tokens` field is retained before `[DONE]` finalizes accumulation.
 
 ## Preserved Assistant Context
 
@@ -235,6 +240,10 @@ Transport and authentication-hook failures are transient provider failures.
 Local request serialization and response deserialization failures are
 internal errors. Invalid provider choices, tool arguments, or structured
 output are non-retryable provider failures.
+
+Malformed, incomplete, or provider-error streams before progress preserve
+their retryable/provider class. The same failures after progress become
+`ModelError::Interrupted` and are not blindly replayed.
 
 ## Required Verification
 

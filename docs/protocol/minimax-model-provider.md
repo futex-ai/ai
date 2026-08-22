@@ -35,7 +35,7 @@ The V1 adapter uses:
 - Endpoint: `POST https://api.minimax.io/v1/chat/completions`
 - Authentication: `Authorization: Bearer <api-key>`
 - Content type: `application/json`
-- Response mode: non-streaming
+- Response mode: internally accumulated SSE
 - Provider identifier: `minimax`
 
 `MiniMaxModel::new` accepts an injected `DynJsonHttpClient`, model id, and API
@@ -44,8 +44,8 @@ key. `MiniMaxModel::with_auth` accepts an injected `DynJsonHttpAuth`.
 the upstream model id and accepts `ThinkingLevel`.
 
 The international endpoint is the V1 boundary. The China-region endpoint,
-custom endpoint overrides, streaming, server-side tools, and the MiniMax
-Responses and Anthropic-compatible APIs are out of scope.
+custom endpoint overrides, public incremental streaming, server-side tools,
+and the MiniMax Responses and Anthropic-compatible APIs are out of scope.
 
 ## Known Model Catalog
 
@@ -72,7 +72,8 @@ billing schedule.
 Every request must:
 
 1. Send the selected provider model id.
-2. Set `reasoning_split: true`.
+2. Set `stream: true`, `stream_options.include_usage: true`, and
+   `reasoning_split: true`.
 3. Add a nonblank normalized system prompt as the first `system` message and
    omit empty or whitespace-only system prompts.
 4. Append retained conversation messages in order.
@@ -109,9 +110,20 @@ and `auto`. MiniMax-M3 additionally maps strict `Required` and
 `RequiredOrAuto` to `tool_choice: "required"`. Other catalog models retain
 strict rejection for `Required`, while `RequiredOrAuto` preserves tools and
 maps to `auto`. Named-function choices and nonempty stop sequences return typed
-`UnsupportedControl` before transport. A total
-timeout reaches the HTTP request, `PreferDeferred` falls back to synchronous,
+`UnsupportedControl` before transport. A total timeout replaces the default
+3,600-second overall SSE deadline; the idle timeout is 120 seconds.
+`PreferDeferred` falls back to synchronous,
 and `RequireDeferred` is unsupported.
+
+MiniMax-M3 streams standard incremental visible-content deltas. MiniMax-M2.x
+streams cumulative visible-content snapshots, so the adapter validates that
+each M2.x snapshot extends the prior value and converts it to a suffix delta for
+the shared accumulator. The adapter retains the last nonempty
+`reasoning_details` snapshot as canonical replay state. A MiniMax-M3
+required-tool stream observed by the credentialed suite on 2026-08-22 used
+incremental content and revised earlier reasoning text, so M3 content is
+accumulated directly and reasoning snapshots replace prior snapshots. Final
+usage and `[DONE]` are required.
 
 MiniMax's public reference currently enumerates only `none` and `auto`. Firna
 reported a successful live MiniMax-M3 request with a real tool and
@@ -243,6 +255,8 @@ accepting choices:
 
 The provider's numeric code and `status_msg` must be retained in the error
 message. Missing `base_resp` or status code zero means no provider-level error.
+Before stream progress those numeric codes retain the classifications above;
+after progress they become `ModelError::Interrupted`.
 
 ## Verification Contract
 

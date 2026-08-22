@@ -80,7 +80,8 @@ async fn builds_text_request_and_parses_stopped_response() {
                 {"role": "user", "content": "Hello", "name": "caller"},
                 {"role": "assistant", "content": "Working"}
             ],
-            "stream": false,
+            "stream": true,
+            "stream_options": {"include_usage": true},
             "reasoning_split": true,
             "thinking": {"type": "adaptive"}
         }))

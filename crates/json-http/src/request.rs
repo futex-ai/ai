@@ -5,9 +5,9 @@ use std::{collections::BTreeMap, ops::Index, time::Duration};
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
-use crate::{DynJsonHttpAuth, DynJsonHttpTransport, Error, Result};
+use crate::{DynJsonHttpAuth, DynJsonHttpSseStream, DynJsonHttpTransport, Error, Result};
 
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(600);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 /// Supported JSON HTTP verbs.
@@ -118,6 +118,8 @@ pub struct JsonHttpRequest {
     pub body: Option<JsonHttpBody>,
     /// Per-request transport timeout.
     pub timeout: Duration,
+    /// Optional maximum gap between decoded events on the SSE path.
+    pub idle_timeout: Option<Duration>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -152,6 +154,7 @@ impl JsonHttpRequestBuilder {
                 headers: BTreeMap::new(),
                 body: None,
                 timeout: DEFAULT_TIMEOUT,
+                idle_timeout: None,
             },
             auth_hooks: Vec::new(),
         }
@@ -175,6 +178,12 @@ impl JsonHttpRequestBuilder {
         self
     }
 
+    /// Sets the maximum gap between decoded SSE events.
+    pub fn idle_timeout(mut self, idle_timeout: Duration) -> Self {
+        self.request.idle_timeout = Some(idle_timeout);
+        self
+    }
+
     /// Registers an auth hook that will run before dispatch.
     pub fn auth(mut self, auth: DynJsonHttpAuth) -> Self {
         self.auth_hooks.push(auth);
@@ -186,9 +195,11 @@ impl JsonHttpRequestBuilder {
     where
         T: Serialize,
     {
-        self.request.body = Some(JsonHttpBody::Json(
-            serde_json::to_value(body).map_err(|source| Error::SerializeRequest { source })?,
-        ));
+        let body = match serde_json::to_value(body) {
+            Ok(body) => body,
+            Err(source) => return Err(Error::SerializeRequest { source }),
+        };
+        self.request.body = Some(JsonHttpBody::Json(body));
         Ok(self)
     }
 
@@ -212,18 +223,28 @@ impl JsonHttpRequestBuilder {
         transport.execute_bytes(&request).await
     }
 
+    /// Opens a decoded Server-Sent Events response stream.
+    pub async fn send_sse(self) -> Result<DynJsonHttpSseStream> {
+        let transport = self.transport.clone();
+        let request = self.build_request().await?;
+        transport.execute_sse(&request).await
+    }
+
     /// Executes the request and deserializes the response body into a typed DTO.
     pub async fn send<T>(self) -> Result<JsonHttpResponse<T>>
     where
         T: DeserializeOwned,
     {
         let response = self.send_value().await?;
-        let body = serde_json::from_value(response.body.clone()).map_err(|source| {
-            Error::DeserializeResponse {
-                body: response.body,
-                source,
+        let body = match serde_json::from_value(response.body.clone()) {
+            Ok(body) => body,
+            Err(source) => {
+                return Err(Error::DeserializeResponse {
+                    body: response.body,
+                    source,
+                });
             }
-        })?;
+        };
         Ok(JsonHttpResponse {
             status: response.status,
             body,

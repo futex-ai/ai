@@ -12,8 +12,10 @@ async-trait = "0.1.91"
 json-http.workspace = true
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+thiserror = "2.0.20"
 
 [dev-dependencies]
+ai-models-core = { workspace = true, features = ["test-support"] }
 json-http = { workspace = true, features = ["test-support"] }
 tokio = { version = "1.53.1", features = ["macros", "rt"] }
 unimock = "0.6.8"

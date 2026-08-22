@@ -7,13 +7,16 @@
 - Implement the Anthropic model client behind `ai_interface::Model`
 - Export strongly typed known Anthropic model metadata for model routing
 - Map shared model/tool DTOs to the Anthropic messages API
+- Consume Anthropic Messages SSE events and reconstruct complete responses
 - Parse Anthropic responses into shared response DTOs and typed model errors
 
 ## What This Crate Does
 
 `AnthropicModel` accepts a `json-http` client plus explicit auth input and handles:
 
-- Anthropic messages request serialization
+- Anthropic messages request serialization with internal SSE accumulation
+- 3,600-second default overall completion deadline, 120-second stream idle
+  deadline, and explicit per-call total-timeout overrides
 - portable sampling outside thinking mode, bounded output limits, stop
   sequences, strict and required-with-automatic-fallback tool choice, per-call
   timeouts, and blank-system omission
@@ -30,8 +33,10 @@
 - provider response usage extraction into normalized input, output, cached
   input, and cache-creation token counts; cache creation is folded into regular
   input usage
-- status, transport, and structured-output validation failure mapping onto
-  `ai_interface::ModelError`
+- typed classification of failures before stream progress as retryable and
+  failures after progress as `ModelError::Interrupted`
+- status, native stream error, transport, and structured-output validation
+  failure mapping onto `ai_interface::ModelError`
 
 This crate does not load config, read environment variables, or resolve
 credentials on its own. It exports `known_models()` and typed catalog id
@@ -47,7 +52,9 @@ adaptive thinking, sets `output_config.effort` to `max`, and requests omitted
 thinking display. All existing Sonnet 4.6, Opus 4.7, and Haiku 4.5 entries
 remain available for pinned deployments.
 Reasoning/thinking content blocks in provider responses are ignored and are not
-surfaced as assistant text.
+surfaced as assistant text. The stream accumulator still consumes thinking and
+signature deltas so its reconstructed response remains equivalent to the
+buffered Anthropic shape.
 
 ## Quick Start
 
@@ -83,11 +90,14 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 - `src/catalog.rs` - known Anthropic model ids and routing metadata
 - `src/anthropic/request.rs` - Anthropic request DTO mapping
 - `src/anthropic/response.rs` - Anthropic response parsing
+- `src/anthropic/stream/` - typed event accumulation and stream failure mapping
 
 ### Related Docs
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [Anthropic model overview](https://platform.claude.com/docs/en/about-claude/models/overview)
+- [Anthropic streaming messages](https://platform.claude.com/docs/en/build-with-claude/streaming)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

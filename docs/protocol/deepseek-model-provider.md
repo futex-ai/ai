@@ -14,17 +14,18 @@ records the milestones and verification used to deliver this contract.
 
 ## Scope
 
-The initial provider supports `deepseek-v4-pro` and `deepseek-v4-flash`
-through DeepSeek's official, non-streaming OpenAI-format Chat Completions API.
+The provider supports `deepseek-v4-pro` and `deepseek-v4-flash` through
+DeepSeek's official OpenAI-format Chat Completions API, accumulated internally
+over SSE as defined by the [streaming protocol](model-completion-streaming.md).
 It includes text, custom and parallel function calls, optional thinking,
 reasoning effort, locally validated JSON output, and normalized cache and
 reasoning usage.
 
-The initial provider does not support the retired `deepseek-chat` or
-`deepseek-reasoner` aliases, streaming, image input, the Anthropic-format API,
-third-party or custom endpoints, FIM completion, chat prefix completion,
-strict tool mode, or beta endpoints. These capabilities require separate
-contracts rather than silent partial support.
+The provider does not support the retired `deepseek-chat` or
+`deepseek-reasoner` aliases, public incremental streaming, image input, the
+Anthropic-format API, third-party or custom endpoints, FIM completion, chat
+prefix completion, strict tool mode, or beta endpoints. These capabilities
+require separate contracts rather than silent partial support.
 
 ## Ownership
 
@@ -55,15 +56,14 @@ Authorization: Bearer <api-key>
 Content-Type: application/json
 ```
 
-Requests set `stream: false`. `DeepSeekModel::new` and `with_auth` construct
+Requests set `stream: true` and `stream_options.include_usage: true`.
+`DeepSeekModel::new` and `with_auth` construct
 the default high-thinking `deepseek-v4-pro`; `with_catalog_auth` accepts the
 injected client and auth, catalog id, provider id, and `ThinkingLevel`, then
 validates the selection before returning a model.
 
-Each request uses a ten-minute transport timeout. DeepSeek can keep a request
-open while it waits for inference capacity, and the provider closes a request
-that has not started inference after ten minutes. The adapter must not apply
-the shared 60-second JSON HTTP default to this endpoint.
+Each completion uses a 3,600-second overall deadline and a 120-second idle
+timeout. An explicit portable total timeout replaces the overall deadline.
 
 ## Known Model Catalog
 
@@ -115,8 +115,8 @@ keeps provider defaults, `auto` uses omission plus `tools`, `none` omits tools,
 and strict required or named-function choice returns typed
 `UnsupportedControl`. `RequiredOrAuto` maps to native automatic semantics by
 retaining `tools` and omitting `tool_choice`.
-A total timeout reaches the HTTP request, `PreferDeferred` falls back to
-synchronous, and `RequireDeferred` is unsupported.
+A total timeout controls the overall SSE deadline, `PreferDeferred` falls back
+to synchronous, and `RequireDeferred` is unsupported.
 
 ## Thinking Controls
 
@@ -255,6 +255,10 @@ Transport and auth-hook failures are transient. Local serialization and typed
 deserialization failures are internal. Missing choices, invalid calls,
 missing required reasoning, malformed arguments, and invalid structured
 output are provider failures. Credentials never enter errors or diagnostics.
+
+The final empty-choice usage event must precede `[DONE]`. Stream failures and
+provider error events before progress retain retryable/provider
+classification; after any event they become `ModelError::Interrupted`.
 
 An HTTP-success response with `finish_reason:
 "insufficient_system_resource"` returns `ModelError::TransientProvider`

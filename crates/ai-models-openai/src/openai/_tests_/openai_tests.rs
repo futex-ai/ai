@@ -1,27 +1,16 @@
 //! Tests for OpenAI Responses request mapping and basic parsing.
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
-
 use ai_interface::{
     ConversationMessage, FinishReason, Model, ModelRequest, StructuredOutputSchema, ToolDefinition,
 };
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    TransportBackedJsonHttpClient,
-};
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
 
 use super::OpenAiModel;
-
-type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
+use crate::openai::stream_support::client_for_buffered_bodies;
 
 #[tokio::test]
 async fn builds_openai_tool_requests_and_parses_response() {
-    let (http_client, requests) = recording_http_client(openai_tool_response());
+    let (http_client, requests) = client_for_buffered_bodies(vec![openai_tool_response()]);
     let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
 
     let response = model
@@ -68,8 +57,9 @@ async fn builds_openai_tool_requests_and_parses_response() {
 
 #[tokio::test]
 async fn builds_structured_output_requests_and_parses_response() {
-    let (http_client, requests) =
-        recording_http_client(openai_text_response("{\"summary\":\"Done\",\"done\":true}"));
+    let (http_client, requests) = client_for_buffered_bodies(vec![openai_text_response(
+        "{\"summary\":\"Done\",\"done\":true}",
+    )]);
     let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
 
     let response = model
@@ -110,37 +100,6 @@ async fn builds_structured_output_requests_and_parses_response() {
     assert_eq!(response.finish_reason, FinishReason::Stop);
 }
 
-fn recording_http_client(
-    response: JsonHttpResponse<serde_json::Value>,
-) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let responses = Arc::new(Mutex::new(VecDeque::from([response])));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                let responses = responses.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("requests lock should not be poisoned")
-                        .push(request.clone());
-                    Ok(responses
-                        .lock()
-                        .expect("responses lock should not be poisoned")
-                        .pop_front()
-                        .expect("unexpected transport call"))
-                })
-            }),
-    ));
-
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
-}
-
 fn memory_read_tool() -> ToolDefinition {
     ToolDefinition {
         name: "memory_read".to_owned(),
@@ -156,48 +115,42 @@ fn memory_read_tool() -> ToolDefinition {
     }
 }
 
-fn openai_text_response(text: &str) -> JsonHttpResponse<serde_json::Value> {
-    JsonHttpResponse {
-        status: 200,
-        body: json!({
-            "status": "completed",
-            "output": [{
-                "type": "message",
-                "role": "assistant",
-                "content": [{ "type": "output_text", "text": text }]
-            }],
-            "usage": {
-                "input_tokens": 120,
-                "output_tokens": 32,
-                "total_tokens": 152
-            }
-        }),
-    }
+fn openai_text_response(text: &str) -> serde_json::Value {
+    json!({
+        "status": "completed",
+        "output": [{
+            "type": "message",
+            "role": "assistant",
+            "content": [{ "type": "output_text", "text": text }]
+        }],
+        "usage": {
+            "input_tokens": 120,
+            "output_tokens": 32,
+            "total_tokens": 152
+        }
+    })
 }
 
-fn openai_tool_response() -> JsonHttpResponse<serde_json::Value> {
-    JsonHttpResponse {
-        status: 200,
-        body: json!({
-            "status": "completed",
-            "output": [
-                {
-                    "type": "message",
-                    "role": "assistant",
-                    "content": [{ "type": "output_text", "text": "Done" }]
-                },
-                {
-                    "type": "function_call",
-                    "call_id": "call_1",
-                    "name": "memory_read",
-                    "arguments": "{\"path\":\"root\"}"
-                }
-            ],
-            "usage": {
-                "input_tokens": 120,
-                "output_tokens": 32,
-                "total_tokens": 152
+fn openai_tool_response() -> serde_json::Value {
+    json!({
+        "status": "completed",
+        "output": [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{ "type": "output_text", "text": "Done" }]
+            },
+            {
+                "type": "function_call",
+                "call_id": "call_1",
+                "name": "memory_read",
+                "arguments": "{\"path\":\"root\"}"
             }
-        }),
-    }
+        ],
+        "usage": {
+            "input_tokens": 120,
+            "output_tokens": 32,
+            "total_tokens": 152
+        }
+    })
 }

@@ -18,12 +18,15 @@ in-memory tool-calling runtime behavior.
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, Google and MiniMax inline video
   input, OpenAI and Gemini image generation, OpenAI Sora and Google Veo video
-  generation, structured output, usage normalization, catalog-aware
+  generation, internally streamed completions for every provider (with xAI's
+  deferred path remaining buffered), structured output, usage normalization, catalog-aware
   thinking-level downgrades, and typed errors
 - Provider-agnostic wrappers for retry, concurrency, structured output
-  validation, known-model catalogs, and usage pricing
+  validation, known-model catalogs, usage pricing, streaming failure
+  classification, and chat-completions delta accumulation
 - Ordered fallback model composition through `ai-models-multi`
-- Trait-backed JSON HTTP client support through `json-http`
+- Trait-backed buffered and incremental SSE HTTP client support through
+  `json-http`, with connect, idle, and overall timeout controls
 - In-memory tool-calling runtime through `ai-tool-calling`, including
   universal tool output management with inline envelopes, stored output ids,
   UTF-8-safe windows, and degraded-window fallbacks
@@ -33,6 +36,10 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [Model completion streaming](docs/protocol/model-completion-streaming.md)
+  defines internal SSE accumulation, idle and overall deadlines, interruption
+  retry policy, provider mappings, response parity, and the Firna revision-bump
+  contract.
 - [Provider call controls](docs/protocol/provider-call-controls.md) defines
   portable generation and execution intent, provider compatibility, blank
   system handling, full Google schemas, and XAI deferred completion.
@@ -220,6 +227,8 @@ cargo xtask review
   catalog and CI verification contract
 - `docs/protocol/provider-call-controls.md`: normative model-call control and
   provider wire-compatibility contract
+- `docs/protocol/model-completion-streaming.md`: approved internal SSE,
+  timeout, interruption, parity, and downstream migration contract
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
   contract
 - `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract

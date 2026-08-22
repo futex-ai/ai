@@ -9,9 +9,9 @@ use ai_models_core::ThinkingLevel;
 
 use super::request_types::{
     ChatCompletionsContent, ChatCompletionsContentPart, ChatCompletionsImageUrl,
-    ChatCompletionsMessage, ChatCompletionsRequest, ChatCompletionsTool, ChatCompletionsToolCall,
-    ChatCompletionsToolDefinition, ChatCompletionsToolFunction, ChatCompletionsVideoUrl,
-    ThinkingControl,
+    ChatCompletionsMessage, ChatCompletionsRequest, ChatCompletionsStreamOptions,
+    ChatCompletionsTool, ChatCompletionsToolCall, ChatCompletionsToolDefinition,
+    ChatCompletionsToolFunction, ChatCompletionsVideoUrl, ThinkingControl,
 };
 
 const STRUCTURED_OUTPUT_INSTRUCTION: &str = "Return only raw JSON that validates against the \
@@ -40,7 +40,10 @@ pub(super) fn build_request(
     ChatCompletionsRequest {
         model: model_id.to_owned(),
         messages,
-        stream: false,
+        stream: true,
+        stream_options: ChatCompletionsStreamOptions {
+            include_usage: true,
+        },
         reasoning_split: true,
         thinking: ThinkingControl {
             kind: if thinking_level.is_enabled() {

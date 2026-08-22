@@ -47,6 +47,9 @@ stateful runtime implementation.
   `qwen`, plus typed Qwen raw tool-call replay state.
 - Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
+  `ModelError::Interrupted` identifies a streaming completion that failed only
+  after provider events had arrived, keeping it distinct from a safe-to-retry
+  `TransientProvider` failure before any progress.
 - Defines defaulted `ModelCallControls` for portable sampling, output limits,
   ordered stops, strict or explicit required-with-automatic-fallback tool
   choice, total call timeout, and provider-neutral
@@ -215,6 +218,7 @@ tool dispatch live in `ai-tool-calling`.
 
 ### Related Docs
 
+- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`futex-ai/internal-error`](https://github.com/futex-ai/internal-error)
 - [`../ai-tool-calling/README.md`](../ai-tool-calling/README.md)

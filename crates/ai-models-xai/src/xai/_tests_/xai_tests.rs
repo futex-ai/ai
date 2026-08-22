@@ -1,24 +1,14 @@
 //! Tests for xAI request mapping and response parsing.
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
-
 use ai_interface::{
     ConversationMessage, ConversationRole, FinishReason, Model, ModelRequest,
     StructuredOutputSchema, ToolDefinition,
 };
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    TransportBackedJsonHttpClient,
-};
+use ai_models_core::{ThinkingLevel, synthetic_tool_call_scope};
+use json_http::JsonHttpResponse;
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
 
-use super::XaiModel;
-
-type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
+use super::{XaiModel, response, test_support::recording_http_client};
 
 #[tokio::test]
 async fn builds_xai_tool_requests_and_parses_response() {
@@ -198,11 +188,15 @@ async fn maps_xai_finish_reasons() {
     }
 }
 
-#[tokio::test]
-async fn maps_missing_xai_finish_reason_to_other() {
-    let (http_client, _) = recording_http_client(JsonHttpResponse {
-        status: 200,
-        body: json!({
+#[test]
+fn maps_missing_xai_finish_reason_to_other() {
+    let request = simple_request();
+    let response = response::parse_response(
+        "grok-4",
+        "grok-4",
+        ThinkingLevel::Disabled,
+        &synthetic_tool_call_scope(&request),
+        json!({
             "choices": [{
                 "message": {
                     "content": "Done",
@@ -210,49 +204,14 @@ async fn maps_missing_xai_finish_reason_to_other() {
                 }
             }]
         }),
-    });
-    let model = XaiModel::new(http_client, "grok-4", "xai-key");
-
-    let response = model
-        .complete(&simple_request())
-        .await
-        .expect("xAI response should parse");
+        None,
+    )
+    .expect("xAI response should parse");
 
     assert_eq!(
         response.finish_reason,
         FinishReason::Other("missing".to_owned())
     );
-}
-
-fn recording_http_client(
-    response: JsonHttpResponse<serde_json::Value>,
-) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let responses = Arc::new(Mutex::new(VecDeque::from([response])));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                let responses = responses.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("requests lock should not be poisoned")
-                        .push(request.clone());
-                    Ok(responses
-                        .lock()
-                        .expect("responses lock should not be poisoned")
-                        .pop_front()
-                        .expect("unexpected transport call"))
-                })
-            }),
-    ));
-
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
 }
 
 fn simple_request() -> ModelRequest {

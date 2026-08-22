@@ -90,6 +90,16 @@ fn typed_model_error_helpers_preserve_branchable_variants() {
         } if provider == "anthropic" && model_id == "claude"
     ));
 
+    let interrupted = ModelError::interrupted("deepseek", "deepseek-reasoner", "stream closed");
+    assert!(matches!(
+        interrupted,
+        ModelError::Interrupted {
+            provider,
+            model_id,
+            ..
+        } if provider == "deepseek" && model_id == "deepseek-reasoner"
+    ));
+
     let context = ModelError::context_limit_exceeded("google", "gemini", "too large");
     assert!(matches!(
         context,

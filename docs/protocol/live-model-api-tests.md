@@ -18,11 +18,17 @@ controls. Entries advertising `ModelFeature::ImageGeneration` or
 `VideoGenerator`, not `Model`, and are therefore outside this chat connectivity
 suite.
 
-Audio transcription, image or video generation, streaming, provider-built
-tools, multimodal input, multi-turn tool replay, pricing, and provider features
-outside the chat model catalog are not part of this connectivity suite.
-Deterministic transport tests in the provider crates remain responsible for
-detailed wire behavior.
+Audio transcription, image or video generation, provider-built tools,
+multimodal input, multi-turn tool replay, pricing, and provider features
+outside the chat model catalog are not part of this connectivity suite. A
+provider whose production completion adapter streams internally is exercised
+over that streaming path by its existing catalog test; Anthropic, OpenAI
+Responses, and Google currently do so. Deterministic transport tests in
+provider crates remain responsible for detailed event and wire behavior. All
+eight providers now stream production synchronous completions internally;
+xAI's catalog job first runs one explicit synchronous streaming probe, then
+uses `PreferDeferred` across the catalog to exercise its buffered
+submit-and-poll lifecycle too.
 
 Credentialed image generation is specified separately by the implemented
 [live image API test protocol](live-image-api-tests.md). Keeping the suites
@@ -49,6 +55,8 @@ test:
    generation, then
    constructs it with `ReqwestJsonHttpClient`, the production chat adapter,
    explicit provider authentication, and catalog thinking metadata.
+   Providers migrated to internal SSE accumulation therefore use their real
+   streaming endpoint without a live-test-only branch.
 3. Erases the concrete adapter behind `DynModel` and applies the standard
    transient retry wrapper.
 4. Injects that model into `ToolCallingRuntime`, sends one text-only turn with

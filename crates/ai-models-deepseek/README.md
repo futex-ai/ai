@@ -2,8 +2,8 @@
 
 `ai-models-deepseek` is the DeepSeek V4 implementation of
 `ai_interface::Model`. Depend on it when a composition root needs current
-DeepSeek Pro or Flash models through the official non-streaming Chat
-Completions endpoint with explicit credentials.
+DeepSeek Pro or Flash models through the official Chat Completions endpoint
+with internally accumulated SSE and explicit credentials.
 
 ## Responsibilities
 
@@ -16,21 +16,23 @@ Completions endpoint with explicit credentials.
   without exposing reasoning in normalized assistant text or logger copies.
 - Translate transport, authentication, HTTP, payload, and local validation
   failures into the shared model error contract.
+- Accumulate streamed text, reasoning, tool calls, finish state, and exact
+  usage without changing the buffered `ModelResponse` interface.
 
 ## What This Crate Does
 
 `DeepSeekModel` accepts an injected `json-http` client plus an explicit API key
-or auth hook. It sends non-streaming requests to
-`https://api.deepseek.com/chat/completions`, records both catalog and upstream
-model ids, and supports high, max, and disabled thinking configurations for
-`deepseek-v4-pro` and `deepseek-v4-flash`. Standard and parallel custom
+or auth hook. It streams requests from
+`https://api.deepseek.com/chat/completions` with `include_usage`, records both
+catalog and upstream model ids, and supports high, max, and disabled thinking
+configurations for `deepseek-v4-pro` and `deepseek-v4-flash`. Standard and parallel custom
 function calls retain provider ids, order, raw JSON arguments, assistant
 content, and reasoning across tool continuations. Portable output limits and
 stops map in all modes. Sampling and forced tool choice map only when thinking
 is disabled; thinking keeps native sampling and automatic tool semantics.
 `RequiredOrAuto` forces required use without thinking and retains tools while
 omitting `tool_choice` in thinking mode. Blank system prompts are omitted and
-per-call timeouts reach the transport.
+per-call timeouts replace the overall stream deadline.
 
 Structured requests use provider JSON-object mode plus a schema-specific
 system instruction, then validate naturally stopped output against the caller's
@@ -43,13 +45,12 @@ Unsupported normalized levels downgrade to the highest configured level not
 above the request: low and medium resolve to disabled, while extra-high
 resolves to high. Responses record the effective level.
 
-Requests use a ten-minute transport timeout. DeepSeek may keep a request open
-while it waits for inference capacity, especially for Flash reasoning, and the
-provider documents a ten-minute upper bound before it closes a request that has
-not started inference.
+Completion streams default to a 3,600-second overall deadline and a 120-second
+idle timeout. A failure before any event is retryable; a failure after progress
+is `ModelError::Interrupted` and is not blindly replayed.
 
 The provider is text-only: any non-empty typed `content_parts` input is rejected
-before authentication or transport. Retired aliases, vision, streaming, beta
+before authentication or transport. Retired aliases, vision, beta
 APIs, Anthropic-format access, custom endpoints, and ambient credentials are
 outside this crate's contract. Credentialed whole-catalog checks live in the
 workspace `xtask` suite rather than this crate's deterministic unit tests.
@@ -98,10 +99,12 @@ credential or network access is required.
 - `src/deepseek/request.rs` - shared request and continuation mapping.
 - `src/deepseek/request_types.rs` - serialized Chat Completions request DTOs.
 - `src/deepseek/response.rs` - typed response normalization.
+- `src/deepseek/stream.rs` - SSE accumulation and progress-aware failures.
 
 ### Related Docs
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

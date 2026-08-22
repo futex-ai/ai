@@ -8,6 +8,8 @@
 - Export strongly typed known xAI model metadata for model routing
 - Map shared model/tool DTOs to the xAI chat-completions API
 - Parse xAI responses into shared response DTOs and typed model errors
+- Stream synchronous completions internally while retaining buffered deferred
+  submission and polling
 
 ## What This Crate Does
 
@@ -22,6 +24,9 @@
 - provider-owned deferred submission and same-id polling that retries pending,
   rate-limited, transient transport, and server states without resubmitting an
   accepted completion
+- synchronous SSE accumulation for visible content, modern tool calls, legacy
+  function calls, final usage, and `[DONE]`; streams use a 3,600-second overall
+  deadline and 120-second idle timeout unless the caller tightens the deadline
 - xAI modern `tool_calls` and legacy `function_call` parsing, including
   deterministic request-scoped local ids for legacy calls and legacy
   continuation replay without sending synthetic `tool_call_id` fields
@@ -41,7 +46,8 @@
 - provider response usage extraction into normalized input, cached input,
   output, and reasoning token counts when xAI returns compatible usage details
 - status, transport, and structured-output validation failure mapping onto
-  `ai_interface::ModelError`
+  `ai_interface::ModelError`, including non-retryable interruption after
+  stream progress
 
 This crate does not load config, read environment variables, or resolve
 credentials on its own. It exports `known_models()` and typed catalog id
@@ -89,10 +95,12 @@ cargo clippy -p ai-models-xai --all-targets --all-features -- -D warnings
 - `src/xai/request.rs` - xAI request DTO mapping
 - `src/xai/request_types.rs` - xAI request serialization DTOs
 - `src/xai/response.rs` - xAI response parsing
+- `src/xai/stream.rs` - synchronous SSE accumulation and failure classification
 
 ### Related Docs
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [Grok 4.5 model details](https://docs.x.ai/developers/models/grok-4.5)
 - [xAI model catalog](https://docs.x.ai/developers/models)
 - [Grok 4.20 model details](https://docs.x.ai/developers/models/grok-4.20)

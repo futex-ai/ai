@@ -1,9 +1,12 @@
 //! Qwen model construction and request dispatch.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult, ProviderKind};
-use ai_models_core::{ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level};
+use ai_models_core::{
+    ThinkingLevel, classify_json_http_error, classify_json_http_stream_error,
+    resolve_catalog_thinking_level,
+};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use serde_json::Value;
@@ -11,10 +14,12 @@ use thiserror::Error;
 
 use crate::{QWEN_3_7_FLASH, QWEN_3_7_MAX, QWEN_3_7_PLUS, catalog::known_models};
 
-use super::{request, response};
+use super::{request, stream};
 
 const QWEN_CHAT_COMPLETIONS_URL: &str =
     "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions";
+const COMPLETION_STREAM_TIMEOUT: Duration = Duration::from_secs(3_600);
+const COMPLETION_STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 const PROVIDER: &str = "qwen";
 
 #[derive(Debug, Eq, Error, PartialEq)]
@@ -103,32 +108,44 @@ impl Model for QwenModel {
             .http_client
             .post(QWEN_CHAT_COMPLETIONS_URL)
             .auth(self.auth.clone());
-        let builder = match model_request.controls.execution.total_timeout {
-            Some(timeout) => builder.timeout(timeout),
-            None => builder,
-        };
+        let timeout = model_request
+            .controls
+            .execution
+            .total_timeout
+            .unwrap_or(COMPLETION_STREAM_TIMEOUT);
+        let builder = builder
+            .timeout(timeout)
+            .idle_timeout(COMPLETION_STREAM_IDLE_TIMEOUT);
         let request = match builder.json(request_body) {
             Ok(request) => request,
             Err(source) => return Err(ModelError::internal(source)),
         };
-        let http_response = match request.send_value().await {
-            Ok(response) => response,
-            Err(source) => return Err(request_error(source, &self.provider_model_id)),
+        let event_stream = match request.send_sse().await {
+            Ok(event_stream) => event_stream,
+            Err(json_http::Error::HttpStatus { status, body }) => {
+                return Err(classify_qwen_http_error(
+                    &self.provider_model_id,
+                    status,
+                    &body,
+                ));
+            }
+            Err(source) => {
+                return Err(classify_json_http_stream_error(
+                    PROVIDER,
+                    &self.provider_model_id,
+                    0,
+                    source,
+                ));
+            }
         };
-        if http_response.status >= 400 {
-            return Err(classify_qwen_http_error(
-                &self.provider_model_id,
-                http_response.status,
-                &http_response.body,
-            ));
-        }
-        response::parse_response(
+        stream::complete(
+            event_stream,
             &self.catalog_model_id,
             &self.provider_model_id,
             self.thinking_level,
-            http_response.body,
             model_request.response_schema.as_ref(),
         )
+        .await
     }
 }
 
@@ -179,12 +196,24 @@ fn error_message(body: &Value) -> Option<&str> {
         .or_else(|| body.get("message").and_then(Value::as_str))
 }
 
+#[cfg(test)]
 pub(super) fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
     match source {
         json_http::Error::Transport { message } | json_http::Error::Auth { message } => {
             ModelError::transient_provider(PROVIDER, model_id, message)
         }
+        json_http::Error::ReqwestTransport { .. } => {
+            ModelError::transient_provider(PROVIDER, model_id, source.to_string())
+        }
         json_http::Error::SerializeRequest { .. }
-        | json_http::Error::DeserializeResponse { .. } => ModelError::internal(source),
+        | json_http::Error::DeserializeResponse { .. }
+        | json_http::Error::ClientInitialization { .. }
+        | json_http::Error::SseUnsupported
+        | json_http::Error::HttpStatus { .. }
+        | json_http::Error::InvalidSseContentType { .. }
+        | json_http::Error::IdleTimeout { .. }
+        | json_http::Error::DeadlineExceeded { .. }
+        | json_http::Error::SseTransport { .. }
+        | json_http::Error::SseDecode { .. } => ModelError::internal(source),
     }
 }

@@ -1,23 +1,16 @@
 //! XAI portable generation-control tests.
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
     ConversationMessage, Model, ModelCallControls, ModelExecutionControls, ModelGenerationControls,
     ModelRequest, ModelToolChoice, ToolDefinition,
 };
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    TransportBackedJsonHttpClient,
-};
+use ai_models_core::test_support::RecordedRequests;
+use json_http::{JsonHttpClient, JsonHttpResponse};
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
 
-use super::XaiModel;
+use super::{XaiModel, test_support::recording_http_client};
 
 #[tokio::test]
 async fn maps_generation_controls_timeout_and_blank_system_to_final_request() {
@@ -110,9 +103,8 @@ fn controlled_request() -> ModelRequest {
     }
 }
 
-fn recording_client() -> (Arc<dyn JsonHttpClient>, Arc<Mutex<Vec<JsonHttpRequest>>>) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let responses = Arc::new(Mutex::new(VecDeque::from([JsonHttpResponse {
+fn recording_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
+    recording_http_client(JsonHttpResponse {
         status: 200,
         body: json!({
             "choices": [{
@@ -120,28 +112,5 @@ fn recording_client() -> (Arc<dyn JsonHttpClient>, Arc<Mutex<Vec<JsonHttpRequest
                 "message": { "content": "Done", "tool_calls": [] }
             }]
         }),
-    }])));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                let responses = responses.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("request lock should be available")
-                        .push(request.clone());
-                    Ok(responses
-                        .lock()
-                        .expect("response lock should be available")
-                        .pop_front()
-                        .expect("unexpected transport call"))
-                })
-            }),
-    ));
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
+    })
 }
