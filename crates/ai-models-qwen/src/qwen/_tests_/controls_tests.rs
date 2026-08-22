@@ -14,7 +14,10 @@ use crate::QWEN_3_7_PLUS;
 
 use super::{
     QwenModel,
-    test_support::{recording_http_client, successful_response, unused_http_client},
+    test_support::{
+        recording_http_client, recording_http_client_responses, successful_response,
+        unused_http_client,
+    },
 };
 
 #[tokio::test]
@@ -87,7 +90,10 @@ async fn thinking_required_or_auto_preserves_tools_and_uses_auto() {
 
 #[tokio::test]
 async fn disabled_thinking_required_choices_force_tool_use() {
-    let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
+    let (http_client, requests) = recording_http_client_responses(vec![
+        successful_response(Some("Done")),
+        successful_response(Some("Done")),
+    ]);
     let model = QwenModel::with_catalog_auth(
         http_client,
         "qwen3.7-plus-thinking-disabled",

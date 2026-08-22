@@ -9,7 +9,7 @@ use super::{DeepSeekModel, test_support::recording_http_client};
 use crate::DEEPSEEK_V4_PRO;
 
 #[tokio::test]
-async fn sends_bearer_auth_to_exact_endpoint_with_non_streaming_body() {
+async fn sends_bearer_auth_to_exact_streaming_endpoint() {
     let (http_client, requests) =
         recording_http_client(super::test_support::successful_response(Some("Done")));
     DeepSeekModel::new(http_client, "deepseek-secret")
@@ -29,13 +29,15 @@ async fn sends_bearer_auth_to_exact_endpoint_with_non_streaming_body() {
         .expect("object");
 
     assert_eq!(request.url, "https://api.deepseek.com/chat/completions");
-    assert_eq!(request.timeout, Duration::from_secs(10 * 60));
+    assert_eq!(request.timeout, Duration::from_secs(3_600));
+    assert_eq!(request.idle_timeout, Some(Duration::from_secs(120)));
     assert_eq!(
         request.headers.get("Authorization").map(String::as_str),
         Some("Bearer deepseek-secret")
     );
     assert_eq!(body["model"], DEEPSEEK_V4_PRO);
-    assert_eq!(body["stream"], false);
+    assert_eq!(body["stream"], true);
+    assert_eq!(body["stream_options"]["include_usage"], true);
     for omitted in [
         "temperature",
         "top_p",

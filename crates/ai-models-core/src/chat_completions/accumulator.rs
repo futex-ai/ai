@@ -33,7 +33,16 @@ impl ChatCompletionsAccumulator {
             self.done = true;
             return Ok(ChatCompletionsStreamStatus::Done);
         }
-        let chunk = match serde_json::from_str::<ChatCompletionsStreamChunk>(data) {
+        let value = match serde_json::from_str::<serde_json::Value>(data) {
+            Ok(value) => value,
+            Err(source) => return Err(ChatCompletionsStreamError::DeserializeChunk { source }),
+        };
+        if let Some(error) = value.get("error").filter(|error| !error.is_null()) {
+            return Err(ChatCompletionsStreamError::ProviderEvent {
+                error: error.clone(),
+            });
+        }
+        let chunk = match serde_json::from_value::<ChatCompletionsStreamChunk>(value) {
             Ok(chunk) => chunk,
             Err(source) => return Err(ChatCompletionsStreamError::DeserializeChunk { source }),
         };

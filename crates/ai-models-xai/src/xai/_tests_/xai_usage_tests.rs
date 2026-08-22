@@ -1,23 +1,14 @@
 //! Tests for xAI usage parsing.
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
-
 use ai_interface::{ConversationMessage, Model, ModelRequest};
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    TransportBackedJsonHttpClient,
-};
+use json_http::JsonHttpResponse;
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
 
-use super::XaiModel;
+use super::{XaiModel, test_support::recording_http_client};
 
 #[tokio::test]
 async fn missing_xai_total_tokens_falls_back_to_normalized_usage_sum() {
-    let http_client = single_response_http_client(JsonHttpResponse {
+    let (http_client, _) = recording_http_client(JsonHttpResponse {
         status: 200,
         body: json!({
             "choices": [{
@@ -47,7 +38,7 @@ async fn missing_xai_total_tokens_falls_back_to_normalized_usage_sum() {
 
 #[tokio::test]
 async fn xai_usage_separates_cached_and_reasoning_tokens() {
-    let http_client = single_response_http_client(JsonHttpResponse {
+    let (http_client, _) = recording_http_client(JsonHttpResponse {
         status: 200,
         body: json!({
             "choices": [{
@@ -81,28 +72,6 @@ async fn xai_usage_separates_cached_and_reasoning_tokens() {
     assert_eq!(response.usage.output_tokens, 30);
     assert_eq!(response.usage.reasoning_tokens, 20);
     assert_eq!(response.usage.total_tokens, 170);
-}
-
-fn single_response_http_client(
-    response: JsonHttpResponse<serde_json::Value>,
-) -> Arc<dyn JsonHttpClient> {
-    let responses = Arc::new(Mutex::new(VecDeque::from([response])));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let responses = responses.clone();
-                Arc::new(move |_, _request: &JsonHttpRequest| {
-                    Ok(responses
-                        .lock()
-                        .expect("responses lock should not be poisoned")
-                        .pop_front()
-                        .expect("unexpected transport call"))
-                })
-            }),
-    ));
-
-    Arc::new(TransportBackedJsonHttpClient::new(transport))
 }
 
 fn simple_request() -> ModelRequest {

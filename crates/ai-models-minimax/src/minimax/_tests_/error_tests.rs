@@ -3,34 +3,42 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use ai_interface::{Model, ModelError};
-use async_trait::async_trait;
-use json_http::{
-    JsonHttpAuth, JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    StaticHeaderAuth, TransportBackedJsonHttpClient,
+use ai_models_core::{
+    ThinkingLevel,
+    test_support::{SseFixture, recording_streaming_client},
 };
+use async_trait::async_trait;
+use json_http::JsonHttpAuth;
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
 
-use super::{MiniMaxModel, support::simple_request};
+use crate::MINIMAX_M3;
+
+use super::{
+    MiniMaxModel, response,
+    support::{simple_request, unused_http_client},
+};
 
 #[tokio::test]
 async fn classifies_http_and_transport_failures() {
-    let http_error = model_with_transport_answer(|_| {
-        Ok(JsonHttpResponse {
+    let (http_client, _) = recording_streaming_client(vec![SseFixture::OpeningError(
+        json_http::Error::HttpStatus {
             status: 429,
             body: json!({"error": {"message": "slow down"}}),
-        })
-    })
-    .complete(&simple_request())
-    .await
-    .expect_err("HTTP rate limit should fail");
+        },
+    )]);
+    let http_error = MiniMaxModel::new(http_client, MINIMAX_M3, "key")
+        .complete(&simple_request())
+        .await
+        .expect_err("HTTP rate limit should fail");
     assert!(matches!(http_error, ModelError::RateLimited { .. }));
 
-    let transport_error =
-        model_with_transport_answer(|_| Err(json_http::Error::transport("connection reset")))
-            .complete(&simple_request())
-            .await
-            .expect_err("transport error should fail");
+    let (http_client, _) = recording_streaming_client(vec![SseFixture::OpeningError(
+        json_http::Error::transport("connection reset"),
+    )]);
+    let transport_error = MiniMaxModel::new(http_client, MINIMAX_M3, "key")
+        .complete(&simple_request())
+        .await
+        .expect_err("transport error should fail");
     assert!(matches!(
         transport_error,
         ModelError::TransientProvider { .. }
@@ -39,55 +47,22 @@ async fn classifies_http_and_transport_failures() {
 
 #[tokio::test]
 async fn classifies_auth_and_response_shape_failures() {
-    let http_client = Arc::new(TransportBackedJsonHttpClient::new(Arc::new(Unimock::new(
-        (),
-    ))));
-    let auth_error = MiniMaxModel::with_auth(http_client, "MiniMax-M3", Arc::new(FailingAuth))
-        .complete(&simple_request())
-        .await
-        .expect_err("auth hook error should fail");
+    let auth_error =
+        MiniMaxModel::with_auth(unused_http_client(), MINIMAX_M3, Arc::new(FailingAuth))
+            .complete(&simple_request())
+            .await
+            .expect_err("auth hook error should fail");
     assert!(matches!(auth_error, ModelError::TransientProvider { .. }));
 
-    let malformed_error = model_with_transport_answer(|_| {
-        Ok(JsonHttpResponse {
-            status: 200,
-            body: json!({"choices": "not-an-array"}),
-        })
-    })
-    .complete(&simple_request())
-    .await
+    let malformed_error = response::parse_response(
+        MINIMAX_M3,
+        MINIMAX_M3,
+        ThinkingLevel::Medium,
+        json!({"choices": "not-an-array"}),
+        None,
+    )
     .expect_err("malformed typed response should fail");
     assert!(matches!(malformed_error, ModelError::Internal { .. }));
-}
-
-fn model_with_transport_answer(
-    answer: impl Fn(&JsonHttpRequest) -> json_http::Result<JsonHttpResponse<serde_json::Value>>
-    + Send
-    + Sync
-    + 'static,
-) -> MiniMaxModel {
-    MiniMaxModel::with_auth(
-        transport_client(answer),
-        "MiniMax-M3",
-        Arc::new(StaticHeaderAuth::bearer_token("minimax-key")),
-    )
-}
-
-fn transport_client(
-    answer: impl Fn(&JsonHttpRequest) -> json_http::Result<JsonHttpResponse<serde_json::Value>>
-    + Send
-    + Sync
-    + 'static,
-) -> Arc<dyn JsonHttpClient> {
-    let answer = Arc::new(answer);
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc(Arc::new(move |_, request: &JsonHttpRequest| {
-                answer(request)
-            })),
-    ));
-    Arc::new(TransportBackedJsonHttpClient::new(transport))
 }
 
 struct FailingAuth;

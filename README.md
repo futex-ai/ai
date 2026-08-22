@@ -18,8 +18,8 @@ in-memory tool-calling runtime behavior.
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, Google and MiniMax inline video
   input, OpenAI and Gemini image generation, OpenAI Sora and Google Veo video
-  generation, internally streamed Anthropic, OpenAI Responses, and Google
-  completions, structured output, usage normalization, catalog-aware
+  generation, internally streamed completions for every provider (with xAI's
+  deferred path remaining buffered), structured output, usage normalization, catalog-aware
   thinking-level downgrades, and typed errors
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, usage pricing, streaming failure

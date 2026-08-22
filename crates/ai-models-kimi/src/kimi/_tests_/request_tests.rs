@@ -198,6 +198,8 @@ fn maps_exact_reasoning_effort_and_omits_unsupported_fields() {
         let object = body.as_object().expect("request object");
 
         assert_eq!(body["reasoning_effort"], expected);
+        assert_eq!(body["stream"], true);
+        assert_eq!(body["stream_options"]["include_usage"], true);
         for omitted in [
             "temperature",
             "top_p",
@@ -205,7 +207,6 @@ fn maps_exact_reasoning_effort_and_omits_unsupported_fields() {
             "presence_penalty",
             "frequency_penalty",
             "thinking",
-            "stream",
             "partial",
             "file",
             "video",

@@ -9,11 +9,13 @@ Chat Completions models with explicit credentials and shared runtime wrappers.
 - Implement MiniMax text completion and modern function tools behind
   `ai_interface::Model`.
 - Export typed metadata for current MiniMax agent models.
-- Map shared messages to MiniMax's non-streaming Chat Completions API.
+- Map shared messages to MiniMax's internally streamed Chat Completions API.
 - Normalize finish reasons, usage, provider codes, HTTP failures, and
   transport failures into shared model contracts.
 - Serialize M3 image and video inputs and validate requested structured output
   locally.
+- Normalize MiniMax cumulative SSE snapshots and preserve complete reasoning
+  details for continuation replay.
 
 ## What This Crate Does
 
@@ -34,6 +36,13 @@ selection elsewhere while retaining tools. Named choices and stop sequences
 return typed unsupported-control errors. Blank system prompts are omitted and
 per-call timeouts reach the transport.
 
+Completion requests send `stream: true` with final usage enabled. MiniMax's
+cumulative visible content is converted into suffix deltas before shared
+accumulation, while the last complete `reasoning_details` snapshot is retained
+for replay. Streams default to a 3,600-second overall deadline and a 120-second
+idle timeout. Numeric `base_resp` failures keep their provider classification
+before progress and become `ModelError::Interrupted` after progress.
+
 Modern `tools` and `tool_calls` retain MiniMax provider call ids across
 assistant and tool-result messages. MiniMax `reasoning_content` and ordered
 `reasoning_details` are stored as provider-owned replay context for subsequent
@@ -52,14 +61,14 @@ adapter does not claim native provider schema enforcement.
 Ordered shared text, image, and video parts are sent as Chat Completions
 content parts, with base64 image and video bytes encoded as `data:` URLs in
 `image_url` and `video_url` parts. The M3 catalog variants advertise vision
-and video input; M2.7 variants advertise neither. Streaming, provider server
-tools, regional endpoint selection, and legacy MiniMax models remain outside
-this crate's boundary.
+and video input; M2.7 variants advertise neither. Public incremental
+streaming, provider server tools, regional endpoint selection, and legacy
+MiniMax models remain outside this crate's boundary.
 
 The crate exports `known_models()` and typed constants for `MiniMax-M3`,
 `MiniMax-M3-thinking-disabled`, `MiniMax-M2.7`, and
 `MiniMax-M2.7-highspeed`. It does not read configuration, inspect environment
-variables, resolve secrets, stream responses, or choose a region.
+variables, resolve secrets, expose response deltas, or choose a region.
 
 ## Quick Start
 
@@ -92,14 +101,17 @@ cargo clippy -p ai-models-minimax --all-targets --all-features -- -D warnings
 ### Key Code
 
 - `src/catalog.rs` - supported model ids and routing metadata.
-- `src/minimax/mod.rs` - `Model` implementation, auth, and dispatch.
+- `src/minimax/client.rs` - `Model` implementation, auth, and dispatch.
 - `src/minimax/request.rs` - shared-to-MiniMax request mapping.
 - `src/minimax/request_types.rs` - typed MiniMax request DTOs.
 - `src/minimax/response.rs` - MiniMax response normalization.
+- `src/minimax/stream.rs` and `stream_normalizer.rs` - SSE consumption and
+  cumulative snapshot normalization.
 
 ### Related Docs
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

@@ -21,9 +21,11 @@
 
 `ChatCompletionsAccumulator` is the shared typed merger for compatible
 provider streams. It joins visible content and reasoning independently,
-reassembles indexed tool calls and argument fragments, retains terminal finish
-reasons and final usage, and requires the `[DONE]` sentinel before producing a
-buffered response-shaped value.
+reassembles indexed tool calls and legacy function-call argument fragments,
+retains terminal finish reasons and final usage, recognizes standard provider
+error events, and requires the `[DONE]` sentinel before producing a buffered
+response-shaped value. Its usage superset retains nested cache details plus
+Kimi's direct `cached_tokens` field for provider-specific normalization.
 
 It also defines `KnownModelSpec`, `KnownModelCatalog`, coarse `SpeedTier` and
 `CostTier` values, `ThinkingLevel`, and the 1-to-10 `IntelligenceScore` used

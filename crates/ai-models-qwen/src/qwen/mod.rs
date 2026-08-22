@@ -5,6 +5,7 @@ mod request;
 mod request_messages;
 mod request_types;
 mod response;
+mod stream;
 
 pub use client::{QwenConfigurationError, QwenConfigurationResult, QwenModel};
 
@@ -35,3 +36,11 @@ mod error_tests;
 #[cfg(test)]
 #[path = "_tests_/controls_tests.rs"]
 mod controls_tests;
+
+#[cfg(test)]
+#[path = "_tests_/streaming_tests.rs"]
+mod streaming_tests;
+
+#[cfg(test)]
+#[path = "_tests_/stream_error_tests.rs"]
+mod stream_error_tests;

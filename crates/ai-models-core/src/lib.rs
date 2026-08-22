@@ -12,6 +12,9 @@ mod retrying;
 mod sleeper;
 mod tool_call_identity;
 
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
+
 pub use catalog::{
     CostTier, IntelligenceScore, KnownModelCatalog, KnownModelSpec, ModelFeature, ProviderKind,
     SpeedTier, ThinkingLevel, known_mock_models, resolve_catalog_thinking_level,
@@ -24,9 +27,9 @@ pub use chat_completions::{
 };
 pub use concurrency::ConcurrencyLimitedModel;
 pub use errors::{
-    assistant_text, classify_json_http_error, classify_json_http_stream_error,
-    classify_stream_error, parse_structured_output, parse_tool_call_arguments,
-    validate_structured_output,
+    assistant_text, classify_chat_completions_provider_error, classify_json_http_error,
+    classify_json_http_stream_error, classify_stream_error, parse_structured_output,
+    parse_tool_call_arguments, validate_structured_output,
 };
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use polling::PollingRuntimeMock;

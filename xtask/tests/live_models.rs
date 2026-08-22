@@ -15,7 +15,7 @@ use ai_models_core::ModelFeature;
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 
 use self::provider_tests::LiveProvider;
-use self::runner_tests::run_catalog;
+use self::runner_tests::{run_catalog, run_synchronous_stream_probe};
 
 #[test]
 fn covers_every_real_provider() {
@@ -135,7 +135,7 @@ async fn anthropic_catalog() {
 }
 
 #[tokio::test]
-#[ignore = "requires a live DeepSeek API credential"]
+#[ignore = "requires a live DeepSeek API credential for the streaming catalog"]
 async fn deepseek_catalog() {
     run_catalog(LiveProvider::DeepSeek).await;
 }
@@ -147,13 +147,13 @@ async fn google_catalog() {
 }
 
 #[tokio::test]
-#[ignore = "requires a live Kimi API credential"]
+#[ignore = "requires a live Kimi API credential for the streaming catalog"]
 async fn kimi_catalog() {
     run_catalog(LiveProvider::Kimi).await;
 }
 
 #[tokio::test]
-#[ignore = "requires a live MiniMax API credential"]
+#[ignore = "requires a live MiniMax API credential for the streaming catalog"]
 async fn minimax_catalog() {
     tool_choice_tests::run_minimax_m3_required_tool_call().await;
     run_catalog(LiveProvider::MiniMax).await;
@@ -166,13 +166,14 @@ async fn openai_catalog() {
 }
 
 #[tokio::test]
-#[ignore = "requires a live QwenCloud API credential"]
+#[ignore = "requires a live QwenCloud API credential for the streaming catalog"]
 async fn qwen_catalog() {
     run_catalog(LiveProvider::Qwen).await;
 }
 
 #[tokio::test]
-#[ignore = "requires a live xAI API credential"]
+#[ignore = "requires a live xAI API credential for the streaming/deferred catalog"]
 async fn xai_catalog() {
+    run_synchronous_stream_probe(LiveProvider::Xai).await;
     run_catalog(LiveProvider::Xai).await;
 }

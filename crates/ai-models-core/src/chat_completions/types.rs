@@ -32,6 +32,9 @@ pub struct ChatCompletionsMessage {
     pub reasoning_content: Option<String>,
     /// Complete tool calls ordered by their provider-assigned index.
     pub tool_calls: Vec<ChatCompletionsToolCall>,
+    /// Complete legacy function call, when supplied by a compatible provider.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub function_call: Option<ChatCompletionsToolFunction>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -70,6 +73,9 @@ pub struct ChatCompletionsUsage {
     /// DeepSeek-style cache-miss input tokens, when supplied.
     #[serde(default)]
     pub prompt_cache_miss_tokens: Option<u64>,
+    /// Kimi-style direct cached-input token count.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached_tokens: Option<u64>,
     /// OpenAI-style prompt-token details.
     #[serde(default)]
     pub prompt_tokens_details: ChatCompletionsPromptTokenDetails,
@@ -111,6 +117,12 @@ pub enum ChatCompletionsStreamError {
     DeserializeChunk {
         /// Underlying JSON decoding failure.
         source: serde_json::Error,
+    },
+    /// A standard provider error payload was received in the event stream.
+    #[error("[ai_models_core/chat_completions] provider stream error: {error}")]
+    ProviderEvent {
+        /// Provider-owned structured error payload.
+        error: serde_json::Value,
     },
     /// Data arrived after the terminal sentinel.
     #[error("[ai_models_core/chat_completions] received data after [DONE]")]
@@ -190,6 +202,19 @@ pub enum ChatCompletionsStreamError {
         /// Conflicting later function name.
         received: String,
     },
+    /// A legacy function call completed without a function name.
+    #[error("[ai_models_core/chat_completions] legacy function call had no function name")]
+    MissingLegacyFunctionName,
+    /// A legacy function-call stream changed its function name.
+    #[error(
+        "[ai_models_core/chat_completions] legacy function call changed from `{existing}` to `{received}`"
+    )]
+    ConflictingLegacyFunctionName {
+        /// First provider function name.
+        existing: String,
+        /// Conflicting later function name.
+        received: String,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -218,6 +243,8 @@ pub(super) struct ChatCompletionsMessageDelta {
     pub(super) reasoning_content: Option<String>,
     #[serde(default)]
     pub(super) tool_calls: Vec<ChatCompletionsToolCallDelta>,
+    #[serde(default)]
+    pub(super) function_call: Option<ChatCompletionsToolFunctionDelta>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -1,10 +1,13 @@
 //! MiniMax locally validated structured-output tests.
 
 use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, StructuredOutputSchema};
+use ai_models_core::ThinkingLevel;
 use json_http::JsonHttpResponse;
 use serde_json::{Value, json};
 
-use super::{MiniMaxModel, support::recording_http_client};
+use crate::MINIMAX_M3;
+
+use super::{MiniMaxModel, response, support::recording_http_client};
 
 #[tokio::test]
 async fn prompts_for_and_validates_structured_output_locally() {
@@ -100,10 +103,16 @@ async fn skips_structured_parsing_on_tool_and_terminal_finishes() {
         if let Some(finish_reason) = finish_reason {
             choice["finish_reason"] = json!(finish_reason);
         }
-        let response = complete_with_schema(json!({"choices": [choice]}), status_schema())
-            .await
-            .expect("non-stop response should not parse structured output");
-        assert_eq!(response.structured_output, None);
+        let schema = status_schema();
+        let parsed = response::parse_response(
+            MINIMAX_M3,
+            MINIMAX_M3,
+            ThinkingLevel::Medium,
+            json!({"choices": [choice]}),
+            Some(&schema),
+        )
+        .expect("non-stop response should not parse structured output");
+        assert_eq!(parsed.structured_output, None);
     }
 }
 

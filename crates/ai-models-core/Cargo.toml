@@ -21,5 +21,6 @@ unimock = { version = "0.6.8", optional = true }
 
 [dev-dependencies]
 ai-interface = { workspace = true, features = ["test-support"] }
+json-http = { workspace = true, features = ["test-support"] }
 tokio = { version = "1.52.1", features = ["macros", "rt", "rt-multi-thread", "time"] }
 unimock = "0.6.8"

@@ -82,7 +82,6 @@ async fn parses_structured_output_only_for_natural_stops_without_calls() {
         Some("length"),
         Some("content_filter"),
         Some("future_reason"),
-        None,
     ] {
         let mut choice = json!({
             "message": {

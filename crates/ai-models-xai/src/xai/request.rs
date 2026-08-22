@@ -11,8 +11,8 @@ use super::request_types::{
     ChatCompletionsContent, ChatCompletionsContentPart, ChatCompletionsImageUrl,
     ChatCompletionsJsonSchema, ChatCompletionsMessage, ChatCompletionsNamedFunction,
     ChatCompletionsNamedToolChoice, ChatCompletionsRequest, ChatCompletionsResponseFormat,
-    ChatCompletionsTool, ChatCompletionsToolCall, ChatCompletionsToolChoice,
-    ChatCompletionsToolDefinition, ChatCompletionsToolFunction,
+    ChatCompletionsStreamOptions, ChatCompletionsTool, ChatCompletionsToolCall,
+    ChatCompletionsToolChoice, ChatCompletionsToolDefinition, ChatCompletionsToolFunction,
 };
 
 const PROVIDER: &str = "xai";
@@ -35,6 +35,7 @@ pub(super) fn build_request(
     }
     messages.extend(conversation_messages(model_id, &request.messages)?);
 
+    let deferred = request.controls.execution.completion_mode != ModelCompletionMode::Synchronous;
     Ok(ChatCompletionsRequest {
         model: model_id.to_owned(),
         messages,
@@ -46,7 +47,11 @@ pub(super) fn build_request(
         top_p: request.controls.generation.top_p,
         max_tokens: request.controls.generation.max_output_tokens,
         stop: request.controls.generation.stop_sequences.clone(),
-        deferred: request.controls.execution.completion_mode != ModelCompletionMode::Synchronous,
+        stream: !deferred,
+        stream_options: (!deferred).then_some(ChatCompletionsStreamOptions {
+            include_usage: true,
+        }),
+        deferred,
     })
 }
 

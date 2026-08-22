@@ -1,7 +1,7 @@
 # Model Completion Streaming Protocol
 
-Status: approved on 2026-08-22; JSON HTTP, shared model foundations, Anthropic,
-OpenAI Responses, and Google implemented; remaining provider migration pending.
+Status: implemented on 2026-08-22 for JSON HTTP and every scoped completion
+provider; final workspace verification and review remain in progress.
 
 ## Purpose
 
@@ -154,8 +154,11 @@ DeepSeek, Kimi, MiniMax, QwenCloud, and synchronous xAI use one pure
 - concatenates `delta.reasoning_content` independently;
 - keys `delta.tool_calls[]` by tool-call `index`, retains the one-time `id` and
   function name, and concatenates function-argument fragments exactly;
+- reconstructs compatible legacy `delta.function_call` fragments;
 - retains the last non-null terminal `finish_reason`;
-- retains the final usage-bearing chunk; and
+- retains the final usage-bearing chunk, including nested and direct cached
+  token fields;
+- exposes standard in-stream provider errors for typed classification; and
 - treats an exact `data: [DONE]` value as the terminal sentinel rather than
   JSON.
 
@@ -214,11 +217,25 @@ provider context normalize identically to the buffered path.
 
 ### Chat-Completions Providers
 
-Before enabling a provider, its current official API must be verified to emit
-usage in-stream and the exact opt-in field must be recorded here. If accurate
-usage is unavailable, that provider stays buffered under the 600-second
-backstop; usage must never be dropped or invented. xAI deferred execution is
-unchanged even when its synchronous path streams.
+The contracts were verified on 2026-08-22 against the current official
+[DeepSeek](https://api-docs.deepseek.com/api/create-chat-completion),
+[Kimi](https://platform.kimi.ai/docs/api/chat),
+[MiniMax](https://platform.minimax.io/docs/api-reference/text-post),
+[QwenCloud](https://help.aliyun.com/en/model-studio/stream), and
+[xAI streaming](https://docs.x.ai/developers/model-capabilities/text/streaming)
+and [usage](https://docs.x.ai/developers/cost-tracking) documentation.
+
+| Provider | Usage opt-in and terminal contract | Provider-specific accumulation |
+| --- | --- | --- |
+| DeepSeek | `stream: true` plus `stream_options.include_usage: true`; final empty-choice usage chunk, then `[DONE]` | Standard content, `reasoning_content`, and indexed tool-call deltas |
+| Kimi | Same opt-in; usage is on the final choice-bearing chunk, then `[DONE]` | Standard deltas; retain its direct `cached_tokens` usage field |
+| MiniMax | Same opt-in; final complete usage, then the OpenAI-compatible terminal sentinel | Convert cumulative content snapshots to suffix deltas; validate and retain the final complete `reasoning_details` snapshot |
+| QwenCloud | Same opt-in; final empty-choice usage chunk, then `[DONE]` | Standard content, `reasoning_content`, and indexed tool-call deltas |
+| xAI synchronous | Same opt-in; final empty-choice usage/cost chunk, then `[DONE]` | Standard content, indexed tool calls, and legacy function-call deltas; running usage is replaced by the final exact report |
+
+All five providers therefore stream without a buffered usage exception. A
+standard `error` payload is terminal. MiniMax `base_resp` failures retain their
+numeric classification. xAI deferred submit/poll execution remains buffered.
 
 ## Response Parity And Verification
 

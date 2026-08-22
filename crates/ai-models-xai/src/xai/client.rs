@@ -2,9 +2,12 @@
 
 use std::{sync::Arc, time::Duration};
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult, ProviderKind};
+use ai_interface::{
+    Model, ModelError, ModelRequest, ModelResponse, ModelResult, ProviderKind,
+    StructuredOutputSchema,
+};
 use ai_models_core::{
-    ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level,
+    ThinkingLevel, classify_json_http_stream_error, resolve_catalog_thinking_level,
     synthetic_tool_call_scope,
 };
 use async_trait::async_trait;
@@ -16,10 +19,12 @@ use super::{
     deferred::{
         DeferredRuntime, DynDeferredCompletion, TokioDeferredRuntime, XaiDeferredCompletion,
     },
-    request, response,
+    request, response, stream,
 };
 
 const DEFAULT_DEFERRED_TIMEOUT: Duration = Duration::from_secs(60);
+const COMPLETION_STREAM_TIMEOUT: Duration = Duration::from_secs(3_600);
+const COMPLETION_STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 const XAI_CHAT_COMPLETIONS_URL: &str = "https://api.x.ai/v1/chat/completions";
 const PROVIDER: &str = "xai";
 
@@ -119,32 +124,39 @@ impl XaiModel {
         &self,
         request_body: super::request_types::ChatCompletionsRequest,
         total_timeout: Option<Duration>,
-    ) -> ModelResult<serde_json::Value> {
+        synthetic_tool_call_scope: &str,
+        response_schema: Option<&StructuredOutputSchema>,
+    ) -> ModelResult<ModelResponse> {
         let builder = self
             .http_client
             .post(XAI_CHAT_COMPLETIONS_URL)
-            .auth(self.auth.clone());
-        let builder = match total_timeout {
-            Some(timeout) => builder.timeout(timeout),
-            None => builder,
-        };
+            .auth(self.auth.clone())
+            .timeout(total_timeout.unwrap_or(COMPLETION_STREAM_TIMEOUT))
+            .idle_timeout(COMPLETION_STREAM_IDLE_TIMEOUT);
         let request = match builder.json(request_body) {
             Ok(request) => request,
             Err(source) => return Err(ModelError::internal(source)),
         };
-        let response = match request.send_value().await {
-            Ok(response) => response,
-            Err(source) => return Err(request_error(source, &self.provider_model_id)),
+        let event_stream = match request.send_sse().await {
+            Ok(event_stream) => event_stream,
+            Err(source) => {
+                return Err(classify_json_http_stream_error(
+                    PROVIDER,
+                    &self.provider_model_id,
+                    0,
+                    source,
+                ));
+            }
         };
-        if response.status >= 400 {
-            return Err(classify_json_http_error(
-                PROVIDER,
-                &self.provider_model_id,
-                response.status,
-                &response.body,
-            ));
-        }
-        Ok(response.body)
+        stream::complete(
+            event_stream,
+            &self.catalog_model_id,
+            &self.provider_model_id,
+            self.thinking_level,
+            synthetic_tool_call_scope,
+            response_schema,
+        )
+        .await
     }
 }
 
@@ -165,8 +177,9 @@ impl Model for XaiModel {
         let synthetic_tool_call_scope = synthetic_tool_call_scope(request);
         let request_body =
             request::build_request(&self.provider_model_id, self.thinking_level, request)?;
-        let body = if use_deferred {
-            self.deferred_completion
+        if use_deferred {
+            let body = self
+                .deferred_completion
                 .complete(
                     request_body,
                     request
@@ -175,38 +188,23 @@ impl Model for XaiModel {
                         .total_timeout
                         .unwrap_or(DEFAULT_DEFERRED_TIMEOUT),
                 )
-                .await?
+                .await?;
+            response::parse_response(
+                &self.catalog_model_id,
+                &self.provider_model_id,
+                self.thinking_level,
+                &synthetic_tool_call_scope,
+                body,
+                response_schema,
+            )
         } else {
-            self.immediate_completion(request_body, request.controls.execution.total_timeout)
-                .await?
-        };
-        response::parse_response(
-            &self.catalog_model_id,
-            &self.provider_model_id,
-            self.thinking_level,
-            &synthetic_tool_call_scope,
-            body,
-            response_schema,
-        )
-    }
-}
-
-fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
-    match source {
-        json_http::Error::Transport { .. }
-        | json_http::Error::ReqwestTransport { .. }
-        | json_http::Error::Auth { .. } => {
-            ModelError::transient_provider(PROVIDER, model_id, source.to_string())
+            self.immediate_completion(
+                request_body,
+                request.controls.execution.total_timeout,
+                &synthetic_tool_call_scope,
+                response_schema,
+            )
+            .await
         }
-        json_http::Error::SerializeRequest { .. }
-        | json_http::Error::DeserializeResponse { .. }
-        | json_http::Error::ClientInitialization { .. }
-        | json_http::Error::SseUnsupported
-        | json_http::Error::HttpStatus { .. }
-        | json_http::Error::InvalidSseContentType { .. }
-        | json_http::Error::IdleTimeout { .. }
-        | json_http::Error::DeadlineExceeded { .. }
-        | json_http::Error::SseTransport { .. }
-        | json_http::Error::SseDecode { .. } => ModelError::internal(source),
     }
 }

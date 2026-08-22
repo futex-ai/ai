@@ -125,6 +125,8 @@ struct ChatCompletionsUsage {
     #[serde(default)]
     total_tokens: Option<u64>,
     #[serde(default)]
+    cached_tokens: Option<u64>,
+    #[serde(default)]
     prompt_tokens_details: ChatCompletionsPromptTokenDetails,
 }
 
@@ -209,7 +211,9 @@ fn raw_tool_calls(calls: &[ChatCompletionsToolCall]) -> Vec<KimiToolCallContext>
 }
 
 fn usage(usage: ChatCompletionsUsage) -> ModelUsage {
-    let cached_input_tokens = usage.prompt_tokens_details.cached_tokens;
+    let cached_input_tokens = usage
+        .cached_tokens
+        .unwrap_or(usage.prompt_tokens_details.cached_tokens);
     let input_tokens = usage.prompt_tokens.saturating_sub(cached_input_tokens);
     let output_tokens = usage.completion_tokens;
     let total_tokens = usage.total_tokens.unwrap_or_else(|| {

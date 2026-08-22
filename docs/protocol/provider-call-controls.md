@@ -13,8 +13,8 @@ lifecycles inside their owning `ai-models-*` adapters.
 - `ai-interface` owns the typed portable contract and errors.
 - Each provider adapter owns validation, fixed-value behavior, native field
   names, endpoint selection, and request lifecycle.
-- `json-http` carries a timeout and typed body but never inspects provider
-  payloads.
+- `json-http` carries overall and idle timeouts plus a typed body but never
+  inspects provider payloads.
 
 Provider identity remains necessary only at the configuration and composition
 boundary that selects an adapter and supplies its credentials. Feature,
@@ -56,10 +56,11 @@ All fields default to absence and `Synchronous`. An entirely default controls
 object is omitted when `ModelRequest` is serialized. Existing callers
 therefore retain provider-native defaults.
 
-`total_timeout` is the total duration available to one adapter invocation. An
-immediate adapter applies it to its HTTP request. A deferred adapter applies it
-across submission, sleeps, and every retrieval attempt. Retry wrappers remain
-separate calls and may apply their own overall policy.
+`total_timeout` is the total duration available to one adapter invocation. A
+streaming immediate adapter uses it as the overall stream deadline without
+changing its idle timeout. A deferred adapter applies it across submission,
+sleeps, and every retrieval attempt. Retry wrappers remain separate calls and
+may apply their own overall policy.
 
 An explicit output limit composes with a stricter adapter-native maximum by
 using the smaller value. Ordered stop sequences retain caller order.
@@ -156,7 +157,8 @@ reach the final transport request unchanged.
 
 When deferred completion is selected, the XAI adapter:
 
-1. submits exactly once with `deferred: true`;
+1. submits exactly once with `deferred: true` and no synchronous streaming
+   fields;
 2. parses and validates the accepted `request_id` before path construction;
 3. polls the deferred-completion endpoint using the same id and fresh
    authenticated request builders;

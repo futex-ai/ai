@@ -111,7 +111,7 @@ fn request_serialization_and_response_deserialization_errors_are_internal() {
 }
 
 #[tokio::test]
-async fn missing_choices_remains_a_semantic_provider_failure() {
+async fn completed_stream_without_choices_is_an_interruption() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
         status: 200,
         body: json!({"choices": []}),
@@ -121,7 +121,7 @@ async fn missing_choices_remains_a_semantic_provider_failure() {
         .await
         .expect_err("missing choices should fail");
 
-    assert!(matches!(error, ModelError::Provider { .. }));
+    assert!(matches!(error, ModelError::Interrupted { .. }));
 }
 
 #[derive(Clone, Copy)]

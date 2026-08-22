@@ -5,8 +5,8 @@ use super::request_types::{
     ChatCompletionsContent, ChatCompletionsContentPart, ChatCompletionsImageUrl,
     ChatCompletionsJsonSchema, ChatCompletionsMessage, ChatCompletionsNamedFunction,
     ChatCompletionsNamedToolChoice, ChatCompletionsRequest, ChatCompletionsResponseFormat,
-    ChatCompletionsTool, ChatCompletionsToolCall, ChatCompletionsToolChoice,
-    ChatCompletionsToolDefinition, ChatCompletionsToolFunction,
+    ChatCompletionsStreamOptions, ChatCompletionsTool, ChatCompletionsToolCall,
+    ChatCompletionsToolChoice, ChatCompletionsToolDefinition, ChatCompletionsToolFunction,
 };
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, KimiToolCallContext,
@@ -42,6 +42,10 @@ pub(super) fn build_request(
         tool_choice: tool_choice(request, !request.tools.is_empty()),
         response_format: request.response_schema.as_ref().map(response_format),
         reasoning_effort: reasoning_effort.as_str().to_owned(),
+        stream: true,
+        stream_options: ChatCompletionsStreamOptions {
+            include_usage: true,
+        },
         max_completion_tokens: request.controls.generation.max_output_tokens,
         stop: request.controls.generation.stop_sequences.clone(),
     })

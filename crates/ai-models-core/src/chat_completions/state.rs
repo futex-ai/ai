@@ -5,7 +5,8 @@ use std::collections::BTreeMap;
 use super::types::{
     ChatCompletionsChoice, ChatCompletionsMessage, ChatCompletionsResponse,
     ChatCompletionsStreamChunk, ChatCompletionsStreamError, ChatCompletionsToolCall,
-    ChatCompletionsToolCallDelta, ChatCompletionsToolFunction, ChatCompletionsUsage,
+    ChatCompletionsToolCallDelta, ChatCompletionsToolFunction, ChatCompletionsToolFunctionDelta,
+    ChatCompletionsUsage,
 };
 
 #[derive(Debug, Default)]
@@ -25,6 +26,9 @@ impl ChatCompletionsState {
             append(&mut state.reasoning_content, choice.delta.reasoning_content);
             for tool_call in choice.delta.tool_calls {
                 state.push_tool_call(choice.index, tool_call)?;
+            }
+            if let Some(function_call) = choice.delta.function_call {
+                state.push_function_call(function_call)?;
             }
             state.push_finish_reason(choice.index, choice.finish_reason)?;
         }
@@ -55,10 +59,25 @@ struct ChoiceState {
     content: Option<String>,
     reasoning_content: Option<String>,
     tool_calls: BTreeMap<u64, ToolCallState>,
+    function_call: Option<FunctionCallState>,
     finish_reason: Option<String>,
 }
 
 impl ChoiceState {
+    fn push_function_call(
+        &mut self,
+        delta: ChatCompletionsToolFunctionDelta,
+    ) -> Result<(), ChatCompletionsStreamError> {
+        let state = self.function_call.get_or_insert_with(Default::default);
+        if let Some(name) = delta.name {
+            set_legacy_function_name(&mut state.name, name)?;
+        }
+        if let Some(arguments) = delta.arguments {
+            state.arguments.push_str(&arguments);
+        }
+        Ok(())
+    }
+
     fn push_tool_call(
         &mut self,
         choice_index: u64,
@@ -110,14 +129,37 @@ impl ChoiceState {
             .into_iter()
             .map(|(tool_index, state)| state.finish(index, tool_index))
             .collect::<Result<Vec<_>, _>>()?;
+        let function_call = self
+            .function_call
+            .map(FunctionCallState::finish)
+            .transpose()?;
         Ok(ChatCompletionsChoice {
             index,
             message: ChatCompletionsMessage {
                 content: self.content,
                 reasoning_content: self.reasoning_content,
                 tool_calls,
+                function_call,
             },
             finish_reason,
+        })
+    }
+}
+
+#[derive(Debug, Default)]
+struct FunctionCallState {
+    name: Option<String>,
+    arguments: String,
+}
+
+impl FunctionCallState {
+    fn finish(self) -> Result<ChatCompletionsToolFunction, ChatCompletionsStreamError> {
+        let Some(name) = self.name else {
+            return Err(ChatCompletionsStreamError::MissingLegacyFunctionName);
+        };
+        Ok(ChatCompletionsToolFunction {
+            name,
+            arguments: self.arguments,
         })
     }
 }
@@ -195,6 +237,22 @@ fn set_tool_name(
         return Err(ChatCompletionsStreamError::ConflictingToolFunctionName {
             choice_index,
             tool_index,
+            existing: existing.clone(),
+            received,
+        });
+    }
+    *target = Some(received);
+    Ok(())
+}
+
+fn set_legacy_function_name(
+    target: &mut Option<String>,
+    received: String,
+) -> Result<(), ChatCompletionsStreamError> {
+    if let Some(existing) = target.as_ref()
+        && existing != &received
+    {
+        return Err(ChatCompletionsStreamError::ConflictingLegacyFunctionName {
             existing: existing.clone(),
             received,
         });

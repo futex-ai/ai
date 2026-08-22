@@ -1,18 +1,22 @@
 //! Kimi model construction and request dispatch.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ProviderKind};
-use ai_models_core::{ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level};
+use ai_models_core::{
+    ThinkingLevel, classify_json_http_stream_error, resolve_catalog_thinking_level,
+};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use thiserror::Error;
 
 use crate::{KIMI_K3, catalog::known_models};
 
-use super::{request, response};
+use super::{request, stream};
 
 const KIMI_CHAT_COMPLETIONS_URL: &str = "https://api.moonshot.ai/v1/chat/completions";
+const COMPLETION_STREAM_TIMEOUT: Duration = Duration::from_secs(3_600);
+const COMPLETION_STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 const PROVIDER: &str = "kimi";
 
 #[derive(Debug, Eq, Error, PartialEq)]
@@ -111,33 +115,37 @@ impl Model for KimiModel {
             .http_client
             .post(&self.endpoint)
             .auth(self.auth.clone());
-        let builder = match model_request.controls.execution.total_timeout {
-            Some(timeout) => builder.timeout(timeout),
-            None => builder,
-        };
+        let timeout = model_request
+            .controls
+            .execution
+            .total_timeout
+            .unwrap_or(COMPLETION_STREAM_TIMEOUT);
+        let builder = builder
+            .timeout(timeout)
+            .idle_timeout(COMPLETION_STREAM_IDLE_TIMEOUT);
         let request = match builder.json(request_body) {
             Ok(request) => request,
             Err(source) => return Err(ModelError::internal(source)),
         };
-        let response = match request.send_value().await {
-            Ok(response) => response,
-            Err(source) => return Err(request_error(source, &self.provider_model_id)),
+        let event_stream = match request.send_sse().await {
+            Ok(event_stream) => event_stream,
+            Err(source) => {
+                return Err(classify_json_http_stream_error(
+                    PROVIDER,
+                    &self.provider_model_id,
+                    0,
+                    source,
+                ));
+            }
         };
-        if response.status >= 400 {
-            return Err(classify_json_http_error(
-                PROVIDER,
-                &self.provider_model_id,
-                response.status,
-                &response.body,
-            ));
-        }
-        response::parse_response(
+        stream::complete(
+            event_stream,
             &self.catalog_model_id,
             &self.provider_model_id,
             self.reasoning_effort.thinking_level(),
-            response.body,
             response_schema,
         )
+        .await
     }
 }
 
@@ -200,6 +208,7 @@ impl KimiReasoningEffort {
     }
 }
 
+#[cfg(test)]
 pub(super) fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
     match source {
         json_http::Error::Transport { message } | json_http::Error::Auth { message } => {

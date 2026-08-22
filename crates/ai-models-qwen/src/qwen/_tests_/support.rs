@@ -1,16 +1,14 @@
 //! Shared Qwen provider test helpers.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use ai_interface::{ConversationMessage, ModelRequest};
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    TransportBackedJsonHttpClient,
+use ai_models_core::test_support::{
+    RecordedRequests, SseFixture, fixtures_for_buffered_responses, recording_streaming_client,
 };
+use json_http::{JsonHttpClient, JsonHttpResponse, TransportBackedJsonHttpClient};
 use serde_json::{Value, json};
-use unimock::{MockFn, Unimock, matching};
-
-pub(super) type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
+use unimock::Unimock;
 
 pub(super) fn unused_http_client() -> Arc<dyn JsonHttpClient> {
     Arc::new(TransportBackedJsonHttpClient::new(Arc::new(Unimock::new(
@@ -21,37 +19,20 @@ pub(super) fn unused_http_client() -> Arc<dyn JsonHttpClient> {
 pub(super) fn recording_http_client(
     response: JsonHttpResponse<Value>,
 ) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("requests lock should not be poisoned")
-                        .push(request.clone());
-                    Ok(response.clone())
-                })
-            }),
-    ));
+    recording_http_client_responses(vec![response])
+}
 
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
+pub(super) fn recording_http_client_responses(
+    responses: Vec<JsonHttpResponse<Value>>,
+) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
+    recording_streaming_client(fixtures_for_buffered_responses(responses))
 }
 
 pub(super) fn transport_failure_http_client(message: &'static str) -> Arc<dyn JsonHttpClient> {
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .next_call(matching!(_))
-            .answers_arc(Arc::new(move |_, _| {
-                Err(json_http::Error::transport(message))
-            })),
-    ));
-    Arc::new(TransportBackedJsonHttpClient::new(transport))
+    recording_streaming_client(vec![SseFixture::Stream(vec![Err(
+        json_http::Error::transport(message),
+    )])])
+    .0
 }
 
 pub(super) fn successful_response(content: Option<&str>) -> JsonHttpResponse<Value> {

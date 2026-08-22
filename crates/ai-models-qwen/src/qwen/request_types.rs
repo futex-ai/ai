@@ -14,6 +14,7 @@ pub(super) struct ChatCompletionsRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) parallel_tool_calls: Option<bool>,
     pub(super) stream: bool,
+    pub(super) stream_options: ChatCompletionsStreamOptions,
     pub(super) enable_thinking: bool,
     pub(super) preserve_thinking: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -26,6 +27,11 @@ pub(super) struct ChatCompletionsRequest {
     pub(super) max_completion_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(super) stop: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct ChatCompletionsStreamOptions {
+    pub(super) include_usage: bool,
 }
 
 #[derive(Debug, Serialize)]

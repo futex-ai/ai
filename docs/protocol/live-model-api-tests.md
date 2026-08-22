@@ -24,7 +24,11 @@ outside the chat model catalog are not part of this connectivity suite. A
 provider whose production completion adapter streams internally is exercised
 over that streaming path by its existing catalog test; Anthropic, OpenAI
 Responses, and Google currently do so. Deterministic transport tests in
-provider crates remain responsible for detailed event and wire behavior.
+provider crates remain responsible for detailed event and wire behavior. All
+eight providers now stream production synchronous completions internally;
+xAI's catalog job first runs one explicit synchronous streaming probe, then
+uses `PreferDeferred` across the catalog to exercise its buffered
+submit-and-poll lifecycle too.
 
 Credentialed image generation is specified separately by the implemented
 [live image API test protocol](live-image-api-tests.md). Keeping the suites

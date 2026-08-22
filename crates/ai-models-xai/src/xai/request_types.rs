@@ -24,7 +24,16 @@ pub(super) struct ChatCompletionsRequest {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(super) stop: Vec<String>,
     #[serde(skip_serializing_if = "is_false")]
+    pub(super) stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) stream_options: Option<ChatCompletionsStreamOptions>,
+    #[serde(skip_serializing_if = "is_false")]
     pub(super) deferred: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct ChatCompletionsStreamOptions {
+    pub(super) include_usage: bool,
 }
 
 fn is_false(value: &bool) -> bool {

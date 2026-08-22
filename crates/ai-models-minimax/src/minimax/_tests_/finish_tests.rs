@@ -1,16 +1,15 @@
 //! MiniMax finish-reason safety tests.
 
-use ai_interface::{FinishReason, Model};
-use json_http::JsonHttpResponse;
+use ai_interface::FinishReason;
+use ai_models_core::ThinkingLevel;
 use serde_json::{Value, json};
 
-use super::{
-    MiniMaxModel,
-    support::{recording_http_client, simple_request},
-};
+use crate::MINIMAX_M3;
 
-#[tokio::test]
-async fn maps_finish_reasons_and_suppresses_non_tool_payloads() {
+use super::response::parse_response;
+
+#[test]
+fn maps_finish_reasons_and_suppresses_non_tool_payloads() {
     let cases = [
         (Some("stop"), FinishReason::Stop, false),
         (Some("tool_calls"), FinishReason::ToolCalls, true),
@@ -25,18 +24,21 @@ async fn maps_finish_reasons_and_suppresses_non_tool_payloads() {
     ];
 
     for (raw_reason, expected, exposes_tools) in cases {
-        let (http_client, _) = recording_http_client([response(raw_reason, exposes_tools)]);
-        let result = MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key")
-            .complete(&simple_request())
-            .await
-            .expect("finish response should parse without touching suppressed arguments");
+        let result = parse_response(
+            MINIMAX_M3,
+            MINIMAX_M3,
+            ThinkingLevel::Medium,
+            response(raw_reason, exposes_tools),
+            None,
+        )
+        .expect("finish response should parse without touching suppressed arguments");
 
         assert_eq!(result.finish_reason, expected);
         assert_eq!(result.tool_calls.len(), usize::from(exposes_tools));
     }
 }
 
-fn response(raw_reason: Option<&str>, valid_arguments: bool) -> JsonHttpResponse<Value> {
+fn response(raw_reason: Option<&str>, valid_arguments: bool) -> Value {
     let arguments = if valid_arguments {
         "{\"path\":\"root\"}"
     } else {
@@ -58,8 +60,5 @@ fn response(raw_reason: Option<&str>, valid_arguments: bool) -> JsonHttpResponse
     if let Some(raw_reason) = raw_reason {
         choice["finish_reason"] = json!(raw_reason);
     }
-    JsonHttpResponse {
-        status: 200,
-        body: json!({"choices": [choice]}),
-    }
+    json!({"choices": [choice]})
 }

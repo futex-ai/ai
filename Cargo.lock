@@ -167,6 +167,7 @@ dependencies = [
  "json-http",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "unimock",
 ]

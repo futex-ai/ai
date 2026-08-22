@@ -8,9 +8,9 @@ use ai_models_core::ThinkingLevel;
 
 use super::request_types::{
     ChatCompletionsMessage, ChatCompletionsNamedFunction, ChatCompletionsNamedToolChoice,
-    ChatCompletionsRequest, ChatCompletionsResponseFormat, ChatCompletionsThinking,
-    ChatCompletionsTool, ChatCompletionsToolCall, ChatCompletionsToolChoice,
-    ChatCompletionsToolDefinition, ChatCompletionsToolFunction,
+    ChatCompletionsRequest, ChatCompletionsResponseFormat, ChatCompletionsStreamOptions,
+    ChatCompletionsThinking, ChatCompletionsTool, ChatCompletionsToolCall,
+    ChatCompletionsToolChoice, ChatCompletionsToolDefinition, ChatCompletionsToolFunction,
 };
 
 const PROVIDER: &str = "deepseek";
@@ -41,7 +41,10 @@ pub(super) fn build_request(
         messages,
         tools: mapped_tools(thinking_level, request),
         tool_choice: tool_choice(thinking_level, request),
-        stream: false,
+        stream: true,
+        stream_options: ChatCompletionsStreamOptions {
+            include_usage: true,
+        },
         thinking,
         reasoning_effort,
         response_format: request

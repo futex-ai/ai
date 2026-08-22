@@ -1,27 +1,19 @@
 //! Multimodal serialization tests for xAI.
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
-
 use ai_interface::{
     ConversationContentPart, ConversationMessage, Model, ModelError, ModelRequest, ToolCall,
 };
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    TransportBackedJsonHttpClient,
-};
+use json_http::JsonHttpResponse;
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
 
-use super::XaiModel;
-
-type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
+use super::{
+    XaiModel,
+    test_support::{recording_http_client, unused_http_client},
+};
 
 #[tokio::test]
 async fn serializes_image_context_message() {
-    let (http_client, requests) = recording_http_client();
+    let (http_client, requests) = recording_http_client(successful_response());
     let model = XaiModel::new(http_client, "grok-4", "xai-key");
 
     model
@@ -78,10 +70,7 @@ async fn serializes_image_context_message() {
 
 #[tokio::test]
 async fn rejects_video_content_parts_before_transport() {
-    let http_client: Arc<dyn JsonHttpClient> = Arc::new(TransportBackedJsonHttpClient::new(
-        Arc::new(Unimock::new(())),
-    ));
-    let model = XaiModel::new(http_client, "grok-4", "xai-key");
+    let model = XaiModel::new(unused_http_client(), "grok-4", "xai-key");
 
     let error = model
         .complete(&ModelRequest {
@@ -114,9 +103,8 @@ async fn rejects_video_content_parts_before_transport() {
     }
 }
 
-fn recording_http_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let responses = Arc::new(Mutex::new(VecDeque::from([JsonHttpResponse {
+fn successful_response() -> JsonHttpResponse<serde_json::Value> {
+    JsonHttpResponse {
         status: 200,
         body: json!({
             "choices": [{
@@ -124,29 +112,5 @@ fn recording_http_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
                 "message": { "content": "Done", "tool_calls": [] }
             }]
         }),
-    }])));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                let responses = responses.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("requests lock should not be poisoned")
-                        .push(request.clone());
-                    Ok(responses
-                        .lock()
-                        .expect("responses lock should not be poisoned")
-                        .pop_front()
-                        .expect("unexpected transport call"))
-                })
-            }),
-    ));
-
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
+    }
 }

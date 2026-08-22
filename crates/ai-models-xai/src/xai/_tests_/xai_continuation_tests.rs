@@ -1,21 +1,13 @@
 //! xAI continuation request regression tests.
 
-use std::sync::{Arc, Mutex};
-
 use ai_interface::{
     ConversationMessage, DeepSeekToolCallContext, KimiToolCallContext, Model, ModelRequest,
     ProviderConversationItem, QwenToolCallContext, ToolCall,
 };
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    TransportBackedJsonHttpClient,
-};
+use json_http::JsonHttpResponse;
 use serde_json::{Value, json};
-use unimock::{MockFn, Unimock, matching};
 
-use super::XaiModel;
-
-type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
+use super::{XaiModel, test_support::recording_http_client};
 
 #[tokio::test]
 async fn omits_name_from_tool_role_continuation_messages() {
@@ -167,31 +159,6 @@ async fn serializes_legacy_function_call_continuation_messages() {
             .to_string()
             .contains("Qwen-owned")
     );
-}
-
-fn recording_http_client(
-    response: JsonHttpResponse<Value>,
-) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("requests lock should not be poisoned")
-                        .push(request.clone());
-                    Ok(response.clone())
-                })
-            }),
-    ));
-
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
 }
 
 fn xai_text_response(text: &str) -> JsonHttpResponse<Value> {

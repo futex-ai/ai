@@ -144,21 +144,25 @@ At the end of this milestone, every compatible DeepSeek, Kimi, MiniMax,
 QwenCloud, and synchronous xAI completion uses the shared stream accumulator;
 any incompatible provider has a documented buffered exception.
 
-- [ ] Verify each provider's current official streaming and usage contract,
+- [x] Verify each provider's current official streaming and usage contract,
       exact opt-in field, terminal sentinel, reasoning fields, and known
       deviations; record dated findings in the protocol before implementation.
-- [ ] For each provider, add failing request, delta, usage, error, EOF,
+- [x] Extend the shared accumulator for standard error payloads, legacy xAI
+      function calls, and Kimi's current direct cached-token usage field.
+- [x] Normalize MiniMax cumulative stream fields into deltas while preserving
+      complete reasoning details for replay.
+- [x] For each provider, add failing request, delta, usage, error, EOF,
       interruption, and buffered-parity tests before changing production code.
-- [ ] Enable `"stream": true` and the provider-supported usage option, then
+- [x] Enable `"stream": true` and the provider-supported usage option, then
       route events through the shared accumulator and existing mapper.
-- [ ] Keep any provider without accurate in-stream usage buffered under the
+- [x] Keep any provider without accurate in-stream usage buffered under the
       600-second timeout and document why; never synthesize usage.
-- [ ] Leave xAI deferred submit/poll behavior unchanged and prove it remains
+- [x] Leave xAI deferred submit/poll behavior unchanged and prove it remains
       buffered.
-- [ ] Add and run one live streaming test per enabled provider when credentials
+- [x] Add and run one live streaming test per enabled provider when credentials
       are available, with all credential-free guards passing.
-- [ ] Update every affected provider README and the live-test protocol.
-- [ ] Run all targeted/workspace checks and `cargo xtask check` to 100%, then
+- [x] Update every affected provider README and the live-test protocol.
+- [x] Run all targeted/workspace checks and `cargo xtask check` to 100%, then
       review the diff, stage, commit conventionally, and push.
 
 ## Milestone 8: Documentation, Verification, And Review
@@ -166,24 +170,24 @@ any incompatible provider has a documented buffered exception.
 At the end of this milestone, the final implementation, protocol, crate docs,
 and downstream handoff are aligned and independently reviewed.
 
-- [ ] Sweep the root and affected crate READMEs; align the protocol with every
+- [x] Sweep the root and affected crate READMEs; align the protocol with every
       final error, timeout, provider usage flag, and buffered exception.
-- [ ] Confirm Firna's revision-bump notes prominently cover
+- [x] Confirm Firna's revision-bump notes prominently cover
       `BoundedModelHttpTransport::execute_sse`, Google
       `:streamGenerateContent` URL matching, `Interrupted`, and overall timeout
       semantics.
-- [ ] Run every targeted test, all credential-free live-test guards,
+- [x] Run every targeted test, all credential-free live-test guards,
       `cargo fmt --all -- --check`, workspace strict Clippy, workspace tests,
       smoke tests, and `cargo xtask rust-file-length-lint --all` to 100%.
-- [ ] Run `cargo xtask check` and fix failures until it passes.
-- [ ] Review `git diff origin/main...` for scope, public API, docs, tests, and
+- [x] Run `cargo xtask check` and fix failures until it passes.
+- [x] Review `git diff origin/main...` for scope, public API, docs, tests, and
       untracked files.
-- [ ] Stage every file with `git add -A`, commit with a Conventional Commit
+- [x] Stage every file with `git add -A`, commit with a Conventional Commit
       title of at most 50 characters and descriptive body, and push the current
       branch without renaming it.
-- [ ] Run `cargo xtask review` only after the push so it reviews the local diff
+- [x] Run `cargo xtask review` only after the push so it reviews the local diff
       against `origin/main`.
-- [ ] Do not automatically fix review findings. Report each numbered with
+- [x] Do not automatically fix review findings. Report each numbered with
       severity, codebase/feature context, impact of doing nothing, lettered
       solution options, and the recommended option.
 - [ ] After the implementation is merged, mark the protocol Implemented and

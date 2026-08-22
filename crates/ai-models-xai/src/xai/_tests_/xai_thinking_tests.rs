@@ -1,22 +1,13 @@
 //! xAI thinking-level request mapping tests.
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
+use std::sync::Arc;
 
 use ai_interface::{ConversationMessage, Model, ModelRequest};
 use ai_models_core::ThinkingLevel;
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock, StaticHeaderAuth,
-    TransportBackedJsonHttpClient,
-};
+use json_http::{JsonHttpResponse, StaticHeaderAuth};
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
 
-use super::XaiModel;
-
-type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
+use super::{XaiModel, test_support::recording_http_client};
 
 #[tokio::test]
 async fn builds_xai_thinking_variant_requests() {
@@ -124,37 +115,6 @@ async fn omits_reasoning_effort_for_grok_4_20() {
     let body = requests[0].body.as_ref().expect("body present");
     assert_eq!(body["model"], "grok-4.20-reasoning");
     assert!(body.get("reasoning_effort").is_none());
-}
-
-fn recording_http_client(
-    response: JsonHttpResponse<serde_json::Value>,
-) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let responses = Arc::new(Mutex::new(VecDeque::from([response])));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                let responses = responses.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("requests lock should not be poisoned")
-                        .push(request.clone());
-                    Ok(responses
-                        .lock()
-                        .expect("responses lock should not be poisoned")
-                        .pop_front()
-                        .expect("unexpected transport call"))
-                })
-            }),
-    ));
-
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
 }
 
 fn simple_request() -> ModelRequest {
