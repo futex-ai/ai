@@ -91,8 +91,14 @@ impl GoogleProviderError {
 
 #[derive(Debug)]
 pub(super) enum GoogleStreamUpdate {
-    Continue,
+    Continue { deltas: Vec<GoogleStreamDelta> },
     ProviderError(GoogleProviderError),
+}
+
+#[derive(Debug)]
+pub(super) enum GoogleStreamDelta {
+    AssistantText { delta: String, starts_part: bool },
+    ReasoningText { delta: String },
 }
 
 #[derive(Debug, Error)]

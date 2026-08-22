@@ -1,6 +1,9 @@
 //! Google generate-content SSE loop and model-error classification.
 
-use ai_interface::{ModelError, ModelResponse, ModelResult, StructuredOutputSchema};
+use ai_interface::{
+    ModelCompletionEvent, ModelCompletionEventSink, ModelError, ModelResponse, ModelResult,
+    StructuredOutputSchema,
+};
 use ai_models_core::{
     ThinkingLevel, classify_json_http_error, classify_json_http_stream_error, classify_stream_error,
 };
@@ -8,7 +11,7 @@ use json_http::DynJsonHttpSseStream;
 
 use super::{
     accumulator::GoogleStreamAccumulator,
-    types::{GoogleProviderError, GoogleStreamError, GoogleStreamUpdate},
+    types::{GoogleProviderError, GoogleStreamDelta, GoogleStreamError, GoogleStreamUpdate},
 };
 use crate::google::response;
 
@@ -21,6 +24,7 @@ pub(in crate::google) async fn complete(
     thinking_level: ThinkingLevel,
     synthetic_tool_call_scope: &str,
     response_schema: Option<&StructuredOutputSchema>,
+    event_sink: &dyn ModelCompletionEventSink,
 ) -> ModelResult<ModelResponse> {
     let mut accumulator = GoogleStreamAccumulator::default();
     let mut events_received = 0u64;
@@ -58,8 +62,20 @@ pub(in crate::google) async fn complete(
             }
         };
         match accumulator.push_data(&event.data) {
-            Ok(GoogleStreamUpdate::Continue) => {
+            Ok(GoogleStreamUpdate::Continue { deltas }) => {
                 events_received = events_received.saturating_add(1);
+                for delta in deltas {
+                    let event = match delta {
+                        GoogleStreamDelta::AssistantText {
+                            delta,
+                            starts_part: _,
+                        } => ModelCompletionEvent::AssistantTextDelta { delta },
+                        GoogleStreamDelta::ReasoningText { delta } => {
+                            ModelCompletionEvent::ReasoningTextDelta { delta }
+                        }
+                    };
+                    event_sink.emit(event).await;
+                }
             }
             Ok(GoogleStreamUpdate::ProviderError(error)) => {
                 return Err(provider_error(provider_model_id, events_received, error));

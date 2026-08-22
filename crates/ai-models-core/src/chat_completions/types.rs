@@ -109,6 +109,33 @@ pub enum ChatCompletionsStreamStatus {
     Done,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+/// Text generated for the primary choice in one streamed chunk.
+pub enum ChatCompletionsDelta {
+    /// Newly generated user-visible assistant text.
+    AssistantText {
+        /// Exact nonempty provider fragment.
+        delta: String,
+    },
+    /// Newly generated provider-exposed reasoning text.
+    ReasoningText {
+        /// Exact nonempty provider fragment.
+        delta: String,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+/// Outcome and observable text from ingesting one SSE data payload.
+pub enum ChatCompletionsStreamUpdate {
+    /// A JSON chunk was merged and more events are expected.
+    Chunk {
+        /// Ordered nonempty text fragments for provider choice zero.
+        deltas: Vec<ChatCompletionsDelta>,
+    },
+    /// The terminal `[DONE]` sentinel was received.
+    Done,
+}
+
 #[derive(Debug, Error)]
 /// Validation errors returned while accumulating chat-completions streams.
 pub enum ChatCompletionsStreamError {

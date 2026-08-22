@@ -1,10 +1,11 @@
 //! Stateful ingestion of chat-completions SSE data payloads.
 
 use super::{
+    deltas::primary_deltas,
     state::ChatCompletionsState,
     types::{
         ChatCompletionsResponse, ChatCompletionsStreamChunk, ChatCompletionsStreamError,
-        ChatCompletionsStreamStatus,
+        ChatCompletionsStreamStatus, ChatCompletionsStreamUpdate,
     },
 };
 
@@ -26,12 +27,25 @@ impl ChatCompletionsAccumulator {
         &mut self,
         data: &str,
     ) -> Result<ChatCompletionsStreamStatus, ChatCompletionsStreamError> {
+        match self.push_data_with_deltas(data)? {
+            ChatCompletionsStreamUpdate::Chunk { deltas: _ } => {
+                Ok(ChatCompletionsStreamStatus::Chunk)
+            }
+            ChatCompletionsStreamUpdate::Done => Ok(ChatCompletionsStreamStatus::Done),
+        }
+    }
+
+    /// Parses one SSE `data` payload and returns primary-choice text fragments.
+    pub fn push_data_with_deltas(
+        &mut self,
+        data: &str,
+    ) -> Result<ChatCompletionsStreamUpdate, ChatCompletionsStreamError> {
         if self.done {
             return Err(ChatCompletionsStreamError::EventAfterDone);
         }
         if data == "[DONE]" {
             self.done = true;
-            return Ok(ChatCompletionsStreamStatus::Done);
+            return Ok(ChatCompletionsStreamUpdate::Done);
         }
         let value = match serde_json::from_str::<serde_json::Value>(data) {
             Ok(value) => value,
@@ -46,8 +60,9 @@ impl ChatCompletionsAccumulator {
             Ok(chunk) => chunk,
             Err(source) => return Err(ChatCompletionsStreamError::DeserializeChunk { source }),
         };
+        let deltas = primary_deltas(&chunk);
         self.state.push_chunk(chunk)?;
-        Ok(ChatCompletionsStreamStatus::Chunk)
+        Ok(ChatCompletionsStreamUpdate::Chunk { deltas })
     }
 
     /// Validates terminal state and returns a buffered response-shaped value.

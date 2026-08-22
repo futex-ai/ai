@@ -18,11 +18,13 @@ the completed implementation milestones.
 The provider supports Kimi K3 through Moonshot AI's Chat Completions API,
 accumulated internally over SSE. It includes text and image input, custom
 function tools, parallel tool calls, structured JSON output, automatic cache
-usage reporting, and K3 reasoning-effort variants.
+usage reporting, and K3 reasoning-effort variants. Its opt-in public path emits
+primary-choice assistant and reasoning fragments as defined by the
+[completion-events protocol](model-completion-events.md).
 
-The provider does not support K2.x models, Moonshot V1 models, public
-incremental streaming, Partial Mode, video or file upload, dynamic or official
-Kimi tools, `prompt_cache_key`, or `safety_identifier`. Those capabilities require
+The provider does not support K2.x models, Moonshot V1 models, Partial Mode,
+video or file upload, dynamic or official Kimi tools, `prompt_cache_key`, or
+`safety_identifier`. Those capabilities require
 separate contracts rather than silent partial support. Shared video content
 parts defined by the [video input protocol](video-input.md) are rejected with
 a typed provider error before transport.

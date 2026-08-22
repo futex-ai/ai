@@ -2,7 +2,10 @@
 
 use std::{sync::Arc, time::Duration};
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult, ProviderKind};
+use ai_interface::{
+    Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse, ModelResult,
+    NoopModelCompletionEventSink, ProviderKind,
+};
 use ai_models_core::{
     ThinkingLevel, classify_json_http_error, classify_json_http_stream_error,
     resolve_catalog_thinking_level,
@@ -92,9 +95,12 @@ impl QwenModel {
     }
 }
 
-#[async_trait]
-impl Model for QwenModel {
-    async fn complete(&self, model_request: &ModelRequest) -> ModelResult<ModelResponse> {
+impl QwenModel {
+    async fn complete_with_sink(
+        &self,
+        model_request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
+    ) -> ModelResult<ModelResponse> {
         if let Err(control) = model_request.controls.execution.resolve_deferred(false) {
             return Err(ModelError::unsupported_control(
                 PROVIDER,
@@ -144,8 +150,30 @@ impl Model for QwenModel {
             &self.provider_model_id,
             self.thinking_level,
             model_request.response_schema.as_ref(),
+            event_sink,
         )
         .await
+    }
+}
+
+#[async_trait]
+impl Model for QwenModel {
+    async fn complete(&self, model_request: &ModelRequest) -> ModelResult<ModelResponse> {
+        self.complete_with_sink(model_request, &NoopModelCompletionEventSink)
+            .await
+    }
+
+    async fn complete_with_events(
+        &self,
+        model_request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
+    ) -> ModelResult<ModelResponse> {
+        if model_request.response_schema.is_some() {
+            return self
+                .complete_with_sink(model_request, &NoopModelCompletionEventSink)
+                .await;
+        }
+        self.complete_with_sink(model_request, event_sink).await
     }
 }
 

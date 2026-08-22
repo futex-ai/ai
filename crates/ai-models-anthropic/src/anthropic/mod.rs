@@ -6,7 +6,10 @@ mod stream;
 
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ProviderKind};
+use ai_interface::{
+    Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse,
+    NoopModelCompletionEventSink, ProviderKind,
+};
 use ai_models_core::{
     ThinkingLevel, classify_json_http_stream_error, resolve_catalog_thinking_level,
 };
@@ -105,11 +108,11 @@ impl AnthropicModel {
     }
 }
 
-#[async_trait]
-impl Model for AnthropicModel {
-    async fn complete(
+impl AnthropicModel {
+    async fn complete_with_sink(
         &self,
         request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
     ) -> std::result::Result<ModelResponse, ModelError> {
         if let Err(control) = request.controls.execution.resolve_deferred(false) {
             return Err(ModelError::unsupported_control(
@@ -156,8 +159,33 @@ impl Model for AnthropicModel {
             &self.provider_model_id,
             self.thinking_level,
             response_schema,
+            event_sink,
         )
         .await
+    }
+}
+
+#[async_trait]
+impl Model for AnthropicModel {
+    async fn complete(
+        &self,
+        request: &ModelRequest,
+    ) -> std::result::Result<ModelResponse, ModelError> {
+        self.complete_with_sink(request, &NoopModelCompletionEventSink)
+            .await
+    }
+
+    async fn complete_with_events(
+        &self,
+        request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
+    ) -> std::result::Result<ModelResponse, ModelError> {
+        if request.response_schema.is_some() {
+            return self
+                .complete_with_sink(request, &NoopModelCompletionEventSink)
+                .await;
+        }
+        self.complete_with_sink(request, event_sink).await
     }
 }
 
@@ -188,6 +216,10 @@ mod anthropic_streaming_tests;
 #[cfg(test)]
 #[path = "_tests_/anthropic_stream_error_tests.rs"]
 mod anthropic_stream_error_tests;
+
+#[cfg(test)]
+#[path = "_tests_/anthropic_event_tests.rs"]
+mod anthropic_event_tests;
 
 #[cfg(test)]
 #[path = "_tests_/stream_support.rs"]

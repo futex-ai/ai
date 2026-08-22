@@ -7,8 +7,10 @@ provider; final workspace verification and review remain in progress.
 
 Define internal SSE streaming for model completions so long reasoning and
 generation calls are governed by stream liveness rather than a short total HTTP
-timeout. The public `ai_interface::Model` contract remains buffered:
-`complete(&ModelRequest)` returns one complete `ModelResponse`.
+timeout. `Model::complete` remains buffered and returns one complete
+`ModelResponse`; the separate
+[public completion-events protocol](model-completion-events.md) defines the
+opt-in event-observing entrypoint layered over this internal stream.
 
 ## Scope
 
@@ -24,14 +26,15 @@ The following remain buffered:
 - non-completion JSON HTTP calls; and
 - `ai-mcp`, whose existing SSE transport remains independent.
 
-Incremental deltas are not exposed to workspace consumers in this version.
-OpenAI background Responses, stream reattachment, and downstream Firna changes
-are also out of scope.
+This protocol does not itself expose incremental deltas. Their normalized
+public mapping is defined by the completion-events protocol. OpenAI background
+Responses, stream reattachment, and downstream Firna implementation remain out
+of scope.
 
 ## Ownership And Compatibility
 
-- `ai-interface` owns the unchanged model request/response boundary and the
-  new normalized interruption error.
+- `ai-interface` owns the model request/response boundary, normalized public
+  completion events, and the interruption error.
 - `json-http` owns SSE framing, stream opening, connect/idle/deadline
   enforcement, and transport progress errors. It does not inspect provider
   event JSON.
@@ -232,7 +235,7 @@ and [usage](https://docs.x.ai/developers/cost-tracking) documentation.
 | --- | --- | --- |
 | DeepSeek | `stream: true` plus `stream_options.include_usage: true`; final empty-choice usage chunk, then `[DONE]` | Standard content, `reasoning_content`, and indexed tool-call deltas |
 | Kimi | Same opt-in; usage is on the final choice-bearing chunk, then `[DONE]` | Standard deltas; retain its direct `cached_tokens` usage field |
-| MiniMax | Same opt-in; final complete usage, then `[DONE]` or clean EOF | Accumulate M3 content deltas directly; convert M2.x cumulative content snapshots to suffix deltas; retain the last nonempty `reasoning_details` snapshot as canonical because later snapshots may revise earlier text; accept EOF only after choices, finish reason, usage, and tool metadata validate |
+| MiniMax | Same opt-in; final complete usage, then `[DONE]` or clean EOF | Accumulate M3 content deltas directly; retain only the latest revisable M2.x cumulative content snapshot and restore it after terminal validation; retain the last nonempty `reasoning_details` snapshot as canonical because later snapshots may revise earlier text; accept EOF only after choices, finish reason, usage, and tool metadata validate |
 | QwenCloud | Same opt-in; final empty-choice usage chunk, then `[DONE]` | Standard content, `reasoning_content`, and indexed tool-call deltas |
 | xAI synchronous | Same opt-in; final empty-choice usage/cost chunk, then `[DONE]` | Standard content, indexed tool calls, and legacy function-call deltas; running usage is replaced by the final exact report |
 

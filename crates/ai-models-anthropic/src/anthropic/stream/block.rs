@@ -2,7 +2,10 @@
 
 use serde_json::{Value, json};
 
-use super::types::{AnthropicContentBlockDelta, AnthropicContentBlockStart, AnthropicStreamError};
+use super::types::{
+    AnthropicContentBlockDelta, AnthropicContentBlockStart, AnthropicStreamDelta,
+    AnthropicStreamError,
+};
 
 #[derive(Debug)]
 pub(super) struct ContentBlockState {
@@ -11,59 +14,106 @@ pub(super) struct ContentBlockState {
 }
 
 impl ContentBlockState {
-    pub(super) fn new(block: AnthropicContentBlockStart) -> Self {
-        let content = match block {
-            AnthropicContentBlockStart::Text { text } => ContentBlockContent::Text(text),
-            AnthropicContentBlockStart::ToolUse { id, name, input } => {
+    pub(super) fn new(block: AnthropicContentBlockStart) -> (Self, Option<AnthropicStreamDelta>) {
+        let (content, delta) = match block {
+            AnthropicContentBlockStart::Text { text } => {
+                let emitted = !text.trim().is_empty();
+                let delta = emitted.then(|| AnthropicStreamDelta::AssistantText {
+                    delta: text.clone(),
+                    starts_block: true,
+                });
+                (ContentBlockContent::Text { text, emitted }, delta)
+            }
+            AnthropicContentBlockStart::ToolUse { id, name, input } => (
                 ContentBlockContent::ToolUse {
                     id,
                     name,
                     input,
                     partial_json: String::new(),
-                }
-            }
+                },
+                None,
+            ),
             AnthropicContentBlockStart::Thinking {
                 thinking,
                 signature,
-            } => ContentBlockContent::Thinking {
-                thinking,
-                signature,
-            },
-            AnthropicContentBlockStart::Ignored => ContentBlockContent::Ignored,
+            } => {
+                let delta = (!thinking.is_empty()).then(|| AnthropicStreamDelta::ReasoningText {
+                    delta: thinking.clone(),
+                });
+                (
+                    ContentBlockContent::Thinking {
+                        thinking,
+                        signature,
+                    },
+                    delta,
+                )
+            }
+            AnthropicContentBlockStart::Ignored => (ContentBlockContent::Ignored, None),
         };
-        Self {
-            content,
-            stopped: false,
-        }
+        (
+            Self {
+                content,
+                stopped: false,
+            },
+            delta,
+        )
     }
 
     pub(super) fn push_delta(
         &mut self,
         index: u64,
         delta: AnthropicContentBlockDelta,
-    ) -> Result<(), AnthropicStreamError> {
+    ) -> Result<Option<AnthropicStreamDelta>, AnthropicStreamError> {
         if self.stopped {
             return Err(AnthropicStreamError::ContentBlockAfterStop { index });
         }
-        match (&mut self.content, delta) {
-            (ContentBlockContent::Text(text), AnthropicContentBlockDelta::Text { text: delta }) => {
+        let stream_delta = match (&mut self.content, delta) {
+            (
+                ContentBlockContent::Text { text, emitted },
+                AnthropicContentBlockDelta::Text { text: delta },
+            ) => {
                 text.push_str(&delta);
+                if delta.is_empty() {
+                    None
+                } else if *emitted {
+                    Some(AnthropicStreamDelta::AssistantText {
+                        delta,
+                        starts_block: false,
+                    })
+                } else if text.trim().is_empty() {
+                    None
+                } else {
+                    *emitted = true;
+                    Some(AnthropicStreamDelta::AssistantText {
+                        delta: text.clone(),
+                        starts_block: true,
+                    })
+                }
             }
             (
                 ContentBlockContent::ToolUse { partial_json, .. },
                 AnthropicContentBlockDelta::InputJson {
                     partial_json: delta,
                 },
-            ) => partial_json.push_str(&delta),
+            ) => {
+                partial_json.push_str(&delta);
+                None
+            }
             (
                 ContentBlockContent::Thinking { thinking, .. },
                 AnthropicContentBlockDelta::Thinking { thinking: delta },
-            ) => thinking.push_str(&delta),
+            ) => {
+                thinking.push_str(&delta);
+                (!delta.is_empty()).then_some(AnthropicStreamDelta::ReasoningText { delta })
+            }
             (
                 ContentBlockContent::Thinking { signature, .. },
                 AnthropicContentBlockDelta::Signature { signature: delta },
-            ) => signature.push_str(&delta),
-            (ContentBlockContent::Ignored, _) | (_, AnthropicContentBlockDelta::Ignored) => {}
+            ) => {
+                signature.push_str(&delta);
+                None
+            }
+            (ContentBlockContent::Ignored, _) | (_, AnthropicContentBlockDelta::Ignored) => None,
             (content, delta) => {
                 return Err(AnthropicStreamError::MismatchedBlockDelta {
                     index,
@@ -71,8 +121,8 @@ impl ContentBlockState {
                     delta_kind: delta.kind(),
                 });
             }
-        }
-        Ok(())
+        };
+        Ok(stream_delta)
     }
 
     pub(super) fn stop(&mut self, index: u64) -> Result<(), AnthropicStreamError> {
@@ -102,7 +152,7 @@ impl ContentBlockState {
             return Err(AnthropicStreamError::OpenContentBlocks);
         }
         let body = match &self.content {
-            ContentBlockContent::Text(text) => json!({"type": "text", "text": text}),
+            ContentBlockContent::Text { text, .. } => json!({"type": "text", "text": text}),
             ContentBlockContent::ToolUse {
                 id, name, input, ..
             } => json!({"type": "tool_use", "id": id, "name": name, "input": input}),
@@ -122,7 +172,10 @@ impl ContentBlockState {
 
 #[derive(Debug)]
 enum ContentBlockContent {
-    Text(String),
+    Text {
+        text: String,
+        emitted: bool,
+    },
     ToolUse {
         id: String,
         name: String,
@@ -139,7 +192,7 @@ enum ContentBlockContent {
 impl ContentBlockContent {
     fn kind(&self) -> &'static str {
         match self {
-            Self::Text(_) => "text",
+            Self::Text { .. } => "text",
             Self::ToolUse { .. } => "tool_use",
             Self::Thinking { .. } => "thinking",
             Self::Ignored => "ignored",

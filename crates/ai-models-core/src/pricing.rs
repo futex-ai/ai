@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    Model, ModelRequest, ModelResponse, ModelResult, ModelUsage, ModelUsageCostLine,
-    ModelUsageMeasurementState, ModelUsageUnitKind,
+    Model, ModelCompletionEventSink, ModelRequest, ModelResponse, ModelResult, ModelUsage,
+    ModelUsageCostLine, ModelUsageMeasurementState, ModelUsageUnitKind,
 };
 use async_trait::async_trait;
 
@@ -57,6 +57,16 @@ impl UsagePricingModel {
 impl Model for UsagePricingModel {
     async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
         let mut response = self.inner.complete(request).await?;
+        response.usage = price_usage(response.usage, &self.pricing);
+        Ok(response)
+    }
+
+    async fn complete_with_events(
+        &self,
+        request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
+    ) -> ModelResult<ModelResponse> {
+        let mut response = self.inner.complete_with_events(request, event_sink).await?;
         response.usage = price_usage(response.usage, &self.pricing);
         Ok(response)
     }
@@ -141,3 +151,7 @@ fn cost_usd_micros(quantity: u64, price_usd_micros_per_million: u64) -> u64 {
 #[cfg(test)]
 #[path = "_tests_/pricing_tests.rs"]
 mod pricing_tests;
+
+#[cfg(test)]
+#[path = "_tests_/pricing_event_tests.rs"]
+mod pricing_event_tests;

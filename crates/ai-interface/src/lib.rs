@@ -11,6 +11,7 @@ mod mock_image_generator;
 mod mock_model;
 mod mock_video_generator;
 mod model;
+mod model_completion_events;
 mod model_controls;
 pub mod output;
 mod router;
@@ -45,6 +46,10 @@ pub use model::{
     DynModel, FinishReason, Model, ModelError, ModelRequest, ModelResponse, ModelResult,
     StructuredOutputSchema,
 };
+pub use model_completion_events::{
+    DynModelCompletionEventSink, ModelCompletionEvent, ModelCompletionEventSink,
+    NoopModelCompletionEventSink,
+};
 pub use model_controls::{
     ModelCallControls, ModelCompletionMode, ModelControl, ModelExecutionControls,
     ModelGenerationControls, ModelToolChoice,
@@ -74,6 +79,8 @@ pub use image_generator::ImageGeneratorMock;
 pub use logger::LoggerMock;
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use model::ModelMock;
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub use model_completion_events::ModelCompletionEventSinkMock;
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use router::ModelRouterMock;
 #[cfg(any(test, doctest, feature = "test-support"))]

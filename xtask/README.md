@@ -27,16 +27,22 @@ Google and OpenAI image and video generators with placeholder credentials. It
 also runs an in-memory tool-output pagination flow. Provider construction does
 not send network requests or require real credentials.
 
-`tests/live_models.rs` is a separate, ignored integration suite. Each provider
-test reads one explicit `LIVE_MODEL_API_KEY`, constructs every chat-capable
-entry returned by that provider's `known_models()`, erases it behind `DynModel`,
-and sends a real one-step turn through `ToolCallingRuntime`. Every provider gets
-the same portable no-tools, ten-minute, `PreferDeferred` controls; the adapter
-owns the native lifecycle. The suite validates normalized provider, catalog,
-model, thinking, finish, text, tool, and usage fields. Image- and
-video-generation entries are excluded because they use separate specialized
-interfaces. The suite never runs as part of `check` or `smoke-test`. The dedicated GitHub Actions
-workflow invokes it for eligible pull requests, daily verification, and manual
+`tests/live_models.rs` owns the chat live suite and its credential-free guards.
+Each ignored provider test reads one explicit `LIVE_MODEL_API_KEY`, constructs
+every chat-capable entry returned by that provider's `known_models()`, erases it
+behind `DynModel`, and sends real one-step turns through `ToolCallingRuntime`.
+A test-only model wrapper routes those runtime calls through
+`complete_with_events`, records ordered deltas, and retains the ordinary
+terminal checkpoint. Every provider first gets a synchronous assistant-parity
+probe. The catalog then uses portable no-tools, ten-minute, `PreferDeferred`
+controls: seven providers retain event parity on their synchronous fallback,
+while xAI's deferred lifecycle must remain silent. The suite also validates
+normalized provider, catalog, model, thinking, finish, text, tool, and usage
+fields. Image- and video-generation entries are excluded because they use
+separate specialized interfaces. Credentialed tests never run as part of
+`check` or `smoke-test`; credential-free event policy, bridge, validation,
+catalog, and workflow guards do. The dedicated GitHub Actions workflow invokes
+the ignored tests for eligible pull requests, daily verification, and manual
 dispatch. The MiniMax job first sends MiniMax-M3 a real tool with strict
 `Required` selection and asserts that the provider returns that tool call.
 
@@ -76,6 +82,9 @@ cargo test --locked -p xtask --test live_images
 # Credential-free: runs video registry, runner, validation, and workflow guards.
 cargo test --locked -p xtask --test live_videos
 
+# Credential-free: runs chat catalog, event, runner, and workflow guards.
+cargo test --locked -p xtask --test live_models
+
 # Billable: tests every chat-capable OpenAI catalog entry against the real API.
 LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_models \
   openai_catalog -- --ignored --exact --nocapture
@@ -102,7 +111,8 @@ cargo clippy -p xtask --all-targets --all-features
 - `src/check.rs` - local verification command plan
 - `src/file_length.rs` - Rust line-count audit
 - `src/smoke/` - credential-free provider, MCP, OAuth, and pagination smoke tests
-- `tests/live_models.rs` - ignored credentialed tests over chat-provider catalogs
+- `tests/live_models.rs` and `tests/live_models/` - ignored credentialed tests
+  plus credential-free event, catalog, runner, tool-choice, and workflow guards
 - `tests/live_images/mod.rs` - ignored credentialed tests and credential-free
   guards over image-provider catalogs
 - `tests/live_videos/mod.rs` - ignored credentialed tests and credential-free

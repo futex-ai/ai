@@ -9,6 +9,7 @@ use serde_json::json;
 use super::GoogleModel;
 
 mod controls_tests;
+mod event_tests;
 mod finish_reason_tests;
 mod multimodal_tests;
 mod operation_id_tests;

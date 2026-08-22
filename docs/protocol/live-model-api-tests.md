@@ -20,15 +20,16 @@ suite.
 
 Audio transcription, image or video generation, provider-built tools,
 multimodal input, multi-turn tool replay, pricing, and provider features
-outside the chat model catalog are not part of this connectivity suite. A
-provider whose production completion adapter streams internally is exercised
-over that streaming path by its existing catalog test; Anthropic, OpenAI
-Responses, and Google currently do so. Deterministic transport tests in
-provider crates remain responsible for detailed event and wire behavior. All
-eight providers now stream production synchronous completions internally;
-xAI's catalog job first runs one explicit synchronous streaming probe, then
-uses `PreferDeferred` across the catalog to exercise its buffered
-submit-and-poll lifecycle too.
+outside the chat model catalog are not part of this connectivity suite. All
+eight providers stream production synchronous completions internally and
+implement the public completion-event boundary. Each live provider job starts
+with an explicit synchronous event probe, then observes events while exercising
+the full catalog with `PreferDeferred`. That preference falls back to the same
+synchronous event path for Anthropic, DeepSeek, Google, Kimi, MiniMax, OpenAI,
+and QwenCloud. For xAI it selects the buffered submit-and-poll lifecycle, whose
+public event sequence must remain empty. Deterministic transport tests in the
+provider crates remain responsible for detailed event ordering and wire
+behavior.
 
 Credentialed image generation is specified separately by the implemented
 [live image API test protocol](live-image-api-tests.md). Keeping the suites
@@ -59,16 +60,20 @@ test:
    streaming endpoint without a live-test-only branch.
 3. Erases the concrete adapter behind `DynModel` and applies the standard
    transient retry wrapper.
-4. Injects that model into `ToolCallingRuntime`, sends one text-only turn with
-   no application tools or schema, and captures the normalized response through
-   the runtime's provider-neutral response-checkpoint boundary.
-5. Applies one portable control set to every provider: no tool calls, a
-   ten-minute adapter-call deadline, and `PreferDeferred`. XAI resolves that
-   preference to its native deferred lifecycle; every other adapter falls back
-   to its ordinary synchronous lifecycle without a provider branch in the
-   runner.
-6. Continues after a model failure and reports all failures for that provider
-   together.
+4. Wraps the dynamic model in a test-only `Model` that routes the runtime's
+   buffered `complete` call through the inner model's public
+   `complete_with_events` entrypoint. The wrapper records ordered events while
+   `ToolCallingRuntime` still captures the normalized terminal response through
+   its provider-neutral response-checkpoint boundary.
+5. Runs one synchronous probe against the provider's first chat model and
+   requires assistant-event parity with its terminal response.
+6. Runs every chat catalog entry with no tool calls, a ten-minute adapter-call
+   deadline, and `PreferDeferred`. XAI resolves that preference to its native
+   deferred lifecycle and must emit no events; every other adapter falls back
+   to its ordinary synchronous lifecycle and must retain assistant-event
+   parity.
+7. Continues after a catalog-model failure and reports all failures for that
+   provider together.
 
 The MiniMax provider test first runs its strict required-tool probe. A failure
 there aborts that provider job before the ordinary catalog loop.
@@ -94,9 +99,20 @@ Each live completion must:
 - return no tool calls when none were offered; and
 - report a non-zero total token count.
 
+Every synchronous probe and synchronous catalog completion must also emit at
+least one nonempty assistant-text event. Concatenating those assistant deltas
+must exactly reproduce the terminal `assistant_message`; any reasoning deltas
+must be nonempty, and a direct provider probe must not emit a fallback-restart
+event. XAI's deferred catalog completions must emit no completion events.
+
 A provider job fails if any catalog entry violates this contract. For an
 eligible event, missing credentials also fail explicitly and must never be
 treated as skipped or successful coverage.
+
+Credential-free tests enforce that all eight registered providers receive the
+synchronous parity probe, only xAI receives the deferred-silence expectation,
+the runtime bridge invokes the public event entrypoint, and the parity/silence
+validator rejects incomplete observations. They do not send provider requests.
 
 ## CI And Credentials
 

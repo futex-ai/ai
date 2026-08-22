@@ -1,8 +1,11 @@
 //! MiniMax SSE normalization and Chat Completions accumulation.
 
-use ai_interface::{ModelError, ModelResponse, StructuredOutputSchema};
+use ai_interface::{
+    ModelCompletionEvent, ModelCompletionEventSink, ModelError, ModelResponse,
+    StructuredOutputSchema,
+};
 use ai_models_core::{
-    ChatCompletionsAccumulator, ChatCompletionsStreamError, ChatCompletionsStreamStatus,
+    ChatCompletionsAccumulator, ChatCompletionsStreamError, ChatCompletionsStreamUpdate,
     ThinkingLevel, classify_chat_completions_provider_error, classify_json_http_stream_error,
     classify_stream_error,
 };
@@ -21,6 +24,7 @@ pub(super) async fn complete(
     provider_model_id: &str,
     thinking_level: ThinkingLevel,
     response_schema: Option<&StructuredOutputSchema>,
+    event_sink: &dyn ModelCompletionEventSink,
 ) -> std::result::Result<ModelResponse, ModelError> {
     let mut accumulator = ChatCompletionsAccumulator::new();
     let mut normalizer = MiniMaxNormalizer::new(provider_model_id);
@@ -40,12 +44,16 @@ pub(super) async fn complete(
                 return finish(
                     accumulator,
                     normalizer,
-                    catalog_model_id,
-                    provider_model_id,
-                    thinking_level,
-                    response_schema,
-                    events_received,
-                );
+                    FinishContext {
+                        catalog_model_id,
+                        provider_model_id,
+                        thinking_level,
+                        response_schema,
+                        events_received,
+                    },
+                    event_sink,
+                )
+                .await;
             }
             Err(source) => {
                 return Err(classify_json_http_stream_error(
@@ -96,20 +104,27 @@ pub(super) async fn complete(
                 body.to_string()
             }
         };
-        match accumulator.push_data(&data) {
-            Ok(ChatCompletionsStreamStatus::Chunk) => {
+        match accumulator.push_data_with_deltas(&data) {
+            Ok(ChatCompletionsStreamUpdate::Chunk { deltas }) => {
                 events_received = events_received.saturating_add(1);
+                for delta in deltas {
+                    event_sink.emit(delta.into()).await;
+                }
             }
-            Ok(ChatCompletionsStreamStatus::Done) => {
+            Ok(ChatCompletionsStreamUpdate::Done) => {
                 return finish(
                     accumulator,
                     normalizer,
-                    catalog_model_id,
-                    provider_model_id,
-                    thinking_level,
-                    response_schema,
-                    events_received,
-                );
+                    FinishContext {
+                        catalog_model_id,
+                        provider_model_id,
+                        thinking_level,
+                        response_schema,
+                        events_received,
+                    },
+                    event_sink,
+                )
+                .await;
             }
             Err(ChatCompletionsStreamError::ProviderEvent { error }) => {
                 return Err(classify_chat_completions_provider_error(
@@ -131,22 +146,27 @@ pub(super) async fn complete(
     }
 }
 
-fn finish(
+struct FinishContext<'a> {
+    catalog_model_id: &'a str,
+    provider_model_id: &'a str,
+    thinking_level: ThinkingLevel,
+    response_schema: Option<&'a StructuredOutputSchema>,
+    events_received: u64,
+}
+
+async fn finish(
     accumulator: ChatCompletionsAccumulator,
     normalizer: MiniMaxNormalizer,
-    catalog_model_id: &str,
-    provider_model_id: &str,
-    thinking_level: ThinkingLevel,
-    response_schema: Option<&StructuredOutputSchema>,
-    events_received: u64,
+    context: FinishContext<'_>,
+    event_sink: &dyn ModelCompletionEventSink,
 ) -> std::result::Result<ModelResponse, ModelError> {
     let accumulated = match accumulator.finish() {
         Ok(accumulated) => accumulated,
         Err(source) => {
             return Err(classify_stream_error(
                 PROVIDER,
-                provider_model_id,
-                events_received,
+                context.provider_model_id,
+                context.events_received,
                 &source,
             ));
         }
@@ -155,14 +175,21 @@ fn finish(
         Ok(body) => body,
         Err(source) => return Err(ModelError::internal(source)),
     };
-    if let Err(source) = normalizer.restore_reasoning_details(&mut body) {
-        return Err(ModelError::internal(source));
-    }
-    response::parse_response(
-        catalog_model_id,
-        provider_model_id,
-        thinking_level,
+    let terminal_assistant_text = match normalizer.restore_snapshots(&mut body) {
+        Ok(terminal_assistant_text) => terminal_assistant_text,
+        Err(source) => return Err(ModelError::internal(source)),
+    };
+    let response = response::parse_response(
+        context.catalog_model_id,
+        context.provider_model_id,
+        context.thinking_level,
         body,
-        response_schema,
-    )
+        context.response_schema,
+    )?;
+    if let Some(delta) = terminal_assistant_text.filter(|delta| !delta.is_empty()) {
+        event_sink
+            .emit(ModelCompletionEvent::AssistantTextDelta { delta })
+            .await;
+    }
+    Ok(response)
 }

@@ -55,3 +55,7 @@ mod streaming_tests;
 #[cfg(test)]
 #[path = "_tests_/stream_error_tests.rs"]
 mod stream_error_tests;
+
+#[cfg(test)]
+#[path = "_tests_/event_tests.rs"]
+mod event_tests;

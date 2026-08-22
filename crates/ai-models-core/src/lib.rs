@@ -21,9 +21,10 @@ pub use catalog::{
 };
 pub use chat_completions::{
     ChatCompletionsAccumulator, ChatCompletionsChoice, ChatCompletionsCompletionTokenDetails,
-    ChatCompletionsMessage, ChatCompletionsPromptTokenDetails, ChatCompletionsResponse,
-    ChatCompletionsStreamError, ChatCompletionsStreamStatus, ChatCompletionsToolCall,
-    ChatCompletionsToolFunction, ChatCompletionsUsage,
+    ChatCompletionsDelta, ChatCompletionsMessage, ChatCompletionsPromptTokenDetails,
+    ChatCompletionsResponse, ChatCompletionsStreamError, ChatCompletionsStreamStatus,
+    ChatCompletionsStreamUpdate, ChatCompletionsToolCall, ChatCompletionsToolFunction,
+    ChatCompletionsUsage,
 };
 pub use concurrency::ConcurrencyLimitedModel;
 pub use errors::{

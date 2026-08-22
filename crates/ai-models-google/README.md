@@ -13,6 +13,7 @@ neighboring crates.
 - Export strongly typed known Google model metadata for model routing
 - Map shared model/tool DTOs to the Google `generateContent` API
 - Consume Gemini `streamGenerateContent` SSE response fragments
+- Emit public assistant and thought text deltas in provider order
 - Map shared image generation and edit DTOs to the Google `generateContent` API
 - Map shared video DTOs to the Google long-running prediction API
 - Parse Google responses into shared response DTOs and typed model errors
@@ -22,6 +23,8 @@ neighboring crates.
 `GoogleModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - Gemini request serialization through `streamGenerateContent?alt=sse`
+- opt-in `complete_with_events` delivery for candidate text and thought parts,
+  including normalized newlines between retained assistant parts
 - 3,600-second default overall completion deadline, 120-second stream idle
   deadline, and explicit per-call total-timeout overrides
 - portable generation controls, including required-with-automatic-fallback
@@ -67,7 +70,9 @@ the thinking control unset so the provider uses its minimal default. Gemini
 make them available to new users. Callers can still construct an explicit
 model id using the retained Gemini 2.5 constants, and the request mapper keeps
 fixed `thinkingBudget` compatibility for those models. Response parts marked
-as provider thoughts are ignored and are not surfaced as assistant text.
+as provider thoughts are not surfaced as assistant text, but event-observing
+callers receive them as reasoning deltas. Schema-constrained calls suppress all
+public deltas in version one.
 
 `GoogleImageGenerator` uses the current `v1` compatibility endpoint with an
 injected `json-http` client and explicit API key or auth hook. It maps text and
@@ -143,7 +148,8 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - `src/catalog.rs` - known Google model ids and routing metadata
 - `src/google/request.rs` - Google request DTO mapping
 - `src/google/response.rs` - Google response parsing
-- `src/google/stream/` - fragment accumulation and stream failure mapping
+- `src/google/stream/` - public fragment emission, terminal accumulation, and
+  stream failure mapping
 - `src/google/image_generation/` - Google image request, response, and error mapping
 - `src/google/video_generation/` - Google long-running video submission,
   polling, download, request, response, and error mapping
@@ -152,6 +158,8 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
+- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
+- [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [Latest Gemini models](https://ai.google.dev/gemini-api/docs/latest-model)
 - [Gemini generate-content API](https://ai.google.dev/api/generate-content)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)

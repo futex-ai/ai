@@ -27,7 +27,7 @@ type ScriptedResponse = std::result::Result<JsonHttpResponse<Value>, json_http::
 type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 
 #[tokio::test]
-async fn polls_one_accepted_completion_through_transient_retrieval_states() {
+async fn polls_one_accepted_completion_without_emitting_public_events() {
     let (http_client, requests) = scripted_http_client(vec![
         response(200, json!({ "request_id": "req_abc-123" })),
         response(202, json!({ "status": "pending" })),
@@ -38,9 +38,10 @@ async fn polls_one_accepted_completion_through_transient_retrieval_states() {
     ]);
     let (runtime, sleeps) = advancing_runtime();
     let model = model(http_client, runtime);
+    let sink = Unimock::new(());
 
     let result = model
-        .complete(&deferred_request(Duration::from_secs(60)))
+        .complete_with_events(&deferred_request(Duration::from_secs(60)), &sink)
         .await
         .expect("deferred completion should eventually succeed");
 

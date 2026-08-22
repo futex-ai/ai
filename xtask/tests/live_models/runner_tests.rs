@@ -3,8 +3,9 @@
 use std::{env, sync::Arc, time::Duration};
 
 use ai_interface::{
-    ConversationMessage, DynModel, FinishReason, MockModel, ModelCallControls, ModelCompletionMode,
-    ModelExecutionControls, ModelGenerationControls, ModelResponse, ModelToolChoice, NoopLogger,
+    ConversationMessage, DynModel, FinishReason, MockModel, ModelCallControls,
+    ModelCompletionEvent, ModelCompletionMode, ModelExecutionControls, ModelGenerationControls,
+    ModelResponse, ModelToolChoice, NoopLogger,
 };
 use ai_models_core::{KnownModelSpec, RetryingModel};
 use ai_tool_calling::{
@@ -13,13 +14,21 @@ use ai_tool_calling::{
 };
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 
-use super::provider_tests::LiveProvider;
+use super::{
+    event_tests::{completion_event_failures, observing_model},
+    provider_tests::LiveProvider,
+};
 
 const API_KEY_ENV: &str = "LIVE_MODEL_API_KEY";
 const EXPECTED_TEXT: &str = "LIVE_MODEL_API_OK";
 const MODEL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
-pub(super) async fn run_catalog(provider: LiveProvider) {
+pub(super) async fn run_live_provider(provider: LiveProvider) {
+    run_synchronous_stream_probe(provider).await;
+    run_catalog(provider).await;
+}
+
+async fn run_catalog(provider: LiveProvider) {
     let api_key = live_api_key();
 
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
@@ -37,7 +46,15 @@ pub(super) async fn run_catalog(provider: LiveProvider) {
             provider.build(client.clone(), auth.clone(), spec),
         ));
         match complete_through_runtime(model, ModelCompletionMode::PreferDeferred).await {
-            Ok(response) => validate_response(provider, spec, &response, &mut failures),
+            Ok(completion) => {
+                validate_response(provider, spec, &completion.response, &mut failures);
+                failures.extend(completion_event_failures(
+                    spec.id,
+                    provider.preferred_mode_event_expectation(),
+                    &completion.response.assistant_message,
+                    &completion.events,
+                ));
+            }
             Err(error) => failures.push(format!("{}: request failed: {error}", spec.id)),
         }
     }
@@ -50,7 +67,7 @@ pub(super) async fn run_catalog(provider: LiveProvider) {
     );
 }
 
-pub(super) async fn run_synchronous_stream_probe(provider: LiveProvider) {
+async fn run_synchronous_stream_probe(provider: LiveProvider) {
     let api_key = live_api_key();
     let spec = provider
         .chat_catalog()
@@ -61,11 +78,17 @@ pub(super) async fn run_synchronous_stream_probe(provider: LiveProvider) {
     let model: DynModel = Arc::new(RetryingModel::with_standard_transient_retry(
         provider.build(client, provider.auth(api_key), &spec),
     ));
-    let response = complete_through_runtime(model, ModelCompletionMode::Synchronous)
+    let completion = complete_through_runtime(model, ModelCompletionMode::Synchronous)
         .await
         .expect("synchronous streaming probe must complete");
     let mut failures = Vec::new();
-    validate_response(provider, &spec, &response, &mut failures);
+    validate_response(provider, &spec, &completion.response, &mut failures);
+    failures.extend(completion_event_failures(
+        spec.id,
+        provider.synchronous_event_expectation(),
+        &completion.response.assistant_message,
+        &completion.events,
+    ));
     assert!(
         failures.is_empty(),
         "synchronous stream probe failure(s):\n{}",
@@ -76,7 +99,8 @@ pub(super) async fn run_synchronous_stream_probe(provider: LiveProvider) {
 async fn complete_through_runtime(
     model: DynModel,
     completion_mode: ModelCompletionMode,
-) -> Result<ModelResponse, String> {
+) -> Result<ObservedCompletion, String> {
+    let (model, event_log) = observing_model(model);
     let runtime = ToolCallingRuntime::new(
         format!(
             "You are a CI connectivity probe. Reply with exactly {EXPECTED_TEXT} and no other text."
@@ -103,9 +127,18 @@ async fn complete_through_runtime(
     if !matches!(outcome, StepOutcome::Completed { steps_taken: 1, .. }) {
         return Err(format!("generic runtime returned {outcome:?}"));
     }
-    response_checkpoint
+    let response = response_checkpoint
         .response
-        .ok_or_else(|| "generic runtime did not expose the model response".to_owned())
+        .ok_or_else(|| "generic runtime did not expose the model response".to_owned())?;
+    Ok(ObservedCompletion {
+        response,
+        events: event_log.recorded(),
+    })
+}
+
+struct ObservedCompletion {
+    response: ModelResponse,
+    events: Vec<ModelCompletionEvent>,
 }
 
 fn probe_controls(completion_mode: ModelCompletionMode) -> ModelCallControls {
@@ -154,8 +187,9 @@ async fn generic_runtime_executes_a_dynamic_model() {
     .await
     .expect("generic runtime should complete through the model trait");
 
-    assert_eq!(response.provider, "mock");
-    assert_eq!(response.model_id, "live-probe");
+    assert_eq!(response.response.provider, "mock");
+    assert_eq!(response.response.model_id, "live-probe");
+    assert!(response.events.is_empty());
 }
 
 fn live_api_key() -> String {

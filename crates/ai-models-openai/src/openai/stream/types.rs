@@ -15,6 +15,13 @@ pub(super) enum OpenAiStreamEvent {
     Failed { response: FailedResponse },
     #[serde(rename = "error")]
     Error(OpenAiNativeError),
+    #[serde(rename = "response.output_text.delta")]
+    OutputTextDelta { delta: String },
+    #[serde(
+        rename = "response.reasoning_summary_text.delta",
+        alias = "response.reasoning_text.delta"
+    )]
+    ReasoningTextDelta { delta: String },
     #[serde(other)]
     Progress,
 }

@@ -13,7 +13,10 @@ pub use video_generation::GoogleVideoGenerator;
 
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ProviderKind};
+use ai_interface::{
+    Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse,
+    NoopModelCompletionEventSink, ProviderKind,
+};
 use ai_models_core::{
     ThinkingLevel, classify_json_http_stream_error, resolve_catalog_thinking_level,
     synthetic_tool_call_scope,
@@ -106,11 +109,11 @@ impl GoogleModel {
     }
 }
 
-#[async_trait]
-impl Model for GoogleModel {
-    async fn complete(
+impl GoogleModel {
+    async fn complete_with_sink(
         &self,
         request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
     ) -> std::result::Result<ModelResponse, ModelError> {
         if let Err(control) = request.controls.execution.resolve_deferred(false) {
             return Err(ModelError::unsupported_control(
@@ -159,8 +162,33 @@ impl Model for GoogleModel {
             self.thinking_level,
             &synthetic_tool_call_scope,
             response_schema,
+            event_sink,
         )
         .await
+    }
+}
+
+#[async_trait]
+impl Model for GoogleModel {
+    async fn complete(
+        &self,
+        request: &ModelRequest,
+    ) -> std::result::Result<ModelResponse, ModelError> {
+        self.complete_with_sink(request, &NoopModelCompletionEventSink)
+            .await
+    }
+
+    async fn complete_with_events(
+        &self,
+        request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
+    ) -> std::result::Result<ModelResponse, ModelError> {
+        if request.response_schema.is_some() {
+            return self
+                .complete_with_sink(request, &NoopModelCompletionEventSink)
+                .await;
+        }
+        self.complete_with_sink(request, event_sink).await
     }
 }
 

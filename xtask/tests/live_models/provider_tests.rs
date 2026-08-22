@@ -27,6 +27,12 @@ pub(super) enum LiveProvider {
     Xai,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum CompletionEventExpectation {
+    AssistantTextParity,
+    Silent,
+}
+
 impl LiveProvider {
     pub(super) const ALL: [Self; 8] = [
         Self::Anthropic,
@@ -89,6 +95,32 @@ impl LiveProvider {
             Self::OpenAi => "OPENAI_API_KEY",
             Self::Qwen => "QWEN_API_KEY",
             Self::Xai => "XAI_API_KEY",
+        }
+    }
+
+    pub(super) fn synchronous_event_expectation(self) -> CompletionEventExpectation {
+        match self {
+            Self::Anthropic
+            | Self::DeepSeek
+            | Self::Google
+            | Self::Kimi
+            | Self::MiniMax
+            | Self::OpenAi
+            | Self::Qwen
+            | Self::Xai => CompletionEventExpectation::AssistantTextParity,
+        }
+    }
+
+    pub(super) fn preferred_mode_event_expectation(self) -> CompletionEventExpectation {
+        match self {
+            Self::Xai => CompletionEventExpectation::Silent,
+            Self::Anthropic
+            | Self::DeepSeek
+            | Self::Google
+            | Self::Kimi
+            | Self::MiniMax
+            | Self::OpenAi
+            | Self::Qwen => CompletionEventExpectation::AssistantTextParity,
         }
     }
 

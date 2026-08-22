@@ -2,7 +2,9 @@
 
 use std::sync::Arc;
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult};
+use ai_interface::{
+    Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse, ModelResult,
+};
 use async_trait::async_trait;
 use thiserror::Error;
 use tokio::sync::Semaphore;
@@ -39,11 +41,37 @@ impl Model for ConcurrencyLimitedModel {
         let Some(semaphore) = &self.semaphore else {
             return self.inner.complete(request).await;
         };
-        let _permit = semaphore.clone().acquire_owned().await.map_err(|_| {
-            ModelError::internal(Error::ConcurrencyLimiterClosed {
-                model_id: self.model_id.clone(),
-            })
-        })?;
+        let _permit = match semaphore.clone().acquire_owned().await {
+            Ok(permit) => permit,
+            Err(_) => {
+                return Err(ModelError::internal(Error::ConcurrencyLimiterClosed {
+                    model_id: self.model_id.clone(),
+                }));
+            }
+        };
         self.inner.complete(request).await
     }
+
+    async fn complete_with_events(
+        &self,
+        request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
+    ) -> ModelResult<ModelResponse> {
+        let Some(semaphore) = &self.semaphore else {
+            return self.inner.complete_with_events(request, event_sink).await;
+        };
+        let _permit = match semaphore.clone().acquire_owned().await {
+            Ok(permit) => permit,
+            Err(_) => {
+                return Err(ModelError::internal(Error::ConcurrencyLimiterClosed {
+                    model_id: self.model_id.clone(),
+                }));
+            }
+        };
+        self.inner.complete_with_events(request, event_sink).await
+    }
 }
+
+#[cfg(test)]
+#[path = "_tests_/concurrency_event_tests.rs"]
+mod concurrency_event_tests;
