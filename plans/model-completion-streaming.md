@@ -185,8 +185,9 @@ and downstream handoff are aligned and independently reviewed.
 - [x] Stage every file with `git add -A`, commit with a Conventional Commit
       title of at most 50 characters and descriptive body, and push the current
       branch without renaming it.
-- [x] Run `cargo xtask review` only after the push so it reviews the local diff
-      against `origin/main`.
+- [ ] Run `cargo xtask review` only after the push so it reviews the local diff
+      against `origin/main` (blocked on 2026-08-22 because the reviewer's Codex
+      subprocess received `401 Unauthorized` before inspecting the diff).
 - [x] Do not automatically fix review findings. Report each numbered with
       severity, codebase/feature context, impact of doing nothing, lettered
       solution options, and the recommended option.
