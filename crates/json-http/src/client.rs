@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::{
-    Error, JsonHttpBody, JsonHttpMethod, JsonHttpMultipartField, JsonHttpRequest,
-    JsonHttpRequestBuilder, JsonHttpResponse, Result,
+    DynJsonHttpSseStream, Error, JsonHttpMethod, JsonHttpRequest, JsonHttpRequestBuilder,
+    JsonHttpResponse, Result, reqwest_transport::ReqwestJsonHttpTransport,
 };
 
 /// Shared dynamic JSON HTTP client alias.
@@ -28,6 +28,11 @@ pub trait JsonHttpTransport: Send + Sync {
 
     /// Executes one request and returns the raw response bytes.
     async fn execute_bytes(&self, request: &JsonHttpRequest) -> Result<JsonHttpResponse<Vec<u8>>>;
+
+    /// Opens one Server-Sent Events response stream.
+    async fn execute_sse(&self, _request: &JsonHttpRequest) -> Result<DynJsonHttpSseStream> {
+        Err(Error::SseUnsupported)
+    }
 }
 
 /// Builder-oriented JSON HTTP client boundary.
@@ -97,9 +102,7 @@ impl ReqwestJsonHttpClient {
     /// Builds a reqwest-backed JSON HTTP client with the default timeout.
     pub fn new() -> Self {
         Self {
-            inner: TransportBackedJsonHttpClient::new(Arc::new(ReqwestJsonHttpTransport {
-                client: reqwest::Client::new(),
-            })),
+            inner: TransportBackedJsonHttpClient::new(Arc::new(ReqwestJsonHttpTransport::new())),
         }
     }
 }
@@ -130,87 +133,4 @@ impl JsonHttpClient for ReqwestJsonHttpClient {
     fn patch(&self, url: &str) -> JsonHttpRequestBuilder {
         self.inner.patch(url)
     }
-}
-
-#[derive(Clone, Debug)]
-struct ReqwestJsonHttpTransport {
-    client: reqwest::Client,
-}
-
-#[async_trait]
-impl JsonHttpTransport for ReqwestJsonHttpTransport {
-    async fn execute(&self, request: &JsonHttpRequest) -> Result<JsonHttpResponse<Value>> {
-        let response = self.execute_request(request).await?;
-        let status = response.status().as_u16();
-        let text = match response.text().await {
-            Ok(text) => text,
-            Err(source) => return Err(crate::Error::transport(source.to_string())),
-        };
-        let body = serde_json::from_str(&text).unwrap_or(Value::String(text));
-        Ok(JsonHttpResponse { status, body })
-    }
-
-    async fn execute_bytes(&self, request: &JsonHttpRequest) -> Result<JsonHttpResponse<Vec<u8>>> {
-        let response = self.execute_request(request).await?;
-        let status = response.status().as_u16();
-        let body = match response.bytes().await {
-            Ok(body) => body.to_vec(),
-            Err(source) => return Err(crate::Error::transport(source.to_string())),
-        };
-        Ok(JsonHttpResponse { status, body })
-    }
-}
-
-impl ReqwestJsonHttpTransport {
-    async fn execute_request(&self, request: &JsonHttpRequest) -> Result<reqwest::Response> {
-        let method = match request.method {
-            JsonHttpMethod::Get => reqwest::Method::GET,
-            JsonHttpMethod::Post => reqwest::Method::POST,
-            JsonHttpMethod::Put => reqwest::Method::PUT,
-            JsonHttpMethod::Delete => reqwest::Method::DELETE,
-            JsonHttpMethod::Patch => reqwest::Method::PATCH,
-        };
-        let mut builder = self
-            .client
-            .request(method, &request.url)
-            .timeout(request.timeout);
-        for (key, value) in &request.headers {
-            builder = builder.header(key, value);
-        }
-        if let Some(body) = &request.body {
-            match body {
-                JsonHttpBody::Json(body) => {
-                    builder = builder.json(body);
-                }
-                JsonHttpBody::Multipart(multipart) => {
-                    builder = builder.multipart(reqwest_multipart_form(&multipart.fields)?);
-                }
-            }
-        }
-
-        match builder.send().await {
-            Ok(response) => Ok(response),
-            Err(source) => Err(Error::transport(source.to_string())),
-        }
-    }
-}
-
-fn reqwest_multipart_form(fields: &[JsonHttpMultipartField]) -> Result<reqwest::multipart::Form> {
-    let mut form = reqwest::multipart::Form::new();
-    for field in fields {
-        let mut part = reqwest::multipart::Part::bytes(field.bytes.clone());
-        if let Some(filename) = &field.filename {
-            part = part.file_name(filename.clone());
-        }
-        if let Some(content_type) = &field.content_type {
-            part = match part.mime_str(content_type) {
-                Ok(part) => part,
-                Err(source) => {
-                    return Err(Error::transport(source.to_string()));
-                }
-            };
-        }
-        form = form.part(field.name.clone(), part);
-    }
-    Ok(form)
 }

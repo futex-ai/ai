@@ -6,6 +6,9 @@ mod auth;
 mod client;
 mod error;
 mod request;
+mod reqwest_sse;
+mod reqwest_transport;
+mod sse;
 
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use auth::JsonHttpAuthMock;
@@ -20,6 +23,12 @@ pub use error::{Error, Result};
 pub use request::{
     JsonHttpBody, JsonHttpMethod, JsonHttpMultipart, JsonHttpMultipartField, JsonHttpRequest,
     JsonHttpRequestBuilder, JsonHttpResponse,
+};
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub use sse::JsonHttpSseStreamMock;
+pub use sse::{
+    DynJsonHttpSseStream, JsonHttpSseDecodeError, JsonHttpSseDecoder, JsonHttpSseEvent,
+    JsonHttpSseStream,
 };
 
 #[cfg(test)]

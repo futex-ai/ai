@@ -23,7 +23,8 @@ in-memory tool-calling runtime behavior.
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, and usage pricing
 - Ordered fallback model composition through `ai-models-multi`
-- Trait-backed JSON HTTP client support through `json-http`
+- Trait-backed buffered and incremental SSE HTTP client support through
+  `json-http`, with connect, idle, and overall timeout controls
 - In-memory tool-calling runtime through `ai-tool-calling`, including
   universal tool output management with inline envelopes, stored output ids,
   UTF-8-safe windows, and degraded-window fallbacks

@@ -32,30 +32,30 @@ Protocol and plan creation were approved by Cal in the 2026-08-22 handoff.
 At the end of this milestone, injected and reqwest transports can return a
 decoded, timeout-aware SSE stream without changing buffered callers.
 
-- [ ] Add failing pure decoder tests for LF, CRLF, standalone CR, mixed
+- [x] Add failing pure decoder tests for LF, CRLF, standalone CR, mixed
       endings, multiline and colonless `data`, comments, ignored fields,
       multiple events, EOF dispatch, UTF-8, and every chunk-split boundary.
-- [ ] Implement `JsonHttpSseEvent` and the pure incremental decoder in focused
+- [x] Implement `JsonHttpSseEvent` and the pure incremental decoder in focused
       modules below the Rust file cap.
-- [ ] Add failing unimock tests for `JsonHttpSseStream`, dynamic stream
+- [x] Add failing unimock tests for `JsonHttpSseStream`, dynamic stream
       ownership, and the default `execute_sse` `SseUnsupported` behavior.
-- [ ] Add `JsonHttpRequestBuilder::send_sse` so auth hooks and typed JSON
+- [x] Add `JsonHttpRequestBuilder::send_sse` so auth hooks and typed JSON
       serialization use the same builder path as buffered requests.
-- [ ] Add `idle_timeout` to `JsonHttpRequest`, document `timeout` as the
+- [x] Add `idle_timeout` to `JsonHttpRequest`, document `timeout` as the
       overall deadline, and retain compatibility for existing transports.
-- [ ] Add typed idle/deadline/content-type/decoder errors with event progress,
+- [x] Add typed idle/deadline/content-type/decoder errors with event progress,
       plus a 64-KiB bounded HTTP-status diagnostic.
-- [ ] Add failing reqwest integration tests using a local SSE server for
+- [x] Add failing reqwest integration tests using a local SSE server for
       immediate event delivery, stalled open/reads, overall deadline,
       non-success JSON/text bodies, invalid content type, split chunks, and
       disconnects before and after progress.
-- [ ] Implement manual stream timers without reqwest's request timeout and add
+- [x] Implement manual stream timers without reqwest's request timeout and add
       a 10-second client connect timeout for both execution paths.
-- [ ] Raise the buffered default timeout from 60 to 600 seconds.
-- [ ] Update `crates/json-http/README.md` and any clarified protocol details.
-- [ ] Run formatting, strict Clippy, the complete `json-http` tests, workspace
+- [x] Raise the buffered default timeout from 60 to 600 seconds.
+- [x] Update `crates/json-http/README.md` and any clarified protocol details.
+- [x] Run formatting, strict Clippy, the complete `json-http` tests, workspace
       tests, smoke tests, file-length lint, and `cargo xtask check` to 100%.
-- [ ] Review `git diff origin/main...`, stage all files, commit with a
+- [x] Review `git diff origin/main...`, stage all files, commit with a
       Conventional Commit, and push the current branch without renaming it.
 
 ## Milestone 3: Shared Model Support

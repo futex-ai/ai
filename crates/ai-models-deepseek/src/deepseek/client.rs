@@ -167,7 +167,18 @@ pub(super) fn request_error(source: json_http::Error, model_id: &str) -> ModelEr
         json_http::Error::Transport { message } | json_http::Error::Auth { message } => {
             ModelError::transient_provider(PROVIDER, model_id, message)
         }
+        json_http::Error::ReqwestTransport { .. } => {
+            ModelError::transient_provider(PROVIDER, model_id, source.to_string())
+        }
         json_http::Error::SerializeRequest { .. }
-        | json_http::Error::DeserializeResponse { .. } => ModelError::internal(source),
+        | json_http::Error::DeserializeResponse { .. }
+        | json_http::Error::ClientInitialization { .. }
+        | json_http::Error::SseUnsupported
+        | json_http::Error::HttpStatus { .. }
+        | json_http::Error::InvalidSseContentType { .. }
+        | json_http::Error::IdleTimeout { .. }
+        | json_http::Error::DeadlineExceeded { .. }
+        | json_http::Error::SseTransport { .. }
+        | json_http::Error::SseDecode { .. } => ModelError::internal(source),
     }
 }
