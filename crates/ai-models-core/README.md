@@ -9,13 +9,21 @@
 - Provide an injectable monotonic clock and async sleep boundary for provider
   operations that must poll within a total deadline
 - Offer provider-agnostic JSON/error helper functions shared by model crates
+- Classify stream failures by provider-event progress and accumulate
+  OpenAI-compatible chat-completions deltas into buffered response shapes
 - Provide shared known-model catalog metadata used by composition roots
 - Provide provider-agnostic model usage pricing wrappers and integer cost
   calculation
 
 ## What This Crate Does
 
-`ai-models-core` exposes wrappers such as `RetryingModel` and `ConcurrencyLimitedModel` so composition roots can assemble policy layers around provider clients. It also includes provider-facing helpers for common response/error handling, including HTTP status classification, structured context-window overflow detection, tool-call JSON parsing, and deterministic local ids for provider tool calls that arrive without upstream ids. HTTP 408, 409, 425, and 5xx model responses are classified as transient provider failures so retry wrappers can apply the configured schedule.
+`ai-models-core` exposes wrappers such as `RetryingModel` and `ConcurrencyLimitedModel` so composition roots can assemble policy layers around provider clients. It also includes provider-facing helpers for common response/error handling, including HTTP status classification, structured context-window overflow detection, tool-call JSON parsing, and deterministic local ids for provider tool calls that arrive without upstream ids. HTTP 408, 409, 425, and 5xx model responses are classified as transient provider failures so retry wrappers can apply the configured schedule. Streaming helpers classify failures before any provider event as transient and failures after progress as `ModelError::Interrupted`.
+
+`ChatCompletionsAccumulator` is the shared typed merger for compatible
+provider streams. It joins visible content and reasoning independently,
+reassembles indexed tool calls and argument fragments, retains terminal finish
+reasons and final usage, and requires the `[DONE]` sentinel before producing a
+buffered response-shaped value.
 
 It also defines `KnownModelSpec`, `KnownModelCatalog`, coarse `SpeedTier` and
 `CostTier` values, `ThinkingLevel`, and the 1-to-10 `IntelligenceScore` used
@@ -46,7 +54,9 @@ provided `ModelPricing` snapshot to normalized usage categories. It emits
 `ModelUsageCostLine` values and sums known line costs in micro-USD; provider
 crates keep parsing usage quantities but do not own mutable price tables.
 
-The default retry schedule preserved by this crate is `100ms` then `250ms` for transient model failures.
+The default retry schedule preserved by this crate is `100ms` then `250ms` for
+transient model failures. `RetryingModel` does not replay interrupted
+generations because doing so can duplicate provider work and billing.
 
 Long-running provider adapters can use `PollingRuntime` to couple monotonic
 deadline measurement with async sleeping behind one testable trait. Production
@@ -60,8 +70,9 @@ use std::sync::Arc;
 
 use ai_interface::{DynModel, MockModel};
 use ai_models_core::{
-    ConcurrencyLimitedModel, KnownModelCatalog, ModelPricing, RetryingModel,
-    ThinkingLevel, UsagePricingModel, known_mock_models,
+    ChatCompletionsAccumulator, ChatCompletionsResponse, ChatCompletionsStreamError,
+    ConcurrencyLimitedModel, KnownModelCatalog, ModelPricing, RetryingModel, ThinkingLevel,
+    UsagePricingModel, known_mock_models,
 };
 
 fn wrap_model() -> DynModel {
@@ -77,6 +88,16 @@ fn mock_catalog() -> KnownModelCatalog {
 
 fn mock_thinking_level() -> ThinkingLevel {
     ThinkingLevel::Disabled
+}
+
+fn accumulate_chat_completion(
+    data: &[&str],
+) -> Result<ChatCompletionsResponse, ChatCompletionsStreamError> {
+    let mut accumulator = ChatCompletionsAccumulator::new();
+    for payload in data {
+        accumulator.push_data(payload)?;
+    }
+    accumulator.finish()
 }
 ```
 
@@ -95,6 +116,7 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
   safe thinking-level downgrade resolution
 - `src/pricing.rs` - model usage pricing wrapper and integer cost calculator
 - `src/errors.rs` - provider-agnostic status, JSON parsing, and structured-output validation helpers
+- `src/chat_completions/` - typed OpenAI-compatible stream accumulator
 - `src/tool_call_identity.rs` - deterministic synthetic tool-call id helpers
 - `src/sleeper.rs` - abstract sleeper boundary for retry testing
 - `src/polling.rs` - monotonic clock and async sleeper boundary for
@@ -104,6 +126,7 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
+- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)

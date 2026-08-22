@@ -70,6 +70,26 @@ async fn returns_the_last_transient_error_after_exhausting_retries() {
 }
 
 #[tokio::test]
+async fn does_not_retry_an_interrupted_generation() {
+    let retrying = RetryingModel::new(
+        scripted_model(vec![Err(ModelError::interrupted(
+            "openai",
+            "gpt-5.5",
+            "stream ended after output",
+        ))]),
+        Arc::new(Unimock::new(())),
+        vec![Duration::from_millis(100), Duration::from_millis(250)],
+    );
+
+    let error = retrying
+        .complete(&empty_request())
+        .await
+        .expect_err("interrupted generation should be returned immediately");
+
+    assert!(matches!(error, ModelError::Interrupted { .. }));
+}
+
+#[tokio::test]
 async fn forwards_call_controls_unchanged() {
     let model = Arc::new(Unimock::new(
         ModelMock::complete

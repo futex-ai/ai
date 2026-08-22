@@ -21,7 +21,8 @@ in-memory tool-calling runtime behavior.
   generation, structured output, usage normalization, catalog-aware
   thinking-level downgrades, and typed errors
 - Provider-agnostic wrappers for retry, concurrency, structured output
-  validation, known-model catalogs, and usage pricing
+  validation, known-model catalogs, usage pricing, streaming failure
+  classification, and chat-completions delta accumulation
 - Ordered fallback model composition through `ai-models-multi`
 - Trait-backed buffered and incremental SSE HTTP client support through
   `json-http`, with connect, idle, and overall timeout controls

@@ -116,6 +116,18 @@ pub enum ModelError {
         /// Provider-supplied failure details.
         message: String,
     },
+    /// A streaming response failed after the provider had begun generation.
+    #[error(
+        "[ai_interface/model] interrupted provider response for `{provider}` model `{model_id}`: {message}"
+    )]
+    Interrupted {
+        /// Provider whose response stream was interrupted.
+        provider: String,
+        /// Model identifier requested from the provider.
+        model_id: String,
+        /// Failure details reported while consuming the stream.
+        message: String,
+    },
     /// The upstream provider returned a non-retryable failure.
     #[error("[ai_interface/model] provider failure for `{provider}` model `{model_id}`: {message}")]
     Provider {
@@ -180,6 +192,19 @@ impl ModelError {
         message: impl Into<String>,
     ) -> Self {
         Self::TransientProvider {
+            provider: provider.into(),
+            model_id: model_id.into(),
+            message: message.into(),
+        }
+    }
+
+    /// Builds an interrupted streaming-response error.
+    pub fn interrupted(
+        provider: impl Into<String>,
+        model_id: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
+        Self::Interrupted {
             provider: provider.into(),
             model_id: model_id.into(),
             message: message.into(),

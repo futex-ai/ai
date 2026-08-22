@@ -1,6 +1,9 @@
 //! Provider-agnostic error and JSON helper functions.
 
+use std::error::Error as StdError;
+
 use ai_interface::{ModelError, ModelResult, StructuredOutputSchema};
+use json_http::Error as JsonHttpError;
 use serde_json::Value;
 
 /// Normalizes nullable assistant text content into a string.
@@ -34,6 +37,70 @@ pub fn classify_json_http_error(
         );
     }
     ModelError::provider(provider, model_id, format!("HTTP {status}: {message}"))
+}
+
+/// Converts a streaming JSON HTTP failure using observed response progress.
+///
+/// Failures before the first event remain retryable. Once any event has been
+/// observed, replaying the request could duplicate provider work and billing,
+/// so the failure becomes an interruption instead.
+pub fn classify_json_http_stream_error(
+    provider: &str,
+    model_id: &str,
+    events_received: u64,
+    source: JsonHttpError,
+) -> ModelError {
+    let events_received = events_received.max(stream_error_progress(&source));
+    match source {
+        JsonHttpError::HttpStatus { status, body } => {
+            classify_json_http_error(provider, model_id, status, &body)
+        }
+        source @ (JsonHttpError::ClientInitialization { .. }
+        | JsonHttpError::SerializeRequest { .. }
+        | JsonHttpError::DeserializeResponse { .. }
+        | JsonHttpError::SseUnsupported) => ModelError::internal(source),
+        source => classify_stream_error(provider, model_id, events_received, &source),
+    }
+}
+
+/// Classifies a typed provider stream failure using consumed event progress.
+pub fn classify_stream_error(
+    provider: &str,
+    model_id: &str,
+    events_received: u64,
+    source: &(dyn StdError + Send + Sync),
+) -> ModelError {
+    if events_received == 0 {
+        ModelError::transient_provider(provider, model_id, source.to_string())
+    } else {
+        ModelError::interrupted(provider, model_id, source.to_string())
+    }
+}
+
+fn stream_error_progress(source: &JsonHttpError) -> u64 {
+    match source {
+        JsonHttpError::IdleTimeout {
+            events_received, ..
+        }
+        | JsonHttpError::DeadlineExceeded {
+            events_received, ..
+        }
+        | JsonHttpError::SseTransport {
+            events_received, ..
+        }
+        | JsonHttpError::SseDecode {
+            events_received, ..
+        } => *events_received,
+        JsonHttpError::ClientInitialization { .. }
+        | JsonHttpError::SerializeRequest { .. }
+        | JsonHttpError::DeserializeResponse { .. }
+        | JsonHttpError::Transport { .. }
+        | JsonHttpError::ReqwestTransport { .. }
+        | JsonHttpError::Auth { .. }
+        | JsonHttpError::SseUnsupported
+        | JsonHttpError::HttpStatus { .. }
+        | JsonHttpError::InvalidSseContentType { .. } => 0,
+    }
 }
 
 fn context_limit_code_from_body(body: &Value) -> Option<&str> {

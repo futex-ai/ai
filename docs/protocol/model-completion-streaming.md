@@ -1,7 +1,7 @@
 # Model Completion Streaming Protocol
 
-Status: approved on 2026-08-22; JSON HTTP foundation implemented, provider
-migration pending.
+Status: approved on 2026-08-22; JSON HTTP and shared model foundations
+implemented, provider migration pending.
 
 ## Purpose
 

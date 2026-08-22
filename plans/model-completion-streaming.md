@@ -63,23 +63,23 @@ decoded, timeout-aware SSE stream without changing buffered callers.
 At the end of this milestone, model wrappers can distinguish safe retries from
 partial generations and compatible providers can share one tested accumulator.
 
-- [ ] Add failing `ai-interface` tests, then add documented
+- [x] Add failing `ai-interface` tests, then add documented
       `ModelError::Interrupted` fields and constructor behavior.
-- [ ] Add failing classification tests for HTTP status errors and transport,
+- [x] Add failing classification tests for HTTP status errors and transport,
       timeout, decode, EOF, and native errors before versus after progress.
-- [ ] Implement shared pure stream-error classification in `ai-models-core`.
-- [ ] Add failing fixture tests for content, reasoning, interleaved indexed
+- [x] Implement shared pure stream-error classification in `ai-models-core`.
+- [x] Add failing fixture tests for content, reasoning, interleaved indexed
       tool calls, fragmented arguments, finish reason, usage, `[DONE]`, and
       malformed or incomplete chat-completions streams.
-- [ ] Implement the pure shared chat-completions accumulator below the file
+- [x] Implement the pure shared chat-completions accumulator below the file
       cap and shape its output for existing response mappers.
-- [ ] Prove `RetryingModel` does not retry `Interrupted` and `MultiModel` does
+- [x] Prove `RetryingModel` does not retry `Interrupted` and `MultiModel` does
       fall through after it.
-- [ ] Update `ai-interface`, `ai-models-core`, and `ai-models-multi` READMEs,
+- [x] Update `ai-interface`, `ai-models-core`, and `ai-models-multi` READMEs,
       including the fallback re-billing consequence.
-- [ ] Run targeted and workspace formatting, strict Clippy, tests, smoke tests,
+- [x] Run targeted and workspace formatting, strict Clippy, tests, smoke tests,
       file-length lint, and `cargo xtask check` to 100%.
-- [ ] Review the complete diff, stage all files, commit conventionally, and
+- [x] Review the complete diff, stage all files, commit conventionally, and
       push the current branch.
 
 ## Milestone 4: Anthropic Streaming

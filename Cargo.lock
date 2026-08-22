@@ -101,7 +101,9 @@ version = "0.3.0"
 dependencies = [
  "ai-interface",
  "async-trait",
+ "json-http",
  "jsonschema",
+ "serde",
  "serde_json",
  "thiserror",
  "tokio",
