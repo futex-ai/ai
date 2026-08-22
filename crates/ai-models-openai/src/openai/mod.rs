@@ -11,7 +11,10 @@ mod video_generation;
 
 use std::{sync::Arc, time::Duration};
 
-use ai_interface::{Model, ModelControl, ModelError, ModelRequest, ModelResponse, ProviderKind};
+use ai_interface::{
+    Model, ModelCompletionEventSink, ModelControl, ModelError, ModelRequest, ModelResponse,
+    NoopModelCompletionEventSink, ProviderKind,
+};
 use ai_models_core::{
     ThinkingLevel, classify_json_http_stream_error, resolve_catalog_thinking_level,
 };
@@ -98,11 +101,11 @@ impl OpenAiModel {
     }
 }
 
-#[async_trait]
-impl Model for OpenAiModel {
-    async fn complete(
+impl OpenAiModel {
+    async fn complete_with_sink(
         &self,
         request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
     ) -> std::result::Result<ModelResponse, ModelError> {
         if let Err(control) = request.controls.execution.resolve_deferred(false) {
             return Err(ModelError::unsupported_control(
@@ -156,8 +159,33 @@ impl Model for OpenAiModel {
             &self.provider_model_id,
             self.thinking_level,
             response_schema,
+            event_sink,
         )
         .await
+    }
+}
+
+#[async_trait]
+impl Model for OpenAiModel {
+    async fn complete(
+        &self,
+        request: &ModelRequest,
+    ) -> std::result::Result<ModelResponse, ModelError> {
+        self.complete_with_sink(request, &NoopModelCompletionEventSink)
+            .await
+    }
+
+    async fn complete_with_events(
+        &self,
+        request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
+    ) -> std::result::Result<ModelResponse, ModelError> {
+        if request.response_schema.is_some() {
+            return self
+                .complete_with_sink(request, &NoopModelCompletionEventSink)
+                .await;
+        }
+        self.complete_with_sink(request, event_sink).await
     }
 }
 
@@ -196,6 +224,10 @@ mod openai_streaming_tests;
 #[cfg(test)]
 #[path = "_tests_/openai_stream_error_tests.rs"]
 mod openai_stream_error_tests;
+
+#[cfg(test)]
+#[path = "_tests_/openai_event_tests.rs"]
+mod openai_event_tests;
 
 #[cfg(test)]
 #[path = "_tests_/stream_support.rs"]

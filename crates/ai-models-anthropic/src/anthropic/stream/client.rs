@@ -1,12 +1,18 @@
 //! Anthropic SSE loop and model-error classification.
 
-use ai_interface::{ModelError, ModelResponse, ModelResult, StructuredOutputSchema};
+use ai_interface::{
+    ModelCompletionEvent, ModelCompletionEventSink, ModelError, ModelResponse, ModelResult,
+    StructuredOutputSchema,
+};
 use ai_models_core::{ThinkingLevel, classify_json_http_stream_error, classify_stream_error};
 use json_http::DynJsonHttpSseStream;
 
 use super::{
     accumulator::AnthropicStreamAccumulator,
-    types::{AnthropicAccumulation, AnthropicProviderErrorKind, AnthropicStreamError},
+    types::{
+        AnthropicAccumulation, AnthropicProviderErrorKind, AnthropicStreamDelta,
+        AnthropicStreamError,
+    },
 };
 use crate::anthropic::response;
 
@@ -18,6 +24,7 @@ pub(in crate::anthropic) async fn complete(
     provider_model_id: &str,
     thinking_level: ThinkingLevel,
     response_schema: Option<&StructuredOutputSchema>,
+    event_sink: &dyn ModelCompletionEventSink,
 ) -> ModelResult<ModelResponse> {
     let mut accumulator = AnthropicStreamAccumulator::default();
     let mut events_received = 0u64;
@@ -42,8 +49,20 @@ pub(in crate::anthropic) async fn complete(
             }
         };
         match accumulator.push_data(&event.data) {
-            Ok(AnthropicAccumulation::Continue) => {
+            Ok(AnthropicAccumulation::Continue { delta }) => {
                 events_received = events_received.saturating_add(1);
+                if let Some(delta) = delta {
+                    let event = match delta {
+                        AnthropicStreamDelta::AssistantText {
+                            delta,
+                            starts_block: _,
+                        } => ModelCompletionEvent::AssistantTextDelta { delta },
+                        AnthropicStreamDelta::ReasoningText { delta } => {
+                            ModelCompletionEvent::ReasoningTextDelta { delta }
+                        }
+                    };
+                    event_sink.emit(event).await;
+                }
             }
             Ok(AnthropicAccumulation::Complete(body)) => {
                 return response::parse_response(

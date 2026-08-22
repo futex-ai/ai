@@ -64,19 +64,19 @@ provider-agnostic wrappers preserve its coherent event sequence.
 At the end of this milestone, the three native completion protocols expose
 assistant and provider-available reasoning events with terminal parity.
 
-- [ ] Add failing event-order, assistant-parity, reasoning, structured-output
+- [x] Add failing event-order, assistant-parity, reasoning, structured-output
       suppression, and interrupted-stream tests for Anthropic.
-- [ ] Emit Anthropic text and thinking deltas without changing accumulation.
-- [ ] Add the equivalent failing coverage for OpenAI Responses, including
+- [x] Emit Anthropic text and thinking deltas without changing accumulation.
+- [x] Add the equivalent failing coverage for OpenAI Responses, including
       output-text and reasoning-summary delta events.
-- [ ] Emit OpenAI events while retaining terminal-object response parsing.
-- [ ] Add the equivalent failing coverage for Google candidate text and thought
+- [x] Emit OpenAI events while retaining terminal-object response parsing.
+- [x] Add the equivalent failing coverage for Google candidate text and thought
       parts.
-- [ ] Emit Google events while retaining its current fragment merger.
-- [ ] Update the three provider crate READMEs and clarified protocol details.
-- [ ] Run formatting, strict Clippy, relevant crate tests, workspace tests,
+- [x] Emit Google events while retaining its current fragment merger.
+- [x] Update the three provider crate READMEs and clarified protocol details.
+- [x] Run formatting, strict Clippy, relevant crate tests, workspace tests,
       smoke tests, file-length lint, and `cargo xtask check` to 100%.
-- [ ] Review `git diff origin/main...`, stage all files, commit with a
+- [x] Review `git diff origin/main...`, stage all files, commit with a
       Conventional Commit, and push the current branch without renaming it.
 
 ## Milestone 4: Chat-Completions Providers

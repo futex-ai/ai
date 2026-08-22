@@ -113,6 +113,14 @@ their current terminal accumulators and response mappers. Tool-call argument
 deltas, usage deltas, raw error events, keepalives, and transport metadata are
 not public completion events in version one.
 
+Anthropic and Google normalize assistant part boundaries before emission:
+leading whitespace is held until a part is known to survive terminal parsing,
+and the first emitted fragment of each later retained part is prefixed with the
+same newline inserted by the buffered mapper. Google still merges the first
+compatible part of a later chunk and preserves distinct same-chunk parts.
+OpenAI accepts both reasoning-summary and reasoning-text delta event names as
+reasoning progress while continuing to parse only the terminal response object.
+
 xAI deferred submit-and-poll execution remains buffered and emits no events.
 Synchronous xAI execution follows the table above. Completion mode selection,
 idle and overall deadlines, and interrupted-stream classification do not

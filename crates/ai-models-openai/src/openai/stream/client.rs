@@ -1,6 +1,9 @@
 //! OpenAI Responses SSE loop and model-error classification.
 
-use ai_interface::{ModelError, ModelResponse, ModelResult, StructuredOutputSchema};
+use ai_interface::{
+    ModelCompletionEvent, ModelCompletionEventSink, ModelError, ModelResponse, ModelResult,
+    StructuredOutputSchema,
+};
 use ai_models_core::{ThinkingLevel, classify_json_http_stream_error, classify_stream_error};
 use json_http::DynJsonHttpSseStream;
 
@@ -15,6 +18,7 @@ pub(in crate::openai) async fn complete(
     provider_model_id: &str,
     thinking_level: ThinkingLevel,
     response_schema: Option<&StructuredOutputSchema>,
+    event_sink: &dyn ModelCompletionEventSink,
 ) -> ModelResult<ModelResponse> {
     let mut events_received = 0u64;
     loop {
@@ -52,6 +56,22 @@ pub(in crate::openai) async fn complete(
         match parsed {
             OpenAiStreamEvent::Progress => {
                 events_received = events_received.saturating_add(1);
+            }
+            OpenAiStreamEvent::OutputTextDelta { delta } => {
+                events_received = events_received.saturating_add(1);
+                if !delta.is_empty() {
+                    event_sink
+                        .emit(ModelCompletionEvent::AssistantTextDelta { delta })
+                        .await;
+                }
+            }
+            OpenAiStreamEvent::ReasoningTextDelta { delta } => {
+                events_received = events_received.saturating_add(1);
+                if !delta.is_empty() {
+                    event_sink
+                        .emit(ModelCompletionEvent::ReasoningTextDelta { delta })
+                        .await;
+                }
             }
             OpenAiStreamEvent::Completed { response }
             | OpenAiStreamEvent::Incomplete { response } => {

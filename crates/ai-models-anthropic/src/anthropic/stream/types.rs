@@ -147,8 +147,14 @@ impl AnthropicProviderErrorKind {
 
 #[derive(Debug)]
 pub(super) enum AnthropicAccumulation {
-    Continue,
+    Continue { delta: Option<AnthropicStreamDelta> },
     Complete(Value),
+}
+
+#[derive(Debug)]
+pub(super) enum AnthropicStreamDelta {
+    AssistantText { delta: String, starts_block: bool },
+    ReasoningText { delta: String },
 }
 
 #[derive(Debug, Error)]

@@ -8,6 +8,7 @@
 - Export strongly typed known Anthropic model metadata for model routing
 - Map shared model/tool DTOs to the Anthropic messages API
 - Consume Anthropic Messages SSE events and reconstruct complete responses
+- Emit public assistant text and thinking deltas in provider order
 - Parse Anthropic responses into shared response DTOs and typed model errors
 
 ## What This Crate Does
@@ -15,6 +16,8 @@
 `AnthropicModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - Anthropic messages request serialization with internal SSE accumulation
+- opt-in `complete_with_events` delivery for text and thinking deltas, with
+  assistant text normalized to the terminal response's block boundaries
 - 3,600-second default overall completion deadline, 120-second stream idle
   deadline, and explicit per-call total-timeout overrides
 - portable sampling outside thinking mode, bounded output limits, stop
@@ -52,9 +55,9 @@ adaptive thinking, sets `output_config.effort` to `max`, and requests omitted
 thinking display. All existing Sonnet 4.6, Opus 4.7, and Haiku 4.5 entries
 remain available for pinned deployments.
 Reasoning/thinking content blocks in provider responses are ignored and are not
-surfaced as assistant text. The stream accumulator still consumes thinking and
-signature deltas so its reconstructed response remains equivalent to the
-buffered Anthropic shape.
+surfaced as assistant text. Event-observing callers receive their text through
+`ReasoningTextDelta`; buffered callers still see only the reconstructed terminal
+response. Schema-constrained calls suppress all public deltas in version one.
 
 ## Quick Start
 
@@ -96,6 +99,7 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
+- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [Anthropic model overview](https://platform.claude.com/docs/en/about-claude/models/overview)
 - [Anthropic streaming messages](https://platform.claude.com/docs/en/build-with-claude/streaming)
 - [`../ai-interface/README.md`](../ai-interface/README.md)

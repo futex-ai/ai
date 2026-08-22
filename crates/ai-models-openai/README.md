@@ -15,7 +15,8 @@ neighboring crates.
 - Implement the OpenAI video client behind `ai_interface::VideoGenerator`
 - Export strongly typed known OpenAI model metadata for model routing
 - Map shared model/tool DTOs to the OpenAI Responses API
-- Consume OpenAI Responses SSE events and retain the complete terminal response
+- Consume OpenAI Responses SSE events, emit public text progress, and retain
+  the complete terminal response
 - Map shared audio transcription DTOs to `v1/audio/transcriptions`
 - Map shared image DTOs to `v1/images/generations` and `v1/images/edits`
 - Map shared video DTOs to asynchronous `v1/videos` jobs and downloads
@@ -26,6 +27,8 @@ neighboring crates.
 `OpenAiModel` accepts a `json-http` client plus explicit auth input and handles:
 
 - OpenAI Responses request serialization with internal SSE consumption
+- opt-in assistant output and reasoning-summary delta delivery through
+  `complete_with_events`, while schema-constrained calls remain silent
 - 3,600-second default overall completion deadline, 120-second stream idle
   deadline, and explicit per-call total-timeout overrides
 - shared text and image parts as Responses input content, with typed rejection
@@ -172,6 +175,8 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - `src/openai/request_types.rs` - OpenAI Responses request DTOs
 - `src/openai/response/mod.rs` - OpenAI Responses response parsing
 - `src/openai/stream/` - terminal event handling and stream failure mapping
+- `src/openai/_tests_/openai_event_tests.rs` - event order, parity,
+  suppression, and interruption coverage
 - `src/openai/transcription.rs` - OpenAI audio transcription implementation
 - `src/openai/image_generation/` - OpenAI image request, response, and error mapping
 - `src/openai/video_generation/` - OpenAI asynchronous video submission,
@@ -181,6 +186,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
+- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [OpenAI model catalog](https://developers.openai.com/api/docs/models)
 - [OpenAI Responses streaming reference](https://developers.openai.com/api/reference/typescript/resources/beta/subresources/responses/methods/create)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
