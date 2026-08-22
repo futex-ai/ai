@@ -6,6 +6,8 @@ milestones are finished.
 
 ## Active
 
+- [Model completion streaming](model-completion-streaming.md)
+
 ## Completed
 
 - [Add video generation support](add-video-generation-support.md)

@@ -33,6 +33,10 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [Model completion streaming](docs/protocol/model-completion-streaming.md)
+  defines internal SSE accumulation, idle and overall deadlines, interruption
+  retry policy, provider mappings, response parity, and the Firna revision-bump
+  contract.
 - [Provider call controls](docs/protocol/provider-call-controls.md) defines
   portable generation and execution intent, provider compatibility, blank
   system handling, full Google schemas, and XAI deferred completion.
@@ -220,6 +224,8 @@ cargo xtask review
   catalog and CI verification contract
 - `docs/protocol/provider-call-controls.md`: normative model-call control and
   provider wire-compatibility contract
+- `docs/protocol/model-completion-streaming.md`: approved internal SSE,
+  timeout, interruption, parity, and downstream migration contract
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
   contract
 - `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract
