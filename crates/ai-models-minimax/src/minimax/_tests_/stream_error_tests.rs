@@ -1,7 +1,9 @@
 //! MiniMax stream failure classification tests.
 
 use ai_interface::{Model, ModelError};
-use ai_models_core::test_support::{SseFixture, data_event, event, recording_streaming_client};
+use ai_models_core::test_support::{
+    SseFixture, data_event, done_event, event, recording_streaming_client,
+};
 use serde_json::json;
 
 use crate::{MINIMAX_M2_7, MINIMAX_M3, MiniMaxModel};
@@ -70,18 +72,30 @@ async fn eof_transport_and_malformed_events_are_progress_aware() {
 }
 
 #[tokio::test]
-async fn rejects_replaced_cumulative_content() {
+async fn accepts_replaced_cumulative_content_for_buffered_calls() {
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(vec![
         content_event("first"),
-        content_event("replacement"),
+        event(json!({
+            "choices": [{
+                "index": 0,
+                "delta": {"content": "replacement"},
+                "finish_reason": "stop"
+            }]
+        })),
+        event(json!({
+            "choices": [],
+            "usage": {"prompt_tokens": 4, "completion_tokens": 1, "total_tokens": 5}
+        })),
+        done_event(),
     ])]);
     let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
 
-    let error = model
+    let response = model
         .complete(&simple_request())
         .await
-        .expect_err("replaced cumulative content should fail");
-    assert!(matches!(error, ModelError::Interrupted { .. }), "{error}");
+        .expect("replaced cumulative content should complete");
+
+    assert_eq!(response.assistant_message, "replacement");
 }
 
 fn progress_event() -> ai_models_core::test_support::StreamItem {

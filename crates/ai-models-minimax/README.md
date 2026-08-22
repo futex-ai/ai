@@ -39,15 +39,16 @@ return typed unsupported-control errors. Blank system prompts are omitted and
 per-call timeouts reach the transport.
 
 Completion requests send `stream: true` with final usage enabled. M3 emits
-incremental visible-content deltas, while M2.x cumulative content is converted
-into suffix deltas before shared accumulation. The last nonempty
-`reasoning_details` snapshot is retained as the canonical replay state even
-when MiniMax revises an earlier snapshot. A structurally complete stream may
-end with `[DONE]` or clean EOF; EOF still fails when choices, a finish reason,
-usage, or tool metadata are incomplete. Streams default to a 3,600-second
-overall deadline and a 120-second idle timeout. Numeric `base_resp` failures
-keep their provider classification before progress and become
-`ModelError::Interrupted` after progress.
+incremental visible-content deltas. For M2.x, the adapter retains the latest
+cumulative content snapshot and installs it only after terminal stream
+validation, so a provider revision replaces its draft instead of interrupting
+the completion. The last nonempty `reasoning_details` snapshot is retained as
+the canonical replay state even when MiniMax revises an earlier snapshot. A
+structurally complete stream may end with `[DONE]` or clean EOF; EOF still fails
+when choices, a finish reason, usage, or tool metadata are incomplete. Streams
+default to a 3,600-second overall deadline and a 120-second idle timeout.
+Numeric `base_resp` failures keep their provider classification before progress
+and become `ModelError::Interrupted` after progress.
 
 Modern `tools` and `tool_calls` retain MiniMax provider call ids across
 assistant and tool-result messages. MiniMax `reasoning_content` and ordered
@@ -64,10 +65,11 @@ Structured-output requests append raw-JSON and JSON Schema instructions to the
 system prompt, then locally validate only naturally stopped responses; the
 adapter does not claim native provider schema enforcement.
 
-`complete_with_events` emits M3 incremental content and M2.x suffix-normalized
-content. Append-only `reasoning_content` is emitted separately, while revisable
-`reasoning_details` snapshots remain terminal replay context. Schema-constrained
-calls remain silent.
+`complete_with_events` emits M3 content incrementally. M2.x assistant content
+is emitted once from the validated terminal snapshot because an earlier
+cumulative snapshot can be revised. Append-only `reasoning_content` is still
+emitted as it arrives, while revisable `reasoning_details` snapshots remain
+terminal replay context. Schema-constrained calls remain silent.
 
 Ordered shared text, image, and video parts are sent as Chat Completions
 content parts, with base64 image and video bytes encoded as `data:` URLs in

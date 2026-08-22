@@ -15,8 +15,6 @@ pub(super) enum MiniMaxStreamError {
         #[source]
         source: serde_json::Error,
     },
-    #[error("[ai_models_minimax/stream] choice {choice_index} replaced cumulative content")]
-    ReplacedContent { choice_index: u64 },
 }
 
 pub(super) enum NormalizedEvent {
@@ -69,12 +67,8 @@ impl MiniMaxNormalizer {
             if self.content_mode == ContentMode::Cumulative
                 && let Some(current) = delta.get("content").and_then(Value::as_str)
             {
-                let previous = self.content.get(&choice_index).map_or("", String::as_str);
-                let Some(fragment) = current.strip_prefix(previous) else {
-                    return Err(MiniMaxStreamError::ReplacedContent { choice_index });
-                };
                 let current = current.to_owned();
-                delta.insert("content".to_owned(), Value::String(fragment.to_owned()));
+                delta.remove("content");
                 self.content.insert(choice_index, current);
             }
             let Some(details) = delta.remove("reasoning_details") else {
@@ -94,30 +88,37 @@ impl MiniMaxNormalizer {
         Ok(NormalizedEvent::Chunk(body))
     }
 
-    pub(super) fn restore_reasoning_details(
+    pub(super) fn restore_snapshots(
         self,
         body: &mut Value,
-    ) -> std::result::Result<(), serde_json::Error> {
+    ) -> std::result::Result<Option<String>, serde_json::Error> {
+        let terminal_assistant_text = (self.content_mode == ContentMode::Cumulative)
+            .then(|| self.content.get(&0).cloned())
+            .flatten();
         let Some(choices) = body.get_mut("choices").and_then(Value::as_array_mut) else {
-            return Ok(());
+            return Ok(terminal_assistant_text);
         };
         for (position, choice) in choices.iter_mut().enumerate() {
             let choice_index = choice
                 .get("index")
                 .and_then(Value::as_u64)
                 .unwrap_or(position as u64);
-            let Some(details) = self.reasoning_details.get(&choice_index) else {
-                continue;
-            };
             let Some(message) = choice.get_mut("message").and_then(Value::as_object_mut) else {
                 continue;
             };
-            message.insert(
-                "reasoning_details".to_owned(),
-                serde_json::to_value(details)?,
-            );
+            if self.content_mode == ContentMode::Cumulative
+                && let Some(content) = self.content.get(&choice_index)
+            {
+                message.insert("content".to_owned(), Value::String(content.clone()));
+            }
+            if let Some(details) = self.reasoning_details.get(&choice_index) {
+                message.insert(
+                    "reasoning_details".to_owned(),
+                    serde_json::to_value(details)?,
+                );
+            }
         }
-        Ok(())
+        Ok(terminal_assistant_text)
     }
 }
 

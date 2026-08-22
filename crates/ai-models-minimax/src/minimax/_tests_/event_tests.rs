@@ -8,12 +8,12 @@ use ai_models_core::test_support::{
 use serde_json::{Value, json};
 use unimock::Unimock;
 
-use crate::{MINIMAX_M2_7, MiniMaxModel};
+use crate::{MINIMAX_M2_7, MINIMAX_M3, MiniMaxModel};
 
 use super::support::simple_request;
 
 #[tokio::test]
-async fn emits_normalized_content_and_append_only_reasoning_with_parity() {
+async fn emits_terminal_cumulative_content_and_append_only_reasoning_with_parity() {
     let events = completed_stream(vec![
         text_chunk("Hel", Some("Think"), "discarded snapshot", None),
         text_chunk(
@@ -38,9 +38,8 @@ async fn emits_normalized_content_and_append_only_reasoning_with_parity() {
         events,
         vec![
             reasoning_delta("Think"),
-            assistant_delta("Hel"),
             reasoning_delta("ing"),
-            assistant_delta("lo"),
+            assistant_delta("Hello"),
         ]
     );
     assert_eq!(assistant_text(&events), response.assistant_message);
@@ -74,7 +73,7 @@ async fn emits_partial_normalized_content_before_an_interruption() {
         Err(json_http::Error::transport("reset")),
     ];
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
+    let model = MiniMaxModel::new(http_client, MINIMAX_M3, "key");
     let (sink, recorded) = recording_completion_event_sink();
 
     let error = model
@@ -87,6 +86,27 @@ async fn emits_partial_normalized_content_before_an_interruption() {
         recorded_completion_events(&recorded),
         vec![assistant_delta("partial")]
     );
+}
+
+#[tokio::test]
+async fn revised_cumulative_content_emits_only_the_terminal_snapshot() {
+    let events = completed_stream(vec![
+        text_chunk("draft", None, "", None),
+        text_chunk("replacement", None, "", Some("stop")),
+        usage_chunk(),
+    ]);
+    let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
+    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
+    let (sink, recorded) = recording_completion_event_sink();
+
+    let response = model
+        .complete_with_events(&simple_request(), &sink)
+        .await
+        .expect("revised cumulative stream should succeed");
+    let events = recorded_completion_events(&recorded);
+
+    assert_eq!(events, vec![assistant_delta("replacement")]);
+    assert_eq!(assistant_text(&events), response.assistant_message);
 }
 
 fn completed_stream(chunks: Vec<Value>) -> Vec<ai_models_core::test_support::StreamItem> {

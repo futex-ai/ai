@@ -116,6 +116,25 @@ boundary and all user-facing crate guidance describes the shipped behavior.
 - [x] Review `git diff origin/main...`, stage every file, commit the completed
       work with a Conventional Commit, and push the current branch.
 
+## Milestone 6: MiniMax Cumulative Revision Recovery
+
+At the end of this milestone, MiniMax-M2.x content revisions complete with
+terminal event parity instead of failing the credentialed catalog job.
+
+- [x] Add a failing regression test for a cumulative content snapshot that
+      replaces rather than extends its predecessor.
+- [x] Retain the latest M2.x content snapshot for the terminal response and
+      defer its assistant event until the snapshot can no longer be revised.
+- [x] Keep M3 incremental interruption behavior covered independently.
+- [x] Align the MiniMax README and provider, streaming, and completion-event
+      protocols with the revision-safe behavior.
+- [x] Run formatting, strict Clippy, relevant tests, workspace tests, smoke
+      tests, file-length lint, and `cargo xtask check` to 100%.
+- [x] Review the diff, stage every file, commit with a Conventional Commit, and
+      push the current branch without renaming it.
+- [x] After the push, run `cargo xtask review` against `origin/main` and report
+      its findings without automatically changing the reviewed code.
+
 ## Closing Review
 
 - [x] After the final check, commit, and push, run `cargo xtask review` against
