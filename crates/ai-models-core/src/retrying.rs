@@ -2,7 +2,9 @@
 
 use std::{sync::Arc, time::Duration};
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ModelResult};
+use ai_interface::{
+    Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse, ModelResult,
+};
 use async_trait::async_trait;
 
 use crate::{DynSleeper, TokioSleeper};
@@ -46,6 +48,27 @@ impl Model for RetryingModel {
 
         loop {
             match self.inner.complete(request).await {
+                Err(ModelError::TransientProvider { .. })
+                    if retry_index < self.retry_delays.len() =>
+                {
+                    let delay = self.retry_delays[retry_index];
+                    retry_index += 1;
+                    self.sleeper.sleep(delay).await;
+                }
+                other => return other,
+            }
+        }
+    }
+
+    async fn complete_with_events(
+        &self,
+        request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
+    ) -> ModelResult<ModelResponse> {
+        let mut retry_index = 0usize;
+
+        loop {
+            match self.inner.complete_with_events(request, event_sink).await {
                 Err(ModelError::TransientProvider { .. })
                     if retry_index < self.retry_delays.len() =>
                 {

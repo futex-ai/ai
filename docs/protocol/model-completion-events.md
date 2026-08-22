@@ -22,7 +22,9 @@ normalized events, never raw SSE frames or provider event names.
   `AssistantTextDelta { delta }`, `ReasoningTextDelta { delta }`, and
   `AttemptRestarted` variants;
 - `ModelCompletionEventSink`, an async, infallible, unimock-able boundary whose
-  `emit` method accepts one owned event; and
+  `emit` method accepts one owned event;
+- `NoopModelCompletionEventSink`, for implementations that share the observing
+  path with buffered callers; and
 - `Model::complete_with_events(&ModelRequest, &dyn ModelCompletionEventSink)`,
   which returns the existing `ModelResult<ModelResponse>`.
 

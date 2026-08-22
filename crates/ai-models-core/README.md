@@ -5,6 +5,8 @@
 ## Responsibilities
 
 - Provide reusable wrappers around `Arc<dyn ai_interface::Model>`
+- Preserve public completion-event delivery through retry, concurrency, and
+  usage-pricing wrapper layers
 - Keep retry, sleeping, and concurrency policy out of vendor crates
 - Provide an injectable monotonic clock and async sleep boundary for provider
   operations that must poll within a total deadline
@@ -58,7 +60,13 @@ crates keep parsing usage quantities but do not own mutable price tables.
 
 The default retry schedule preserved by this crate is `100ms` then `250ms` for
 transient model failures. `RetryingModel` does not replay interrupted
-generations because doing so can duplicate provider work and billing.
+generations because doing so can duplicate provider work and billing. Its
+event-observing path forwards only the successful attempt's events because a
+retryable transient failure is classified before provider progress.
+
+`ConcurrencyLimitedModel` holds its permit while events and the terminal
+response are delivered. `UsagePricingModel` forwards events unchanged and
+prices only the terminal response.
 
 Long-running provider adapters can use `PollingRuntime` to couple monotonic
 deadline measurement with async sleeping behind one testable trait. Production
@@ -129,6 +137,7 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
+- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)

@@ -8,8 +8,8 @@ use serde_json::Value;
 use thiserror::Error;
 
 use crate::{
-    ConversationMessage, ModelCallControls, ModelControl, ProviderConversationItem, ToolCall,
-    ToolDefinition, usage::ModelUsage,
+    ConversationMessage, ModelCallControls, ModelCompletionEventSink, ModelControl,
+    ProviderConversationItem, ToolCall, ToolDefinition, usage::ModelUsage,
 };
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -270,6 +270,15 @@ pub type ModelResult<T> = std::result::Result<T, ModelError>;
 pub trait Model: Send + Sync {
     /// Produces the next assistant response for the current conversation state.
     async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse>;
+
+    /// Produces a response while emitting ordered incremental completion events.
+    async fn complete_with_events(
+        &self,
+        request: &ModelRequest,
+        _event_sink: &dyn ModelCompletionEventSink,
+    ) -> ModelResult<ModelResponse> {
+        self.complete(request).await
+    }
 }
 
 /// Shared dynamic model alias.

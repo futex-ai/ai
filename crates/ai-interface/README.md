@@ -20,6 +20,8 @@ stateful runtime implementation.
 - Own the generic `Model`, `Tool`, `ModelRouter`, `AudioTranscriber`,
   `ImageGenerator`, `VideoGenerator`, and `Logger` trait boundaries plus their
   dyn aliases.
+- Define ordered assistant, reasoning, and fallback-restart completion events,
+  an async event sink, and a default-compatible opt-in model entrypoint.
 - Keep individual tools pagination-agnostic: `Tool::call()` and
   `Tool::call_with_invocation()` return raw `serde_json::Value`.
 - Define logger success payloads in terms of bounded model-visible envelopes,
@@ -50,6 +52,10 @@ stateful runtime implementation.
   `ModelError::Interrupted` identifies a streaming completion that failed only
   after provider events had arrived, keeping it distinct from a safe-to-retry
   `TransientProvider` failure before any progress.
+- Defines `ModelCompletionEvent` and `ModelCompletionEventSink` for callers
+  that opt into `Model::complete_with_events`. The default method delegates to
+  `complete` without events, while `NoopModelCompletionEventSink` lets concrete
+  adapters share the observing path with buffered callers.
 - Defines defaulted `ModelCallControls` for portable sampling, output limits,
   ordered stops, strict or explicit required-with-automatic-fallback tool
   choice, total call timeout, and provider-neutral
@@ -96,8 +102,8 @@ not own.
 use ai_interface::{
     ConversationMessage, DeepSeekToolCallContext, ImageGenerationRequest, ImageGenerator,
     MiniMaxReasoningDetail, MockImageGenerator, MockVideoGenerator, Model, ModelRequest, MockModel,
-    ProviderKind, ProviderConversationItem, ToolOutputEnvelope, ToolOutputId,
-    ToolOutputReadRequest, VideoGenerationRequest, VideoGenerator,
+    NoopModelCompletionEventSink, ProviderKind, ProviderConversationItem, ToolOutputEnvelope,
+    ToolOutputId, ToolOutputReadRequest, VideoGenerationRequest, VideoGenerator,
 };
 use serde_json::json;
 
@@ -113,6 +119,15 @@ async fn call_model() -> ai_interface::ModelResult<String> {
         })
         .await?;
 
+    Ok(response.assistant_message)
+}
+
+async fn call_model_through_event_boundary(
+    request: &ModelRequest,
+) -> ai_interface::ModelResult<String> {
+    let response = MockModel::new("done")
+        .complete_with_events(request, &NoopModelCompletionEventSink)
+        .await?;
     Ok(response.assistant_message)
 }
 
@@ -199,6 +214,8 @@ tool dispatch live in `ai-tool-calling`.
   MiniMax reasoning details, and provider replay context.
 - `src/model.rs` - model trait, request/response DTOs, finish reasons, and
   typed model errors.
+- `src/model_completion_events.rs` - public incremental events, sink trait,
+  dynamic alias, and no-op sink.
 - `src/model_controls.rs` - portable generation and execution controls.
 - `src/router.rs` - model route request DTOs and router trait.
 - `src/audio_transcriber.rs` - speech-to-text trait, request/response DTOs,
@@ -219,6 +236,7 @@ tool dispatch live in `ai-tool-calling`.
 ### Related Docs
 
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
+- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`futex-ai/internal-error`](https://github.com/futex-ai/internal-error)
 - [`../ai-tool-calling/README.md`](../ai-tool-calling/README.md)

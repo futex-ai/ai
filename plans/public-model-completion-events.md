@@ -43,20 +43,20 @@ protocol.
 At the end of this milestone, any `DynModel` supports the opt-in method and all
 provider-agnostic wrappers preserve its coherent event sequence.
 
-- [ ] Add failing `ai-interface` tests for the typed event DTO, unimock-able
+- [x] Add failing `ai-interface` tests for the typed event DTO, unimock-able
       sink, and default no-event implementation.
-- [ ] Add `ModelCompletionEvent`, `ModelCompletionEventSink`, and
+- [x] Add `ModelCompletionEvent`, `ModelCompletionEventSink`, and
       `Model::complete_with_events` with complete public documentation.
-- [ ] Add failing retry tests proving transient attempts leak no events and
+- [x] Add failing retry tests proving transient attempts leak no events and
       interruptions are not retried.
-- [ ] Add failing fallback tests for pre-delta failure, post-delta restart,
+- [x] Add failing fallback tests for pre-delta failure, post-delta restart,
       final-lane failure, and nested restart tracking.
-- [ ] Add failing concurrency and usage-pricing pass-through tests.
-- [ ] Implement retry, fallback, concurrency, and pricing event semantics.
-- [ ] Update the interface, core, and multi crate READMEs.
-- [ ] Run formatting, strict Clippy, relevant crate tests, workspace tests,
+- [x] Add failing concurrency and usage-pricing pass-through tests.
+- [x] Implement retry, fallback, concurrency, and pricing event semantics.
+- [x] Update the interface, core, and multi crate READMEs.
+- [x] Run formatting, strict Clippy, relevant crate tests, workspace tests,
       smoke tests, file-length lint, and `cargo xtask check` to 100%.
-- [ ] Review `git diff origin/main...`, stage all files, commit with a
+- [x] Review `git diff origin/main...`, stage all files, commit with a
       Conventional Commit, and push the current branch without renaming it.
 
 ## Milestone 3: Anthropic, OpenAI, And Google
