@@ -185,9 +185,10 @@ and downstream handoff are aligned and independently reviewed.
 - [x] Stage every file with `git add -A`, commit with a Conventional Commit
       title of at most 50 characters and descriptive body, and push the current
       branch without renaming it.
-- [x] Add regression coverage for MiniMax-M3 streams that revise an earlier
-      reasoning snapshot, retain the latest snapshot for replay, and align the
-      MiniMax README and protocols with the credentialed behavior.
+- [x] Add regression coverage for MiniMax-M3 streams that emit incremental
+      content and revise an earlier reasoning snapshot, retain the latest
+      snapshot for replay, and align the MiniMax README and protocols with the
+      credentialed behavior.
 - [x] Re-run formatting, strict Clippy, workspace tests, smoke tests, file-length
       lint, and `cargo xtask check`, then audit the complete CI-fix diff.
 - [x] Stage every CI-fix file, commit conventionally, and push the current

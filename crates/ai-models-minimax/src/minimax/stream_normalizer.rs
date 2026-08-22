@@ -1,10 +1,12 @@
-//! MiniMax cumulative stream snapshot normalization.
+//! MiniMax model-specific stream normalization.
 
 use std::collections::BTreeMap;
 
 use ai_interface::MiniMaxReasoningDetail;
 use serde_json::Value;
 use thiserror::Error;
+
+use crate::MINIMAX_M3;
 
 #[derive(Debug, Error)]
 pub(super) enum MiniMaxStreamError {
@@ -22,13 +24,26 @@ pub(super) enum NormalizedEvent {
     Chunk(Value),
 }
 
-#[derive(Default)]
 pub(super) struct MiniMaxNormalizer {
     content: BTreeMap<u64, String>,
+    content_mode: ContentMode,
     reasoning_details: BTreeMap<u64, Vec<MiniMaxReasoningDetail>>,
 }
 
 impl MiniMaxNormalizer {
+    pub(super) fn new(provider_model_id: &str) -> Self {
+        let content_mode = if provider_model_id == MINIMAX_M3 {
+            ContentMode::Incremental
+        } else {
+            ContentMode::Cumulative
+        };
+        Self {
+            content: BTreeMap::new(),
+            content_mode,
+            reasoning_details: BTreeMap::new(),
+        }
+    }
+
     pub(super) fn normalize(
         &mut self,
         data: &str,
@@ -51,7 +66,9 @@ impl MiniMaxNormalizer {
             let Some(delta) = choice.get_mut("delta").and_then(Value::as_object_mut) else {
                 continue;
             };
-            if let Some(current) = delta.get("content").and_then(Value::as_str) {
+            if self.content_mode == ContentMode::Cumulative
+                && let Some(current) = delta.get("content").and_then(Value::as_str)
+            {
                 let previous = self.content.get(&choice_index).map_or("", String::as_str);
                 let Some(fragment) = current.strip_prefix(previous) else {
                     return Err(MiniMaxStreamError::ReplacedContent { choice_index });
@@ -102,4 +119,10 @@ impl MiniMaxNormalizer {
         }
         Ok(())
     }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum ContentMode {
+    Cumulative,
+    Incremental,
 }

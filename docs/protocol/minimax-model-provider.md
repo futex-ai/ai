@@ -115,13 +115,15 @@ maps to `auto`. Named-function choices and nonempty stop sequences return typed
 `PreferDeferred` falls back to synchronous,
 and `RequireDeferred` is unsupported.
 
-MiniMax streams cumulative visible-content snapshots. The adapter validates
-that each snapshot extends the prior value, converts it to a suffix delta for
-the shared accumulator, and retains the last nonempty `reasoning_details`
-snapshot as the canonical replay state. A MiniMax-M3 required-tool stream
-observed by the credentialed suite on 2026-08-22 revised earlier reasoning text,
-so reasoning snapshots replace prior snapshots instead of requiring prefix
-extension. Final usage and `[DONE]` are required.
+MiniMax-M3 streams standard incremental visible-content deltas. MiniMax-M2.x
+streams cumulative visible-content snapshots, so the adapter validates that
+each M2.x snapshot extends the prior value and converts it to a suffix delta for
+the shared accumulator. The adapter retains the last nonempty
+`reasoning_details` snapshot as canonical replay state. A MiniMax-M3
+required-tool stream observed by the credentialed suite on 2026-08-22 used
+incremental content and revised earlier reasoning text, so M3 content is
+accumulated directly and reasoning snapshots replace prior snapshots. Final
+usage and `[DONE]` are required.
 
 MiniMax's public reference currently enumerates only `none` and `auto`. Firna
 reported a successful live MiniMax-M3 request with a real tool and

@@ -23,7 +23,7 @@ pub(super) async fn complete(
     response_schema: Option<&StructuredOutputSchema>,
 ) -> std::result::Result<ModelResponse, ModelError> {
     let mut accumulator = ChatCompletionsAccumulator::new();
-    let mut normalizer = MiniMaxNormalizer::default();
+    let mut normalizer = MiniMaxNormalizer::new(provider_model_id);
     let mut events_received = 0u64;
     loop {
         let event = match stream.next().await {

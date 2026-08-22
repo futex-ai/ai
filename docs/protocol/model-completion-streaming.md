@@ -229,7 +229,7 @@ and [usage](https://docs.x.ai/developers/cost-tracking) documentation.
 | --- | --- | --- |
 | DeepSeek | `stream: true` plus `stream_options.include_usage: true`; final empty-choice usage chunk, then `[DONE]` | Standard content, `reasoning_content`, and indexed tool-call deltas |
 | Kimi | Same opt-in; usage is on the final choice-bearing chunk, then `[DONE]` | Standard deltas; retain its direct `cached_tokens` usage field |
-| MiniMax | Same opt-in; final complete usage, then the OpenAI-compatible terminal sentinel | Convert cumulative content snapshots to suffix deltas; retain the last nonempty `reasoning_details` snapshot as canonical because later snapshots may revise earlier text |
+| MiniMax | Same opt-in; final complete usage, then the OpenAI-compatible terminal sentinel | Accumulate M3 content deltas directly; convert M2.x cumulative content snapshots to suffix deltas; retain the last nonempty `reasoning_details` snapshot as canonical because later snapshots may revise earlier text |
 | QwenCloud | Same opt-in; final empty-choice usage chunk, then `[DONE]` | Standard content, `reasoning_content`, and indexed tool-call deltas |
 | xAI synchronous | Same opt-in; final empty-choice usage/cost chunk, then `[DONE]` | Standard content, indexed tool calls, and legacy function-call deltas; running usage is replaced by the final exact report |
 

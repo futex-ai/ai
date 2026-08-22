@@ -4,7 +4,7 @@ use ai_interface::{Model, ModelError};
 use ai_models_core::test_support::{SseFixture, data_event, event, recording_streaming_client};
 use serde_json::json;
 
-use crate::{MINIMAX_M3, MiniMaxModel};
+use crate::{MINIMAX_M2_7, MINIMAX_M3, MiniMaxModel};
 
 use super::support::simple_request;
 
@@ -75,7 +75,7 @@ async fn rejects_replaced_cumulative_content() {
         content_event("first"),
         content_event("replacement"),
     ])]);
-    let model = MiniMaxModel::new(http_client, MINIMAX_M3, "key");
+    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
 
     let error = model
         .complete(&simple_request())

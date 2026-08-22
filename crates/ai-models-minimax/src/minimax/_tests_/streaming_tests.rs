@@ -9,7 +9,7 @@ use ai_models_core::{
 };
 use serde_json::{Value, json};
 
-use crate::{MINIMAX_M3, MiniMaxModel};
+use crate::{MINIMAX_M2_7, MINIMAX_M3, MiniMaxModel};
 
 use super::{response, support::simple_request};
 
@@ -59,15 +59,15 @@ async fn normalizes_cumulative_content_and_preserves_reasoning_details() {
         done_event(),
     ];
     let (http_client, requests) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key");
+    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "minimax-key");
 
     let streamed = model
         .complete(&simple_request())
         .await
         .expect("MiniMax stream should parse");
     let parsed = response::parse_response(
-        MINIMAX_M3,
-        MINIMAX_M3,
+        MINIMAX_M2_7,
+        MINIMAX_M2_7,
         ThinkingLevel::Medium,
         buffered,
         None,
@@ -88,10 +88,11 @@ async fn normalizes_cumulative_content_and_preserves_reasoning_details() {
 }
 
 #[tokio::test]
-async fn retains_latest_revised_reasoning_snapshot_for_tool_call() {
+async fn accumulates_m3_content_and_retains_latest_revised_reasoning() {
     let buffered = json!({
         "choices": [{
             "message": {
+                "content": "Calling the tool.",
                 "reasoning_details": [{
                     "type": "reasoning.text",
                     "id": "reasoning-1",
@@ -116,6 +117,7 @@ async fn retains_latest_revised_reasoning_snapshot_for_tool_call() {
             "choices": [{
                 "index": 0,
                 "delta": {
+                    "content": "Calling ",
                     "reasoning_details": [{
                         "type": "reasoning.text",
                         "id": "reasoning-1",
@@ -131,6 +133,7 @@ async fn retains_latest_revised_reasoning_snapshot_for_tool_call() {
             "choices": [{
                 "index": 0,
                 "delta": {
+                    "content": "the tool.",
                     "reasoning_details": buffered["choices"][0]["message"]
                         ["reasoning_details"].clone(),
                     "tool_calls": [{
@@ -214,7 +217,7 @@ async fn cumulative_structured_output_matches_buffered_parser() {
         done_event(),
     ];
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = MiniMaxModel::new(http_client, MINIMAX_M3, "key");
+    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
     let mut request = simple_request();
     request.response_schema = Some(schema.clone());
 
@@ -223,8 +226,8 @@ async fn cumulative_structured_output_matches_buffered_parser() {
         .await
         .expect("structured stream should parse");
     let parsed = response::parse_response(
-        MINIMAX_M3,
-        MINIMAX_M3,
+        MINIMAX_M2_7,
+        MINIMAX_M2_7,
         ThinkingLevel::Medium,
         body,
         Some(&schema),
