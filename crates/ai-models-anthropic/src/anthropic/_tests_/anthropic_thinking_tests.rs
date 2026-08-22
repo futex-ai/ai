@@ -1,24 +1,16 @@
 //! Anthropic thinking-level request mapping tests.
 
-use std::{
-    collections::{BTreeMap, VecDeque},
-    sync::{Arc, Mutex},
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 use ai_interface::{ConversationMessage, Model, ModelRequest};
 use ai_models_core::ThinkingLevel;
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock, StaticHeaderAuth,
-    TransportBackedJsonHttpClient,
-};
+use json_http::{JsonHttpClient, JsonHttpResponse, StaticHeaderAuth};
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
 
 use crate::CLAUDE_SONNET_5;
+use crate::anthropic::stream_support::{RecordedRequests, client_for_buffered_bodies};
 
 use super::AnthropicModel;
-
-type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 
 #[tokio::test]
 async fn builds_anthropic_thinking_variant_requests_and_ignores_hidden_blocks() {
@@ -104,32 +96,7 @@ async fn downgrades_max_to_sonnet_high() {
 fn recording_http_client(
     response: JsonHttpResponse<serde_json::Value>,
 ) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let responses = Arc::new(Mutex::new(VecDeque::from([response])));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                let responses = responses.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("requests lock should not be poisoned")
-                        .push(request.clone());
-                    Ok(responses
-                        .lock()
-                        .expect("responses lock should not be poisoned")
-                        .pop_front()
-                        .expect("unexpected transport call"))
-                })
-            }),
-    ));
-
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
+    client_for_buffered_bodies(vec![response.body])
 }
 
 fn simple_request() -> ModelRequest {

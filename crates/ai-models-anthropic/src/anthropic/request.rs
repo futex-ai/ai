@@ -13,6 +13,7 @@ const PROVIDER: &str = "anthropic";
 
 #[derive(Debug, Serialize)]
 pub(super) struct AnthropicRequest {
+    stream: bool,
     model: String,
     max_tokens: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -102,6 +103,7 @@ pub(super) fn build_request(
     request: &ModelRequest,
 ) -> ModelResult<AnthropicRequest> {
     Ok(AnthropicRequest {
+        stream: true,
         model: model_id.to_owned(),
         max_tokens: request
             .controls

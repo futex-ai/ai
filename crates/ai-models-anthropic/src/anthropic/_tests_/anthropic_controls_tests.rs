@@ -8,13 +8,11 @@ use ai_interface::{
     ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
 };
 use ai_models_core::ThinkingLevel;
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock, StaticHeaderAuth,
-    TransportBackedJsonHttpClient,
-};
+use json_http::{JsonHttpClient, JsonHttpRequest, StaticHeaderAuth, TransportBackedJsonHttpClient};
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
+use unimock::Unimock;
 
+use crate::anthropic::stream_support::client_for_buffered_bodies;
 use crate::{CLAUDE_FABLE_5, CLAUDE_OPUS_5, CLAUDE_OPUS_5_THINKING_MAX};
 
 use super::AnthropicModel;
@@ -202,31 +200,11 @@ fn base_request() -> ModelRequest {
 }
 
 fn recording_client() -> (Arc<dyn JsonHttpClient>, Arc<Mutex<Vec<JsonHttpRequest>>>) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("request lock should be available")
-                        .push(request.clone());
-                    Ok(JsonHttpResponse {
-                        status: 200,
-                        body: json!({
-                            "content": [{ "type": "text", "text": "Done" }],
-                            "stop_reason": "end_turn"
-                        }),
-                    })
-                })
-            }),
-    ));
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
+    let body = json!({
+        "content": [{ "type": "text", "text": "Done" }],
+        "stop_reason": "end_turn"
+    });
+    client_for_buffered_bodies(vec![body.clone(), body])
 }
 
 fn no_call_client() -> Arc<dyn JsonHttpClient> {

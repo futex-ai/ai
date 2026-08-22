@@ -87,19 +87,19 @@ partial generations and compatible providers can share one tested accumulator.
 At the end of this milestone, Anthropic text, tools, thinking, signatures, and
 usage complete through SSE with buffered-response parity.
 
-- [ ] Add failing request tests for `"stream": true`, overall deadline, and
+- [x] Add failing request tests for `"stream": true`, overall deadline, and
       idle timeout.
-- [ ] Add failing event fixtures for message start/delta/stop, every content
+- [x] Add failing event fixtures for message start/delta/stop, every content
       block and delta type, fragmented tool JSON, ping, provider error, EOF,
       and interruption progress.
-- [ ] Implement the typed Anthropic accumulator and event loop through the
+- [x] Implement the typed Anthropic accumulator and event loop through the
       existing response mapper.
-- [ ] Assert streamed fixtures equal buffered `ModelResponse` fixtures for
+- [x] Assert streamed fixtures equal buffered `ModelResponse` fixtures for
       text, tools, thinking/signatures, finish reason, context, and usage.
-- [ ] Add and run the ignored live streaming test when credentials are
+- [x] Add and run the ignored live streaming test when credentials are
       available; keep its credential-free guard passing otherwise.
-- [ ] Update the Anthropic README and protocol with verified behavior.
-- [ ] Run all targeted/workspace checks and `cargo xtask check` to 100%, then
+- [x] Update the Anthropic README and protocol with verified behavior.
+- [x] Run all targeted/workspace checks and `cargo xtask check` to 100%, then
       review the diff, stage, commit conventionally, and push.
 
 ## Milestone 5: OpenAI Responses Streaming

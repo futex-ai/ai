@@ -129,7 +129,7 @@ fn workflow_runs_for_trusted_pull_requests() {
 }
 
 #[tokio::test]
-#[ignore = "requires a live Anthropic API credential"]
+#[ignore = "requires a live Anthropic API credential for the streaming catalog"]
 async fn anthropic_catalog() {
     run_catalog(LiveProvider::Anthropic).await;
 }

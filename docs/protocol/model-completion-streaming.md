@@ -1,7 +1,7 @@
 # Model Completion Streaming Protocol
 
-Status: approved on 2026-08-22; JSON HTTP and shared model foundations
-implemented, provider migration pending.
+Status: approved on 2026-08-22; JSON HTTP, shared model foundations, and
+Anthropic migration implemented; remaining provider migration pending.
 
 ## Purpose
 
@@ -175,13 +175,17 @@ uses the progress classification above.
 
 ### Anthropic
 
+The event contract was verified on 2026-08-22 against Anthropic's official
+[streaming messages documentation](https://platform.claude.com/docs/en/build-with-claude/streaming).
 `message_start` supplies input usage. `content_block_start` creates text,
 thinking, or tool-use state at its content index. `content_block_delta`
 appends `text_delta`, `thinking_delta`, `signature_delta`, or
 `input_json_delta.partial_json`; tool input JSON is parsed only after the block
 is complete. `message_delta` supplies stop reason and cumulative output usage.
 `content_block_stop` closes a block, `ping` affects only liveness, and
-`message_stop` finalizes. `error` follows the model error contract.
+`message_stop` finalizes. `error` follows the model error contract. Unknown
+future events and deltas are ignored for forward compatibility; unknown
+content blocks, including server fallback boundaries, still must close.
 
 ### OpenAI Responses
 
