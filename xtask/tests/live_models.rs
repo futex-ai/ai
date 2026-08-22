@@ -160,7 +160,7 @@ async fn minimax_catalog() {
 }
 
 #[tokio::test]
-#[ignore = "requires a live OpenAI API credential"]
+#[ignore = "requires a live OpenAI API credential for the streaming catalog"]
 async fn openai_catalog() {
     run_catalog(LiveProvider::OpenAi).await;
 }

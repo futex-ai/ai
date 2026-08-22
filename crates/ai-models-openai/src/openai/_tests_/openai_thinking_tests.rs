@@ -1,38 +1,27 @@
 //! OpenAI thinking-level request mapping tests.
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
+use std::sync::Arc;
 
 use ai_interface::{ConversationMessage, Model, ModelRequest, ToolDefinition};
 use ai_models_core::ThinkingLevel;
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock, StaticHeaderAuth,
-    TransportBackedJsonHttpClient,
-};
+use json_http::StaticHeaderAuth;
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
 
 use crate::{GPT_5_5, GPT_5_6_SOL, GPT_5_6_SOL_THINKING_MAX};
 
 use super::OpenAiModel;
-
-type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
+use crate::openai::stream_support::client_for_buffered_bodies;
 
 #[tokio::test]
 async fn builds_openai_thinking_variant_requests() {
-    let (http_client, requests) = recording_http_client(JsonHttpResponse {
-        status: 200,
-        body: json!({
-            "status": "completed",
-            "output": [{
-                "type": "message",
-                "role": "assistant",
-                "content": [{ "type": "output_text", "text": "Done" }]
-            }]
-        }),
-    });
+    let (http_client, requests) = client_for_buffered_bodies(vec![json!({
+        "status": "completed",
+        "output": [{
+            "type": "message",
+            "role": "assistant",
+            "content": [{ "type": "output_text", "text": "Done" }]
+        }]
+    })]);
     let model = OpenAiModel::with_catalog_auth(
         http_client,
         "gpt-5.5-thinking-extra-high",
@@ -67,17 +56,14 @@ async fn builds_openai_thinking_variant_requests() {
 
 #[tokio::test]
 async fn maps_openai_max_thinking_to_max_effort() {
-    let (http_client, requests) = recording_http_client(JsonHttpResponse {
-        status: 200,
-        body: json!({
-            "status": "completed",
-            "output": [{
-                "type": "message",
-                "role": "assistant",
-                "content": [{ "type": "output_text", "text": "Done" }]
-            }]
-        }),
-    });
+    let (http_client, requests) = client_for_buffered_bodies(vec![json!({
+        "status": "completed",
+        "output": [{
+            "type": "message",
+            "role": "assistant",
+            "content": [{ "type": "output_text", "text": "Done" }]
+        }]
+    })]);
     let model = OpenAiModel::with_catalog_auth(
         http_client,
         GPT_5_6_SOL_THINKING_MAX,
@@ -106,17 +92,14 @@ async fn maps_openai_max_thinking_to_max_effort() {
 
 #[tokio::test]
 async fn downgrades_max_to_gpt_5_5_extra_high() {
-    let (http_client, requests) = recording_http_client(JsonHttpResponse {
-        status: 200,
-        body: json!({
-            "status": "completed",
-            "output": [{
-                "type": "message",
-                "role": "assistant",
-                "content": [{ "type": "output_text", "text": "Done" }]
-            }]
-        }),
-    });
+    let (http_client, requests) = client_for_buffered_bodies(vec![json!({
+        "status": "completed",
+        "output": [{
+            "type": "message",
+            "role": "assistant",
+            "content": [{ "type": "output_text", "text": "Done" }]
+        }]
+    })]);
     let model = OpenAiModel::with_catalog_auth(
         http_client,
         "custom-gpt-5.5-max",
@@ -136,37 +119,6 @@ async fn downgrades_max_to_gpt_5_5_extra_high() {
     let body = requests[0].body.as_ref().expect("body present");
     assert_eq!(body["reasoning"]["effort"], "xhigh");
     assert_eq!(response.thinking_level.as_deref(), Some("extra_high"));
-}
-
-fn recording_http_client(
-    response: JsonHttpResponse<serde_json::Value>,
-) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let responses = Arc::new(Mutex::new(VecDeque::from([response])));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                let responses = responses.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("requests lock should not be poisoned")
-                        .push(request.clone());
-                    Ok(responses
-                        .lock()
-                        .expect("responses lock should not be poisoned")
-                        .pop_front()
-                        .expect("unexpected transport call"))
-                })
-            }),
-    ));
-
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
 }
 
 fn simple_request() -> ModelRequest {

@@ -6,6 +6,7 @@ use serde_json::Value;
 
 #[derive(Debug, Serialize)]
 pub(super) struct ResponsesRequest {
+    pub(super) stream: bool,
     pub(super) model: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) instructions: Option<String>,

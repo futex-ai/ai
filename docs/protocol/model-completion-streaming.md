@@ -1,7 +1,7 @@
 # Model Completion Streaming Protocol
 
-Status: approved on 2026-08-22; JSON HTTP, shared model foundations, and
-Anthropic migration implemented; remaining provider migration pending.
+Status: approved on 2026-08-22; JSON HTTP, shared model foundations, Anthropic,
+and OpenAI Responses implemented; remaining provider migration pending.
 
 ## Purpose
 
@@ -169,7 +169,7 @@ uses the progress classification above.
 | Provider | Request change | Accumulation and terminal behavior |
 | --- | --- | --- |
 | Anthropic | Add `"stream": true` to `/v1/messages` | Accumulate message/content block events; `message_stop` is terminal |
-| OpenAI | Add `"stream": true` to `/v1/responses` | Consume events for liveness; parse the complete object in `response.completed` with the buffered mapper |
+| OpenAI | Add `"stream": true` to `/v1/responses` | Consume events for liveness; parse complete objects in `response.completed` and `response.incomplete` with the buffered mapper |
 | Google | Use `:streamGenerateContent?alt=sse` | Merge `GenerateContentResponse` fragments; stream EOF after a terminal candidate is terminal |
 | DeepSeek, Kimi, MiniMax, QwenCloud, xAI sync | Add `"stream": true` and request stream usage when supported | Use the shared chat-completions accumulator through `[DONE]` |
 
@@ -189,11 +189,16 @@ content blocks, including server fallback boundaries, still must close.
 
 ### OpenAI Responses
 
+The event contract was verified on 2026-08-22 against the official
+[OpenAI Responses streaming reference](https://developers.openai.com/api/reference/typescript/resources/beta/subresources/responses/methods/create).
 All `response.*` events count for liveness. Version one does not reconstruct
-item deltas: `response.completed.response` is passed to the existing buffered
-Responses parser. `response.failed`, `response.incomplete`, and `error` are
-typed failures and apply the progress rule. EOF without one of those terminal
-events is a stream failure.
+item deltas: the complete object from `response.completed.response` or
+`response.incomplete.response` is passed to the existing buffered Responses
+parser. Incomplete output therefore retains its existing truncated or filtered
+finish reason instead of being discarded. `response.failed` and `error` are
+typed failures and apply the progress rule. Before progress, rate-limit codes
+remain rate-limited, server/overload codes are transient, and other codes are
+provider errors. EOF without a terminal event is a stream failure.
 
 ### Google
 

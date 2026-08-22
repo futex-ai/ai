@@ -1,6 +1,6 @@
 //! OpenAI portable call-control tests.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use ai_interface::{
@@ -8,14 +8,12 @@ use ai_interface::{
     ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock, StaticHeaderAuth,
-    TransportBackedJsonHttpClient,
-};
+use json_http::{JsonHttpClient, StaticHeaderAuth, TransportBackedJsonHttpClient};
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
+use unimock::Unimock;
 
 use super::OpenAiModel;
+use crate::openai::stream_support::{RecordedRequests, client_for_buffered_bodies};
 
 #[tokio::test]
 async fn maps_non_reasoning_controls_and_timeout_to_the_final_request() {
@@ -169,36 +167,15 @@ fn base_request() -> ModelRequest {
     }
 }
 
-fn recording_client() -> (Arc<dyn JsonHttpClient>, Arc<Mutex<Vec<JsonHttpRequest>>>) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .next_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("request lock should be available")
-                        .push(request.clone());
-                    Ok(JsonHttpResponse {
-                        status: 200,
-                        body: json!({
-                            "status": "completed",
-                            "output": [{
-                                "type": "message",
-                                "role": "assistant",
-                                "content": [{ "type": "output_text", "text": "Done" }]
-                            }]
-                        }),
-                    })
-                })
-            }),
-    ));
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
+fn recording_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
+    client_for_buffered_bodies(vec![json!({
+        "status": "completed",
+        "output": [{
+            "type": "message",
+            "role": "assistant",
+            "content": [{ "type": "output_text", "text": "Done" }]
+        }]
+    })])
 }
 
 fn no_call_client() -> Arc<dyn JsonHttpClient> {

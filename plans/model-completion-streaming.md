@@ -107,16 +107,17 @@ usage complete through SSE with buffered-response parity.
 At the end of this milestone, OpenAI completions use stream liveness while the
 existing parser remains the single owner of complete Responses mapping.
 
-- [ ] Add failing request and event tests for streaming, terminal completed,
+- [x] Add failing request and event tests for streaming, terminal completed,
       failed, incomplete, error, EOF, and interruption progress cases.
-- [ ] Implement event consumption and pass
-      `response.completed.response` through the buffered response mapper.
-- [ ] Assert parity for text, reasoning, provider-built tools, function calls,
+- [x] Implement event consumption and pass
+      `response.completed.response` and `response.incomplete.response` through
+      the buffered response mapper.
+- [x] Assert parity for text, reasoning, provider-built tools, function calls,
       structured output, finish reason, provider context, and usage.
-- [ ] Add and run the credentialed live streaming test when available, with a
+- [x] Add and run the credentialed live streaming test when available, with a
       passing credential-free guard.
-- [ ] Update the OpenAI README and protocol.
-- [ ] Run all targeted/workspace checks and `cargo xtask check` to 100%, then
+- [x] Update the OpenAI README and protocol.
+- [x] Run all targeted/workspace checks and `cargo xtask check` to 100%, then
       review the diff, stage, commit conventionally, and push.
 
 ## Milestone 6: Google Streaming
