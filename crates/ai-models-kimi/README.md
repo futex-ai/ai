@@ -17,6 +17,8 @@ and the workspace's shared model contracts.
   shared typed model errors.
 - Accumulate streamed content, reasoning, tools, and final usage while keeping
   `Model::complete` buffered for callers.
+- Emit ordered assistant and reasoning fragments through the opt-in public
+  completion-event boundary.
 
 ## What This Crate Does
 
@@ -32,6 +34,8 @@ final usage, including its direct cached-token field, maps through the existing
 response normalizer. Streams default to a 3,600-second overall deadline and a
 120-second idle timeout; explicit call timeouts replace the overall deadline.
 Failures after stream progress become `ModelError::Interrupted`.
+`complete_with_events` exposes nonempty primary-choice content and reasoning
+fragments while schema-constrained calls remain silent.
 
 Portable output limits use `max_completion_tokens`; ordered stops and all
 shared tool choices map to Kimi fields, with `RequiredOrAuto` using native
@@ -42,8 +46,7 @@ values, blank system prompts are omitted, and provider-neutral
 The crate does not read environment variables, load deployment config, price
 usage, or make credential-dependent calls during unit tests. Credentialed
 whole-catalog checks live in the workspace `xtask` suite. K2.x and Moonshot V1
-models, public incremental streaming, Partial Mode, video/file upload, dynamic
-or official tools, and
+models, Partial Mode, video/file upload, dynamic or official tools, and
 provider cache-key tuning are outside its initial contract. Shared video
 content parts are rejected with a typed provider error before transport.
 
@@ -97,6 +100,7 @@ credentials or network access are required.
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
+- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

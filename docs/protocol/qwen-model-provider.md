@@ -18,12 +18,14 @@ through QwenCloud's pay-as-you-go, OpenAI-compatible Chat Completions API,
 accumulated internally over SSE. It supports text, image input where the
 selected model accepts it, hybrid thinking, preserved reasoning, custom and
 parallel function calls, locally validated structured output, and normalized
-cache usage.
+cache usage. Its opt-in public path emits primary-choice assistant and
+reasoning fragments as defined by the
+[completion-events protocol](model-completion-events.md).
 
 Token Plan and Coding Plan endpoints, snapshot and preview ids, legacy Qwen
-models, built-in tools, web search, video and audio content, public incremental
-streaming, Responses and Anthropic-compatible APIs, and custom endpoints are
-outside this initial contract. Those capabilities have different availability,
+models, built-in tools, web search, video and audio content, Responses and
+Anthropic-compatible APIs, and custom endpoints are outside this initial
+contract. Those capabilities have different availability,
 billing, or wire behavior and require explicit contracts rather than silent
 partial support.
 

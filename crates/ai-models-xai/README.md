@@ -10,6 +10,8 @@
 - Parse xAI responses into shared response DTOs and typed model errors
 - Stream synchronous completions internally while retaining buffered deferred
   submission and polling
+- Emit synchronous assistant and reasoning fragments through the opt-in public
+  completion-event boundary while deferred calls remain silent
 
 ## What This Crate Does
 
@@ -48,6 +50,10 @@
 - status, transport, and structured-output validation failure mapping onto
   `ai_interface::ModelError`, including non-retryable interruption after
   stream progress
+
+Synchronous `complete_with_events` calls expose nonempty primary-choice
+`content` and `reasoning_content` fragments in order. Schema-constrained and
+deferred submit-and-poll calls emit no events in version one.
 
 This crate does not load config, read environment variables, or resolve
 credentials on its own. It exports `known_models()` and typed catalog id
@@ -101,6 +107,7 @@ cargo clippy -p ai-models-xai --all-targets --all-features -- -D warnings
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
+- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [Grok 4.5 model details](https://docs.x.ai/developers/models/grok-4.5)
 - [xAI model catalog](https://docs.x.ai/developers/models)
 - [Grok 4.20 model details](https://docs.x.ai/developers/models/grok-4.20)

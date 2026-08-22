@@ -19,12 +19,14 @@ DeepSeek's official OpenAI-format Chat Completions API, accumulated internally
 over SSE as defined by the [streaming protocol](model-completion-streaming.md).
 It includes text, custom and parallel function calls, optional thinking,
 reasoning effort, locally validated JSON output, and normalized cache and
-reasoning usage.
+reasoning usage. Its opt-in public path emits primary-choice assistant and
+reasoning fragments as defined by the
+[completion-events protocol](model-completion-events.md).
 
 The provider does not support the retired `deepseek-chat` or
-`deepseek-reasoner` aliases, public incremental streaming, image input, the
-Anthropic-format API, third-party or custom endpoints, FIM completion, chat
-prefix completion, strict tool mode, or beta endpoints. These capabilities
+`deepseek-reasoner` aliases, image input, the Anthropic-format API, third-party
+or custom endpoints, FIM completion, chat prefix completion, strict tool mode,
+or beta endpoints. These capabilities
 require separate contracts rather than silent partial support.
 
 ## Ownership

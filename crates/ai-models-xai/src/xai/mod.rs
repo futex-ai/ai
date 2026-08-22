@@ -59,3 +59,7 @@ mod xai_streaming_tests;
 #[cfg(test)]
 #[path = "_tests_/xai_stream_error_tests.rs"]
 mod xai_stream_error_tests;
+
+#[cfg(test)]
+#[path = "_tests_/xai_event_tests.rs"]
+mod xai_event_tests;

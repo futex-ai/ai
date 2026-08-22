@@ -5,6 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use ai_interface::{ModelCompletionEvent, ModelCompletionEventSinkMock};
 use json_http::{
     DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpSseEvent,
     JsonHttpSseStreamMock, JsonHttpTransportMock, TransportBackedJsonHttpClient,
@@ -15,6 +16,9 @@ use unimock::{MockFn, Unimock, matching};
 /// Requests captured by an in-memory streaming transport.
 pub type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 
+/// Completion events captured by an in-memory sink.
+pub type RecordedCompletionEvents = Arc<Mutex<Vec<ModelCompletionEvent>>>;
+
 /// One result returned by an in-memory SSE stream.
 pub type StreamItem = json_http::Result<Option<JsonHttpSseEvent>>;
 
@@ -24,6 +28,33 @@ pub enum SseFixture {
     Stream(Vec<StreamItem>),
     /// A failure returned before a stream opens.
     OpeningError(json_http::Error),
+}
+
+/// Builds an event sink that records every ordered callback.
+pub fn recording_completion_event_sink() -> (Unimock, RecordedCompletionEvents) {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let sink = Unimock::new(
+        ModelCompletionEventSinkMock::emit
+            .each_call(matching!(_))
+            .answers_arc({
+                let events = events.clone();
+                Arc::new(move |_, event| {
+                    events
+                        .lock()
+                        .expect("event lock should not be poisoned")
+                        .push(event);
+                })
+            }),
+    );
+    (sink, events)
+}
+
+/// Clones the ordered completion events recorded by a test sink.
+pub fn recorded_completion_events(events: &RecordedCompletionEvents) -> Vec<ModelCompletionEvent> {
+    events
+        .lock()
+        .expect("event lock should not be poisoned")
+        .clone()
 }
 
 /// Builds a recording client from ordered SSE fixtures.

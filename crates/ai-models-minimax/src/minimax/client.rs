@@ -3,7 +3,8 @@
 use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
-    Model, ModelControl, ModelError, ModelRequest, ModelResponse, ModelToolChoice, ProviderKind,
+    Model, ModelCompletionEventSink, ModelControl, ModelError, ModelRequest, ModelResponse,
+    ModelToolChoice, NoopModelCompletionEventSink, ProviderKind,
 };
 use ai_models_core::{
     ThinkingLevel, classify_json_http_stream_error, resolve_catalog_thinking_level,
@@ -86,11 +87,11 @@ impl MiniMaxModel {
     }
 }
 
-#[async_trait]
-impl Model for MiniMaxModel {
-    async fn complete(
+impl MiniMaxModel {
+    async fn complete_with_sink(
         &self,
         model_request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
     ) -> std::result::Result<ModelResponse, ModelError> {
         self.validate_controls(model_request)?;
         let request_body =
@@ -127,8 +128,33 @@ impl Model for MiniMaxModel {
             &self.provider_model_id,
             self.thinking_level,
             model_request.response_schema.as_ref(),
+            event_sink,
         )
         .await
+    }
+}
+
+#[async_trait]
+impl Model for MiniMaxModel {
+    async fn complete(
+        &self,
+        model_request: &ModelRequest,
+    ) -> std::result::Result<ModelResponse, ModelError> {
+        self.complete_with_sink(model_request, &NoopModelCompletionEventSink)
+            .await
+    }
+
+    async fn complete_with_events(
+        &self,
+        model_request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
+    ) -> std::result::Result<ModelResponse, ModelError> {
+        if model_request.response_schema.is_some() {
+            return self
+                .complete_with_sink(model_request, &NoopModelCompletionEventSink)
+                .await;
+        }
+        self.complete_with_sink(model_request, event_sink).await
     }
 }
 

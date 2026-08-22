@@ -35,7 +35,8 @@ The V1 adapter uses:
 - Endpoint: `POST https://api.minimax.io/v1/chat/completions`
 - Authentication: `Authorization: Bearer <api-key>`
 - Content type: `application/json`
-- Response mode: internally accumulated SSE
+- Response mode: internally accumulated SSE with optional normalized public
+  events defined by the [completion-events protocol](model-completion-events.md)
 - Provider identifier: `minimax`
 
 `MiniMaxModel::new` accepts an injected `DynJsonHttpClient`, model id, and API
@@ -44,8 +45,8 @@ key. `MiniMaxModel::with_auth` accepts an injected `DynJsonHttpAuth`.
 the upstream model id and accepts `ThinkingLevel`.
 
 The international endpoint is the V1 boundary. The China-region endpoint,
-custom endpoint overrides, public incremental streaming, server-side tools,
-and the MiniMax Responses and Anthropic-compatible APIs are out of scope.
+custom endpoint overrides, server-side tools, and the MiniMax Responses and
+Anthropic-compatible APIs are out of scope.
 
 ## Known Model Catalog
 

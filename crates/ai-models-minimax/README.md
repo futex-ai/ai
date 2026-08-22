@@ -16,6 +16,8 @@ Chat Completions models with explicit credentials and shared runtime wrappers.
   locally.
 - Normalize MiniMax cumulative SSE snapshots and preserve complete reasoning
   details for continuation replay.
+- Emit normalized assistant text and append-only reasoning content through the
+  opt-in public completion-event boundary.
 
 ## What This Crate Does
 
@@ -62,17 +64,22 @@ Structured-output requests append raw-JSON and JSON Schema instructions to the
 system prompt, then locally validate only naturally stopped responses; the
 adapter does not claim native provider schema enforcement.
 
+`complete_with_events` emits M3 incremental content and M2.x suffix-normalized
+content. Append-only `reasoning_content` is emitted separately, while revisable
+`reasoning_details` snapshots remain terminal replay context. Schema-constrained
+calls remain silent.
+
 Ordered shared text, image, and video parts are sent as Chat Completions
 content parts, with base64 image and video bytes encoded as `data:` URLs in
 `image_url` and `video_url` parts. The M3 catalog variants advertise vision
-and video input; M2.7 variants advertise neither. Public incremental
-streaming, provider server tools, regional endpoint selection, and legacy
-MiniMax models remain outside this crate's boundary.
+and video input; M2.7 variants advertise neither. Provider server tools,
+regional endpoint selection, and legacy MiniMax models remain outside this
+crate's boundary.
 
 The crate exports `known_models()` and typed constants for `MiniMax-M3`,
 `MiniMax-M3-thinking-disabled`, `MiniMax-M2.7`, and
 `MiniMax-M2.7-highspeed`. It does not read configuration, inspect environment
-variables, resolve secrets, expose response deltas, or choose a region.
+variables, resolve secrets, or choose a region.
 
 ## Quick Start
 
@@ -116,6 +123,7 @@ cargo clippy -p ai-models-minimax --all-targets --all-features -- -D warnings
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
+- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

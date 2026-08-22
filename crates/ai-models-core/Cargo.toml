@@ -6,7 +6,7 @@ license.workspace = true
 authors.workspace = true
 
 [features]
-test-support = ["dep:unimock"]
+test-support = ["ai-interface/test-support", "dep:unimock"]
 
 [dependencies]
 ai-interface.workspace = true

@@ -1,8 +1,8 @@
 //! MiniMax SSE normalization and Chat Completions accumulation.
 
-use ai_interface::{ModelError, ModelResponse, StructuredOutputSchema};
+use ai_interface::{ModelCompletionEventSink, ModelError, ModelResponse, StructuredOutputSchema};
 use ai_models_core::{
-    ChatCompletionsAccumulator, ChatCompletionsStreamError, ChatCompletionsStreamStatus,
+    ChatCompletionsAccumulator, ChatCompletionsStreamError, ChatCompletionsStreamUpdate,
     ThinkingLevel, classify_chat_completions_provider_error, classify_json_http_stream_error,
     classify_stream_error,
 };
@@ -21,6 +21,7 @@ pub(super) async fn complete(
     provider_model_id: &str,
     thinking_level: ThinkingLevel,
     response_schema: Option<&StructuredOutputSchema>,
+    event_sink: &dyn ModelCompletionEventSink,
 ) -> std::result::Result<ModelResponse, ModelError> {
     let mut accumulator = ChatCompletionsAccumulator::new();
     let mut normalizer = MiniMaxNormalizer::new(provider_model_id);
@@ -96,11 +97,14 @@ pub(super) async fn complete(
                 body.to_string()
             }
         };
-        match accumulator.push_data(&data) {
-            Ok(ChatCompletionsStreamStatus::Chunk) => {
+        match accumulator.push_data_with_deltas(&data) {
+            Ok(ChatCompletionsStreamUpdate::Chunk { deltas }) => {
                 events_received = events_received.saturating_add(1);
+                for delta in deltas {
+                    event_sink.emit(delta.into()).await;
+                }
             }
-            Ok(ChatCompletionsStreamStatus::Done) => {
+            Ok(ChatCompletionsStreamUpdate::Done) => {
                 return finish(
                     accumulator,
                     normalizer,

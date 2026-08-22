@@ -1,8 +1,10 @@
 //! xAI synchronous Chat Completions SSE consumption.
 
-use ai_interface::{ModelError, ModelResponse, ModelResult, StructuredOutputSchema};
+use ai_interface::{
+    ModelCompletionEventSink, ModelError, ModelResponse, ModelResult, StructuredOutputSchema,
+};
 use ai_models_core::{
-    ChatCompletionsAccumulator, ChatCompletionsStreamError, ChatCompletionsStreamStatus,
+    ChatCompletionsAccumulator, ChatCompletionsStreamError, ChatCompletionsStreamUpdate,
     ThinkingLevel, classify_chat_completions_provider_error, classify_json_http_stream_error,
     classify_stream_error,
 };
@@ -19,6 +21,7 @@ pub(super) async fn complete(
     thinking_level: ThinkingLevel,
     synthetic_tool_call_scope: &str,
     response_schema: Option<&StructuredOutputSchema>,
+    event_sink: &dyn ModelCompletionEventSink,
 ) -> ModelResult<ModelResponse> {
     let mut accumulator = ChatCompletionsAccumulator::new();
     let mut events_received = 0u64;
@@ -42,11 +45,14 @@ pub(super) async fn complete(
                 ));
             }
         };
-        match accumulator.push_data(&event.data) {
-            Ok(ChatCompletionsStreamStatus::Chunk) => {
+        match accumulator.push_data_with_deltas(&event.data) {
+            Ok(ChatCompletionsStreamUpdate::Chunk { deltas }) => {
                 events_received = events_received.saturating_add(1);
+                for delta in deltas {
+                    event_sink.emit(delta.into()).await;
+                }
             }
-            Ok(ChatCompletionsStreamStatus::Done) => {
+            Ok(ChatCompletionsStreamUpdate::Done) => {
                 let accumulated = match accumulator.finish() {
                     Ok(accumulated) => accumulated,
                     Err(source) => {

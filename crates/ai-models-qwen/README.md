@@ -13,6 +13,8 @@ needs Qwen 3.7 Max, Plus, or Flash with explicit thinking behavior.
 - Normalize responses, usage, and provider errors into `ai-interface` types.
 - Accumulate completion SSE internally while preserving the buffered model
   interface.
+- Emit ordered assistant and reasoning fragments through the opt-in public
+  completion-event boundary.
 
 ## What This Crate Does
 
@@ -41,8 +43,12 @@ the existing response mapper. Streams default to a 3,600-second overall
 deadline and a 120-second idle timeout; a caller timeout replaces the overall
 deadline. Failures after any event become `ModelError::Interrupted`.
 
-Public incremental streaming, Qwen Coding Plan endpoints, preview model
-snapshots, built-in tools, and ambient credential lookup are outside this
+`complete_with_events` exposes nonempty primary-choice `content` and
+`reasoning_content` fragments in stream order. Schema-constrained calls remain
+silent in version one.
+
+Qwen Coding Plan endpoints, preview model snapshots, built-in tools, and
+ambient credential lookup are outside this
 crate's boundary.
 
 ## Quick Start
@@ -82,6 +88,7 @@ cargo xtask check
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
+- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [`../../docs/protocol/qwen-model-provider.md`](../../docs/protocol/qwen-model-provider.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

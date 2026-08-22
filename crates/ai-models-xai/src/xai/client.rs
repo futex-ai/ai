@@ -3,8 +3,8 @@
 use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
-    Model, ModelError, ModelRequest, ModelResponse, ModelResult, ProviderKind,
-    StructuredOutputSchema,
+    Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse, ModelResult,
+    NoopModelCompletionEventSink, ProviderKind, StructuredOutputSchema,
 };
 use ai_models_core::{
     ThinkingLevel, classify_json_http_stream_error, resolve_catalog_thinking_level,
@@ -126,6 +126,7 @@ impl XaiModel {
         total_timeout: Option<Duration>,
         synthetic_tool_call_scope: &str,
         response_schema: Option<&StructuredOutputSchema>,
+        event_sink: &dyn ModelCompletionEventSink,
     ) -> ModelResult<ModelResponse> {
         let builder = self
             .http_client
@@ -155,14 +156,16 @@ impl XaiModel {
             self.thinking_level,
             synthetic_tool_call_scope,
             response_schema,
+            event_sink,
         )
         .await
     }
-}
 
-#[async_trait]
-impl Model for XaiModel {
-    async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
+    async fn complete_with_sink(
+        &self,
+        request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
+    ) -> ModelResult<ModelResponse> {
         let use_deferred = match request.controls.execution.resolve_deferred(true) {
             Ok(use_deferred) => use_deferred,
             Err(control) => {
@@ -203,8 +206,30 @@ impl Model for XaiModel {
                 request.controls.execution.total_timeout,
                 &synthetic_tool_call_scope,
                 response_schema,
+                event_sink,
             )
             .await
         }
+    }
+}
+
+#[async_trait]
+impl Model for XaiModel {
+    async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
+        self.complete_with_sink(request, &NoopModelCompletionEventSink)
+            .await
+    }
+
+    async fn complete_with_events(
+        &self,
+        request: &ModelRequest,
+        event_sink: &dyn ModelCompletionEventSink,
+    ) -> ModelResult<ModelResponse> {
+        if request.response_schema.is_some() {
+            return self
+                .complete_with_sink(request, &NoopModelCompletionEventSink)
+                .await;
+        }
+        self.complete_with_sink(request, event_sink).await
     }
 }

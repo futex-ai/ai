@@ -18,6 +18,8 @@ with internally accumulated SSE and explicit credentials.
   failures into the shared model error contract.
 - Accumulate streamed text, reasoning, tool calls, finish state, and exact
   usage without changing the buffered `ModelResponse` interface.
+- Emit ordered assistant and reasoning text through the opt-in public
+  completion-event boundary.
 
 ## What This Crate Does
 
@@ -48,6 +50,8 @@ resolves to high. Responses record the effective level.
 Completion streams default to a 3,600-second overall deadline and a 120-second
 idle timeout. A failure before any event is retryable; a failure after progress
 is `ModelError::Interrupted` and is not blindly replayed.
+`complete_with_events` emits nonempty `delta.reasoning_content` and
+`delta.content` fragments in order; schema-constrained calls remain silent.
 
 The provider is text-only: any non-empty typed `content_parts` input is rejected
 before authentication or transport. Retired aliases, vision, beta
@@ -105,6 +109,7 @@ credential or network access is required.
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
+- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

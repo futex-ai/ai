@@ -26,8 +26,11 @@ provider streams. It joins visible content and reasoning independently,
 reassembles indexed tool calls and legacy function-call argument fragments,
 retains terminal finish reasons and final usage, recognizes standard provider
 error events, and requires the `[DONE]` sentinel before producing a buffered
-response-shaped value. Its usage superset retains nested cache details plus
-Kimi's direct `cached_tokens` field for provider-specific normalization.
+response-shaped value. Its opt-in `push_data_with_deltas` path also returns
+ordered nonempty assistant and reasoning fragments for the primary choice
+without changing the buffered result. Its usage superset retains nested cache
+details plus Kimi's direct `cached_tokens` field for provider-specific
+normalization.
 
 It also defines `KnownModelSpec`, `KnownModelCatalog`, coarse `SpeedTier` and
 `CostTier` values, `ThinkingLevel`, and the 1-to-10 `IntelligenceScore` used

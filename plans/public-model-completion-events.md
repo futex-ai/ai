@@ -84,18 +84,18 @@ assistant and provider-available reasoning events with terminal parity.
 At the end of this milestone, the shared accumulator exposes deltas for all
 five compatible synchronous adapters while xAI deferred calls stay silent.
 
-- [ ] Add failing shared-accumulator tests for ordered assistant/reasoning
+- [x] Add failing shared-accumulator tests for ordered assistant/reasoning
       observations without changing buffered output.
-- [ ] Add an event-observing accumulator path and preserve its pure terminal
+- [x] Add an event-observing accumulator path and preserve its pure terminal
       response contract.
-- [ ] Add failing parity, reasoning, suppression, and interruption coverage for
+- [x] Add failing parity, reasoning, suppression, and interruption coverage for
       DeepSeek, Kimi, QwenCloud, MiniMax, and synchronous xAI.
-- [ ] Wire all five synchronous provider clients to the shared event path.
-- [ ] Add xAI deferred no-event coverage.
-- [ ] Update core and provider READMEs and clarified protocol details.
-- [ ] Run formatting, strict Clippy, relevant crate tests, workspace tests,
+- [x] Wire all five synchronous provider clients to the shared event path.
+- [x] Add xAI deferred no-event coverage.
+- [x] Update core and provider READMEs and clarified protocol details.
+- [x] Run formatting, strict Clippy, relevant crate tests, workspace tests,
       smoke tests, file-length lint, and `cargo xtask check` to 100%.
-- [ ] Review `git diff origin/main...`, stage all files, commit with a
+- [x] Review `git diff origin/main...`, stage all files, commit with a
       Conventional Commit, and push the current branch without renaming it.
 
 ## Milestone 5: Live Coverage And Documentation Sweep
