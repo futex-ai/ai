@@ -141,7 +141,7 @@ async fn deepseek_catalog() {
 }
 
 #[tokio::test]
-#[ignore = "requires a live Google API credential"]
+#[ignore = "requires a live Google API credential for the streaming catalog"]
 async fn google_catalog() {
     run_catalog(LiveProvider::Google).await;
 }

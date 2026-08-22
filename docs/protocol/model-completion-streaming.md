@@ -1,7 +1,7 @@
 # Model Completion Streaming Protocol
 
 Status: approved on 2026-08-22; JSON HTTP, shared model foundations, Anthropic,
-and OpenAI Responses implemented; remaining provider migration pending.
+OpenAI Responses, and Google implemented; remaining provider migration pending.
 
 ## Purpose
 
@@ -202,10 +202,15 @@ provider errors. EOF without a terminal event is a stream failure.
 
 ### Google
 
-Each event is a `GenerateContentResponse` fragment. For candidate zero, text
-parts concatenate in order and complete `functionCall` parts append in order.
-The last present `finishReason` wins, and final `usageMetadata` is retained.
-Thinking and provider context must normalize identically to the buffered path.
+The contract was verified on 2026-08-22 against Google's official
+[generate-content API](https://ai.google.dev/api/generate-content) and its
+[legacy function-call migration guide](https://ai.google.dev/gemini-api/docs/migrate-to-interactions).
+The adapter calls `:streamGenerateContent?alt=sse`; each event is a
+`GenerateContentResponse`. Candidate-zero text fragments concatenate across
+chunks while distinct same-chunk parts remain ordered. Complete legacy
+`functionCall` parts append in order. The last finish reason and usage metadata
+win. EOF succeeds only after a finish reason or prompt block. Thinking and
+provider context normalize identically to the buffered path.
 
 ### Chat-Completions Providers
 

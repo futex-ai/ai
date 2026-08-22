@@ -22,9 +22,9 @@ Audio transcription, image or video generation, provider-built tools,
 multimodal input, multi-turn tool replay, pricing, and provider features
 outside the chat model catalog are not part of this connectivity suite. A
 provider whose production completion adapter streams internally is exercised
-over that streaming path by its existing catalog test; Anthropic and OpenAI
-Responses currently do so. Deterministic transport tests in provider crates
-remain responsible for detailed event and wire behavior.
+over that streaming path by its existing catalog test; Anthropic, OpenAI
+Responses, and Google currently do so. Deterministic transport tests in
+provider crates remain responsible for detailed event and wire behavior.
 
 Credentialed image generation is specified separately by the implemented
 [live image API test protocol](live-image-api-tests.md). Keeping the suites

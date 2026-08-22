@@ -1,8 +1,10 @@
 use ai_interface::{FinishReason, Model};
+use ai_models_core::{ThinkingLevel, synthetic_tool_call_scope};
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
 use super::{GoogleModel, google_response_body, recording_http_client, simple_request};
+use crate::google::response::parse_response;
 
 #[tokio::test]
 async fn maps_google_finish_reasons() {
@@ -73,34 +75,34 @@ async fn maps_google_finish_reasons() {
     }
 }
 
-#[tokio::test]
-async fn maps_missing_google_finish_reason_with_tool_calls() {
-    let (http_client, _) = recording_http_client(JsonHttpResponse {
-        status: 200,
-        body: google_response_body(None, true),
-    });
-    let model = GoogleModel::new(http_client, "gemini-2.5-pro", "google-key");
-
-    let response = model
-        .complete(&simple_request())
-        .await
-        .expect("Google response should parse");
+#[test]
+fn maps_missing_google_finish_reason_with_tool_calls() {
+    let request = simple_request();
+    let response = parse_response(
+        "gemini-2.5-pro",
+        "gemini-2.5-pro",
+        ThinkingLevel::Disabled,
+        &synthetic_tool_call_scope(&request),
+        google_response_body(None, true),
+        None,
+    )
+    .expect("Google response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
 }
 
-#[tokio::test]
-async fn maps_missing_google_finish_reason_without_tool_calls_to_other() {
-    let (http_client, _) = recording_http_client(JsonHttpResponse {
-        status: 200,
-        body: google_response_body(None, false),
-    });
-    let model = GoogleModel::new(http_client, "gemini-2.5-pro", "google-key");
-
-    let response = model
-        .complete(&simple_request())
-        .await
-        .expect("Google response should parse");
+#[test]
+fn maps_missing_google_finish_reason_without_tool_calls_to_other() {
+    let request = simple_request();
+    let response = parse_response(
+        "gemini-2.5-pro",
+        "gemini-2.5-pro",
+        ThinkingLevel::Disabled,
+        &synthetic_tool_call_scope(&request),
+        google_response_body(None, false),
+        None,
+    )
+    .expect("Google response should parse");
 
     assert_eq!(
         response.finish_reason,

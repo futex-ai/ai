@@ -71,7 +71,7 @@ async fn builds_google_tool_requests_and_parses_response() {
         .expect("requests lock should not be poisoned");
     assert_eq!(
         requests[0].url,
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:streamGenerateContent?alt=sse"
     );
     assert_eq!(
         requests[0].headers.get("x-goog-api-key"),

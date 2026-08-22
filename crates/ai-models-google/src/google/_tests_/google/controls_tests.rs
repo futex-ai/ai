@@ -1,20 +1,18 @@
 //! Google portable call-control tests.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use ai_interface::{
     ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl, ModelError,
     ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
 };
-use json_http::{
-    JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    TransportBackedJsonHttpClient,
-};
+use json_http::{JsonHttpClient, TransportBackedJsonHttpClient};
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
+use unimock::Unimock;
 
 use super::super::GoogleModel;
+use super::stream_support;
 
 #[tokio::test]
 async fn maps_controls_and_preserves_full_function_json_schema() {
@@ -155,34 +153,13 @@ fn base_request() -> ModelRequest {
     }
 }
 
-fn recording_client() -> (Arc<dyn JsonHttpClient>, Arc<Mutex<Vec<JsonHttpRequest>>>) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .next_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("request lock should be available")
-                        .push(request.clone());
-                    Ok(JsonHttpResponse {
-                        status: 200,
-                        body: json!({
-                            "candidates": [{
-                                "finishReason": "STOP",
-                                "content": { "parts": [{ "text": "Done" }] }
-                            }]
-                        }),
-                    })
-                })
-            }),
-    ));
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
+fn recording_client() -> (Arc<dyn JsonHttpClient>, stream_support::RecordedRequests) {
+    stream_support::recording_streaming_client(vec![vec![stream_support::event(json!({
+        "candidates": [{
+            "finishReason": "STOP",
+            "content": { "parts": [{ "text": "Done" }] }
+        }]
+    }))]])
 }
 
 fn no_call_client() -> Arc<dyn JsonHttpClient> {

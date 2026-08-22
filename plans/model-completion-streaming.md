@@ -125,17 +125,17 @@ existing parser remains the single owner of complete Responses mapping.
 At the end of this milestone, Google completions merge streamed candidate
 fragments without changing normalized response behavior.
 
-- [ ] Add failing endpoint tests for `:streamGenerateContent?alt=sse`, auth,
+- [x] Add failing endpoint tests for `:streamGenerateContent?alt=sse`, auth,
       stream timeouts, and the documented Firna URL-matching incompatibility.
-- [ ] Add failing fixtures for split text, complete function calls, thinking
+- [x] Add failing fixtures for split text, complete function calls, thinking
       parts, final finish reason, usage metadata, provider errors, and EOF.
-- [ ] Implement typed fragment merging through the existing Google mapper.
-- [ ] Assert streamed and buffered response parity across text, tools,
+- [x] Implement typed fragment merging through the existing Google mapper.
+- [x] Assert streamed and buffered response parity across text, tools,
       thinking/context, finish reason, structured output, and usage.
-- [ ] Add and run the credentialed live streaming test when available, with a
+- [x] Add and run the credentialed live streaming test when available, with a
       passing credential-free guard.
-- [ ] Update the Google README and protocol.
-- [ ] Run all targeted/workspace checks and `cargo xtask check` to 100%, then
+- [x] Update the Google README and protocol.
+- [x] Run all targeted/workspace checks and `cargo xtask check` to 100%, then
       review the diff, stage, commit conventionally, and push.
 
 ## Milestone 7: Chat-Completions Provider Family

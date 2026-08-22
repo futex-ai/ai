@@ -3,6 +3,7 @@
 mod image_generation;
 mod request;
 mod response;
+mod stream;
 mod thinking;
 mod tool_config;
 mod video_generation;
@@ -10,11 +11,11 @@ mod video_generation;
 pub use image_generation::GoogleImageGenerator;
 pub use video_generation::GoogleVideoGenerator;
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, ProviderKind};
 use ai_models_core::{
-    ThinkingLevel, classify_json_http_error, resolve_catalog_thinking_level,
+    ThinkingLevel, classify_json_http_stream_error, resolve_catalog_thinking_level,
     synthetic_tool_call_scope,
 };
 use async_trait::async_trait;
@@ -24,7 +25,9 @@ use crate::catalog::known_models;
 
 const GOOGLE_GENERATE_CONTENT_URL_PREFIX: &str =
     "https://generativelanguage.googleapis.com/v1beta/models";
+const COMPLETION_TIMEOUT: Duration = Duration::from_secs(3_600);
 const PROVIDER: &str = "google";
+const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Clone)]
 /// Google-backed `ai_interface::Model` implementation.
@@ -97,7 +100,7 @@ impl GoogleModel {
 
     fn endpoint(&self) -> String {
         format!(
-            "{GOOGLE_GENERATE_CONTENT_URL_PREFIX}/{}:generateContent",
+            "{GOOGLE_GENERATE_CONTENT_URL_PREFIX}/{}:streamGenerateContent?alt=sse",
             self.provider_model_id
         )
     }
@@ -121,58 +124,43 @@ impl Model for GoogleModel {
         let builder = self
             .http_client
             .post(&self.endpoint())
-            .auth(self.auth.clone());
-        let builder = match request.controls.execution.total_timeout {
-            Some(timeout) => builder.timeout(timeout),
-            None => builder,
+            .auth(self.auth.clone())
+            .timeout(
+                request
+                    .controls
+                    .execution
+                    .total_timeout
+                    .unwrap_or(COMPLETION_TIMEOUT),
+            )
+            .idle_timeout(STREAM_IDLE_TIMEOUT);
+        let builder = match builder.json(request::build_request(
+            &self.provider_model_id,
+            request,
+            self.thinking_level,
+        )) {
+            Ok(builder) => builder,
+            Err(source) => return Err(ModelError::internal(source)),
         };
-        let request = builder
-            .json(request::build_request(
-                &self.provider_model_id,
-                request,
-                self.thinking_level,
-            ))
-            .map_err(ModelError::internal)?;
-        let response = request
-            .send_value()
-            .await
-            .map_err(|source| request_error(source, &self.provider_model_id))?;
-        if response.status >= 400 {
-            return Err(classify_json_http_error(
-                PROVIDER,
-                &self.provider_model_id,
-                response.status,
-                &response.body,
-            ));
-        }
-        response::parse_response(
+        let stream = match builder.send_sse().await {
+            Ok(stream) => stream,
+            Err(source) => {
+                return Err(classify_json_http_stream_error(
+                    PROVIDER,
+                    &self.provider_model_id,
+                    0,
+                    source,
+                ));
+            }
+        };
+        stream::complete(
+            stream,
             &self.catalog_model_id,
             &self.provider_model_id,
             self.thinking_level,
             &synthetic_tool_call_scope,
-            response.body,
             response_schema,
         )
-    }
-}
-
-fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
-    match source {
-        json_http::Error::Transport { .. }
-        | json_http::Error::ReqwestTransport { .. }
-        | json_http::Error::Auth { .. } => {
-            ModelError::transient_provider(PROVIDER, model_id, source.to_string())
-        }
-        json_http::Error::SerializeRequest { .. }
-        | json_http::Error::DeserializeResponse { .. }
-        | json_http::Error::ClientInitialization { .. }
-        | json_http::Error::SseUnsupported
-        | json_http::Error::HttpStatus { .. }
-        | json_http::Error::InvalidSseContentType { .. }
-        | json_http::Error::IdleTimeout { .. }
-        | json_http::Error::DeadlineExceeded { .. }
-        | json_http::Error::SseTransport { .. }
-        | json_http::Error::SseDecode { .. } => ModelError::internal(source),
+        .await
     }
 }
 
