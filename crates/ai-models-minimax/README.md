@@ -116,14 +116,15 @@ cargo clippy -p ai-models-minimax --all-targets --all-features -- -D warnings
 - `src/minimax/request.rs` - shared-to-MiniMax request mapping.
 - `src/minimax/request_types.rs` - typed MiniMax request DTOs.
 - `src/minimax/response.rs` - MiniMax response normalization.
-- `src/minimax/stream.rs` and `stream_normalizer.rs` - SSE consumption and
-  cumulative snapshot normalization.
+- `src/minimax/stream.rs` and `stream_normalizer.rs` - public delta emission,
+  SSE consumption, and cumulative snapshot normalization.
 
 ### Related Docs
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
+- [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

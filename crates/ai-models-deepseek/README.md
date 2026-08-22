@@ -103,7 +103,8 @@ credential or network access is required.
 - `src/deepseek/request.rs` - shared request and continuation mapping.
 - `src/deepseek/request_types.rs` - serialized Chat Completions request DTOs.
 - `src/deepseek/response.rs` - typed response normalization.
-- `src/deepseek/stream.rs` - SSE accumulation and progress-aware failures.
+- `src/deepseek/stream.rs` - public delta emission, SSE accumulation, and
+  progress-aware failures.
 
 ### Related Docs
 

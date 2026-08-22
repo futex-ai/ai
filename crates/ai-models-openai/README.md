@@ -174,7 +174,8 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - `src/openai/request.rs` - OpenAI Responses request mapping
 - `src/openai/request_types.rs` - OpenAI Responses request DTOs
 - `src/openai/response/mod.rs` - OpenAI Responses response parsing
-- `src/openai/stream/` - terminal event handling and stream failure mapping
+- `src/openai/stream/` - public delta emission, terminal event handling, and
+  stream failure mapping
 - `src/openai/_tests_/openai_event_tests.rs` - event order, parity,
   suppression, and interruption coverage
 - `src/openai/transcription.rs` - OpenAI audio transcription implementation
@@ -187,6 +188,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
+- [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [OpenAI model catalog](https://developers.openai.com/api/docs/models)
 - [OpenAI Responses streaming reference](https://developers.openai.com/api/reference/typescript/resources/beta/subresources/responses/methods/create)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)

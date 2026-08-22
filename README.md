@@ -6,10 +6,11 @@ in-memory tool-calling runtime behavior.
 
 ## Features
 
-- Shared `ai-interface` contracts for conversations, model calls, audio
-  transcription, one-image generation and editing, one-video generation,
-  tool calls, routing, logging, usage metering, and bounded model-visible tool
-  output envelopes
+- Shared `ai-interface` contracts for conversations, buffered model calls,
+  opt-in ordered assistant/reasoning/restart completion events, audio
+  transcription, one-image generation and editing, one-video generation, tool
+  calls, routing, logging, usage metering, and bounded model-visible tool output
+  envelopes
 - Typed provider-neutral generation controls, including explicit
   required-with-automatic-fallback tool selection, per-call deadlines, and
   completion preferences, with every provider adapter owning its native wire
@@ -18,8 +19,9 @@ in-memory tool-calling runtime behavior.
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, Google and MiniMax inline video
   input, OpenAI and Gemini image generation, OpenAI Sora and Google Veo video
-  generation, internally streamed completions for every provider (with xAI's
-  deferred path remaining buffered), structured output, usage normalization, catalog-aware
+  generation, internally streamed completions and public incremental events for
+  every synchronous provider path (with xAI's deferred path remaining buffered
+  and event-silent), structured output, usage normalization, catalog-aware
   thinking-level downgrades, and typed errors
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, usage pricing, streaming failure
@@ -135,9 +137,19 @@ does not require credentials or network access.
 Credentialed model checks live in `xtask/tests/live_models.rs`. They construct
 provider adapters only at the composition boundary, then call every
 chat-capable catalog variant through the same `DynModel` and
-`ToolCallingRuntime` path with portable controls. To test one provider against
-the real API, set `LIVE_MODEL_API_KEY` and run the corresponding ignored test,
-for example:
+`ToolCallingRuntime` path with portable controls. A test-only model wrapper
+opts those calls into `complete_with_events`: each provider first proves
+synchronous assistant-delta parity, every synchronous catalog call retains
+terminal parity, and xAI's deferred catalog calls prove event silence. Run the
+credential-free catalog, event-policy, bridge, validation, and workflow guards
+with:
+
+```sh
+cargo test --locked -p xtask --test live_models
+```
+
+To test one provider against the real API, set `LIVE_MODEL_API_KEY` and run the
+corresponding ignored test, for example:
 
 ```sh
 LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_models \
@@ -197,8 +209,8 @@ cargo xtask review
 ## Key Code
 
 - `Cargo.toml`: workspace membership and shared internal crate dependencies
-- `crates/ai-interface`: shared AI contracts, including
-  call controls and `src/output/` envelope DTOs
+- `crates/ai-interface`: shared AI contracts, including call controls,
+  `src/model_completion_events.rs`, and `src/output/` envelope DTOs
 - `crates/ai-models-core`: provider-agnostic model wrappers and helpers
 - `crates/ai-models-deepseek`: DeepSeek V4 catalog, typed client, thinking,
   request/replay, structured-output, response, usage, and error mapping
@@ -258,7 +270,9 @@ sequential provider jobs. The `Live video APIs` workflow similarly exercises
 every Google and OpenAI video-capable entry through `DynVideoGenerator`, with
 MP4-specific validation and no asset persistence. Forked and Dependabot pull
 requests skip all credentialed workflows because GitHub does not provide them
-repository Actions secrets.
+repository Actions secrets. The ordinary credential-free suite still enforces
+the live model registry and completion-event coverage policy without making
+provider calls.
 
 ## Plans
 

@@ -148,7 +148,8 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - `src/catalog.rs` - known Google model ids and routing metadata
 - `src/google/request.rs` - Google request DTO mapping
 - `src/google/response.rs` - Google response parsing
-- `src/google/stream/` - fragment accumulation and stream failure mapping
+- `src/google/stream/` - public fragment emission, terminal accumulation, and
+  stream failure mapping
 - `src/google/image_generation/` - Google image request, response, and error mapping
 - `src/google/video_generation/` - Google long-running video submission,
   polling, download, request, response, and error mapping
@@ -158,6 +159,7 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
+- [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [Latest Gemini models](https://ai.google.dev/gemini-api/docs/latest-model)
 - [Gemini generate-content API](https://ai.google.dev/api/generate-content)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)

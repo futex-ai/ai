@@ -94,7 +94,8 @@ credentials or network access are required.
 - `src/kimi/request_types.rs` - serialized Chat Completions request DTOs.
 - `src/kimi/response.rs` - response, tool-call, structured-output, replay, and
   usage normalization.
-- `src/kimi/stream.rs` - SSE accumulation and progress-aware failures.
+- `src/kimi/stream.rs` - public delta emission, SSE accumulation, and
+  progress-aware failures.
 
 ### Related Docs
 

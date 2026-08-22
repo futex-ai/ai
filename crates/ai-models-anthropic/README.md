@@ -93,13 +93,15 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 - `src/catalog.rs` - known Anthropic model ids and routing metadata
 - `src/anthropic/request.rs` - Anthropic request DTO mapping
 - `src/anthropic/response.rs` - Anthropic response parsing
-- `src/anthropic/stream/` - typed event accumulation and stream failure mapping
+- `src/anthropic/stream/` - public delta emission, terminal accumulation, and
+  stream failure mapping
 
 ### Related Docs
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
+- [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [Anthropic model overview](https://platform.claude.com/docs/en/about-claude/models/overview)
 - [Anthropic streaming messages](https://platform.claude.com/docs/en/build-with-claude/streaming)
 - [`../ai-interface/README.md`](../ai-interface/README.md)

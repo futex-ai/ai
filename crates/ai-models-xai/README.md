@@ -101,13 +101,15 @@ cargo clippy -p ai-models-xai --all-targets --all-features -- -D warnings
 - `src/xai/request.rs` - xAI request DTO mapping
 - `src/xai/request_types.rs` - xAI request serialization DTOs
 - `src/xai/response.rs` - xAI response parsing
-- `src/xai/stream.rs` - synchronous SSE accumulation and failure classification
+- `src/xai/stream.rs` - synchronous public delta emission, SSE accumulation,
+  and failure classification
 
 ### Related Docs
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
+- [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [Grok 4.5 model details](https://docs.x.ai/developers/models/grok-4.5)
 - [xAI model catalog](https://docs.x.ai/developers/models)
 - [Grok 4.20 model details](https://docs.x.ai/developers/models/grok-4.20)

@@ -6,11 +6,11 @@ milestones are finished.
 
 ## Active
 
-- [Public model completion events](public-model-completion-events.md)
 - [Model completion streaming](model-completion-streaming.md)
 
 ## Completed
 
+- [Public model completion events](public-model-completion-events.md)
 - [Add video generation support](add-video-generation-support.md)
 - [Add video input support](add-video-input-support.md)
 - [Credentialed image API CI](credentialed-image-api-ci.md)

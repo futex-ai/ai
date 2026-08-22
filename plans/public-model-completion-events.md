@@ -103,23 +103,23 @@ five compatible synchronous adapters while xAI deferred calls stay silent.
 At the end of this milestone, credentialed tests exercise the public event
 boundary and all user-facing crate guidance describes the shipped behavior.
 
-- [ ] Add credential-free guards for synchronous event probes across all eight
+- [x] Add credential-free guards for synchronous event probes across all eight
       providers and xAI deferred silence.
-- [ ] Extend credentialed live tests with assistant-delta observation and
+- [x] Extend credentialed live tests with assistant-delta observation and
       terminal parity for every synchronous streaming provider.
-- [ ] Update `docs/protocol/live-model-api-tests.md` and the workspace README.
-- [ ] Sweep every affected crate README for boundary, quick-start, key-code,
+- [x] Update `docs/protocol/live-model-api-tests.md` and the workspace README.
+- [x] Sweep every affected crate README for boundary, quick-start, key-code,
       and related-doc accuracy.
-- [ ] Run formatting, strict Clippy, all tests, smoke tests, file-length lint,
+- [x] Run formatting, strict Clippy, all tests, smoke tests, file-length lint,
       and `cargo xtask check` to 100%.
-- [ ] Move this plan from Active to Completed in `plans/README.md`.
-- [ ] Review `git diff origin/main...`, stage every file, commit the completed
+- [x] Move this plan from Active to Completed in `plans/README.md`.
+- [x] Review `git diff origin/main...`, stage every file, commit the completed
       work with a Conventional Commit, and push the current branch.
 
 ## Closing Review
 
-- [ ] After the final check, commit, and push, run `cargo xtask review` against
+- [x] After the final check, commit, and push, run `cargo xtask review` against
       `origin/main`.
-- [ ] Report every review finding with a number, severity, context, impact,
+- [x] Report every review finding with a number, severity, context, impact,
       lettered solution options, and a recommended option; do not fix findings
       automatically.

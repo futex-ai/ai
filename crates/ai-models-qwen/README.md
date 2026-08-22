@@ -82,13 +82,15 @@ cargo xtask check
 - `src/qwen/client.rs` — validated construction, dispatch, and HTTP errors.
 - `src/qwen/request.rs` — request, replay, multimodal, and schema mapping.
 - `src/qwen/response.rs` — response, tool-call, replay, and usage normalization.
-- `src/qwen/stream.rs` — SSE accumulation and progress-aware failures.
+- `src/qwen/stream.rs` — public delta emission, SSE accumulation, and
+  progress-aware failures.
 
 ### Related Docs
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
+- [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [`../../docs/protocol/qwen-model-provider.md`](../../docs/protocol/qwen-model-provider.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
