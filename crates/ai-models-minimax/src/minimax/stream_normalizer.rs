@@ -15,13 +15,6 @@ pub(super) enum MiniMaxStreamError {
     },
     #[error("[ai_models_minimax/stream] choice {choice_index} replaced cumulative content")]
     ReplacedContent { choice_index: u64 },
-    #[error(
-        "[ai_models_minimax/stream] choice {choice_index} reasoning detail {detail_index} replaced cumulative text"
-    )]
-    ReplacedReasoning {
-        choice_index: u64,
-        detail_index: u32,
-    },
 }
 
 pub(super) enum NormalizedEvent {
@@ -77,40 +70,11 @@ impl MiniMaxNormalizer {
                 Ok(current) => current,
                 Err(source) => return Err(MiniMaxStreamError::DeserializeChunk { source }),
             };
-            self.validate_reasoning(choice_index, &current)?;
             if !current.is_empty() {
                 self.reasoning_details.insert(choice_index, current);
             }
         }
         Ok(NormalizedEvent::Chunk(body))
-    }
-
-    fn validate_reasoning(
-        &self,
-        choice_index: u64,
-        current: &[MiniMaxReasoningDetail],
-    ) -> std::result::Result<(), MiniMaxStreamError> {
-        let Some(previous) = self.reasoning_details.get(&choice_index) else {
-            return Ok(());
-        };
-        for (position, detail) in current.iter().enumerate() {
-            let detail_index = detail.index.unwrap_or(position as u32);
-            let previous = previous.iter().enumerate().find(|(position, previous)| {
-                previous.index.unwrap_or(*position as u32) == detail_index
-            });
-            let Some((_, previous)) = previous else {
-                continue;
-            };
-            if let (Some(previous), Some(current)) = (&previous.text, &detail.text)
-                && !current.starts_with(previous)
-            {
-                return Err(MiniMaxStreamError::ReplacedReasoning {
-                    choice_index,
-                    detail_index,
-                });
-            }
-        }
-        Ok(())
     }
 
     pub(super) fn restore_reasoning_details(

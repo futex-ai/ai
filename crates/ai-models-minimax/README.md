@@ -38,10 +38,11 @@ per-call timeouts reach the transport.
 
 Completion requests send `stream: true` with final usage enabled. MiniMax's
 cumulative visible content is converted into suffix deltas before shared
-accumulation, while the last complete `reasoning_details` snapshot is retained
-for replay. Streams default to a 3,600-second overall deadline and a 120-second
-idle timeout. Numeric `base_resp` failures keep their provider classification
-before progress and become `ModelError::Interrupted` after progress.
+accumulation, while the last nonempty `reasoning_details` snapshot is retained
+as the canonical replay state even when MiniMax revises an earlier snapshot.
+Streams default to a 3,600-second overall deadline and a 120-second idle
+timeout. Numeric `base_resp` failures keep their provider classification before
+progress and become `ModelError::Interrupted` after progress.
 
 Modern `tools` and `tool_calls` retain MiniMax provider call ids across
 assistant and tool-result messages. MiniMax `reasoning_content` and ordered

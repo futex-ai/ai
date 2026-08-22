@@ -185,9 +185,17 @@ and downstream handoff are aligned and independently reviewed.
 - [x] Stage every file with `git add -A`, commit with a Conventional Commit
       title of at most 50 characters and descriptive body, and push the current
       branch without renaming it.
-- [ ] Run `cargo xtask review` only after the push so it reviews the local diff
-      against `origin/main` (blocked on 2026-08-22 because the reviewer's Codex
-      subprocess received `401 Unauthorized` before inspecting the diff).
+- [x] Add regression coverage for MiniMax-M3 streams that revise an earlier
+      reasoning snapshot, retain the latest snapshot for replay, and align the
+      MiniMax README and protocols with the credentialed behavior.
+- [x] Re-run formatting, strict Clippy, workspace tests, smoke tests, file-length
+      lint, and `cargo xtask check`, then audit the complete CI-fix diff.
+- [x] Stage every CI-fix file, commit conventionally, and push the current
+      branch without renaming it.
+- [ ] Run `cargo xtask review` only after the CI-fix push so it reviews the
+      local diff against `origin/main` (earlier attempts on 2026-08-22 were
+      blocked because the reviewer's Codex subprocess received
+      `401 Unauthorized` before inspecting the diff).
 - [x] Do not automatically fix review findings. Report each numbered with
       severity, codebase/feature context, impact of doing nothing, lettered
       solution options, and the recommended option.

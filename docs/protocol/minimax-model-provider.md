@@ -117,8 +117,11 @@ and `RequireDeferred` is unsupported.
 
 MiniMax streams cumulative visible-content snapshots. The adapter validates
 that each snapshot extends the prior value, converts it to a suffix delta for
-the shared accumulator, and retains the final complete `reasoning_details`
-snapshot for replay. Final usage and `[DONE]` are required.
+the shared accumulator, and retains the last nonempty `reasoning_details`
+snapshot as the canonical replay state. A MiniMax-M3 required-tool stream
+observed by the credentialed suite on 2026-08-22 revised earlier reasoning text,
+so reasoning snapshots replace prior snapshots instead of requiring prefix
+extension. Final usage and `[DONE]` are required.
 
 MiniMax's public reference currently enumerates only `none` and `auto`. Firna
 reported a successful live MiniMax-M3 request with a real tool and

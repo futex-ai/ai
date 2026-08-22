@@ -70,26 +70,18 @@ async fn eof_transport_and_malformed_events_are_progress_aware() {
 }
 
 #[tokio::test]
-async fn rejects_replaced_cumulative_content_and_reasoning() {
-    let (http_client, _) = recording_streaming_client(vec![
-        SseFixture::Stream(vec![content_event("first"), content_event("replacement")]),
-        SseFixture::Stream(vec![
-            reasoning_event("private"),
-            reasoning_event("replacement"),
-        ]),
-    ]);
+async fn rejects_replaced_cumulative_content() {
+    let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(vec![
+        content_event("first"),
+        content_event("replacement"),
+    ])]);
     let model = MiniMaxModel::new(http_client, MINIMAX_M3, "key");
 
-    for position in 0..2 {
-        let error = model
-            .complete(&simple_request())
-            .await
-            .expect_err("replaced cumulative state should fail");
-        assert!(
-            matches!(error, ModelError::Interrupted { .. }),
-            "fixture {position}: {error}"
-        );
-    }
+    let error = model
+        .complete(&simple_request())
+        .await
+        .expect_err("replaced cumulative content should fail");
+    assert!(matches!(error, ModelError::Interrupted { .. }), "{error}");
 }
 
 fn progress_event() -> ai_models_core::test_support::StreamItem {
@@ -101,22 +93,6 @@ fn content_event(content: &str) -> ai_models_core::test_support::StreamItem {
         "choices": [{
             "index": 0,
             "delta": {"content": content},
-            "finish_reason": null
-        }]
-    }))
-}
-
-fn reasoning_event(text: &str) -> ai_models_core::test_support::StreamItem {
-    event(json!({
-        "choices": [{
-            "index": 0,
-            "delta": {
-                "reasoning_details": [{
-                    "type": "reasoning.text",
-                    "index": 0,
-                    "text": text
-                }]
-            },
             "finish_reason": null
         }]
     }))
