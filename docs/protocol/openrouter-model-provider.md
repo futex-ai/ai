@@ -123,6 +123,38 @@ response, not native schema enforcement. Validate only natural stopped
 responses with no tool calls. Structured requests emit no public text events,
 following the [completion-events contract](model-completion-events.md).
 
+## Generation Metadata
+
+`ai_interface::model_metadata` owns `ProviderGeneration` with
+`provider: ProviderKind` and `id: ProviderGenerationId`. The id is a private
+owned-string newtype: construction and string serde reject blank values with
+a typed error and preserve every accepted value without trimming or rewriting.
+Add `ModelResponse.provider_generation: Option<ProviderGeneration>`, defaulting
+to `None` during deserialization and omitted when absent. Existing providers
+and fixtures initialize it to `None`; OpenRouter populates it for every
+successful response, including plain text without replay context.
+
+Map the response envelope's top-level `id` to this field, separately from
+model ids, tool ids, and reasoning-detail ids. The
+[usage reference](https://openrouter.ai/docs/cookbook/administration/usage-accounting)
+identifies this as the generation id. Retain the first nonblank string seen
+across SSE chunks; later supplied ids must be identical. Missing/null ids in
+individual chunks do not erase it. Blank, non-string, or conflicting ids, and
+an entirely absent id at stream completion, are typed invalid-provider-data
+failures under the stream interruption policy.
+
+Buffered and event-observing calls return identical metadata. Wrappers and
+the router preserve the successful response's value; its provider must agree
+with the response provider. The tool runtime forwards it to successful model
+logger copies and, for validated responses, `ModelResponseCheckpoint` before
+tool dispatch or turn completion. Hosts can persist the serialized response
+through these existing hooks. `StepOutcome`, `RunOutcome`, and retained
+conversation messages do not acquire this field; no automatic history archive
+is added. Each continuation reports its own generation id. It is never replayed
+upstream, included in tool-call scope hashing, or emitted as completion text.
+Failed/interrupted calls do not return partial metadata, and no generation
+lookup is introduced.
+
 ## Streaming, Responses, And Errors
 
 Use shared text/tool/usage accumulation where its semantics apply, with a
@@ -172,8 +204,11 @@ Unit tests use `unimock` HTTP/auth collaborators and external `_tests_`
 modules. Cover every catalog/profile combination, construction failures,
 controls, rejected modalities, malformed dispatchable tools, terminal tool
 suppression, structured validation, status/payload errors, stream interruption,
-final identity, token/cost mapping, and buffered/event parity. Replay and
-accounting acceptance tests are specified in their linked protocols.
+final identity, token/cost mapping, and buffered/event parity. Cover generation
+id serde/defaults, missing/repeated/conflicting ids, response-only plain-text
+retention, wrappers/router, logger copies, and response checkpoints on text
+and tool rounds. Replay and accounting acceptance tests are specified in their
+linked protocols.
 
 Add credential-free construction to `cargo xtask smoke-test`. Add OpenRouter
 to `xtask/tests/live_models.rs`, its provider registry/guards, and

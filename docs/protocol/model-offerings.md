@@ -147,7 +147,10 @@ OpenRouter expresses native-first selection; swapping priorities reverses it.
 Existing direct constructors keep their documented downgrade behavior. A
 registration must represent its effective catalog level, and a successful
 response must match its registered provider, catalog id, wire id, and thinking
-level. A mismatch is a typed model contract failure and is not retried.
+level. Preserve optional
+[generation metadata](openrouter-model-provider.md#generation-metadata) and
+require its provider to match the response provider when present. A mismatch
+is a typed model contract failure and is not retried.
 
 Example serialized request, with both disabled Sonnet offerings registered:
 

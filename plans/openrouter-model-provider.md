@@ -72,18 +72,24 @@ selection without changing existing catalog ids or constructor behavior.
 
 ## Milestone 2: Authoritative Usage Accounting
 
-At the end of this milestone existing providers retain their pricing behavior,
-and any adapter can report an account charge that survives configured pricing
-wrappers and is distinguishable from an unknown or estimated amount.
+At the end of this milestone existing providers retain configured pricing,
+with aggregate overflow saturating consistently, and any adapter can report
+account/upstream costs independently without losing them through pricing
+wrappers or confusing unknown amounts with reported zero.
 
 - [ ] Add failing serde/effective-cost tests for `ProviderReportedCost`,
-      `ModelCostSummary`, `ModelCostSource`, absent reports, and reported zero.
+      `ModelCostSummary`, `ModelCostSource`, independent optional amounts,
+      upstream-only/empty/absent reports, and reported zero.
 - [ ] Add optional `ModelUsage.provider_cost` and the pure effective-cost
       accessor with the exact precedence and bucket-completeness rules.
 - [ ] Migrate current usage literals/mocks and preserve legacy deserialization.
 - [ ] Add failing pricing-wrapper regressions for authoritative nonzero/zero
-      reports, separate upstream cost, partial/free estimates, duplicate or
-      missing bucket lines, and repeated wrappers.
+      reports, upstream-only preservation and estimate/unknown fallback,
+      partial/free estimates, duplicate or missing buckets, and repeated wrappers.
+- [ ] Add regressions for multiple cost lines reaching/exceeding `u64::MAX`,
+      zero values, and partial coverage; change `price_usage`'s scalar sum to
+      `saturating_add` so complete estimates match `effective_cost()`. Run these
+      focused arithmetic tests in both debug and release profiles.
 - [ ] Preserve the provider report in `price_usage`, `complete`, and
       `complete_with_events`; never distribute a reported total into invented
       token prices or replace it with configured estimates.
@@ -109,6 +115,10 @@ and tool-continuation calls through `DynModel`, with normalized usage/errors.
       a version, and build the new package immediately.
 - [ ] Add failing `openrouter` provider parsing/display/serde tests, then add
       `ProviderKind::OpenRouter` and update every exhaustive provider match.
+- [ ] Add failing generation-id validation/serde/default tests, then introduce
+      `ai_interface::model_metadata::{ProviderGeneration, ProviderGenerationId}`
+      and optional `ModelResponse.provider_generation`. Migrate response
+      literals, provider fixtures, and mocks with `None` defaults.
 - [ ] Add exact catalog/profile tests for all three entries, canonical/wire
       mappings, thinking levels, limits, features, and internal ranking tiers.
 - [ ] Implement validated constructors using catalog ids and injected HTTP/auth
@@ -125,7 +135,12 @@ and tool-continuation calls through `DynModel`, with normalized usage/errors.
 - [ ] Add typed OpenRouter assistant/detail/raw-tool context in `ai-interface`
       and tests for every variant, optional field, unknown kind, and round trip.
 - [ ] Implement OpenRouter normalization around reusable core accumulation;
-      retain reasoning aliases/details, costs, generation ids, and model ids.
+      retain reasoning aliases/details, costs, and model ids. Map top-level
+      response ids into typed generation metadata on every successful response.
+- [ ] Test missing/null/repeated/conflicting generation ids, plain-text
+      responses without replay, event parity, wrapper preservation, and
+      logger/checkpoint retention on text and tool rounds. Keep these ids out
+      of conversation replay, scope hashes, and public text events.
 - [ ] Add failing stream tests for text/reasoning/tool fragmentation, final
       usage-only chunks, missing markers, partial EOF, malformed payloads,
       returned-model mismatch, and pre-/post-progress errors.
@@ -175,6 +190,7 @@ tool conversations stay on their successful offering without shared pin state.
       interruption or terminal failure, including a provider that incorrectly
       returns a retryable error after public text events.
 - [ ] Validate successful lane identity and attach exactly one route origin;
+      preserve generation metadata and validate its provider when present;
       test that a mismatched adapter response cannot be treated as success.
 - [ ] Implement request-derived pinning to the exact retained offering. Test
       unavailable/ineligible/conflicting origins and untagged private/tool

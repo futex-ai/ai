@@ -103,12 +103,16 @@ The catalog fixes the upstream profile, so a different profile requires a
 different offering key and cannot silently consume this context.
 
 Native OpenAI/DeepSeek/Kimi/MiniMax/Qwen context must not be serialized as
-OpenRouter state. OpenRouter rejects such foreign private replay context;
-ordinary caller-authored assistant text and normalized tool history without
-private replay can be used on an explicitly selected singleton route. Other
-adapters ignore the OpenRouter item at their existing foreign-context
-boundary; the new router prevents a conversation containing it from moving
-to those adapters. No native-to-OpenRouter reasoning conversion is included.
+OpenRouter state. OpenRouter rejects such foreign private replay context.
+For routed requests, untagged normalized tool history is accepted only by
+the legacy `Provider` plus `ModelId` requirements selecting exactly one
+offering, subject to the [offering continuity contract](model-offerings.md).
+A canonical/thinking route that happens to have one candidate does not qualify.
+Caller-authored text-only history without private replay or tool state can
+start a new route. Other adapters ignore the OpenRouter item at their existing
+foreign-context boundary; the new router prevents a conversation containing
+it from moving to those adapters. No native-to-OpenRouter reasoning conversion
+is included.
 
 `ModelRouteOrigin` is local routing metadata and is never sent to OpenRouter.
 It persists even for responses without private replay data, ensuring that a
@@ -120,7 +124,10 @@ The tool runtime retains complete replay data in its working conversation and
 terminal checkpoint. Its logger-copy path removes the complete OpenRouter
 assistant replay item from request and successful-response copies, on both
 successful and failed calls. This must not mutate retained conversation state.
-Route-origin metadata remains available for diagnostics.
+Route-origin metadata remains available for diagnostics. Response-level
+[generation metadata](openrouter-model-provider.md#generation-metadata) also
+survives logger copies and response checkpoints, independently of private
+replay. It is not added to conversation items or sent on continuation.
 
 Update `synthetic_tool_call_scope` to hash every new replay field, its variant,
 and ordering, plus route origin. Different signatures, encrypted data, raw
@@ -138,6 +145,8 @@ module into cohesive modules rather than exceeding the Rust file-size cap.
   required tool reasoning, malformed tool arguments, and terminal failures.
 - Response-to-conversation-to-next-request round trips preserving private
   fields, tool ids, ordering, and argument whitespace.
+- Untagged tool history accepted only with explicit legacy provider-and-id
+  selection; a canonical/thinking singleton is rejected before transport.
 - Plain reasoning without duplicated events, details-only reasoning, exact
   assistant parity, and structured-output event suppression.
 - Matching versus mismatched catalog/model/thinking, foreign private context,
