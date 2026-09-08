@@ -74,6 +74,12 @@ were validated output. The terminal structured response is unchanged.
 
 ## Errors, Retry, And Fallback
 
+Planned extension: [model offerings and routing](model-offerings.md) introduces
+a separate retryable-only policy for automatically resolved routes. The
+existing `MultiModel` default and restart behavior below remain unchanged.
+[OpenRouter replay](openrouter-replay.md) specifies that provider's planned
+public reasoning versus private replay behavior.
+
 Timeout and error classification remain defined by the internal streaming
 protocol. A provider failure after stream progress can return
 `ModelError::Interrupted` after already-emitted public events; no terminal

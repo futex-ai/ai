@@ -67,6 +67,12 @@ using the smaller value. Ordered stop sequences retain caller order.
 
 ## Thinking-Level Resolution
 
+Planned extension: [model offerings and routing](model-offerings.md) defines
+exact/at-most selection before constructing a fallback route. It preserves one
+effective level for that route and does not change the existing direct-adapter
+downgrade contract below until its implementation lands. OpenRouter's planned
+control mapping is specified in its [provider protocol](openrouter-model-provider.md).
+
 Thinking level is model-construction metadata rather than a per-call
 `ModelRequest` control. For a known provider model, an exact catalog level is
 retained. When the requested level has no exact variant, the adapter selects

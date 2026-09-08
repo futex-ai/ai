@@ -38,6 +38,12 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [Model offerings and routing](docs/protocol/model-offerings.md),
+  [OpenRouter provider](docs/protocol/openrouter-model-provider.md),
+  [OpenRouter replay](docs/protocol/openrouter-replay.md), and
+  [provider-reported model cost](docs/protocol/model-usage-cost.md) define the
+  planned OpenRouter integration, typed model selection, conversation
+  continuity, and accounting changes. These contracts are not yet implemented.
 - [Model completion events](docs/protocol/model-completion-events.md) defines
   the opt-in public assistant, reasoning, and fallback-restart event boundary,
   terminal parity, wrapper semantics, and downstream adoption contract.

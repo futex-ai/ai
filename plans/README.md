@@ -6,6 +6,7 @@ milestones are finished.
 
 ## Active
 
+- [OpenRouter model provider and offering selection](openrouter-model-provider.md)
 - [Model completion streaming](model-completion-streaming.md)
 
 ## Completed
