@@ -9,7 +9,7 @@ mod question;
 mod request;
 mod response;
 
-pub use answer::JudgmentAnswer;
+pub use answer::{JudgmentAnswer, deserialize_score_probabilities};
 pub use answer_problem::JudgmentAnswerProblem;
 pub use content::{JudgmentContent, JudgmentJsonType};
 pub use error::{JudgmentError, JudgmentQuestionProblem, JudgmentResult};

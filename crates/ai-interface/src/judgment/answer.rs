@@ -50,7 +50,14 @@ impl JudgmentAnswer {
     }
 }
 
-fn deserialize_score_probabilities<'de, D>(deserializer: D) -> Result<BTreeMap<u32, f64>, D::Error>
+/// Deserializes level-indexed probabilities keyed by canonical decimal strings.
+///
+/// Internally tagged enums buffer map keys as strings, so this helper parses
+/// each key itself, rejecting non-canonical spellings and indexes that appear
+/// more than once. Provider crates reuse it for their wire types.
+pub fn deserialize_score_probabilities<'de, D>(
+    deserializer: D,
+) -> Result<BTreeMap<u32, f64>, D::Error>
 where
     D: Deserializer<'de>,
 {

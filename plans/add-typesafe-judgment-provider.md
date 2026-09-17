@@ -107,35 +107,35 @@ Boundary-neutral HTTP status classification exists once and is reused.
 
 Callers can evaluate questions through `TypeSafeJudgmentModel`.
 
-- [ ] Scaffold `crates/ai-models-typesafe` with a thin `lib.rs`, `catalog.rs`,
+- [x] Scaffold `crates/ai-models-typesafe` with a thin `lib.rs`, `catalog.rs`,
       and a `typesafe/` module family (`client.rs`, `request.rs`,
       `response.rs`, `error.rs`, `mod.rs`) with source-adjacent `_tests_`
       modules; add it to workspace members and dependencies.
-- [ ] Add failing catalog tests for `JEV_LATEST`, `JEV_1_13_0`, the provider,
+- [x] Add failing catalog tests for `JEV_LATEST`, `JEV_1_13_0`, the provider,
       the judgment-only feature list, context window, tiers, and thinking
       level, then implement `known_models()`.
-- [ ] Add failing construction tests for API-key and auth-hook construction,
+- [x] Add failing construction tests for API-key and auth-hook construction,
       endpoint and timeout overrides, and pass-through of a versioned provider
       model id that the catalog does not list.
-- [ ] Add failing request tests for exact JSON for every question variant,
+- [x] Add failing request tests for exact JSON for every question variant,
       omitted optional criteria, null option and level descriptions, verbatim
       state, the `model` field, and no extra fields.
-- [ ] Add failing response tests for every answer mapping, resolved model id,
+- [x] Add failing response tests for every answer mapping, resolved model id,
       ignored legend and unknown fields, score index parsing, malformed-body
       `Provider` errors, and `InvalidAnswer` propagation from the shared
       `validate_against` postconditions.
-- [ ] Add failing usage tests for present, missing, and saturating usage.
-- [ ] Add failing client tests with the mocked `json-http` transport for
+- [x] Add failing usage tests for present, missing, and saturating usage.
+- [x] Add failing client tests with the mocked `json-http` transport for
       bearer auth, the exact endpoint, 429, 529, 5xx, 401, 403, 422, transport
       and auth-hook failures, malformed bodies, and credential absence in
       errors.
-- [ ] Implement the adapter behind `JudgmentModel` using injected
+- [x] Implement the adapter behind `JudgmentModel` using injected
       `DynJsonHttpClient` and `DynJsonHttpAuth`, shared validation, shared
       status classification, and typed error translation with no
       `map_err`, `unwrap`, or string matching on error messages.
-- [ ] Add `crates/ai-models-typesafe/README.md` with the required sections and
+- [x] Add `crates/ai-models-typesafe/README.md` with the required sections and
       a compiling Quick Start.
-- [ ] Run `cargo fmt --all -- --check`, `cargo clippy -p ai-models-typesafe
+- [x] Run `cargo fmt --all -- --check`, `cargo clippy -p ai-models-typesafe
       --all-targets --all-features`, and `cargo test -p ai-models-typesafe`.
 
 ## Milestone 5: Smoke, Live Coverage, And Documentation

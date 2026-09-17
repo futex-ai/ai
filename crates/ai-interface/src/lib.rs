@@ -35,7 +35,7 @@ pub use judgment::{
     DynJudgmentModel, JudgmentAnswer, JudgmentAnswerProblem, JudgmentConditionCriteria,
     JudgmentContent, JudgmentError, JudgmentJsonType, JudgmentModel, JudgmentQuestion,
     JudgmentQuestionKind, JudgmentQuestionProblem, JudgmentRequest, JudgmentResponse,
-    JudgmentResult, PROBABILITY_SUM_TOLERANCE,
+    JudgmentResult, PROBABILITY_SUM_TOLERANCE, deserialize_score_probabilities,
 };
 pub use logger::{
     DynLogger, Logger, LoggerError, LoggerResult, ModelCallLogEntry, ModelCallLogResult,
