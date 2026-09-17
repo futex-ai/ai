@@ -90,17 +90,17 @@ the provider crate.
 
 Boundary-neutral HTTP status classification exists once and is reused.
 
-- [ ] Add failing tests for `classify_http_status` covering 429, 408, 409,
+- [x] Add failing tests for `classify_http_status` covering 429, 408, 409,
       425, 5xx including 529, 401, 403, 422, and `None` for 2xx inputs.
-- [ ] Implement `HttpFailureClass` and
+- [x] Implement `HttpFailureClass` and
       `classify_http_status(status) -> Option<HttpFailureClass>`, and make
       the existing `classify_json_http_error` delegate to it without changing
       `ModelError` behavior.
-- [ ] Replace the private transient-status helpers in the OpenAI and Google
+- [x] Replace the private transient-status helpers in the OpenAI and Google
       image and video error modules with the shared classifier, keeping their
       existing tests green.
-- [ ] Update `crates/ai-models-core/README.md`.
-- [ ] Run formatting, Clippy, and tests for `ai-models-core`,
+- [x] Update `crates/ai-models-core/README.md`.
+- [x] Run formatting, Clippy, and tests for `ai-models-core`,
       `ai-models-openai`, and `ai-models-google`.
 
 ## Milestone 4: `ai-models-typesafe` Provider Crate

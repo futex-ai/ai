@@ -1,6 +1,7 @@
 //! OpenAI video generation error classification.
 
 use ai_interface::VideoGenerationError;
+use ai_models_core::{HttpFailureClass, classify_http_status};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -26,11 +27,14 @@ pub(super) fn classify_status(status: u16, model_id: &str, body: &Value) -> Vide
         .and_then(|error| error.message.as_deref())
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| body.to_string());
-    if status == 429 {
-        return VideoGenerationError::rate_limited(PROVIDER, model_id, message);
-    }
-    if matches!(status, 408 | 409 | 425) || (500..=599).contains(&status) {
-        return VideoGenerationError::transient_provider(PROVIDER, model_id, message);
+    match classify_http_status(status) {
+        Some(HttpFailureClass::RateLimited) => {
+            return VideoGenerationError::rate_limited(PROVIDER, model_id, message);
+        }
+        Some(HttpFailureClass::Transient) => {
+            return VideoGenerationError::transient_provider(PROVIDER, model_id, message);
+        }
+        Some(HttpFailureClass::Terminal) | None => {}
     }
     if details.is_some_and(is_content_policy) {
         return VideoGenerationError::content_policy(PROVIDER, model_id, message);

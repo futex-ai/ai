@@ -1,6 +1,7 @@
 //! Google video generation HTTP error classification.
 
 use ai_interface::VideoGenerationError;
+use ai_models_core::{HttpFailureClass, classify_http_status};
 use serde_json::Value;
 
 const PROVIDER: &str = "google";
@@ -13,11 +14,14 @@ pub(super) fn classify_status(status: u16, model_id: &str, body: &Value) -> Vide
         .or_else(|| body.as_str())
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| format!("HTTP {status}"));
-    if status == 429 {
-        return VideoGenerationError::rate_limited(PROVIDER, model_id, message);
-    }
-    if matches!(status, 408 | 409 | 425) || (500..=599).contains(&status) {
-        return VideoGenerationError::transient_provider(PROVIDER, model_id, message);
+    match classify_http_status(status) {
+        Some(HttpFailureClass::RateLimited) => {
+            return VideoGenerationError::rate_limited(PROVIDER, model_id, message);
+        }
+        Some(HttpFailureClass::Transient) => {
+            return VideoGenerationError::transient_provider(PROVIDER, model_id, message);
+        }
+        Some(HttpFailureClass::Terminal) | None => {}
     }
     VideoGenerationError::provider(PROVIDER, model_id, message)
 }
