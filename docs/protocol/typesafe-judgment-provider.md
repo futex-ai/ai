@@ -84,10 +84,16 @@ Convenience constructors only build values and never validate:
 `JudgmentQuestion::condition(instructions, criteria)`,
 `JudgmentQuestion::choice(instructions, options)`,
 `JudgmentQuestion::score(instructions, levels)`, and
-`JudgmentConditionCriteria::new(yes, no)`. Instructions and descriptions
-accept `impl Into<JudgmentContent>`; options accept any iterator of
-`(label, Option<JudgmentContent>)` pairs and levels any iterator of
-`Option<JudgmentContent>`.
+`JudgmentConditionCriteria::new(yes, no)`. Instructions accept
+`impl Into<JudgmentContent>`; descriptions are plain
+`Option<JudgmentContent>` values so a bare `None` infers cleanly, for example
+`JudgmentConditionCriteria::new(Some("yes".into()), None)`. Options accept
+any iterator of `(label, Option<JudgmentContent>)` pairs and levels any
+iterator of `Option<JudgmentContent>`.
+
+`JudgmentQuestionKind` (`Condition`, `Choice`, `Score`) names a question or
+answer shape; `JudgmentQuestion::kind()` and `JudgmentAnswer::kind()` return
+it.
 
 Local validation is the pure `JudgmentRequest::validate` method. The mock and
 every provider adapter call it before any transport call. It returns
@@ -114,6 +120,32 @@ provider-reported `resolved_model_id`, `answers` keyed by the request ids, and
 `ModelUsage`. Condition answers carry no confidence; a probability near 0.5
 means yes and no are equally likely, not medium intensity. Choice and score
 confidence summarize distribution concentration only.
+
+Score probabilities are keyed by decimal strings on the wire. Deserialization
+rejects keys that are not canonical unsigned decimal indexes and rejects two
+keys that resolve to the same index.
+
+A successful response must satisfy the pure
+`JudgmentResponse::validate_against(&JudgmentRequest)` postconditions. Every
+adapter applies it after mapping a provider body, and `MockJudgmentModel`
+output satisfies it. The validator checks, for every requested id, and
+returns `InvalidAnswer { provider, model_id, id, problem }` with a typed
+`JudgmentAnswerProblem` on the first failure:
+
+| Problem | Trigger |
+| --- | --- |
+| `Missing` | no answer for a requested id |
+| `KindMismatch { expected, actual }` | answer kind differs from the question kind |
+| `ProbabilityOutOfRange { value }` | a condition, option, or level probability is not finite within zero to one |
+| `ConfidenceOutOfRange { value }` | a confidence is not finite within zero to one |
+| `UnknownOption { label }` | a selected or probability label is not a requested option |
+| `MissingOption { label }` | a requested option has no probability |
+| `UnknownLevel { index }` | a probability index is at or beyond the level count |
+| `MissingLevel { index }` | a level index has no probability |
+| `ExpectedOutOfRange { value }` | a score expectation is not finite within zero and the last level index |
+| `DistributionSum { sum }` | option or level probabilities differ from one by more than `PROBABILITY_SUM_TOLERANCE` (0.02) |
+
+Answers for ids the request did not send are ignored.
 
 `MockJudgmentModel` is deterministic: it applies the same local validation and
 answers every condition with probability one, every choice with its first
@@ -233,11 +265,12 @@ The adapter maps `model` to `resolved_model_id`, `noul` to
 level indexes. `legend` is not surfaced because the caller owns the levels.
 Unknown fields are ignored.
 
-Response validation failures are non-retryable `Provider` errors: a missing
-answer for a requested id, an answer whose type differs from its question, a
-selected choice or probability label outside the requested options, a score
-probability index at or beyond the level count, or a body that fails to
-deserialize. Answers for ids the request did not send are ignored.
+A body that fails to deserialize, including a non-decimal or duplicate score
+level key, is a non-retryable `Provider` error. After mapping, the adapter
+applies the shared `validate_against` postconditions, so a missing answer, a
+kind mismatch, an unknown or missing option or level, an out-of-range
+probability, confidence, or expectation, or a distribution that does not sum
+to one is a typed `InvalidAnswer` error.
 
 ## Usage
 
@@ -259,6 +292,7 @@ only.
 | `EmptyState` | local blank or empty state | fix request; do not retry |
 | `NoQuestions` | local empty question map | fix request; do not retry |
 | `InvalidQuestion` | local typed question problem | fix request; do not retry |
+| `InvalidAnswer` | a provider answer failed the shared `validate_against` postconditions; carries provider, model id, answer id, and a typed `JudgmentAnswerProblem` | terminal |
 | `RateLimited` | HTTP 429 | retry with backoff |
 | `TransientProvider` | transport or auth-hook failure, HTTP 408/409/425, or 5xx including 529 overloaded | retry with backoff |
 | `Provider` | HTTP 401/403 authentication, 422 validation, other statuses, or invalid response semantics | terminal |
@@ -282,8 +316,11 @@ keys and auth headers must never appear in errors or diagnostics.
 ## Required Verification
 
 Credential-free tests must cover provider config/serde round trips, the
-judgment feature, DTO serde for every content, question, and answer shape,
-local validation, the deterministic mock, catalog metadata, bearer auth and
+judgment feature, DTO serde for every content, question, and answer shape
+including structured instructions and descriptions, score key rejection,
+local request validation, every answer-validation problem, the deterministic
+mock through `DynJudgmentModel`, the generated `JudgmentModelMock`, catalog
+metadata, bearer auth and
 endpoint selection, exact wire mapping for every question variant, response
 mapping and every validation failure, usage normalization, status
 classification, transport failures, and malformed bodies.

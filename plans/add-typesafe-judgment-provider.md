@@ -121,8 +121,9 @@ Callers can evaluate questions through `TypeSafeJudgmentModel`.
       omitted optional criteria, null option and level descriptions, verbatim
       state, the `model` field, and no extra fields.
 - [ ] Add failing response tests for every answer mapping, resolved model id,
-      ignored legend and unknown fields, score index parsing, and every
-      response validation failure.
+      ignored legend and unknown fields, score index parsing, malformed-body
+      `Provider` errors, and `InvalidAnswer` propagation from the shared
+      `validate_against` postconditions.
 - [ ] Add failing usage tests for present, missing, and saturating usage.
 - [ ] Add failing client tests with the mocked `json-http` transport for
       bearer auth, the exact endpoint, 429, 529, 5xx, 401, 403, 422, transport
@@ -179,3 +180,37 @@ Catalog registration automatically produces credentialed coverage.
 - [ ] Run `cargo xtask review` after the push against `origin/main`.
 - [ ] Do not auto-fix review findings; report each with a number, severity,
       context, impact, lettered options, and a recommended option.
+
+## Milestone 7: Boundary Review Follow-Up
+
+Address the design-review findings on the shared boundary before the provider
+crate depends on it. This milestone was executed between Milestones 3 and 4.
+At the end of this milestone, successful judgment responses carry checked
+answer postconditions, score keys cannot collide, and the shared crate tests
+its own public consumer paths.
+
+- [ ] Add failing tests for `JudgmentQuestionKind`, `JudgmentQuestion::kind`,
+      and `JudgmentAnswer::kind`, then implement them.
+- [ ] Add failing tests for every `JudgmentAnswerProblem` display message and
+      every `validate_against` failure, plus an accepting case and a proof
+      that `MockJudgmentModel` output validates, then implement
+      `JudgmentAnswerProblem`, `PROBABILITY_SUM_TOLERANCE`, the typed
+      `InvalidAnswer` error variant with its constructor, and the pure
+      `JudgmentResponse::validate_against` method.
+- [ ] Add failing text-level tests for duplicate, non-canonical, negative,
+      and overflowing score level keys, then replace the score-probability
+      deserializer with a map visitor that rejects duplicate indexes and
+      reports failures through `serde::de::Error::invalid_value` instead of
+      ad hoc formatting.
+- [ ] Add tests that drive `MockJudgmentModel` through `DynJudgmentModel`,
+      configure the generated `JudgmentModelMock`, and round-trip questions
+      with object and array instructions and populated structured criteria.
+- [ ] Move the judgment DTO tests beside their owning modules under
+      `src/judgment/_tests_/` with explicit path declarations, keeping the
+      mock-model tests beside the top-level mock source.
+- [x] Align the protocol constructor wording with the real
+      `JudgmentConditionCriteria::new` signature.
+- [ ] Update `crates/ai-interface/README.md` for the answer postconditions.
+- [ ] Run `cargo fmt --all -- --check`, `cargo clippy -p ai-interface
+      --all-targets --all-features -- -D warnings`, and
+      `cargo test -p ai-interface --all-features`.

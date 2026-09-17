@@ -57,15 +57,17 @@ Every successful live call must:
 
 - report `provider: "typesafe"`, the catalog provider model id as `model_id`,
   and a non-empty `resolved_model_id`;
-- return exactly the three requested answer ids with matching answer kinds;
-- return a condition probability within zero to one;
-- return a choice whose selected label is one of the requested options and
-  whose probabilities cover exactly those options, sum to one within a
-  0.01 tolerance, and carry a confidence within zero to one;
-- return a score whose expected value lies within zero to two, whose
-  probability indexes are exactly zero, one, and two summing to one within a
-  0.01 tolerance, and whose confidence lies within zero to one; and
+- return exactly the three requested answer ids and no others;
+- satisfy the shared `JudgmentResponse::validate_against` postconditions
+  defined by the judgment provider protocol (matching kinds, complete
+  distributions over exactly the requested options and levels, finite
+  probabilities and confidences within zero to one, a score expectation
+  within zero to two, and distribution sums within the shared tolerance); and
 - report a non-zero input token count.
+
+The production adapter already applies the shared postconditions before
+returning, so the runner re-validates only to keep the live contract explicit
+and independent of adapter internals.
 
 The probe verifies connectivity and normalized output, not answer quality.
 Calibration and threshold tuning remain the consumer's responsibility.
