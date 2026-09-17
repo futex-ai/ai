@@ -47,7 +47,7 @@ impl LiveProvider {
 
     pub(super) fn from_kind(provider: ProviderKind) -> Option<Self> {
         match provider {
-            ProviderKind::Mock => None,
+            ProviderKind::Mock | ProviderKind::TypeSafe => None,
             ProviderKind::Anthropic => Some(Self::Anthropic),
             ProviderKind::DeepSeek => Some(Self::DeepSeek),
             ProviderKind::Google => Some(Self::Google),

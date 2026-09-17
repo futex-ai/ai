@@ -1,4 +1,5 @@
 mod image_generator_tests;
+mod judgment;
 mod messages;
 mod mock_image_generator_tests;
 mod mock_model_tests;

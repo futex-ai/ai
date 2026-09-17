@@ -1,16 +1,16 @@
 # ai-interface
 
 `ai-interface` is the shared contract crate for AI-facing runtime boundaries in
-this workspace. Depend on it when you need the common conversation, model, tool,
-audio transcription, image generation, video generation, routing, logging,
-usage, or model-visible tool output DTOs without taking a dependency on a
-stateful runtime implementation.
+this workspace. Depend on it when you need the common conversation, model,
+tool, audio transcription, image generation, video generation, judgment,
+routing, logging, usage, or model-visible tool output DTOs without taking a
+dependency on a stateful runtime implementation.
 
 ## Responsibilities
 
 - Own shared DTOs for conversations, model calls, tool calls, audio
-  transcription, image generation/editing, video generation, routing, logging,
-  and usage metering.
+  transcription, image generation/editing, video generation, typed judgment,
+  routing, logging, and usage metering.
 - Represent provider identity and provider-owned replay state, including
   DeepSeek, Kimi, MiniMax, and Qwen reasoning context that remains separate
   from visible assistant text.
@@ -18,8 +18,8 @@ stateful runtime implementation.
   opaque output ids, inline envelopes, window envelopes, read requests, and
   unavailable-remainder reasons.
 - Own the generic `Model`, `Tool`, `ModelRouter`, `AudioTranscriber`,
-  `ImageGenerator`, `VideoGenerator`, and `Logger` trait boundaries plus their
-  dyn aliases.
+  `ImageGenerator`, `VideoGenerator`, `JudgmentModel`, and `Logger` trait
+  boundaries plus their dyn aliases.
 - Define ordered assistant, reasoning, and fallback-restart completion events,
   an async event sink, and a default-compatible opt-in model entrypoint.
 - Keep individual tools pagination-agnostic: `Tool::call()` and
@@ -70,6 +70,12 @@ stateful runtime implementation.
   second controls, downloaded MP4 bytes with metadata, and typed policy,
   timeout, and retry errors. `ModelFeature::VideoGeneration` is the stable
   routing capability.
+- Defines the `JudgmentModel` boundary for evaluating text or JSON state
+  against typed condition, choice, and score questions in one call. Local
+  validation rejects empty state and malformed question maps before provider
+  access, while normalized answers retain probability distributions and
+  confidence. `ProviderKind::TypeSafe` and `ModelFeature::Judgment` are the
+  stable routing identities.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
   tool idempotency key alongside the model-visible tool name and JSON input.
 - Defines `ToolOutputEnvelope` as the model-visible success payload for tools.
@@ -99,9 +105,12 @@ not own.
 ## Quick Start
 
 ```rust
+use std::collections::BTreeMap;
+
 use ai_interface::{
     ConversationMessage, DeepSeekToolCallContext, ImageGenerationRequest, ImageGenerator,
-    MiniMaxReasoningDetail, MockImageGenerator, MockVideoGenerator, Model, ModelRequest, MockModel,
+    JudgmentModel, JudgmentQuestion, JudgmentRequest, JudgmentResponse, MiniMaxReasoningDetail,
+    MockImageGenerator, MockJudgmentModel, MockVideoGenerator, Model, ModelRequest, MockModel,
     NoopModelCompletionEventSink, ProviderKind, ProviderConversationItem, ToolOutputEnvelope,
     ToolOutputId, ToolOutputReadRequest, VideoGenerationRequest, VideoGenerator,
 };
@@ -153,6 +162,18 @@ async fn generate_video() -> ai_interface::VideoGenerationResult<Vec<u8>> {
         .await?;
 
     Ok(response.video.data)
+}
+
+async fn judge_state() -> ai_interface::JudgmentResult<JudgmentResponse> {
+    MockJudgmentModel
+        .judge(&JudgmentRequest {
+            state: "The payout has failed for three days.".into(),
+            questions: BTreeMap::from([(
+                "urgent".to_owned(),
+                JudgmentQuestion::condition("Is this urgent?", None),
+            )]),
+        })
+        .await
 }
 
 fn serialize_inline_tool_output() -> serde_json::Result<String> {
@@ -224,14 +245,17 @@ tool dispatch live in `ai-tool-calling`.
   DTOs, and typed generation errors.
 - `src/video_generator.rs` - one-video generation trait, portable controls,
   downloaded MP4 response DTO, and typed lifecycle errors.
+- `src/judgment/` - judgment content, questions, answers, validation, errors,
+  response DTOs, and the provider-agnostic trait.
 - `src/tools.rs` - tool trait, tool DTOs, invocation context, and tool errors.
 - `src/output/` - model-visible tool output ids, envelopes, reasons, and read
   request DTOs.
 - `src/logger.rs` - logger trait, log payloads, `ToolCallLogResult`, and
   `NoopLogger`.
 - `src/mock_model.rs`, `src/mock_audio_transcriber.rs`,
-  `src/mock_image_generator.rs`, and `src/mock_video_generator.rs` - built-in
-  mocks for tests and local development.
+  `src/mock_image_generator.rs`, `src/mock_video_generator.rs`, and
+  `src/mock_judgment_model.rs` - built-in mocks for tests and local
+  development.
 
 ### Related Docs
 
@@ -244,6 +268,8 @@ tool dispatch live in `ai-tool-calling`.
 - [`../../docs/protocol/minimax-model-provider.md`](../../docs/protocol/minimax-model-provider.md)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
+- [`../../docs/protocol/typesafe-judgment-provider.md`](../../docs/protocol/typesafe-judgment-provider.md)
+- [`../../docs/protocol/live-judgment-api-tests.md`](../../docs/protocol/live-judgment-api-tests.md)
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)

@@ -55,35 +55,35 @@ Define the contract before code so no provider or consumer guesswork remains.
 Consumers can compile against and deterministically mock the boundary without
 the provider crate.
 
-- [ ] Add failing tests for `ProviderKind::TypeSafe` config parsing, display,
+- [x] Add failing tests for `ProviderKind::TypeSafe` config parsing, display,
       and serde, then add the variant and update every exhaustive match: the
       `ai-interface` config/display helpers and the `from_kind` registries and
       non-matching provider lists in the `xtask` chat, image, and video live
       suites (the chat registry maps TypeSafe to `None`).
-- [ ] Add failing tests for `ModelFeature::Judgment` display and serde, then
+- [x] Add failing tests for `ModelFeature::Judgment` display and serde, then
       add the variant.
-- [ ] Add failing serde tests for `JudgmentContent` (untagged text, object,
+- [x] Add failing serde tests for `JudgmentContent` (untagged text, object,
       array), every `JudgmentQuestion` variant, `JudgmentConditionCriteria`,
       every `JudgmentAnswer` variant, `JudgmentRequest`, and
       `JudgmentResponse`.
-- [ ] Add failing tests for `From<&str>`, `From<String>`, and
+- [x] Add failing tests for `From<&str>`, `From<String>`, and
       `TryFrom<serde_json::Value>` on `JudgmentContent`, including typed
       `UnsupportedContent` rejection of null, boolean, and number values, and
       for the `condition`, `choice`, `score`, and criteria constructors.
-- [ ] Add failing tests for `JudgmentError` display prefixes, constructors,
+- [x] Add failing tests for `JudgmentError` display prefixes, constructors,
       tracked internal metadata, and every `JudgmentQuestionProblem`.
-- [ ] Implement the DTOs, typed error with `ErrorContract`, result alias,
+- [x] Implement the DTOs, typed error with `ErrorContract`, result alias,
       unimock-enabled `JudgmentModel`, and `DynJudgmentModel` in a new
       `src/judgment/` module family (`content.rs`, `question.rs`,
       `answer.rs`, `error.rs`, `model.rs`, `mod.rs`), each under 300 lines.
-- [ ] Add failing tests and implement the pure `JudgmentRequest::validate`
+- [x] Add failing tests and implement the pure `JudgmentRequest::validate`
       method used by the mock and provider adapters.
-- [ ] Add failing tests and implement `MockJudgmentModel` in a top-level
+- [x] Add failing tests and implement `MockJudgmentModel` in a top-level
       `src/mock_judgment_model.rs` with deterministic answers and shared
       validation.
-- [ ] Export the public API from `lib.rs` and update
+- [x] Export the public API from `lib.rs` and update
       `crates/ai-interface/README.md`.
-- [ ] Run `cargo fmt --all -- --check`, `cargo clippy -p ai-interface
+- [x] Run `cargo fmt --all -- --check`, `cargo clippy -p ai-interface
       --all-targets --all-features`, and `cargo test -p ai-interface`.
 
 ## Milestone 3: Shared Status Classification In `ai-models-core`
