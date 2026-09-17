@@ -59,6 +59,12 @@ in-memory tool-calling runtime behavior.
 - [Live video API tests](docs/protocol/live-video-api-tests.md) defines the
   implemented credentialed video catalog coverage, shortest portable probe,
   MP4 validation, and CI secret boundary.
+- [TypeSafe judgment provider](docs/protocol/typesafe-judgment-provider.md)
+  defines the planned provider-agnostic condition/choice/score judgment
+  boundary and the TypeSafe Jev wire, validation, usage, and error mapping.
+- [Live judgment API tests](docs/protocol/live-judgment-api-tests.md) defines
+  the planned credentialed judgment catalog coverage, probe, validation, and
+  CI secret boundary.
 - [Video input](docs/protocol/video-input.md) defines the shared video content
   part, the Google and MiniMax mappings, and typed rejection elsewhere.
 - [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) defines

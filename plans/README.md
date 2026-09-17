@@ -6,6 +6,7 @@ milestones are finished.
 
 ## Active
 
+- [Add TypeSafe judgment provider](add-typesafe-judgment-provider.md)
 - [Model completion streaming](model-completion-streaming.md)
 
 ## Completed
