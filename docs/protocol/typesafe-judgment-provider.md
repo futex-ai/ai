@@ -89,8 +89,10 @@ accept `impl Into<JudgmentContent>`; options accept any iterator of
 `(label, Option<JudgmentContent>)` pairs and levels any iterator of
 `Option<JudgmentContent>`.
 
-Local validation runs before any transport call and returns
-`InvalidQuestion { id, problem }` with a typed `JudgmentQuestionProblem`:
+Local validation is the pure `JudgmentRequest::validate` method. The mock and
+every provider adapter call it before any transport call. It returns
+`EmptyState`, `NoQuestions`, or `InvalidQuestion { id, problem }` with a typed
+`JudgmentQuestionProblem`:
 
 | Problem | Trigger |
 | --- | --- |
@@ -267,10 +269,11 @@ available provider message. `Internal` uses the shared tracked
 `InternalError` carrier.
 
 Status classification uses `ai_models_core::classify_http_status`, a new
-boundary-neutral helper introduced by this change that returns a typed
-`HttpFailureClass` (`RateLimited`, `Transient`, or `Terminal`) so the image,
-video, and judgment boundaries stop duplicating the same status table. Error
-bodies are decoded best-effort: a `detail` object supplies its
+boundary-neutral helper introduced by this change. It returns
+`Option<HttpFailureClass>`: `None` for statuses below 400 and otherwise
+`RateLimited` (429), `Transient` (408, 409, 425, 5xx), or `Terminal`, so the
+image, video, and judgment boundaries stop duplicating the same status table.
+Error bodies are decoded best-effort: a `detail` object supplies its
 `message`; a `detail` string is used directly; any other body is retained as
 compact JSON or text. TypeSafe currently answers a missing key with `403` and
 `{"detail": {"error_type": "authentication_error", "message": "..."}}`. API

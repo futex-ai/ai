@@ -76,8 +76,8 @@ the provider crate.
       unimock-enabled `JudgmentModel`, and `DynJudgmentModel` in a new
       `src/judgment/` module family (`content.rs`, `question.rs`,
       `answer.rs`, `error.rs`, `model.rs`, `mod.rs`), each under 300 lines.
-- [ ] Add failing tests and implement the shared local request validator used
-      by the mock and provider adapters.
+- [ ] Add failing tests and implement the pure `JudgmentRequest::validate`
+      method used by the mock and provider adapters.
 - [ ] Add failing tests and implement `MockJudgmentModel` in a top-level
       `src/mock_judgment_model.rs` with deterministic answers and shared
       validation.
@@ -91,9 +91,10 @@ the provider crate.
 Boundary-neutral HTTP status classification exists once and is reused.
 
 - [ ] Add failing tests for `classify_http_status` covering 429, 408, 409,
-      425, 5xx including 529, 401, 403, 422, and 2xx inputs.
-- [ ] Implement `HttpFailureClass` and `classify_http_status`, and make the
-      existing `classify_json_http_error` delegate to it without changing
+      425, 5xx including 529, 401, 403, 422, and `None` for 2xx inputs.
+- [ ] Implement `HttpFailureClass` and
+      `classify_http_status(status) -> Option<HttpFailureClass>`, and make
+      the existing `classify_json_http_error` delegate to it without changing
       `ModelError` behavior.
 - [ ] Replace the private transient-status helpers in the OpenAI and Google
       image and video error modules with the shared classifier, keeping their
