@@ -189,28 +189,28 @@ At the end of this milestone, successful judgment responses carry checked
 answer postconditions, score keys cannot collide, and the shared crate tests
 its own public consumer paths.
 
-- [ ] Add failing tests for `JudgmentQuestionKind`, `JudgmentQuestion::kind`,
+- [x] Add failing tests for `JudgmentQuestionKind`, `JudgmentQuestion::kind`,
       and `JudgmentAnswer::kind`, then implement them.
-- [ ] Add failing tests for every `JudgmentAnswerProblem` display message and
+- [x] Add failing tests for every `JudgmentAnswerProblem` display message and
       every `validate_against` failure, plus an accepting case and a proof
       that `MockJudgmentModel` output validates, then implement
       `JudgmentAnswerProblem`, `PROBABILITY_SUM_TOLERANCE`, the typed
       `InvalidAnswer` error variant with its constructor, and the pure
       `JudgmentResponse::validate_against` method.
-- [ ] Add failing text-level tests for duplicate, non-canonical, negative,
+- [x] Add failing text-level tests for duplicate, non-canonical, negative,
       and overflowing score level keys, then replace the score-probability
       deserializer with a map visitor that rejects duplicate indexes and
       reports failures through `serde::de::Error::invalid_value` instead of
       ad hoc formatting.
-- [ ] Add tests that drive `MockJudgmentModel` through `DynJudgmentModel`,
+- [x] Add tests that drive `MockJudgmentModel` through `DynJudgmentModel`,
       configure the generated `JudgmentModelMock`, and round-trip questions
       with object and array instructions and populated structured criteria.
-- [ ] Move the judgment DTO tests beside their owning modules under
+- [x] Move the judgment DTO tests beside their owning modules under
       `src/judgment/_tests_/` with explicit path declarations, keeping the
       mock-model tests beside the top-level mock source.
 - [x] Align the protocol constructor wording with the real
       `JudgmentConditionCriteria::new` signature.
-- [ ] Update `crates/ai-interface/README.md` for the answer postconditions.
-- [ ] Run `cargo fmt --all -- --check`, `cargo clippy -p ai-interface
+- [x] Update `crates/ai-interface/README.md` for the answer postconditions.
+- [x] Run `cargo fmt --all -- --check`, `cargo clippy -p ai-interface
       --all-targets --all-features -- -D warnings`, and
       `cargo test -p ai-interface --all-features`.

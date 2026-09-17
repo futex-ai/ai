@@ -24,6 +24,18 @@ impl JudgmentConditionCriteria {
     }
 }
 
+/// Shape shared by a judgment question and its answer.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JudgmentQuestionKind {
+    /// A binary condition probability.
+    Condition,
+    /// A selection from labeled options.
+    Choice,
+    /// A position on an ordered rubric.
+    Score,
+}
+
 /// A typed question evaluated against shared request state.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -53,6 +65,15 @@ pub enum JudgmentQuestion {
 }
 
 impl JudgmentQuestion {
+    /// Returns the answer shape required by this question.
+    pub fn kind(&self) -> JudgmentQuestionKind {
+        match self {
+            Self::Condition { .. } => JudgmentQuestionKind::Condition,
+            Self::Choice { .. } => JudgmentQuestionKind::Choice,
+            Self::Score { .. } => JudgmentQuestionKind::Score,
+        }
+    }
+
     /// Builds a condition question without validating it.
     pub fn condition(
         instructions: impl Into<JudgmentContent>,
@@ -89,3 +110,7 @@ impl JudgmentQuestion {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "_tests_/question_tests.rs"]
+mod question_tests;

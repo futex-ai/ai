@@ -5,7 +5,7 @@ use std::fmt;
 use internal_error::InternalError;
 use thiserror::Error;
 
-use super::JudgmentJsonType;
+use super::{JudgmentAnswerProblem, JudgmentJsonType};
 
 /// Typed local validation problem for one judgment question.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -64,6 +64,20 @@ pub enum JudgmentError {
         /// Specific validation problem.
         problem: JudgmentQuestionProblem,
     },
+    /// A provider answer failed shared response postconditions.
+    #[error(
+        "[ai_interface/judgment] invalid answer `{id}` from `{provider}` model `{model_id}`: {problem}"
+    )]
+    InvalidAnswer {
+        /// Provider that returned the answer.
+        provider: String,
+        /// Configured provider model identifier.
+        model_id: String,
+        /// Caller-provided question id.
+        id: String,
+        /// Specific answer postcondition failure.
+        problem: JudgmentAnswerProblem,
+    },
     /// The provider rejected the request due to a rate limit.
     #[error(
         "[ai_interface/judgment] provider rate limit for `{provider}` model `{model_id}`: {message}"
@@ -114,6 +128,21 @@ impl JudgmentError {
         }
     }
 
+    /// Builds an invalid-answer error.
+    pub fn invalid_answer(
+        provider: impl Into<String>,
+        model_id: impl Into<String>,
+        id: impl Into<String>,
+        problem: JudgmentAnswerProblem,
+    ) -> Self {
+        Self::InvalidAnswer {
+            provider: provider.into(),
+            model_id: model_id.into(),
+            id: id.into(),
+            problem,
+        }
+    }
+
     /// Builds a rate-limited provider error.
     pub fn rate_limited(
         provider: impl Into<String>,
@@ -156,3 +185,7 @@ impl JudgmentError {
 
 /// Result alias for judgment operations.
 pub type JudgmentResult<T> = std::result::Result<T, JudgmentError>;
+
+#[cfg(test)]
+#[path = "_tests_/error_tests.rs"]
+mod error_tests;

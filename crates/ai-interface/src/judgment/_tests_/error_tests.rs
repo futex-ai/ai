@@ -2,7 +2,7 @@
 
 use thiserror::Error;
 
-use crate::{JudgmentError, JudgmentJsonType, JudgmentQuestionProblem};
+use crate::{JudgmentAnswerProblem, JudgmentError, JudgmentJsonType, JudgmentQuestionProblem};
 
 #[test]
 fn question_problems_have_specific_display_messages() {
@@ -98,6 +98,30 @@ fn invalid_question_constructor_preserves_id_and_problem() {
         JudgmentError::InvalidQuestion { id, problem }
             if id == "frustration"
                 && problem == JudgmentQuestionProblem::TooFewLevels { levels: 1 }
+    ));
+}
+
+#[test]
+fn invalid_answer_constructor_preserves_context_and_problem() {
+    let error = JudgmentError::invalid_answer(
+        "typesafe",
+        "jev-latest",
+        "urgent",
+        JudgmentAnswerProblem::Missing,
+    );
+
+    assert_eq!(
+        error.to_string(),
+        "[ai_interface/judgment] invalid answer `urgent` from `typesafe` model `jev-latest`: answer is missing"
+    );
+    assert!(matches!(
+        error,
+        JudgmentError::InvalidAnswer {
+            provider,
+            model_id,
+            id,
+            problem: JudgmentAnswerProblem::Missing,
+        } if provider == "typesafe" && model_id == "jev-latest" && id == "urgent"
     ));
 }
 

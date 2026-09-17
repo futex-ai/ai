@@ -72,3 +72,7 @@ fn state_is_empty(state: &JudgmentContent) -> bool {
         JudgmentContent::Array(array) => array.is_empty(),
     }
 }
+
+#[cfg(test)]
+#[path = "_tests_/request_tests.rs"]
+mod request_tests;

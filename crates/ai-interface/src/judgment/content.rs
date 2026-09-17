@@ -61,3 +61,7 @@ pub enum JudgmentJsonType {
     /// JSON number.
     Number,
 }
+
+#[cfg(test)]
+#[path = "_tests_/content_tests.rs"]
+mod content_tests;

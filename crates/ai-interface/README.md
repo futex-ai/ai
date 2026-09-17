@@ -73,9 +73,11 @@ dependency on a stateful runtime implementation.
 - Defines the `JudgmentModel` boundary for evaluating text or JSON state
   against typed condition, choice, and score questions in one call. Local
   validation rejects empty state and malformed question maps before provider
-  access, while normalized answers retain probability distributions and
-  confidence. `ProviderKind::TypeSafe` and `ModelFeature::Judgment` are the
-  stable routing identities.
+  access. `JudgmentResponse::validate_against` checks successful answer kinds,
+  option and level membership, complete probability distributions, bounded
+  numeric values, and distribution sums before callers consume them.
+  `ProviderKind::TypeSafe` and `ModelFeature::Judgment` are the stable routing
+  identities.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
   tool idempotency key alongside the model-visible tool name and JSON input.
 - Defines `ToolOutputEnvelope` as the model-visible success payload for tools.

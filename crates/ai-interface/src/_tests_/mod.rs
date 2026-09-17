@@ -1,7 +1,7 @@
 mod image_generator_tests;
-mod judgment;
 mod messages;
 mod mock_image_generator_tests;
+mod mock_judgment_model_tests;
 mod mock_model_tests;
 mod mock_video_generator_tests;
 mod model_completion_events_tests;

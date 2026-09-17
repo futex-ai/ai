@@ -1,42 +1,10 @@
-//! Judgment request and response serde tests.
+//! Judgment response serde tests.
 
 use std::collections::BTreeMap;
 
-use serde_json::{Map, json};
+use serde_json::json;
 
-use crate::{
-    JudgmentAnswer, JudgmentContent, JudgmentQuestion, JudgmentRequest, JudgmentResponse,
-    ModelUsage,
-};
-
-#[test]
-fn request_uses_state_and_question_map_wire_shape() {
-    let request = JudgmentRequest {
-        state: JudgmentContent::Object(Map::from_iter([(
-            "ticket".to_owned(),
-            json!("Payouts have failed"),
-        )])),
-        questions: BTreeMap::from([(
-            "urgent".to_owned(),
-            JudgmentQuestion::condition("Is the ticket urgent?", None),
-        )]),
-    };
-    let expected = json!({
-        "state": {"ticket": "Payouts have failed"},
-        "questions": {
-            "urgent": {
-                "type": "condition",
-                "instructions": "Is the ticket urgent?"
-            }
-        }
-    });
-
-    assert_eq!(serde_json::to_value(&request).unwrap(), expected);
-    assert_eq!(
-        serde_json::from_value::<JudgmentRequest>(expected).unwrap(),
-        request
-    );
-}
+use crate::{JudgmentAnswer, JudgmentResponse, ModelUsage};
 
 #[test]
 fn response_uses_provider_model_answer_and_usage_wire_shape() {

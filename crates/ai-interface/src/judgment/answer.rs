@@ -1,9 +1,12 @@
 //! Normalized answers returned by judgment models.
 
 use std::collections::BTreeMap;
+use std::fmt;
 
-use serde::de::Error as DeError;
+use serde::de::{Error as DeError, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
+
+use super::JudgmentQuestionKind;
 
 /// A typed answer to one judgment question.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -36,26 +39,71 @@ pub enum JudgmentAnswer {
     },
 }
 
-/// Parses decimal string level keys into indexes.
-///
-/// The internally tagged enum buffers map keys as strings before this field
-/// is visited, so the derived `u32` key deserializer cannot be used directly.
+impl JudgmentAnswer {
+    /// Returns the question shape answered by this value.
+    pub fn kind(&self) -> JudgmentQuestionKind {
+        match self {
+            Self::Condition { .. } => JudgmentQuestionKind::Condition,
+            Self::Choice { .. } => JudgmentQuestionKind::Choice,
+            Self::Score { .. } => JudgmentQuestionKind::Score,
+        }
+    }
+}
+
 fn deserialize_score_probabilities<'de, D>(deserializer: D) -> Result<BTreeMap<u32, f64>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let encoded = BTreeMap::<String, f64>::deserialize(deserializer)?;
-    let mut probabilities = BTreeMap::new();
-    for (key, probability) in encoded {
-        let index = match key.parse::<u32>() {
-            Ok(index) => index,
-            Err(source) => {
-                return Err(D::Error::custom(format!(
-                    "score level key `{key}` is not a decimal index: {source}"
-                )));
-            }
-        };
-        probabilities.insert(index, probability);
-    }
-    Ok(probabilities)
+    deserializer.deserialize_map(ScoreProbabilitiesVisitor)
 }
+
+/// Parses canonical level keys without collapsing repeated map entries.
+struct ScoreProbabilitiesVisitor;
+
+impl<'de> Visitor<'de> for ScoreProbabilitiesVisitor {
+    type Value = BTreeMap<u32, f64>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a map keyed by canonical unsigned decimal level indexes")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut probabilities = BTreeMap::new();
+        while let Some(key) = map.next_key::<String>()? {
+            let index = parse_level_index::<A::Error>(&key)?;
+            if probabilities.contains_key(&index) {
+                return Err(A::Error::invalid_value(
+                    Unexpected::Str(&key),
+                    &"a unique level index",
+                ));
+            }
+            let probability = map.next_value::<f64>()?;
+            probabilities.insert(index, probability);
+        }
+        Ok(probabilities)
+    }
+}
+
+fn parse_level_index<E>(key: &str) -> Result<u32, E>
+where
+    E: DeError,
+{
+    let is_canonical = key == "0"
+        || (!key.is_empty()
+            && !key.starts_with('0')
+            && key.bytes().all(|byte| byte.is_ascii_digit()));
+    if is_canonical && let Ok(index) = key.parse::<u32>() {
+        return Ok(index);
+    }
+    Err(E::invalid_value(
+        Unexpected::Str(key),
+        &"a canonical unsigned decimal level index",
+    ))
+}
+
+#[cfg(test)]
+#[path = "_tests_/answer_tests.rs"]
+mod answer_tests;
