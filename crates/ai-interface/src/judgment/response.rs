@@ -14,6 +14,19 @@ use super::{
 /// Maximum absolute deviation from one accepted for a probability distribution sum.
 pub const PROBABILITY_SUM_TOLERANCE: f64 = 0.02;
 
+/// Maximum amount by which the selected option's probability may fall below
+/// the highest option probability before the selection is inconsistent.
+///
+/// Ties and provider rounding of reported probabilities stay acceptable.
+pub const SELECTED_PROBABILITY_TOLERANCE: f64 = 0.02;
+
+/// Maximum absolute difference accepted between a reported expected score and
+/// the probability-weighted level computed from its reported distribution.
+///
+/// The tolerance is a tenth of one level step, which absorbs provider rounding
+/// of both the score and the distribution.
+pub const EXPECTED_SCORE_TOLERANCE: f64 = 0.1;
+
 /// Normalized response from one judgment call.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct JudgmentResponse {
@@ -115,7 +128,27 @@ fn choice_problem(
     if let Some(problem) = distribution_sum_problem(sum) {
         return Some(problem);
     }
+    if let Some(problem) = selected_problem(selected, probabilities) {
+        return Some(problem);
+    }
     confidence_problem(confidence)
+}
+
+fn selected_problem(
+    selected: &str,
+    probabilities: &BTreeMap<String, f64>,
+) -> Option<JudgmentAnswerProblem> {
+    let selected_probability = probabilities.get(selected).copied()?;
+    let (maximal, maximal_probability) = probabilities
+        .iter()
+        .max_by(|(_, left), (_, right)| left.total_cmp(right))?;
+    if selected_probability + SELECTED_PROBABILITY_TOLERANCE >= *maximal_probability {
+        return None;
+    }
+    Some(JudgmentAnswerProblem::SelectedNotMaximal {
+        selected: selected.to_owned(),
+        maximal: maximal.clone(),
+    })
 }
 
 fn score_problem(
@@ -148,7 +181,21 @@ fn score_problem(
     if value_out_of_range(expected, maximum) {
         return Some(JudgmentAnswerProblem::ExpectedOutOfRange { value: expected });
     }
+    let weighted = weighted_level(probabilities, sum);
+    if (expected - weighted).abs() > EXPECTED_SCORE_TOLERANCE {
+        return Some(JudgmentAnswerProblem::ExpectedInconsistent { expected, weighted });
+    }
     confidence_problem(confidence)
+}
+
+/// Computes the expected level of a distribution whose sum has already been
+/// checked to be close to one, normalizing away residual rounding.
+fn weighted_level(probabilities: &BTreeMap<u32, f64>, sum: f64) -> f64 {
+    probabilities
+        .iter()
+        .map(|(index, probability)| f64::from(*index) * probability)
+        .sum::<f64>()
+        / sum
 }
 
 fn probability_problem(value: f64) -> Option<JudgmentAnswerProblem> {
@@ -184,3 +231,7 @@ mod response_membership_tests;
 #[cfg(test)]
 #[path = "_tests_/response_range_tests.rs"]
 mod response_range_tests;
+
+#[cfg(test)]
+#[path = "_tests_/response_consistency_tests.rs"]
+mod response_consistency_tests;

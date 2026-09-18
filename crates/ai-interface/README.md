@@ -75,7 +75,9 @@ dependency on a stateful runtime implementation.
   validation rejects empty state and malformed question maps before provider
   access. `JudgmentResponse::validate_against` checks successful answer kinds,
   option and level membership, complete probability distributions, bounded
-  numeric values, and distribution sums before callers consume them.
+  numeric values, distribution sums, and internal consistency (the selected
+  option is the most probable one and the expected score matches its
+  distribution within documented tolerances) before callers consume them.
   `ProviderKind::TypeSafe` and `ModelFeature::Judgment` are the stable routing
   identities.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a

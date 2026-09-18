@@ -32,10 +32,11 @@ pub use image_generator::{
     ImageGenerationResponse, ImageGenerationResult, ImageGenerator,
 };
 pub use judgment::{
-    DynJudgmentModel, JudgmentAnswer, JudgmentAnswerProblem, JudgmentConditionCriteria,
-    JudgmentContent, JudgmentError, JudgmentJsonType, JudgmentModel, JudgmentQuestion,
-    JudgmentQuestionKind, JudgmentQuestionProblem, JudgmentRequest, JudgmentResponse,
-    JudgmentResult, PROBABILITY_SUM_TOLERANCE, deserialize_score_probabilities,
+    DynJudgmentModel, EXPECTED_SCORE_TOLERANCE, JudgmentAnswer, JudgmentAnswerProblem,
+    JudgmentConditionCriteria, JudgmentContent, JudgmentError, JudgmentJsonType, JudgmentModel,
+    JudgmentQuestion, JudgmentQuestionKind, JudgmentQuestionProblem, JudgmentRequest,
+    JudgmentResponse, JudgmentResult, PROBABILITY_SUM_TOLERANCE, SELECTED_PROBABILITY_TOLERANCE,
+    deserialize_score_probabilities,
 };
 pub use logger::{
     DynLogger, Logger, LoggerError, LoggerResult, ModelCallLogEntry, ModelCallLogResult,

@@ -144,6 +144,16 @@ returns `InvalidAnswer { provider, model_id, id, problem }` with a typed
 | `MissingLevel { index }` | a level index has no probability |
 | `ExpectedOutOfRange { value }` | a score expectation is not finite within zero and the last level index |
 | `DistributionSum { sum }` | option or level probabilities differ from one by more than `PROBABILITY_SUM_TOLERANCE` (0.02) |
+| `SelectedNotMaximal { selected, maximal }` | the selected option's probability is more than `SELECTED_PROBABILITY_TOLERANCE` (0.02) below the highest option probability |
+| `ExpectedInconsistent { expected, weighted }` | a score expectation differs from the probability-weighted level, computed over the sum-normalized distribution, by more than `EXPECTED_SCORE_TOLERANCE` (0.1) |
+
+The two consistency checks exist because TypeSafe defines `choice` as the
+highest-probability option and `score` as the probability-weighted level. A
+response that contradicts its own distribution is malformed, so the validator
+rejects it instead of letting `selected` and `probabilities`, or `expected`
+and `probabilities`, disagree. The tolerances absorb ties and provider
+rounding. Within one answer the checks run in this order: kind, membership,
+ranges, distribution sum, selection or expectation consistency, confidence.
 
 Answers for ids the request did not send are ignored.
 
@@ -278,8 +288,10 @@ level key, is a non-retryable `Provider` error whose message is the fixed
 text `malformed provider payload` followed by the decoder's own diagnostic.
 After mapping, the adapter applies the shared `validate_against`
 postconditions, so a missing answer, a kind mismatch, an unknown or missing
-option or level, an out-of-range probability, confidence, or expectation, or
-a distribution that does not sum to one is a typed `InvalidAnswer` error.
+option or level, an out-of-range probability, confidence, or expectation, a
+distribution that does not sum to one, a selection that is not the most
+probable option, or an expectation that contradicts its distribution is a
+typed `InvalidAnswer` error.
 
 ## Usage
 

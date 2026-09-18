@@ -16,7 +16,10 @@ pub use error::{JudgmentError, JudgmentQuestionProblem, JudgmentResult};
 pub use model::{DynJudgmentModel, JudgmentModel};
 pub use question::{JudgmentConditionCriteria, JudgmentQuestion, JudgmentQuestionKind};
 pub use request::JudgmentRequest;
-pub use response::{JudgmentResponse, PROBABILITY_SUM_TOLERANCE};
+pub use response::{
+    EXPECTED_SCORE_TOLERANCE, JudgmentResponse, PROBABILITY_SUM_TOLERANCE,
+    SELECTED_PROBABILITY_TOLERANCE,
+};
 
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use model::JudgmentModelMock;

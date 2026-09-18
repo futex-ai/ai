@@ -158,6 +158,11 @@ pub(super) fn redact_response_error(error: JudgmentError, secrets: &[String]) ->
     }
 }
 
+/// Redacts the only answer problems that can carry provider-controlled text.
+///
+/// `UnknownOption` and `MissingOption` echo labels from the provider body.
+/// `SelectedNotMaximal` labels have already passed membership against the
+/// caller's own options, so they cannot carry provider content.
 fn redact_answer_problem(
     problem: JudgmentAnswerProblem,
     secrets: &[String],

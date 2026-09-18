@@ -174,11 +174,11 @@ Catalog registration automatically produces credentialed coverage.
 - [x] Review `git diff origin/main...` for scope, docs, public API, tests,
       credentials, and untracked files.
 - [x] Move this plan to Completed in `plans/README.md`.
-- [ ] Run `git add -A`, commit with a Conventional Commit title no longer than
+- [x] Run `git add -A`, commit with a Conventional Commit title no longer than
       50 characters and a descriptive body, and push the current branch
       without renaming it.
-- [ ] Run `cargo xtask review` after the push against `origin/main`.
-- [ ] Do not auto-fix review findings; report each with a number, severity,
+- [x] Run `cargo xtask review` after the push against `origin/main`.
+- [x] Do not auto-fix review findings; report each with a number, severity,
       context, impact, lettered options, and a recommended option.
 
 ## Milestone 7: Boundary Review Follow-Up
@@ -271,3 +271,26 @@ provider-controlled answer labels are redacted.
 - [x] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
       --all-targets --all-features -- -D warnings`, and
       `cargo test --workspace --all-features`.
+
+## Milestone 10: Post-Push Review Follow-Up
+
+Reject internally contradictory answers found by the post-push review. At the
+end of this milestone, a choice whose selected option is not the most probable
+one and a score whose expectation disagrees with its distribution are typed
+`InvalidAnswer` failures instead of successful judgments.
+
+- [x] Add failing tests for `SelectedNotMaximal` covering a clear violation,
+      ties and near-ties within tolerance, and check ordering before
+      confidence, then implement the selection consistency check with
+      `SELECTED_PROBABILITY_TOLERANCE`.
+- [x] Add failing tests for `ExpectedInconsistent` covering a clear
+      violation, values within tolerance, residual distribution rounding, and
+      check ordering after range and before confidence, then implement the
+      expectation consistency check with `EXPECTED_SCORE_TOLERANCE`.
+- [x] Add display tests for both new problems and prove the provider
+      redaction leaves them untouched.
+- [x] Document both checks, their tolerances, and the check order in the
+      protocol and the `ai-interface` README.
+- [x] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
+      --all-targets --all-features -- -D warnings`,
+      `cargo test --workspace --all-features`, and `cargo xtask check`.

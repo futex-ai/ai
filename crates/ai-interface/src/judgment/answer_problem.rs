@@ -56,6 +56,20 @@ pub enum JudgmentAnswerProblem {
         /// Observed probability sum.
         sum: f64,
     },
+    /// A choice answer selected an option that is not the most probable one.
+    SelectedNotMaximal {
+        /// Requested option label the provider selected.
+        selected: String,
+        /// Requested option label with the highest reported probability.
+        maximal: String,
+    },
+    /// A score expectation disagrees with its probability-weighted level.
+    ExpectedInconsistent {
+        /// Expected score reported by the provider.
+        expected: f64,
+        /// Probability-weighted level computed from the reported distribution.
+        weighted: f64,
+    },
 }
 
 impl fmt::Display for JudgmentAnswerProblem {
@@ -101,6 +115,14 @@ impl fmt::Display for JudgmentAnswerProblem {
                     "probability distribution must sum to one, got {sum}"
                 )
             }
+            Self::SelectedNotMaximal { selected, maximal } => write!(
+                formatter,
+                "selected option `{selected}` is less probable than option `{maximal}`"
+            ),
+            Self::ExpectedInconsistent { expected, weighted } => write!(
+                formatter,
+                "expected score {expected} disagrees with the probability-weighted level {weighted}"
+            ),
         }
     }
 }

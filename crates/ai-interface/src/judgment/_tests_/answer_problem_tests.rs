@@ -91,3 +91,27 @@ fn distribution_sum_problem_has_a_specific_message() {
         "probability distribution must sum to one, got 0.8"
     );
 }
+
+#[test]
+fn selected_not_maximal_problem_has_a_specific_message() {
+    assert_eq!(
+        JudgmentAnswerProblem::SelectedNotMaximal {
+            selected: "billing".to_owned(),
+            maximal: "technical".to_owned(),
+        }
+        .to_string(),
+        "selected option `billing` is less probable than option `technical`"
+    );
+}
+
+#[test]
+fn expected_inconsistent_problem_has_a_specific_message() {
+    assert_eq!(
+        JudgmentAnswerProblem::ExpectedInconsistent {
+            expected: 0.0,
+            weighted: 1.0,
+        }
+        .to_string(),
+        "expected score 0 disagrees with the probability-weighted level 1"
+    );
+}
