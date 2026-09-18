@@ -323,12 +323,17 @@ Error bodies are decoded best-effort: a `detail` object supplies its
 `{"detail": {"error_type": "authentication_error", "message": "..."}}`.
 
 API keys and auth headers must never appear in errors or diagnostics. The
-adapter enforces this rather than assuming it: every provider message,
-transport diagnostic, and auth-hook diagnostic passes through a redaction step
-that replaces each applied authentication header value with `[redacted]`
-before the error is built. The applied header values come from running the
-injected auth hook against an empty header map, so redaction covers bearer
-tokens and custom header schemes alike.
+adapter enforces this rather than assuming it. It applies the injected auth
+hook exactly once per call, sends exactly the header values that application
+produced, and derives the redaction set from those values: each full value
+and, for scheme-prefixed values such as `Bearer <token>`, the token after the
+last whitespace. Every provider message, transport diagnostic, and
+malformed-payload diagnostic passes through a redaction step that replaces
+each secret with `[redacted]` before the error is built. `InvalidAnswer`
+problems that carry provider-controlled labels are redacted the same way. A
+failing auth hook cannot be sanitized because its credentials were never
+discovered, so it is reported as `TransientProvider` with the fixed message
+`authentication hook failed` and its own diagnostic is discarded.
 
 ## Required Verification
 

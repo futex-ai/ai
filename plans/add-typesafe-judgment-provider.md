@@ -247,3 +247,27 @@ remaining protocol rules.
 - [x] Run `cargo fmt --all -- --check`, `cargo clippy -p ai-models-typesafe
       --all-targets --all-features -- -D warnings`, and
       `cargo test -p ai-models-typesafe --all-features`.
+
+## Milestone 9: Final Review Follow-Up
+
+Close the remaining credential-leak paths found by the final design review
+and finish the test-layout cleanup. At the end of this milestone, redaction
+uses exactly the transmitted credentials, a failing auth hook cannot leak, and
+provider-controlled answer labels are redacted.
+
+- [ ] Add failing public-path regressions through `with_auth` for a static
+      bearer hook whose provider body echoes the bare token, a hook that
+      fails, and a hook whose value must be applied exactly once, then apply
+      the auth hook once per call, send those exact headers, derive secrets
+      from the transmitted values and their scheme-stripped tokens, and report
+      a failing hook with the fixed `authentication hook failed` diagnostic.
+- [ ] Add failing regressions through `judge` for a selected label and a
+      probability label that carry the credential, then redact string-bearing
+      `InvalidAnswer` problems.
+- [ ] Register `mock_judgment_model_tests` from `mock_judgment_model.rs` and
+      `http_status_tests` from `http_status.rs` with explicit path
+      declarations instead of the global test roots.
+- [ ] Update the crate README for the apply-once redaction contract.
+- [ ] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
+      --all-targets --all-features -- -D warnings`, and
+      `cargo test --workspace --all-features`.
