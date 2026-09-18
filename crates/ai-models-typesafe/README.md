@@ -32,8 +32,9 @@ price usage, or make network calls during unit tests.
 
 Responses are decoded directly from bytes, and only `2xx` statuses are treated
 as successful judgments. Requested answer fragments are decoded independently,
-so unknown unrequested answers are ignored without hiding repeated score keys
-in requested answers. Authentication hooks are applied exactly once, and the
+so unknown unrequested answers are ignored, and repeated answer ids, option
+labels, or score levels are rejected instead of silently taking the last
+value. Authentication hooks are applied exactly once, and the
 captured headers are transmitted unchanged. Provider, transport,
 malformed-payload, and provider-controlled answer-label diagnostics redact the
 explicit API key, every applied authentication header value, and tokens after
@@ -90,7 +91,9 @@ credentials or network access are required.
 - `src/typesafe/request.rs` - shared-to-TypeSafe request mapping.
 - `src/typesafe/response.rs` - answer, score-key, and usage normalization.
 - `src/typesafe/error.rs` - status, transport, and auth error classification.
-- `src/typesafe/redaction.rs` - transmitted-auth secret derivation and diagnostic redaction.
+- `src/typesafe/redaction.rs` - transmitted-auth secret derivation and
+  longest-first diagnostic redaction.
+- `src/typesafe/unique_map.rs` - duplicate-rejecting provider map decoding.
 
 ### Related Docs
 

@@ -296,3 +296,7 @@ one and a score whose expectation disagrees with its distribution are typed
       `cargo test --workspace --all-features`, and `cargo xtask check`.
 - [x] Add a failing test for `null` and absent usage counters, then
       deserialize each counter as nullable and default it to zero.
+- [x] Add failing tests for overlapping auth secrets, then redact longest
+      first so a shorter secret cannot expose the remainder of a longer one.
+- [x] Add failing tests through `judge` for repeated answer ids and choice
+      labels, then reject repeated keys in every provider map.

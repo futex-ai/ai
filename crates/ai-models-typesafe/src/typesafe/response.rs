@@ -9,7 +9,7 @@ use ai_interface::{
 use serde::Deserialize;
 use serde_json::value::RawValue;
 
-use super::redaction::redact_secrets;
+use super::{redaction::redact_secrets, unique_map::deserialize_unique_string_map};
 
 const PROVIDER: &str = "typesafe";
 const MALFORMED_PROVIDER_PAYLOAD: &str = "malformed provider payload";
@@ -17,6 +17,7 @@ const MALFORMED_PROVIDER_PAYLOAD: &str = "malformed provider payload";
 #[derive(Debug, Deserialize)]
 struct TypeSafeResponse {
     model: String,
+    #[serde(deserialize_with = "deserialize_unique_string_map")]
     answers: BTreeMap<String, Box<RawValue>>,
     #[serde(default)]
     usage: Option<TypeSafeUsage>,
@@ -30,6 +31,7 @@ enum TypeSafeAnswer {
     #[serde(rename = "choice")]
     Choice {
         choice: String,
+        #[serde(deserialize_with = "deserialize_unique_string_map")]
         probabilities: BTreeMap<String, f64>,
         confidence: f64,
     },

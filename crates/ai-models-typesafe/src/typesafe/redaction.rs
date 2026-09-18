@@ -5,12 +5,20 @@ use std::collections::BTreeMap;
 const REDACTED: &str = "[redacted]";
 
 /// Replaces every non-empty secret occurrence in one diagnostic message.
+///
+/// Secrets are applied longest first so a shorter secret that is a substring
+/// of a longer one cannot leave the longer credential's remainder exposed.
 pub(super) fn redact_secrets(message: &str, secrets: &[String]) -> String {
-    secrets
+    let mut ordered = secrets
         .iter()
         .filter(|secret| !secret.is_empty())
+        .collect::<Vec<_>>();
+    ordered.sort_by(|left, right| right.len().cmp(&left.len()).then_with(|| left.cmp(right)));
+    ordered.dedup();
+    ordered
+        .into_iter()
         .fold(message.to_owned(), |message, secret| {
-            message.replace(secret, REDACTED)
+            message.replace(secret.as_str(), REDACTED)
         })
 }
 

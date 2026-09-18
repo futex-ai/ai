@@ -278,7 +278,10 @@ Unknown fields are ignored.
 The adapter reads the response as raw bytes and deserializes successful
 bodies directly from those bytes, never through an intermediate
 `serde_json::Value`, so repeated JSON keys reach the typed decoder instead of
-silently collapsing. Only statuses in `200..300` are treated as success;
+silently collapsing. The typed decoder rejects a repeated key in the `answers`
+map, in a choice `probabilities` map, and in a score `probabilities` map, so
+an ambiguous payload never becomes a successful judgment. Only statuses in
+`200..300` are treated as success;
 every other status is classified as a failure. Answer entries are held as raw
 JSON fragments until their id is matched to a requested question, so
 unrequested ids are ignored even when their fragments would not decode.
@@ -342,7 +345,9 @@ produced, and derives the redaction set from those values: each full value
 and, for scheme-prefixed values such as `Bearer <token>`, the token after the
 last whitespace. Every provider message, transport diagnostic, and
 malformed-payload diagnostic passes through a redaction step that replaces
-each secret with `[redacted]` before the error is built. `InvalidAnswer`
+each secret with `[redacted]` before the error is built. Secrets are applied
+longest first so a shorter secret that is a substring of a longer one cannot
+leave the longer credential partially exposed. `InvalidAnswer`
 problems that carry provider-controlled labels are redacted the same way. A
 failing auth hook cannot be sanitized because its credentials were never
 discovered, so it is reported as `TransientProvider` with the fixed message

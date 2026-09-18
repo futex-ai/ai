@@ -156,3 +156,7 @@ mod redaction_tests;
 #[cfg(test)]
 #[path = "_tests_/status_tests.rs"]
 mod status_tests;
+
+#[cfg(test)]
+#[path = "_tests_/duplicate_key_tests.rs"]
+mod duplicate_key_tests;

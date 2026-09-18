@@ -141,3 +141,27 @@ fn assert_not_exposed(error: &JudgmentError, secret: &str) {
     );
     assert!(!debug.contains(secret), "Debug leaked {secret}: {debug}");
 }
+
+#[tokio::test]
+async fn overlapping_custom_header_values_leave_no_partial_credential() {
+    let (http_client, _) = recording_http_client(json_response(
+        400,
+        json!({"detail": {"message": "rejected token-secret"}}),
+    ));
+    let auth = Arc::new(StaticHeaderAuth::new(BTreeMap::from([
+        ("X-Short".to_owned(), "token".to_owned()),
+        ("X-Long".to_owned(), "token-secret".to_owned()),
+    ])));
+
+    let error = TypeSafeJudgmentModel::with_auth(http_client, "jev-latest", auth)
+        .judge(&simple_request())
+        .await
+        .expect_err("provider rejection should return an error");
+
+    let JudgmentError::Provider { message, .. } = &error else {
+        panic!("expected a provider error, got {error}");
+    };
+    assert_eq!(message, "rejected [redacted]");
+    assert_redacted(&error, "token-secret");
+    assert_redacted(&error, "-secret");
+}
