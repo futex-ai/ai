@@ -2,6 +2,7 @@
 
 mod client;
 mod error;
+mod redaction;
 mod request;
 mod response;
 

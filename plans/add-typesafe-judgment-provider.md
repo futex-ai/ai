@@ -223,27 +223,27 @@ corrupt or fail a judgment, non-2xx statuses are never treated as success,
 credentials are redacted from every diagnostic, and the crate's tests pin the
 remaining protocol rules.
 
-- [ ] Add a failing regression through `judge` proving a repeated score key
+- [x] Add a failing regression through `judge` proving a repeated score key
       whose surviving values satisfy every postcondition is rejected, then
       read successful responses through `send_bytes` and deserialize typed
       bodies directly from bytes.
-- [ ] Add a failing regression proving an unrequested answer id with an
+- [x] Add a failing regression proving an unrequested answer id with an
       undecodable fragment is ignored, then hold answer entries as raw JSON
       fragments and decode only requested ids.
-- [ ] Add a failing regression proving a `3xx` status with a valid-looking
+- [x] Add a failing regression proving a `3xx` status with a valid-looking
       body is a `Provider` error, then treat only `200..300` as success.
-- [ ] Add failing sentinel-secret regressions for a bearer key, a custom auth
+- [x] Add failing sentinel-secret regressions for a bearer key, a custom auth
       header, an auth-hook diagnostic, a transport diagnostic, and a provider
       body that echo the credential, asserting neither `Display` nor `Debug`
       contains it, then add the redaction step described by the protocol.
-- [ ] Add a failing test that malformed-body errors retain the decoder
+- [x] Add a failing test that malformed-body errors retain the decoder
       diagnostic after the fixed prefix, then implement it.
-- [ ] Add failing wire-mapping tests for structured instructions and
+- [x] Add failing wire-mapping tests for structured instructions and
       descriptions, `no`-only and present-but-empty condition criteria, exact
       per-input local validation variants, and a JSON `null` error body
       retained as `null`, then fix the null fallback.
-- [ ] Update the crate README and the protocol wording where behavior
+- [x] Update the crate README and the protocol wording where behavior
       changed.
-- [ ] Run `cargo fmt --all -- --check`, `cargo clippy -p ai-models-typesafe
+- [x] Run `cargo fmt --all -- --check`, `cargo clippy -p ai-models-typesafe
       --all-targets --all-features -- -D warnings`, and
       `cargo test -p ai-models-typesafe --all-features`.

@@ -5,11 +5,13 @@ use std::{sync::Arc, time::Duration};
 use ai_interface::{JudgmentModel, JudgmentRequest, JudgmentResponse, JudgmentResult};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+use serde_json::Value;
 
 use super::{
-    error::{classify_request_error, classify_status},
+    error::{classify_request_error, classify_status, http_status_message},
+    redaction::applied_header_values,
     request::build_request,
-    response::parse_response,
+    response::{parse_response, redact_response_error},
 };
 
 const TYPESAFE_SYSTEM_ONE_URL: &str = "https://api.typesafe.ai/v1/systemone";
@@ -21,6 +23,7 @@ pub struct TypeSafeJudgmentModel {
     http_client: DynJsonHttpClient,
     model_id: String,
     auth: DynJsonHttpAuth,
+    redaction_secrets: Vec<String>,
     endpoint: String,
     timeout: Duration,
 }
@@ -32,11 +35,14 @@ impl TypeSafeJudgmentModel {
         model_id: impl Into<String>,
         api_key: impl Into<String>,
     ) -> Self {
-        Self::with_auth(
+        let api_key = api_key.into();
+        let mut model = Self::with_auth(
             http_client,
             model_id,
-            Arc::new(StaticHeaderAuth::bearer_token(api_key)),
-        )
+            Arc::new(StaticHeaderAuth::bearer_token(api_key.clone())),
+        );
+        model.redaction_secrets.push(api_key);
+        model
     }
 
     /// Builds a TypeSafe judgment model from an injected client, model id, and auth hook.
@@ -49,6 +55,7 @@ impl TypeSafeJudgmentModel {
             http_client,
             model_id: model_id.into(),
             auth,
+            redaction_secrets: Vec::new(),
             endpoint: TYPESAFE_SYSTEM_ONE_URL.to_owned(),
             timeout: DEFAULT_TIMEOUT,
         }
@@ -71,6 +78,8 @@ impl TypeSafeJudgmentModel {
 impl JudgmentModel for TypeSafeJudgmentModel {
     async fn judge(&self, request: &JudgmentRequest) -> JudgmentResult<JudgmentResponse> {
         request.validate()?;
+        let mut secrets = self.redaction_secrets.clone();
+        secrets.extend(applied_header_values(&self.auth).await);
         let body = build_request(&self.model_id, request);
         let http_request = match self
             .http_client
@@ -80,20 +89,37 @@ impl JudgmentModel for TypeSafeJudgmentModel {
             .json(body)
         {
             Ok(request) => request,
-            Err(source) => return Err(classify_request_error(source, &self.model_id)),
+            Err(source) => {
+                return Err(classify_request_error(source, &self.model_id, &secrets));
+            }
         };
-        let response = match http_request.send_value().await {
+        let response = match http_request.send_bytes().await {
             Ok(response) => response,
-            Err(source) => return Err(classify_request_error(source, &self.model_id)),
+            Err(source) => {
+                return Err(classify_request_error(source, &self.model_id, &secrets));
+            }
         };
-        if response.status >= 400 {
+        if !(200..300).contains(&response.status) {
+            let classification_body = match serde_json::from_slice::<Value>(&response.body) {
+                Ok(body) => body,
+                Err(_) => Value::String(String::from_utf8_lossy(&response.body).into_owned()),
+            };
+            let classification_body = if response.body.is_empty() {
+                Value::String(http_status_message(response.status))
+            } else {
+                classification_body
+            };
             return Err(classify_status(
                 response.status,
                 &self.model_id,
-                &response.body,
+                &classification_body,
+                &secrets,
             ));
         }
-        parse_response(&self.model_id, request, response.body)
+        match parse_response(&self.model_id, request, &response.body) {
+            Ok(response) => Ok(response),
+            Err(error) => Err(redact_response_error(error, &secrets)),
+        }
     }
 }
 
@@ -108,3 +134,11 @@ mod construction_tests;
 #[cfg(test)]
 #[path = "_tests_/client_tests.rs"]
 mod client_tests;
+
+#[cfg(test)]
+#[path = "_tests_/redaction_tests.rs"]
+mod redaction_tests;
+
+#[cfg(test)]
+#[path = "_tests_/status_tests.rs"]
+mod status_tests;

@@ -7,7 +7,9 @@ use ai_interface::{
     deserialize_score_probabilities,
 };
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::value::RawValue;
+
+use super::redaction::redact_secrets;
 
 const PROVIDER: &str = "typesafe";
 const MALFORMED_PROVIDER_PAYLOAD: &str = "malformed provider payload";
@@ -15,7 +17,7 @@ const MALFORMED_PROVIDER_PAYLOAD: &str = "malformed provider payload";
 #[derive(Debug, Deserialize)]
 struct TypeSafeResponse {
     model: String,
-    answers: BTreeMap<String, TypeSafeAnswer>,
+    answers: BTreeMap<String, Box<RawValue>>,
     #[serde(default)]
     usage: Option<TypeSafeUsage>,
 }
@@ -52,11 +54,11 @@ struct TypeSafeUsage {
 pub(super) fn parse_response(
     model_id: &str,
     request: &JudgmentRequest,
-    body: Value,
+    body: &[u8],
 ) -> JudgmentResult<JudgmentResponse> {
-    let response = match serde_json::from_value::<TypeSafeResponse>(body) {
+    let response = match serde_json::from_slice::<TypeSafeResponse>(body) {
         Ok(response) => response,
-        Err(_) => return Err(malformed_payload(model_id)),
+        Err(source) => return Err(malformed_payload(model_id, &source)),
     };
     let TypeSafeResponse {
         model,
@@ -64,15 +66,17 @@ pub(super) fn parse_response(
         usage,
     } = response;
     let mut provider_answers = answers;
-    let answers = request
-        .questions
-        .keys()
-        .filter_map(|id| {
-            provider_answers
-                .remove(id)
-                .map(|answer| (id.clone(), answer.normalize()))
-        })
-        .collect();
+    let mut answers = BTreeMap::new();
+    for id in request.questions.keys() {
+        let Some(fragment) = provider_answers.remove(id) else {
+            continue;
+        };
+        let answer = match serde_json::from_str::<TypeSafeAnswer>(fragment.get()) {
+            Ok(answer) => answer,
+            Err(source) => return Err(malformed_payload(model_id, &source)),
+        };
+        answers.insert(id.clone(), answer.normalize());
+    }
     let response = JudgmentResponse {
         provider: PROVIDER.to_owned(),
         model_id: model_id.to_owned(),
@@ -122,8 +126,25 @@ fn normalize_usage(usage: Option<TypeSafeUsage>) -> ModelUsage {
     }
 }
 
-fn malformed_payload(model_id: &str) -> JudgmentError {
-    JudgmentError::provider(PROVIDER, model_id, MALFORMED_PROVIDER_PAYLOAD)
+fn malformed_payload(model_id: &str, source: &serde_json::Error) -> JudgmentError {
+    JudgmentError::provider(PROVIDER, model_id, malformed_payload_message(source))
+}
+
+fn malformed_payload_message(source: &serde_json::Error) -> String {
+    let detail = source.to_string();
+    [MALFORMED_PROVIDER_PAYLOAD, ": ", &detail].concat()
+}
+
+/// Redacts provider diagnostics produced during successful-body decoding.
+pub(super) fn redact_response_error(error: JudgmentError, secrets: &[String]) -> JudgmentError {
+    match error {
+        JudgmentError::Provider {
+            provider,
+            model_id,
+            message,
+        } => JudgmentError::provider(provider, model_id, redact_secrets(&message, secrets)),
+        error => error,
+    }
 }
 
 #[cfg(test)]

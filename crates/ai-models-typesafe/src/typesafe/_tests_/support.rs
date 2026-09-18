@@ -23,12 +23,12 @@ pub(super) fn unused_http_client() -> DynJsonHttpClient {
 
 /// Returns a client that records one request and yields one response.
 pub(super) fn recording_http_client(
-    response: JsonHttpResponse<Value>,
+    response: JsonHttpResponse<Vec<u8>>,
 ) -> (DynJsonHttpClient, RecordedRequests) {
     let requests = Arc::new(Mutex::new(Vec::new()));
     let responses = Arc::new(Mutex::new(VecDeque::from([response])));
     let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
+        JsonHttpTransportMock::execute_bytes
             .each_call(matching!(_))
             .answers_arc({
                 let requests = requests.clone();
@@ -55,11 +55,19 @@ pub(super) fn recording_http_client(
 /// Returns a client that fails its only transport call.
 pub(super) fn transport_failure_http_client(message: &'static str) -> DynJsonHttpClient {
     let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
+        JsonHttpTransportMock::execute_bytes
             .next_call(matching!(_))
             .returns(Err(json_http::Error::transport(message))),
     ));
     Arc::new(TransportBackedJsonHttpClient::new(transport))
+}
+
+/// Builds a byte response from one JSON fixture.
+pub(super) fn json_response(status: u16, body: Value) -> JsonHttpResponse<Vec<u8>> {
+    JsonHttpResponse {
+        status,
+        body: serde_json::to_vec(&body).expect("JSON fixture should serialize"),
+    }
 }
 
 /// Builds the smallest valid condition request fixture.
@@ -74,15 +82,15 @@ pub(super) fn simple_request() -> JudgmentRequest {
 }
 
 /// Builds a successful response for the simple request fixture.
-pub(super) fn successful_response() -> JsonHttpResponse<Value> {
-    JsonHttpResponse {
-        status: 200,
-        body: json!({
+pub(super) fn successful_response() -> JsonHttpResponse<Vec<u8>> {
+    json_response(
+        200,
+        json!({
             "model": "jev-1.13.0",
             "answers": {
                 "is_urgent": {"type": "noul", "noul": 0.92}
             },
             "usage": {"input_tokens": 12, "output_tokens": 3}
         }),
-    }
+    )
 }

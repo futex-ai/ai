@@ -2,18 +2,18 @@
 
 use std::collections::BTreeMap;
 
-use ai_interface::{JudgmentQuestion, JudgmentRequest, ModelUsage};
+use ai_interface::{
+    JudgmentQuestion, JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage,
+};
 use serde_json::{Value, json};
 
 use super::parse_response;
 
 #[test]
 fn provider_usage_maps_and_sums_tokens() {
-    let response = parse_response(
-        "jev-latest",
-        &request(),
-        body_with_usage(Some(json!({"input_tokens": 312, "output_tokens": 48}))),
-    )
+    let response = parse_value(body_with_usage(Some(
+        json!({"input_tokens": 312, "output_tokens": 48}),
+    )))
     .expect("response should parse");
 
     assert_eq!(
@@ -29,19 +29,16 @@ fn provider_usage_maps_and_sums_tokens() {
 
 #[test]
 fn missing_usage_uses_the_shared_default() {
-    let response = parse_response("jev-latest", &request(), body_with_usage(None))
-        .expect("response should parse");
+    let response = parse_value(body_with_usage(None)).expect("response should parse");
 
     assert_eq!(response.usage, ModelUsage::default());
 }
 
 #[test]
 fn usage_total_saturates_and_other_buckets_stay_empty() {
-    let response = parse_response(
-        "jev-latest",
-        &request(),
-        body_with_usage(Some(json!({"input_tokens": u64::MAX, "output_tokens": 9}))),
-    )
+    let response = parse_value(body_with_usage(Some(
+        json!({"input_tokens": u64::MAX, "output_tokens": 9}),
+    )))
     .expect("response should parse");
 
     assert_eq!(response.usage.input_tokens, u64::MAX);
@@ -72,4 +69,9 @@ fn body_with_usage(usage: Option<Value>) -> Value {
         body["usage"] = usage;
     }
     body
+}
+
+fn parse_value(body: Value) -> JudgmentResult<JudgmentResponse> {
+    let body = serde_json::to_vec(&body).expect("response fixture should serialize");
+    parse_response("jev-latest", &request(), &body)
 }

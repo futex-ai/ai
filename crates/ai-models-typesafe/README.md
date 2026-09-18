@@ -30,6 +30,12 @@ provider model ids so callers can pin newer releases before catalog metadata
 is updated. It does not read environment variables, load credentials, retry,
 price usage, or make network calls during unit tests.
 
+Responses are decoded directly from bytes, and only `2xx` statuses are treated
+as successful judgments. Requested answer fragments are decoded independently,
+so unknown unrequested answers are ignored without hiding repeated score keys
+in requested answers. Provider, transport, auth-hook, and malformed-payload
+diagnostics redact the API key and applied authentication header values.
+
 ## Quick Start
 
 ```rust
@@ -79,6 +85,7 @@ credentials or network access are required.
 - `src/typesafe/request.rs` - shared-to-TypeSafe request mapping.
 - `src/typesafe/response.rs` - answer, score-key, and usage normalization.
 - `src/typesafe/error.rs` - status, transport, and auth error classification.
+- `src/typesafe/redaction.rs` - applied-auth discovery and diagnostic redaction.
 
 ### Related Docs
 

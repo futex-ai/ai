@@ -4,16 +4,15 @@ use std::collections::BTreeMap;
 
 use ai_interface::{
     JudgmentAnswer, JudgmentAnswerProblem, JudgmentContent, JudgmentError, JudgmentQuestion,
-    JudgmentQuestionKind, JudgmentRequest,
+    JudgmentQuestionKind, JudgmentRequest, JudgmentResponse, JudgmentResult,
 };
 use serde_json::{Value, json};
 
-use super::{TypeSafeResponse, parse_response};
+use super::parse_response;
 
 #[test]
 fn response_maps_answers_and_ignores_provider_only_data() {
-    let response = parse_response("jev-latest", &request(), valid_body())
-        .expect("valid TypeSafe response should parse");
+    let response = parse_value(valid_body()).expect("valid TypeSafe response should parse");
 
     assert_eq!(response.provider, "typesafe");
     assert_eq!(response.model_id, "jev-latest");
@@ -52,37 +51,46 @@ fn malformed_payloads_are_terminal_provider_errors() {
         body_with_score_probabilities(json!({"zero": 1.0})),
         body_with_score_probabilities(json!({"00": 1.0})),
     ] {
-        let error = parse_response("jev-latest", &request(), body)
-            .expect_err("malformed response should fail");
+        let error = parse_value(body).expect_err("malformed response should fail");
         assert!(matches!(
             error,
             JudgmentError::Provider { provider, model_id, message }
                 if provider == "typesafe"
                     && model_id == "jev-latest"
-                    && message == "malformed provider payload"
+                    && message.starts_with("malformed provider payload: ")
         ));
     }
 }
 
 #[test]
-fn duplicate_score_keys_fail_typed_deserialization() {
+fn undecodable_unrequested_answer_fragments_are_ignored() {
     let raw = r#"{
         "model":"jev-1.13.0",
         "answers":{
+            "condition":{"type":"noul","noul":0.92},
+            "choice":{
+                "type":"choice",
+                "choice":"billing",
+                "probabilities":{"billing":0.84,"technical":0.16},
+                "confidence":0.6
+            },
             "score":{
                 "type":"score",
-                "score":0.0,
-                "probabilities":{"0":0.5,"0":0.5},
-                "confidence":1.0
-            }
+                "score":1.6,
+                "probabilities":{"0":0.05,"1":0.3,"2":0.65},
+                "confidence":0.78
+            },
+            "extra":{"type":"future"},
+            "extra2":null
         }
     }"#;
 
-    let result = serde_json::from_str::<TypeSafeResponse>(raw);
-    let Err(error) = result else {
-        panic!("duplicate score key should fail");
-    };
-    assert!(error.to_string().contains("a unique level index"));
+    let response = parse_response("jev-latest", &request(), raw.as_bytes())
+        .expect("unrequested answer fragments should not be decoded");
+
+    assert_eq!(response.answers.len(), 3);
+    assert!(!response.answers.contains_key("extra"));
+    assert!(!response.answers.contains_key("extra2"));
 }
 
 #[test]
@@ -260,7 +268,7 @@ fn probability_map<'a>(
 }
 
 fn assert_problem(body: Value, expected: JudgmentAnswerProblem, id: &str) {
-    let result = parse_response("jev-latest", &request(), body);
+    let result = parse_value(body);
     let error = result.expect_err("shared response validation should fail");
     let JudgmentError::InvalidAnswer {
         provider,
@@ -276,4 +284,9 @@ fn assert_problem(body: Value, expected: JudgmentAnswerProblem, id: &str) {
     assert_eq!(model_id, "jev-latest");
     assert_eq!(actual_id, id);
     assert_eq!(problem, expected);
+}
+
+fn parse_value(body: Value) -> JudgmentResult<JudgmentResponse> {
+    let body = serde_json::to_vec(&body).expect("response fixture should serialize");
+    parse_response("jev-latest", &request(), &body)
 }
