@@ -6,6 +6,7 @@ milestones are finished.
 
 ## Active
 
+- [MiniMax M2.x stream snapshot recovery](minimax-m2-stream-snapshot-recovery.md)
 - [Model completion streaming](model-completion-streaming.md)
 
 ## Completed
