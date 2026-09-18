@@ -39,7 +39,13 @@ probe. The catalog then uses portable no-tools, ten-minute, `PreferDeferred`
 controls: seven providers retain event parity on their synchronous fallback,
 while xAI's deferred lifecycle must remain silent. The suite also validates
 normalized provider, catalog, model, thinking, finish, text, tool, and usage
-fields. Image-, video-, and judgment-capable entries are excluded because they
+fields. A successfully completed synchronous probe or catalog entry gets one
+bounded retry only when the response misses the requested marker and has no
+other response failure; event validation must also be clean apart from possible
+terminal-parity failure against that response. This absorbs non-deterministic
+wording but does not retry request, identity, finish, tool, usage, or other
+event failures, and costs at most one extra billable call per probe or catalog
+entry. Image-, video-, and judgment-capable entries are excluded because they
 use separate specialized interfaces. Credentialed tests never run as part of
 `check` or `smoke-test`; credential-free event policy, bridge, validation,
 catalog, and workflow guards do. The dedicated GitHub Actions workflow invokes

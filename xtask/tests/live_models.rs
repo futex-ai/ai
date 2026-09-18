@@ -2,6 +2,8 @@
 
 #[path = "live_models/event_tests.rs"]
 mod event_tests;
+#[path = "live_models/marker_retry_tests.rs"]
+mod marker_retry_tests;
 #[path = "live_models/provider_tests.rs"]
 mod provider_tests;
 #[path = "live_models/runner_tests.rs"]

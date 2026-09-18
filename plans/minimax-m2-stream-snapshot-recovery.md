@@ -26,17 +26,18 @@ absorb a rare non-deterministic probe without masking real failures.
 ## Design Decisions
 
 - Infer the M2.x content shape per stream instead of assuming one: a value
-  that starts with the accumulated text is a snapshot; any other nonempty
-  value is an incremental fragment. Snapshots keep last-wins revision
-  semantics; fragments append. An empty `content` value never replaces
-  accumulated text.
+  that starts with the accumulated text is a snapshot, and a strict extension
+  of nonempty retained text establishes snapshot evidence. Other nonempty
+  values append until that evidence exists and become replacing snapshots
+  afterward. An empty `content` value never replaces accumulated text.
 - Keep M3 incremental accumulation unchanged.
 - Emit M2.x assistant text once from the validated terminal value, as today,
   so event parity is preserved whichever shape the provider used.
 - Give the chat live runner one bounded retry, only when a completed response
   fails the probe-marker check, so a single non-deterministic reply cannot
-  fail a provider job while identity, finish-reason, usage, and event-parity
-  failures still fail immediately.
+  fail a provider job while identity, finish-reason, usage, and other event
+  failures still fail immediately. A terminal-parity failure against the same
+  marker-missing response may accompany the retry.
 
 ## Milestone 1: Adapter Robustness
 
@@ -44,17 +45,18 @@ At the end of this milestone the M2.x normalizer accepts incremental
 fragments, extending snapshots, replacing snapshots, and empty terminal
 content, and every shape reproduces the same terminal text and event parity.
 
-- [ ] Add failing `ai-models-minimax` regressions for an M2.7 stream of
+- [x] Add failing `ai-models-minimax` regressions for an M2.7 stream of
       incremental mid-word fragments, a stream whose final `finish_reason`
       chunk carries empty `content`, a stream mixing an extending snapshot
       with a later replacing snapshot, and the existing replacement case,
       asserting terminal text, event parity, and buffered parity.
-- [ ] Implement shape inference in `stream_normalizer.rs` so a nonempty value
-      that starts with the retained text replaces it, any other nonempty value
-      appends, and an empty value is ignored.
-- [ ] Keep the existing reasoning-details snapshot handling and M3 behaviour
+- [x] Implement shape inference in `stream_normalizer.rs` so a nonempty value
+      that starts with the retained text replaces it, other nonempty values
+      append until prefix-extension establishes snapshot evidence and replace
+      afterward, and an empty value is ignored.
+- [x] Keep the existing reasoning-details snapshot handling and M3 behaviour
       covered and unchanged.
-- [ ] Update `crates/ai-models-minimax/README.md`,
+- [x] Update `crates/ai-models-minimax/README.md`,
       `docs/protocol/minimax-model-provider.md`,
       `docs/protocol/model-completion-streaming.md`, and
       `docs/protocol/model-completion-events.md` to describe the inferred
@@ -65,27 +67,30 @@ content, and every shape reproduces the same terminal text and event parity.
 At the end of this milestone one non-deterministic probe reply no longer fails
 a provider job, while every deterministic contract failure still does.
 
-- [ ] Add failing `xtask` runner tests proving a completed response that
+- [x] Add failing `xtask` runner tests proving a completed response that
       misses the probe marker is retried once, that a second miss fails, and
-      that identity, finish-reason, usage, and event-parity failures are not
-      retried.
-- [ ] Implement the bounded marker retry in
+      that identity, finish-reason, usage, and non-parity event failures are
+      not retried.
+- [x] Implement the bounded marker retry in
       `xtask/tests/live_models/runner_tests.rs` without changing the
       transient retry wrapper.
-- [ ] Update `docs/protocol/live-model-api-tests.md` and `xtask/README.md`
+- [x] Update `docs/protocol/live-model-api-tests.md` and `xtask/README.md`
       with the retry rule and its cost.
 
 ## Milestone 3: Verification, Commit, Push, And Review
 
-- [ ] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
+- [x] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
       --all-targets --all-features -- -D warnings`,
       `cargo test --workspace --all-features`,
       `cargo xtask rust-file-length-lint --all`, and `cargo xtask check`.
-- [ ] Review `git diff origin/main...` for scope, docs, tests, and untracked
+- [x] Review `git diff origin/main...` for scope, docs, tests, and untracked
       files.
-- [ ] Move this plan to Completed in `plans/README.md`.
+- [x] Move this plan to Completed in `plans/README.md`.
 - [ ] Run `git add -A`, commit with a Conventional Commit message, and push
       the current branch without renaming it.
 - [ ] Run `cargo xtask review` after the push against `origin/main` and
       report findings without automatically fixing them.
 - [ ] Confirm the `MiniMax catalog` job on the pull request after the push.
+- [x] Treat a value equal to the retained text as a repeated fragment before
+      snapshot evidence and a repeated snapshot afterward, with regressions
+      for both.

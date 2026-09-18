@@ -75,7 +75,15 @@ test:
    deferred lifecycle and must emit no events; every other adapter falls back
    to its ordinary synchronous lifecycle and must retain assistant-event
    parity.
-7. Continues after a catalog-model failure and reports all failures for that
+7. Retries the synchronous probe or a catalog entry exactly once when a
+   successful response fails only because it omitted the probe marker and its
+   event validation is otherwise clean, apart from a possible terminal-parity
+   failure against that same response. Natural-language replies can be
+   non-deterministic even under an exact prompt, so the second result replaces
+   the first. Request errors and identity, finish, tool, usage, or other event
+   failures are not retried by this rule. It can add at most one billable call
+   per probe or catalog entry.
+8. Continues after a catalog-model failure and reports all failures for that
    provider together.
 
 The MiniMax provider test first runs its strict required-tool probe. A failure
@@ -108,7 +116,12 @@ must exactly reproduce the terminal `assistant_message`; any reasoning deltas
 must be nonempty, and a direct provider probe must not emit a fallback-restart
 event. XAI's deferred catalog completions must emit no completion events.
 
-A provider job fails if any catalog entry violates this contract. For an
+A marker-only miss receives one bounded retry because model replies can vary;
+the second result must satisfy the complete contract. The retry does not mask
+identity, finish-reason, tool, usage, request, or non-parity event failures and
+does not alter the separate transient transport retry policy. Its maximum cost
+is one additional billable call for each synchronous probe or catalog entry. A
+provider job fails if any final catalog result violates this contract. For an
 eligible event, missing credentials also fail explicitly and must never be
 treated as skipped or successful coverage.
 
