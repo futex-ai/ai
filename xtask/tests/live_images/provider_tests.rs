@@ -32,6 +32,7 @@ impl LiveImageProvider {
             | ProviderKind::Kimi
             | ProviderKind::MiniMax
             | ProviderKind::Qwen
+            | ProviderKind::TypeSafe
             | ProviderKind::Xai => None,
         }
     }
@@ -213,7 +214,7 @@ fn all_known_models() -> Vec<ai_models_core::KnownModelSpec> {
     .collect()
 }
 
-fn non_image_provider_kinds() -> [ProviderKind; 7] {
+fn non_image_provider_kinds() -> [ProviderKind; 8] {
     [
         ProviderKind::Mock,
         ProviderKind::Anthropic,
@@ -221,6 +222,7 @@ fn non_image_provider_kinds() -> [ProviderKind; 7] {
         ProviderKind::Kimi,
         ProviderKind::MiniMax,
         ProviderKind::Qwen,
+        ProviderKind::TypeSafe,
         ProviderKind::Xai,
     ]
 }

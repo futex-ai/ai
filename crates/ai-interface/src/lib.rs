@@ -4,10 +4,12 @@
 
 mod audio_transcriber;
 mod image_generator;
+mod judgment;
 mod logger;
 mod messages;
 mod mock_audio_transcriber;
 mod mock_image_generator;
+mod mock_judgment_model;
 mod mock_model;
 mod mock_video_generator;
 mod model;
@@ -15,6 +17,7 @@ mod model_completion_events;
 mod model_controls;
 pub mod output;
 mod router;
+mod router_error;
 mod tools;
 mod usage;
 mod video_generator;
@@ -28,6 +31,13 @@ pub use image_generator::{
     ImageGenerationInputImage, ImageGenerationQuality, ImageGenerationRequest,
     ImageGenerationResponse, ImageGenerationResult, ImageGenerator,
 };
+pub use judgment::{
+    DynJudgmentModel, EXPECTED_SCORE_TOLERANCE, JudgmentAnswer, JudgmentAnswerProblem,
+    JudgmentConditionCriteria, JudgmentContent, JudgmentError, JudgmentJsonType, JudgmentModel,
+    JudgmentQuestion, JudgmentQuestionKind, JudgmentQuestionProblem, JudgmentRequest,
+    JudgmentResponse, JudgmentResult, PROBABILITY_SUM_TOLERANCE, SELECTED_PROBABILITY_TOLERANCE,
+    deserialize_score_probabilities,
+};
 pub use logger::{
     DynLogger, Logger, LoggerError, LoggerResult, ModelCallLogEntry, ModelCallLogResult,
     NoopLogger, ToolActivityLogEntry, ToolActivityPhase, ToolCallLogEntry, ToolCallLogResult,
@@ -40,6 +50,7 @@ pub use messages::{
 };
 pub use mock_audio_transcriber::MockAudioTranscriber;
 pub use mock_image_generator::MockImageGenerator;
+pub use mock_judgment_model::MockJudgmentModel;
 pub use mock_model::MockModel;
 pub use mock_video_generator::MockVideoGenerator;
 pub use model::{
@@ -61,8 +72,9 @@ pub use output::{
 };
 pub use router::{
     DynModelRouter, ModelFeature, ModelPreference, ModelRequirement, ModelRouteRequest,
-    ModelRouteRequestBuilder, ModelRouter, ModelRouterError, ModelRouterResult, ProviderKind,
+    ModelRouteRequestBuilder, ModelRouter, ProviderKind,
 };
+pub use router_error::{ModelRouterError, ModelRouterResult};
 pub use tools::{DynTool, Tool, ToolCall, ToolDefinition, ToolError, ToolInvocation, ToolResult};
 pub use usage::{ModelUsage, ModelUsageCostLine, ModelUsageMeasurementState, ModelUsageUnitKind};
 pub use video_generator::{
@@ -75,6 +87,8 @@ pub use video_generator::{
 pub use audio_transcriber::AudioTranscriberMock;
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use image_generator::ImageGeneratorMock;
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub use judgment::JudgmentModelMock;
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use logger::LoggerMock;
 #[cfg(any(test, doctest, feature = "test-support"))]

@@ -23,6 +23,8 @@ in-memory tool-calling runtime behavior.
   every synchronous provider path (with xAI's deferred path remaining buffered
   and event-silent), structured output, usage normalization, catalog-aware
   thinking-level downgrades, and typed errors
+- TypeSafe Jev judgment evaluation through a provider-neutral typed boundary
+  for condition, choice, and score questions over shared text or JSON state
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, usage pricing, streaming failure
   classification, and chat-completions delta accumulation
@@ -59,6 +61,12 @@ in-memory tool-calling runtime behavior.
 - [Live video API tests](docs/protocol/live-video-api-tests.md) defines the
   implemented credentialed video catalog coverage, shortest portable probe,
   MP4 validation, and CI secret boundary.
+- [TypeSafe judgment provider](docs/protocol/typesafe-judgment-provider.md)
+  defines the implemented provider-agnostic condition/choice/score judgment
+  boundary and the TypeSafe Jev wire, validation, usage, and error mapping.
+- [Live judgment API tests](docs/protocol/live-judgment-api-tests.md) defines
+  the implemented credentialed judgment catalog coverage, probe, validation,
+  and CI secret boundary.
 - [Video input](docs/protocol/video-input.md) defines the shared video content
   part, the Google and MiniMax mappings, and typed rejection elsewhere.
 - [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) defines
@@ -102,6 +110,7 @@ boundary they need:
 - `ai-models-openai`: OpenAI model, transcription, image, and video adapters
 - `ai-models-qwen`: Qwen 3.7 Max/Plus/Flash Chat Completions adapter and
   known-model catalog
+- `ai-models-typesafe`: TypeSafe Jev judgment adapter and known-model catalog
 - `ai-models-xai`: xAI model adapter
 - `ai-models-multi`: ordered fallback model adapter
 - `ai-tool-calling`: in-memory tool-calling runtime with output policy, output
@@ -182,6 +191,24 @@ same-repository pull requests, daily, and on manual dispatch. It uses
 `GOOGLE_API_KEY` and `OPENAI_API_KEY`, runs providers sequentially, and may make
 up to three billable attempts per catalog model after transient failures.
 
+Credentialed judgment checks live in `xtask/tests/live_judgments/mod.rs`. They
+select every TypeSafe catalog entry advertising `Judgment`, construct the
+production adapter behind `DynJudgmentModel`, and evaluate one short support
+message against condition, choice, and score questions. Run the
+credential-free guards or the billable TypeSafe catalog with:
+
+```sh
+cargo test --locked -p xtask --test live_judgments
+LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
+  --test live_judgments catalog_tests::typesafe_judgment_catalog \
+  -- --ignored --exact --nocapture
+```
+
+The `Live judgment APIs` workflow runs the TypeSafe catalog sequentially for
+trusted same-repository pull requests, daily, and on manual dispatch. It uses
+`TYPESAFE_API_KEY` and may make up to three billable attempts per catalog model
+after transient failures.
+
 Credentialed video checks live in `xtask/tests/live_videos/mod.rs`. They select
 every Google and OpenAI catalog entry advertising `VideoGeneration`, construct
 the production adapter behind `DynVideoGenerator`, and request one four-second
@@ -220,6 +247,8 @@ cargo xtask review
   usage, and provider-error mapping
 - `crates/ai-models-qwen`: Qwen 3.7 catalog, typed client, thinking, vision,
   request/replay, structured output, usage, and error mapping
+- `crates/ai-models-typesafe`: TypeSafe Jev catalog, judgment request/response
+  mapping, validation, usage, authentication, and provider-error translation
 - `crates/ai-models-*`: concrete provider and fallback adapters
 - `crates/ai-tool-calling`: in-memory tool-calling runtime, including
   `src/policy.rs`, `src/output_store/`, and the intrinsic output reader
@@ -239,6 +268,10 @@ cargo xtask review
 - `docs/protocol/video-generation.md`: normative shared video generation and
   asynchronous provider mapping contract
 - `docs/protocol/live-video-api-tests.md`: implemented credentialed video-provider
+  catalog and CI verification contract
+- `docs/protocol/typesafe-judgment-provider.md`: normative shared judgment
+  boundary and TypeSafe Jev provider contract
+- `docs/protocol/live-judgment-api-tests.md`: implemented credentialed judgment
   catalog and CI verification contract
 - `docs/protocol/provider-call-controls.md`: normative model-call control and
   provider wire-compatibility contract
@@ -268,11 +301,13 @@ pull requests as well as its daily schedule and manual dispatch. The separate
 catalog entry through `DynImageGenerator` with image-specific validation and
 sequential provider jobs. The `Live video APIs` workflow similarly exercises
 every Google and OpenAI video-capable entry through `DynVideoGenerator`, with
-MP4-specific validation and no asset persistence. Forked and Dependabot pull
-requests skip all credentialed workflows because GitHub does not provide them
-repository Actions secrets. The ordinary credential-free suite still enforces
-the live model registry and completion-event coverage policy without making
-provider calls.
+MP4-specific validation and no asset persistence. The `Live judgment APIs`
+workflow exercises every TypeSafe Jev catalog entry through `DynJudgmentModel`
+with `TYPESAFE_API_KEY`, shared answer validation, and sequential retries.
+Forked and Dependabot pull requests skip all credentialed workflows because
+GitHub does not provide them repository Actions secrets. The ordinary
+credential-free suite still enforces the live model registry and
+completion-event coverage policy without making provider calls.
 
 ## Plans
 

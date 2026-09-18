@@ -32,6 +32,7 @@ impl LiveVideoProvider {
             | ProviderKind::Kimi
             | ProviderKind::MiniMax
             | ProviderKind::Qwen
+            | ProviderKind::TypeSafe
             | ProviderKind::Xai => None,
         }
     }
@@ -142,6 +143,7 @@ fn registered_catalogs_are_non_empty_and_constructible() {
         ProviderKind::Kimi,
         ProviderKind::MiniMax,
         ProviderKind::Qwen,
+        ProviderKind::TypeSafe,
         ProviderKind::Xai,
     ] {
         assert_eq!(LiveVideoProvider::from_kind(provider), None);

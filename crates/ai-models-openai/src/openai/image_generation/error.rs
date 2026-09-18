@@ -1,6 +1,7 @@
 //! OpenAI image generation error classification.
 
 use ai_interface::ImageGenerationError;
+use ai_models_core::{HttpFailureClass, classify_http_status};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -29,11 +30,14 @@ pub(super) fn classify_status(status: u16, model_id: &str, body: &Value) -> Imag
             body.as_str()
                 .map_or_else(|| body.to_string(), ToOwned::to_owned)
         });
-    if status == 429 {
-        return ImageGenerationError::rate_limited(PROVIDER, model_id, message);
-    }
-    if is_transient_status(status) {
-        return ImageGenerationError::transient_provider(PROVIDER, model_id, message);
+    match classify_http_status(status) {
+        Some(HttpFailureClass::RateLimited) => {
+            return ImageGenerationError::rate_limited(PROVIDER, model_id, message);
+        }
+        Some(HttpFailureClass::Transient) => {
+            return ImageGenerationError::transient_provider(PROVIDER, model_id, message);
+        }
+        Some(HttpFailureClass::Terminal) | None => {}
     }
     if details.is_some_and(is_content_policy) {
         return ImageGenerationError::content_policy(PROVIDER, model_id, message);
@@ -77,8 +81,4 @@ fn is_content_policy(error: &ErrorBody) -> bool {
                     | "image_generation_safety_violation"
             )
         })
-}
-
-fn is_transient_status(status: u16) -> bool {
-    matches!(status, 408 | 409 | 425) || (500..=599).contains(&status)
 }

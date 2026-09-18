@@ -117,15 +117,22 @@ maps to `auto`. Named-function choices and nonempty stop sequences return typed
 and `RequireDeferred` is unsupported.
 
 MiniMax-M3 streams standard incremental visible-content deltas. MiniMax-M2.x
-streams cumulative visible-content snapshots that may revise rather than
-extend an earlier value. The adapter therefore keeps only the latest M2.x
-content snapshot during accumulation and restores it after terminal stream
-validation. The adapter also retains the last nonempty `reasoning_details`
-snapshot as canonical replay state. A MiniMax-M3 required-tool stream observed
-by the credentialed suite on 2026-08-22 used incremental content and revised
-earlier reasoning text, so M3 content is accumulated directly and reasoning
-snapshots replace prior snapshots. Final usage is required; the stream may end
-with `[DONE]` or a structurally complete clean EOF.
+may stream cumulative snapshots or incremental fragments, so the adapter
+infers the shape independently for each stream while withholding visible
+content from shared accumulation. A nonempty value that strictly extends the
+retained text replaces it, and extending a nonempty retained prefix records
+snapshot evidence. A value equal to the retained text is a repeated fragment
+before that evidence and a repeated snapshot afterward. Before that evidence, every other nonempty value
+appends as a fragment. After snapshot evidence, an otherwise ambiguous value
+is a replacing snapshot. Empty content is ignored and never clears retained
+text. The retained M2.x text is restored after terminal validation and emitted
+as one terminal assistant event. The adapter also retains the last nonempty
+`reasoning_details` snapshot as canonical replay state. A MiniMax-M3
+required-tool stream observed by the credentialed suite on 2026-08-22 used
+incremental content and revised earlier reasoning text, so M3 content is
+accumulated directly and reasoning snapshots replace prior snapshots. Final
+usage is required; the stream may end with `[DONE]` or a structurally complete
+clean EOF.
 
 MiniMax's public reference currently enumerates only `none` and `auto`. Firna
 reported a successful live MiniMax-M3 request with a real tool and

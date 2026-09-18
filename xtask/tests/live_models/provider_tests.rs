@@ -47,7 +47,7 @@ impl LiveProvider {
 
     pub(super) fn from_kind(provider: ProviderKind) -> Option<Self> {
         match provider {
-            ProviderKind::Mock => None,
+            ProviderKind::Mock | ProviderKind::TypeSafe => None,
             ProviderKind::Anthropic => Some(Self::Anthropic),
             ProviderKind::DeepSeek => Some(Self::DeepSeek),
             ProviderKind::Google => Some(Self::Google),
@@ -142,6 +142,7 @@ impl LiveProvider {
             .into_iter()
             .filter(|model| {
                 !model.has_feature(ModelFeature::ImageGeneration)
+                    && !model.has_feature(ModelFeature::Judgment)
                     && !model.has_feature(ModelFeature::VideoGeneration)
             })
             .collect()

@@ -26,6 +26,7 @@ pub(super) struct MiniMaxNormalizer {
     content: BTreeMap<u64, String>,
     content_mode: ContentMode,
     reasoning_details: BTreeMap<u64, Vec<MiniMaxReasoningDetail>>,
+    shape_evidence: ShapeEvidence,
 }
 
 impl MiniMaxNormalizer {
@@ -33,12 +34,13 @@ impl MiniMaxNormalizer {
         let content_mode = if provider_model_id == MINIMAX_M3 {
             ContentMode::Incremental
         } else {
-            ContentMode::Cumulative
+            ContentMode::Inferred
         };
         Self {
             content: BTreeMap::new(),
             content_mode,
             reasoning_details: BTreeMap::new(),
+            shape_evidence: ShapeEvidence::Unknown,
         }
     }
 
@@ -64,12 +66,12 @@ impl MiniMaxNormalizer {
             let Some(delta) = choice.get_mut("delta").and_then(Value::as_object_mut) else {
                 continue;
             };
-            if self.content_mode == ContentMode::Cumulative
+            if self.content_mode == ContentMode::Inferred
                 && let Some(current) = delta.get("content").and_then(Value::as_str)
             {
                 let current = current.to_owned();
                 delta.remove("content");
-                self.content.insert(choice_index, current);
+                self.retain_inferred_content(choice_index, &current);
             }
             let Some(details) = delta.remove("reasoning_details") else {
                 continue;
@@ -92,7 +94,7 @@ impl MiniMaxNormalizer {
         self,
         body: &mut Value,
     ) -> std::result::Result<Option<String>, serde_json::Error> {
-        let terminal_assistant_text = (self.content_mode == ContentMode::Cumulative)
+        let terminal_assistant_text = (self.content_mode == ContentMode::Inferred)
             .then(|| self.content.get(&0).cloned())
             .flatten();
         let Some(choices) = body.get_mut("choices").and_then(Value::as_array_mut) else {
@@ -106,7 +108,7 @@ impl MiniMaxNormalizer {
             let Some(message) = choice.get_mut("message").and_then(Value::as_object_mut) else {
                 continue;
             };
-            if self.content_mode == ContentMode::Cumulative
+            if self.content_mode == ContentMode::Inferred
                 && let Some(content) = self.content.get(&choice_index)
             {
                 message.insert("content".to_owned(), Value::String(content.clone()));
@@ -120,10 +122,44 @@ impl MiniMaxNormalizer {
         }
         Ok(terminal_assistant_text)
     }
+
+    /// Retains M2.x visible content while inferring whether the stream sends
+    /// cumulative snapshots or incremental fragments.
+    ///
+    /// A value that strictly extends nonempty retained text is a snapshot and
+    /// proves the stream uses snapshots. A value equal to the retained text is
+    /// ambiguous: a repeated fragment such as `ha`, `ha` must append, while a
+    /// repeated snapshot carries nothing new, so equality counts as a snapshot
+    /// only after evidence exists. Any other nonempty value appends until
+    /// evidence exists and replaces the retained text afterward.
+    fn retain_inferred_content(&mut self, choice_index: u64, current: &str) {
+        if current.is_empty() {
+            return;
+        }
+        let retained = self.content.entry(choice_index).or_default();
+        let extends = current.len() > retained.len() && current.starts_with(retained.as_str());
+        if extends && !retained.is_empty() {
+            self.shape_evidence = ShapeEvidence::Snapshot;
+        }
+        if extends || self.shape_evidence == ShapeEvidence::Snapshot {
+            retained.clear();
+        }
+        retained.push_str(current);
+    }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum ContentMode {
-    Cumulative,
+    /// Infers whether M2.x content is snapshot-shaped or fragment-shaped.
+    Inferred,
+    /// Passes M3 fragments directly to shared incremental accumulation.
     Incremental,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum ShapeEvidence {
+    /// No nonempty retained prefix has been extended yet.
+    Unknown,
+    /// A later value extended a nonempty retained prefix.
+    Snapshot,
 }

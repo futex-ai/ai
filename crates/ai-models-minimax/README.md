@@ -14,8 +14,8 @@ Chat Completions models with explicit credentials and shared runtime wrappers.
   transport failures into shared model contracts.
 - Serialize M3 image and video inputs and validate requested structured output
   locally.
-- Normalize MiniMax cumulative SSE snapshots and preserve complete reasoning
-  details for continuation replay.
+- Infer MiniMax M2.x SSE content shape and preserve complete reasoning details
+  for continuation replay.
 - Emit normalized assistant text and append-only reasoning content through the
   opt-in public completion-event boundary.
 
@@ -39,16 +39,19 @@ return typed unsupported-control errors. Blank system prompts are omitted and
 per-call timeouts reach the transport.
 
 Completion requests send `stream: true` with final usage enabled. M3 emits
-incremental visible-content deltas. For M2.x, the adapter retains the latest
-cumulative content snapshot and installs it only after terminal stream
-validation, so a provider revision replaces its draft instead of interrupting
-the completion. The last nonempty `reasoning_details` snapshot is retained as
-the canonical replay state even when MiniMax revises an earlier snapshot. A
-structurally complete stream may end with `[DONE]` or clean EOF; EOF still fails
-when choices, a finish reason, usage, or tool metadata are incomplete. Streams
-default to a 3,600-second overall deadline and a 120-second idle timeout.
-Numeric `base_resp` failures keep their provider classification before progress
-and become `ModelError::Interrupted` after progress.
+incremental visible-content deltas. M2.x may emit snapshots or fragments, so
+the adapter infers the shape per stream while withholding visible content. A
+nonempty value that strictly extends retained text replaces it, and extending
+a nonempty retained prefix records snapshot evidence. Other nonempty values
+append until that evidence exists and become replacing snapshots afterward.
+Empty content never clears retained text. The inferred text is installed only
+after terminal validation, and the last nonempty `reasoning_details` snapshot
+remains canonical replay state. A structurally complete stream may end with
+`[DONE]` or clean EOF; EOF still fails when choices, a finish reason, usage, or
+tool metadata are incomplete. Streams default to a 3,600-second overall
+deadline and a 120-second idle timeout. Numeric `base_resp` failures keep their
+provider classification before progress and become `ModelError::Interrupted`
+after progress.
 
 Modern `tools` and `tool_calls` retain MiniMax provider call ids across
 assistant and tool-result messages. MiniMax `reasoning_content` and ordered
@@ -66,10 +69,11 @@ system prompt, then locally validate only naturally stopped responses; the
 adapter does not claim native provider schema enforcement.
 
 `complete_with_events` emits M3 content incrementally. M2.x assistant content
-is emitted once from the validated terminal snapshot because an earlier
-cumulative snapshot can be revised. Append-only `reasoning_content` is still
-emitted as it arrives, while revisable `reasoning_details` snapshots remain
-terminal replay context. Schema-constrained calls remain silent.
+is emitted once from the validated terminal inferred value, whether the stream
+used fragments, extending snapshots, or a replacement after snapshot evidence.
+Append-only `reasoning_content` is still emitted as it arrives, while revisable
+`reasoning_details` snapshots remain terminal replay context.
+Schema-constrained calls remain silent.
 
 Ordered shared text, image, and video parts are sent as Chat Completions
 content parts, with base64 image and video bytes encoded as `data:` URLs in
@@ -119,7 +123,7 @@ cargo clippy -p ai-models-minimax --all-targets --all-features -- -D warnings
 - `src/minimax/request_types.rs` - typed MiniMax request DTOs.
 - `src/minimax/response.rs` - MiniMax response normalization.
 - `src/minimax/stream.rs` and `stream_normalizer.rs` - public delta emission,
-  SSE consumption, and cumulative snapshot normalization.
+  SSE consumption, and M2.x stream-shape inference.
 
 ### Related Docs
 

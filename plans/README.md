@@ -10,6 +10,8 @@ milestones are finished.
 
 ## Completed
 
+- [MiniMax M2.x stream snapshot recovery](minimax-m2-stream-snapshot-recovery.md)
+- [Add TypeSafe judgment provider](add-typesafe-judgment-provider.md)
 - [Public model completion events](public-model-completion-events.md)
 - [Add video generation support](add-video-generation-support.md)
 - [Add video input support](add-video-input-support.md)

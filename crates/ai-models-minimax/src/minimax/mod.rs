@@ -55,6 +55,10 @@ mod controls_tests;
 mod streaming_tests;
 
 #[cfg(test)]
+#[path = "_tests_/shape_inference_tests.rs"]
+mod shape_inference_tests;
+
+#[cfg(test)]
 #[path = "_tests_/stream_error_tests.rs"]
 mod stream_error_tests;
 

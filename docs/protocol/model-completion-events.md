@@ -105,7 +105,7 @@ through every wrapper therefore retain streaming behavior.
 | DeepSeek | `delta.content` | `delta.reasoning_content` | Existing shared chat-completions accumulation |
 | Kimi | `delta.content` | `delta.reasoning_content` | Existing shared chat-completions accumulation |
 | QwenCloud | `delta.content` | `delta.reasoning_content` | Existing shared chat-completions accumulation |
-| MiniMax | M3 incremental fragments; one validated terminal M2.x snapshot | Append-only reasoning fragments when exposed | Existing shared accumulation and validated EOF rules |
+| MiniMax | M3 incremental fragments; one validated terminal M2.x inferred value | Append-only reasoning fragments when exposed | Existing shared accumulation and validated EOF rules |
 | xAI synchronous | `delta.content` | `delta.reasoning_content` when exposed | Existing shared chat-completions accumulation |
 
 Provider adapters emit from the native events they already parse and preserve
@@ -127,9 +127,13 @@ same newline inserted by the buffered mapper. Google still merges the first
 compatible part of a later chunk and preserves distinct same-chunk parts.
 OpenAI accepts both reasoning-summary and reasoning-text delta event names as
 reasoning progress while continuing to parse only the terminal response object.
-MiniMax emits M3 assistant content incrementally. M2.x cumulative content may
-revise an earlier snapshot, so the adapter withholds assistant content until
-terminal validation and emits the final nonempty snapshot once. Append-only
+MiniMax emits M3 assistant content incrementally. M2.x may send snapshots or
+fragments, so the adapter infers the shape per stream while withholding
+assistant content. A nonempty value that strictly extends retained text
+replaces it, and extending a nonempty retained prefix records snapshot
+evidence. Other nonempty values append until that evidence exists and become
+replacing snapshots afterward; empty values are ignored. After terminal
+validation, the adapter emits the inferred nonempty text once. Append-only
 `reasoning_content` remains public reasoning text as it arrives; revisable
 `reasoning_details` snapshots remain terminal replay context because they
 cannot be represented as deltas without replacement semantics.
