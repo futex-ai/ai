@@ -4,7 +4,6 @@ mod chat_completions_event_tests;
 mod chat_completions_tests;
 mod concurrency_tests;
 mod errors_tests;
-mod http_status_tests;
 mod qwen_tool_call_identity_tests;
 mod retrying_event_tests;
 mod retrying_tests;

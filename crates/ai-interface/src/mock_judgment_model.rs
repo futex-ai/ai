@@ -67,3 +67,7 @@ fn answer_question(id: &str, question: &JudgmentQuestion) -> JudgmentResult<Judg
         }
     }
 }
+
+#[cfg(test)]
+#[path = "_tests_/mock_judgment_model_tests.rs"]
+mod mock_judgment_model_tests;

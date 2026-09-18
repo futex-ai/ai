@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use ai_interface::{
-    JudgmentAnswer, JudgmentError, JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage,
-    deserialize_score_probabilities,
+    JudgmentAnswer, JudgmentAnswerProblem, JudgmentError, JudgmentRequest, JudgmentResponse,
+    JudgmentResult, ModelUsage, deserialize_score_probabilities,
 };
 use serde::Deserialize;
 use serde_json::value::RawValue;
@@ -143,9 +143,39 @@ pub(super) fn redact_response_error(error: JudgmentError, secrets: &[String]) ->
             model_id,
             message,
         } => JudgmentError::provider(provider, model_id, redact_secrets(&message, secrets)),
+        JudgmentError::InvalidAnswer {
+            provider,
+            model_id,
+            id,
+            problem,
+        } => JudgmentError::invalid_answer(
+            provider,
+            model_id,
+            id,
+            redact_answer_problem(problem, secrets),
+        ),
         error => error,
     }
 }
+
+fn redact_answer_problem(
+    problem: JudgmentAnswerProblem,
+    secrets: &[String],
+) -> JudgmentAnswerProblem {
+    match problem {
+        JudgmentAnswerProblem::UnknownOption { label } => JudgmentAnswerProblem::UnknownOption {
+            label: redact_secrets(&label, secrets),
+        },
+        JudgmentAnswerProblem::MissingOption { label } => JudgmentAnswerProblem::MissingOption {
+            label: redact_secrets(&label, secrets),
+        },
+        problem => problem,
+    }
+}
+
+#[cfg(test)]
+#[path = "_tests_/response_redaction_tests.rs"]
+mod response_redaction_tests;
 
 #[cfg(test)]
 #[path = "_tests_/response_tests.rs"]

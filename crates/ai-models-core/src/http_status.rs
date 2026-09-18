@@ -27,3 +27,7 @@ pub fn classify_http_status(status: u16) -> Option<HttpFailureClass> {
         _ => Some(HttpFailureClass::Terminal),
     }
 }
+
+#[cfg(test)]
+#[path = "_tests_/http_status_tests.rs"]
+mod http_status_tests;

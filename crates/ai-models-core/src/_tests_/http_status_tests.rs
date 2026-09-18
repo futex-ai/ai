@@ -1,6 +1,6 @@
 //! Boundary-neutral HTTP status classification tests.
 
-use crate::{HttpFailureClass, classify_http_status};
+use super::{HttpFailureClass, classify_http_status};
 
 #[test]
 fn statuses_below_failure_range_are_not_failures() {

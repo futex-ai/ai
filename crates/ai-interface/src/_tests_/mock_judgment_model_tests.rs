@@ -7,9 +7,10 @@ use unimock::{MockFn, Unimock, matching};
 
 use crate::{
     DynJudgmentModel, JudgmentAnswer, JudgmentContent, JudgmentError, JudgmentModel,
-    JudgmentModelMock, JudgmentQuestion, JudgmentRequest, JudgmentResponse, MockJudgmentModel,
-    ModelUsage,
+    JudgmentModelMock, JudgmentQuestion, JudgmentRequest, JudgmentResponse, ModelUsage,
 };
+
+use super::MockJudgmentModel;
 
 #[tokio::test]
 async fn mock_returns_deterministic_answers_and_identity() {

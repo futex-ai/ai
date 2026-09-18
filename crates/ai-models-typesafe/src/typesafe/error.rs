@@ -8,6 +8,10 @@ use super::redaction::redact_secrets;
 
 const PROVIDER: &str = "typesafe";
 
+/// Fixed auth failure diagnostic used because hook errors can contain
+/// undiscovered credentials and therefore cannot be safely sanitized.
+pub(super) const AUTH_HOOK_FAILED: &str = "authentication hook failed";
+
 /// Classifies one unsuccessful System One HTTP response.
 pub(super) fn classify_status(
     status: u16,
@@ -41,9 +45,11 @@ pub(super) fn classify_request_error(
     secrets: &[String],
 ) -> JudgmentError {
     match source {
+        json_http::Error::Auth { .. } => {
+            JudgmentError::transient_provider(PROVIDER, model_id, AUTH_HOOK_FAILED)
+        }
         source @ (json_http::Error::Transport { .. }
         | json_http::Error::ReqwestTransport { .. }
-        | json_http::Error::Auth { .. }
         | json_http::Error::IdleTimeout { .. }
         | json_http::Error::DeadlineExceeded { .. }
         | json_http::Error::SseTransport { .. }) => {
@@ -86,3 +92,7 @@ fn error_message(body: &Value) -> Option<String> {
         body => body.to_string(),
     })
 }
+
+#[cfg(test)]
+#[path = "_tests_/error_tests.rs"]
+mod error_tests;

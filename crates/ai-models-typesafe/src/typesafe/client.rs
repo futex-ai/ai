@@ -1,19 +1,22 @@
 //! TypeSafe judgment transport client.
 
-use std::{sync::Arc, time::Duration};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-use ai_interface::{JudgmentModel, JudgmentRequest, JudgmentResponse, JudgmentResult};
+use ai_interface::{
+    JudgmentError, JudgmentModel, JudgmentRequest, JudgmentResponse, JudgmentResult,
+};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use serde_json::Value;
 
 use super::{
-    error::{classify_request_error, classify_status, http_status_message},
-    redaction::applied_header_values,
+    error::{AUTH_HOOK_FAILED, classify_request_error, classify_status, http_status_message},
+    redaction::secrets_from_headers,
     request::build_request,
     response::{parse_response, redact_response_error},
 };
 
+const PROVIDER: &str = "typesafe";
 const TYPESAFE_SYSTEM_ONE_URL: &str = "https://api.typesafe.ai/v1/systemone";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -78,13 +81,20 @@ impl TypeSafeJudgmentModel {
 impl JudgmentModel for TypeSafeJudgmentModel {
     async fn judge(&self, request: &JudgmentRequest) -> JudgmentResult<JudgmentResponse> {
         request.validate()?;
-        let mut secrets = self.redaction_secrets.clone();
-        secrets.extend(applied_header_values(&self.auth).await);
+        let mut headers = BTreeMap::new();
+        if self.auth.apply_headers(&mut headers).await.is_err() {
+            return Err(JudgmentError::transient_provider(
+                PROVIDER,
+                &self.model_id,
+                AUTH_HOOK_FAILED,
+            ));
+        }
+        let secrets = secrets_from_headers(&self.redaction_secrets, &headers);
         let body = build_request(&self.model_id, request);
         let http_request = match self
             .http_client
             .post(&self.endpoint)
-            .auth(self.auth.clone())
+            .headers(headers.clone())
             .timeout(self.timeout)
             .json(body)
         {
@@ -134,6 +144,10 @@ mod construction_tests;
 #[cfg(test)]
 #[path = "_tests_/client_tests.rs"]
 mod client_tests;
+
+#[cfg(test)]
+#[path = "_tests_/auth_redaction_tests.rs"]
+mod auth_redaction_tests;
 
 #[cfg(test)]
 #[path = "_tests_/redaction_tests.rs"]

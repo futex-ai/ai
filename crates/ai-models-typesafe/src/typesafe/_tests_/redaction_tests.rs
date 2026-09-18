@@ -1,18 +1,17 @@
 //! TypeSafe judgment credential-redaction tests.
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
-use ai_interface::{JudgmentError, JudgmentModel};
-use json_http::{JsonHttpAuth, JsonHttpAuthMock, JsonHttpResponse, StaticHeaderAuth};
+use ai_interface::{
+    JudgmentAnswerProblem, JudgmentError, JudgmentModel, JudgmentQuestion, JudgmentRequest,
+};
+use json_http::JsonHttpResponse;
 use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
 
 use super::{
     TypeSafeJudgmentModel,
     test_support::{
         json_response, recording_http_client, simple_request, transport_failure_http_client,
-        unused_http_client,
     },
 };
 
@@ -50,52 +49,6 @@ async fn bearer_key_is_redacted_from_provider_bodies() {
 }
 
 #[tokio::test]
-async fn custom_header_values_are_redacted_from_provider_bodies() {
-    let (http_client, _) = recording_http_client(json_response(
-        400,
-        json!({"detail": {"message": "rejected custom-secret"}}),
-    ));
-    let auth = Arc::new(StaticHeaderAuth::new(BTreeMap::from([(
-        "X-Api-Key".to_owned(),
-        "custom-secret".to_owned(),
-    )])));
-
-    let error = TypeSafeJudgmentModel::with_auth(http_client, "jev-latest", auth)
-        .judge(&simple_request())
-        .await
-        .expect_err("provider rejection should return an error");
-
-    assert!(matches!(error, JudgmentError::Provider { .. }));
-    assert_redacted(&error, "custom-secret");
-}
-
-#[tokio::test]
-async fn auth_hook_diagnostics_are_redacted() {
-    let auth: Arc<dyn JsonHttpAuth> = Arc::new(Unimock::new((
-        JsonHttpAuthMock::apply_headers
-            .next_call(matching!(_))
-            .returns(Err(json_http::Error::auth(
-                "Authorization: Bearer typesafe-secret-key",
-            ))),
-        JsonHttpAuthMock::apply_headers
-            .next_call(matching!(_))
-            .returns(Err(json_http::Error::auth(
-                "Authorization: Bearer typesafe-secret-key",
-            ))),
-    )));
-    let mut model = TypeSafeJudgmentModel::new(unused_http_client(), "jev-latest", API_KEY);
-    model.auth = auth;
-
-    let error = model
-        .judge(&simple_request())
-        .await
-        .expect_err("auth-hook failure should return an error");
-
-    assert!(matches!(error, JudgmentError::TransientProvider { .. }));
-    assert_redacted(&error, API_KEY);
-}
-
-#[tokio::test]
 async fn malformed_payload_diagnostics_are_redacted() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
         status: 200,
@@ -113,6 +66,90 @@ async fn malformed_payload_diagnostics_are_redacted() {
 
     assert!(matches!(error, JudgmentError::Provider { .. }));
     assert_redacted(&error, API_KEY);
+}
+
+#[tokio::test]
+async fn unknown_selected_option_labels_are_redacted() {
+    let response = json_response(
+        200,
+        json!({
+            "model": "jev-1.13.0",
+            "answers": {
+                "team": {
+                    "type": "choice",
+                    "choice": "typesafe-secret-key",
+                    "probabilities": {"billing": 0.75, "technical": 0.25},
+                    "confidence": 0.8
+                }
+            }
+        }),
+    );
+    let (http_client, _) = recording_http_client(response);
+
+    let error = TypeSafeJudgmentModel::new(http_client, "jev-latest", API_KEY)
+        .judge(&choice_request())
+        .await
+        .expect_err("unknown selected option should return an error");
+
+    assert_unknown_option_redacted(&error);
+}
+
+#[tokio::test]
+async fn unknown_probability_option_labels_are_redacted() {
+    let response = json_response(
+        200,
+        json!({
+            "model": "jev-1.13.0",
+            "answers": {
+                "team": {
+                    "type": "choice",
+                    "choice": "billing",
+                    "probabilities": {
+                        "billing": 0.75,
+                        "technical": 0.25,
+                        "typesafe-secret-key": 0.0
+                    },
+                    "confidence": 0.8
+                }
+            }
+        }),
+    );
+    let (http_client, _) = recording_http_client(response);
+
+    let error = TypeSafeJudgmentModel::new(http_client, "jev-latest", API_KEY)
+        .judge(&choice_request())
+        .await
+        .expect_err("unknown probability option should return an error");
+
+    assert_unknown_option_redacted(&error);
+}
+
+fn choice_request() -> JudgmentRequest {
+    JudgmentRequest {
+        state: "A support ticket".into(),
+        questions: BTreeMap::from([(
+            "team".to_owned(),
+            JudgmentQuestion::choice("Choose a team", [("billing", None), ("technical", None)]),
+        )]),
+    }
+}
+
+fn assert_unknown_option_redacted(error: &JudgmentError) {
+    let JudgmentError::InvalidAnswer {
+        provider,
+        model_id,
+        id,
+        problem: JudgmentAnswerProblem::UnknownOption { label },
+    } = error
+    else {
+        panic!("expected an unknown-option answer error, got {error}");
+    };
+
+    assert_eq!(provider, "typesafe");
+    assert_eq!(model_id, "jev-latest");
+    assert_eq!(id, "team");
+    assert_eq!(label, "[redacted]");
+    assert_redacted(error, API_KEY);
 }
 
 fn assert_redacted(error: &JudgmentError, secret: &str) {
