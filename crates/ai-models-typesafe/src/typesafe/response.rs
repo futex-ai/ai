@@ -42,12 +42,14 @@ enum TypeSafeAnswer {
     },
 }
 
+/// Provider usage counters, each of which may be absent or `null` when the
+/// API does not report it.
 #[derive(Debug, Default, Deserialize)]
 struct TypeSafeUsage {
     #[serde(default)]
-    input_tokens: u64,
+    input_tokens: Option<u64>,
     #[serde(default)]
-    output_tokens: u64,
+    output_tokens: Option<u64>,
 }
 
 /// Maps a successful System One body into the shared response contract.
@@ -118,10 +120,12 @@ fn normalize_usage(usage: Option<TypeSafeUsage>) -> ModelUsage {
     let Some(usage) = usage else {
         return ModelUsage::default();
     };
+    let input_tokens = usage.input_tokens.unwrap_or_default();
+    let output_tokens = usage.output_tokens.unwrap_or_default();
     ModelUsage {
-        input_tokens: usage.input_tokens,
-        output_tokens: usage.output_tokens,
-        total_tokens: usage.input_tokens.saturating_add(usage.output_tokens),
+        input_tokens,
+        output_tokens,
+        total_tokens: input_tokens.saturating_add(output_tokens),
         ..ModelUsage::default()
     }
 }

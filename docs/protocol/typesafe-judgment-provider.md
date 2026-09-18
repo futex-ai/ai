@@ -298,7 +298,8 @@ typed `InvalidAnswer` error.
 `usage.input_tokens` and `usage.output_tokens` map to `ModelUsage`
 `input_tokens` and `output_tokens`; `total_tokens` is their saturating sum and
 the cached and reasoning buckets remain zero. Missing usage is
-`ModelUsage::default()`. Cost lines remain empty until a composition root
+`ModelUsage::default()`. TypeSafe documents each counter as nullable, so an
+absent or `null` counter maps to zero rather than failing the response. Cost lines remain empty until a composition root
 applies `ai_models_core::price_usage`; TypeSafe currently bills input tokens
 only.
 

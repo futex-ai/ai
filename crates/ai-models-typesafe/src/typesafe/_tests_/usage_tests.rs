@@ -35,6 +35,32 @@ fn missing_usage_uses_the_shared_default() {
 }
 
 #[test]
+fn null_or_absent_usage_counters_map_to_zero() {
+    for usage in [
+        json!({"input_tokens": null, "output_tokens": null}),
+        json!({"input_tokens": 12, "output_tokens": null}),
+        json!({"output_tokens": 3}),
+        json!({}),
+    ] {
+        let response = parse_value(body_with_usage(Some(usage.clone())))
+            .expect("nullable usage counters should not fail the response");
+        let input_tokens = usage["input_tokens"].as_u64().unwrap_or_default();
+        let output_tokens = usage["output_tokens"].as_u64().unwrap_or_default();
+
+        assert_eq!(
+            response.usage,
+            ModelUsage {
+                input_tokens,
+                output_tokens,
+                total_tokens: input_tokens + output_tokens,
+                ..ModelUsage::default()
+            },
+            "usage fixture {usage}"
+        );
+    }
+}
+
+#[test]
 fn usage_total_saturates_and_other_buckets_stay_empty() {
     let response = parse_value(body_with_usage(Some(
         json!({"input_tokens": u64::MAX, "output_tokens": 9}),

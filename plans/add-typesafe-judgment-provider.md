@@ -294,3 +294,5 @@ one and a score whose expectation disagrees with its distribution are typed
 - [x] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
       --all-targets --all-features -- -D warnings`,
       `cargo test --workspace --all-features`, and `cargo xtask check`.
+- [x] Add a failing test for `null` and absent usage counters, then
+      deserialize each counter as nullable and default it to zero.
