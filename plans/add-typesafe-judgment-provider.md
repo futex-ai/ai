@@ -167,13 +167,13 @@ Catalog registration automatically produces credentialed coverage.
 
 ## Milestone 6: Verification, Commit, Push, And Review
 
-- [ ] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
+- [x] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
       --all-targets --all-features`, `cargo test --workspace --all-features`,
       `cargo xtask rust-file-length-lint --all`, and `cargo xtask smoke-test`.
-- [ ] Run `cargo xtask check` and fix failures until it passes.
-- [ ] Review `git diff origin/main...` for scope, docs, public API, tests,
+- [x] Run `cargo xtask check` and fix failures until it passes.
+- [x] Review `git diff origin/main...` for scope, docs, public API, tests,
       credentials, and untracked files.
-- [ ] Move this plan to Completed in `plans/README.md`.
+- [x] Move this plan to Completed in `plans/README.md`.
 - [ ] Run `git add -A`, commit with a Conventional Commit title no longer than
       50 characters and a descriptive body, and push the current branch
       without renaming it.
