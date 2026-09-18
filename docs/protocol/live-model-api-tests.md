@@ -13,10 +13,10 @@ MiniMax, OpenAI, QwenCloud, and xAI. Each provider test obtains its models from
 that crate's `known_models()` function, so new chat-capable catalog variants
 enter the live test automatically. Logical variants that share an upstream
 model id still run separately because they exercise different thinking
-controls. Entries advertising `ModelFeature::ImageGeneration` or
-`ModelFeature::VideoGeneration` are routed through `ImageGenerator` or
-`VideoGenerator`, not `Model`, and are therefore outside this chat connectivity
-suite.
+controls. Entries advertising `ModelFeature::ImageGeneration`,
+`ModelFeature::VideoGeneration`, or `ModelFeature::Judgment` are routed through
+their specialized provider-neutral traits, not `Model`, and are therefore
+outside this chat connectivity suite.
 
 Audio transcription, image or video generation, provider-built tools,
 multimodal input, multi-turn tool replay, pricing, and provider features
@@ -39,6 +39,9 @@ controls.
 Credentialed video generation is specified separately by the implemented
 [live video API test protocol](live-video-api-tests.md) for the same reason.
 
+Credentialed judgment evaluation is specified separately by the implemented
+[live judgment API test protocol](live-judgment-api-tests.md).
+
 MiniMax is the one additional tool-choice compatibility probe: before its
 catalog connectivity loop, the suite calls `MiniMax-M3` with a real function
 definition and strict `ModelToolChoice::Required`, then requires a matching
@@ -52,8 +55,8 @@ and `none`.
 test:
 
 1. Requires a non-empty `LIVE_MODEL_API_KEY`.
-2. Selects every catalog entry that advertises neither image nor video
-   generation, then
+2. Selects every catalog entry that advertises neither image generation, video
+   generation, nor judgment, then
    constructs it with `ReqwestJsonHttpClient`, the production chat adapter,
    explicit provider authentication, and catalog thinking metadata.
    Providers migrated to internal SSE accumulation therefore use their real

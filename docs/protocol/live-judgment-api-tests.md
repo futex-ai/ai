@@ -4,7 +4,7 @@
 
 This protocol defines credentialed end-to-end verification for every
 judgment adapter and every catalog entry advertising `ModelFeature::Judgment`.
-It is planned and tracked by the
+It is implemented and tracked by the
 [Add TypeSafe judgment provider plan](../../plans/add-typesafe-judgment-provider.md).
 
 The suite complements deterministic wire-mapping tests. It proves that the

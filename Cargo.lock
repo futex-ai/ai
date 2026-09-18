@@ -2767,6 +2767,7 @@ dependencies = [
  "ai-models-minimax",
  "ai-models-openai",
  "ai-models-qwen",
+ "ai-models-typesafe",
  "ai-models-xai",
  "ai-tool-calling",
  "async-trait",

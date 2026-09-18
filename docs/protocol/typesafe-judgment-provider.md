@@ -9,9 +9,9 @@ That contract does not fit `ai_interface::Model`, so this protocol defines a
 separate provider-agnostic judgment boundary and the TypeSafe implementation
 of it.
 
-This contract is planned. The
+This contract is implemented. The
 [Add TypeSafe judgment provider plan](../../plans/add-typesafe-judgment-provider.md)
-tracks the implementation. Credentialed verification is defined by the
+records the implementation. Credentialed verification is defined by the
 [live judgment API test protocol](live-judgment-api-tests.md).
 
 ## Scope
@@ -265,12 +265,21 @@ The adapter maps `model` to `resolved_model_id`, `noul` to
 level indexes. `legend` is not surfaced because the caller owns the levels.
 Unknown fields are ignored.
 
+The adapter reads the response as raw bytes and deserializes successful
+bodies directly from those bytes, never through an intermediate
+`serde_json::Value`, so repeated JSON keys reach the typed decoder instead of
+silently collapsing. Only statuses in `200..300` are treated as success;
+every other status is classified as a failure. Answer entries are held as raw
+JSON fragments until their id is matched to a requested question, so
+unrequested ids are ignored even when their fragments would not decode.
+
 A body that fails to deserialize, including a non-decimal or duplicate score
-level key, is a non-retryable `Provider` error. After mapping, the adapter
-applies the shared `validate_against` postconditions, so a missing answer, a
-kind mismatch, an unknown or missing option or level, an out-of-range
-probability, confidence, or expectation, or a distribution that does not sum
-to one is a typed `InvalidAnswer` error.
+level key, is a non-retryable `Provider` error whose message is the fixed
+text `malformed provider payload` followed by the decoder's own diagnostic.
+After mapping, the adapter applies the shared `validate_against`
+postconditions, so a missing answer, a kind mismatch, an unknown or missing
+option or level, an out-of-range probability, confidence, or expectation, or
+a distribution that does not sum to one is a typed `InvalidAnswer` error.
 
 ## Usage
 
@@ -308,10 +317,18 @@ boundary-neutral helper introduced by this change. It returns
 `RateLimited` (429), `Transient` (408, 409, 425, 5xx), or `Terminal`, so the
 image, video, and judgment boundaries stop duplicating the same status table.
 Error bodies are decoded best-effort: a `detail` object supplies its
-`message`; a `detail` string is used directly; any other body is retained as
-compact JSON or text. TypeSafe currently answers a missing key with `403` and
-`{"detail": {"error_type": "authentication_error", "message": "..."}}`. API
-keys and auth headers must never appear in errors or diagnostics.
+`message`; a `detail` string is used directly; any other body, including JSON
+`null`, is retained as compact JSON or text; an empty body falls back to
+`HTTP <status>`. TypeSafe currently answers a missing key with `403` and
+`{"detail": {"error_type": "authentication_error", "message": "..."}}`.
+
+API keys and auth headers must never appear in errors or diagnostics. The
+adapter enforces this rather than assuming it: every provider message,
+transport diagnostic, and auth-hook diagnostic passes through a redaction step
+that replaces each applied authentication header value with `[redacted]`
+before the error is built. The applied header values come from running the
+injected auth hook against an empty header map, so redaction covers bearer
+tokens and custom header schemes alike.
 
 ## Required Verification
 

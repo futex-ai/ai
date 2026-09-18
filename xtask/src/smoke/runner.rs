@@ -18,6 +18,7 @@ use ai_models_openai::{
     OpenAiVideoGenerator, SORA_2,
 };
 use ai_models_qwen::QwenModel;
+use ai_models_typesafe::{JEV_LATEST, TypeSafeJudgmentModel};
 use ai_models_xai::{GROK_4_5, XaiModel};
 use ai_tool_calling::{
     InMemoryToolOutputStore, RunOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn,
@@ -45,6 +46,7 @@ pub(crate) fn run() -> Result<()> {
     let _openai_image = OpenAiImageGenerator::new(client.clone(), GPT_IMAGE_2, "openai-key");
     let _openai_video = OpenAiVideoGenerator::new(client.clone(), SORA_2, "openai-key");
     let _qwen = QwenModel::new(client.clone(), "qwen-key");
+    let _typesafe = TypeSafeJudgmentModel::new(client.clone(), JEV_LATEST, "typesafe-key");
     let _xai = XaiModel::new(client, GROK_4_5, "xai-key");
     let _transcriber = OpenAiAudioTranscriber::new("gpt-4o-mini-transcribe", "openai-key");
 

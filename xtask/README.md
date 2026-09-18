@@ -9,10 +9,10 @@ file-length audits, or AI review.
 - Run the standard local verification sequence
 - Enforce the Rust file-length cap for `crates/` and `xtask/`
 - Run a credential-free smoke test for chat, transcription, image-provider,
-  and video-provider construction, tool-calling registration, MCP tools, and
-  the resource-bound MCP OAuth hook
-- Host credentialed integration tests for every chat, image-provider, and
-  video-provider catalog against real APIs
+  video-provider, and TypeSafe judgment-provider construction, tool-calling
+  registration, MCP tools, and the resource-bound MCP OAuth hook
+- Host credentialed integration tests for every chat, image-provider,
+  video-provider, and judgment-provider catalog against real APIs
 - Delegate local AI review to the Codex CLI
 
 ## What This Crate Does
@@ -23,9 +23,10 @@ and the smoke test in the same order expected by CI.
 
 `smoke-test` constructs the Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
 OpenAI, QwenCloud, and xAI model adapters, the OpenAI transcriber, and the
-Google and OpenAI image and video generators with placeholder credentials. It
-also runs an in-memory tool-output pagination flow. Provider construction does
-not send network requests or require real credentials.
+Google and OpenAI image and video generators, plus the TypeSafe Jev judgment
+adapter, with placeholder credentials. It also runs an in-memory tool-output
+pagination flow. Provider construction does not send network requests or
+require real credentials.
 
 `tests/live_models.rs` owns the chat live suite and its credential-free guards.
 Each ignored provider test reads one explicit `LIVE_MODEL_API_KEY`, constructs
@@ -38,8 +39,8 @@ probe. The catalog then uses portable no-tools, ten-minute, `PreferDeferred`
 controls: seven providers retain event parity on their synchronous fallback,
 while xAI's deferred lifecycle must remain silent. The suite also validates
 normalized provider, catalog, model, thinking, finish, text, tool, and usage
-fields. Image- and video-generation entries are excluded because they use
-separate specialized interfaces. Credentialed tests never run as part of
+fields. Image-, video-, and judgment-capable entries are excluded because they
+use separate specialized interfaces. Credentialed tests never run as part of
 `check` or `smoke-test`; credential-free event policy, bridge, validation,
 catalog, and workflow guards do. The dedicated GitHub Actions workflow invokes
 the ignored tests for eligible pull requests, daily verification, and manual
@@ -65,7 +66,15 @@ identity. The runner does not automatically retry submissions: a transport
 failure can leave the upstream job running, so retrying could create duplicate
 billable renders. Credential-free guards cover catalog registration, adapter
 construction, request shape, response validation, and workflow boundaries.
-None of the three live suites makes provider calls during `check` or
+
+`tests/live_judgments/mod.rs` is the corresponding ignored judgment suite. It
+selects every TypeSafe catalog entry advertising `Judgment`, constructs the
+production adapter behind `DynJudgmentModel`, and evaluates a short support
+message against condition, choice, and score questions. Transient and
+rate-limit failures use the shared retry schedule for no more than three
+attempts. Credential-free guards cover catalog registration, construction,
+probe shape, retry behavior, normalized validation, and workflow boundaries.
+None of the four live suites makes provider calls during `check` or
 `smoke-test`.
 
 ## Quick Start
@@ -82,6 +91,9 @@ cargo test --locked -p xtask --test live_images
 # Credential-free: runs video registry, runner, validation, and workflow guards.
 cargo test --locked -p xtask --test live_videos
 
+# Credential-free: runs judgment registry, runner, retry, and workflow guards.
+cargo test --locked -p xtask --test live_judgments
+
 # Credential-free: runs chat catalog, event, runner, and workflow guards.
 cargo test --locked -p xtask --test live_models
 
@@ -96,6 +108,11 @@ LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_im
 # Billable: tests every video-capable OpenAI catalog entry against the real API.
 LIVE_VIDEO_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_videos \
   catalog_tests::openai_video_catalog -- --ignored --exact --nocapture
+
+# Billable: tests every TypeSafe judgment catalog entry against the real API.
+LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
+  --test live_judgments catalog_tests::typesafe_judgment_catalog \
+  -- --ignored --exact --nocapture
 ```
 
 ## Development
@@ -117,6 +134,8 @@ cargo clippy -p xtask --all-targets --all-features
   guards over image-provider catalogs
 - `tests/live_videos/mod.rs` - ignored credentialed tests and credential-free
   guards over video-provider catalogs
+- `tests/live_judgments/mod.rs` - ignored credentialed tests and
+  credential-free guards over judgment-provider catalogs
 - `src/review.rs` - Codex CLI review delegation
 
 ### Related Docs
@@ -125,4 +144,5 @@ cargo clippy -p xtask --all-targets --all-features
 - [`../docs/protocol/live-model-api-tests.md`](../docs/protocol/live-model-api-tests.md)
 - [`../docs/protocol/live-image-api-tests.md`](../docs/protocol/live-image-api-tests.md)
 - [`../docs/protocol/live-video-api-tests.md`](../docs/protocol/live-video-api-tests.md)
+- [`../docs/protocol/live-judgment-api-tests.md`](../docs/protocol/live-judgment-api-tests.md)
 - [`../plans/README.md`](../plans/README.md)

@@ -142,6 +142,7 @@ impl LiveProvider {
             .into_iter()
             .filter(|model| {
                 !model.has_feature(ModelFeature::ImageGeneration)
+                    && !model.has_feature(ModelFeature::Judgment)
                     && !model.has_feature(ModelFeature::VideoGeneration)
             })
             .collect()

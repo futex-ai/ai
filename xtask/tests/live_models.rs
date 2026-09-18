@@ -22,6 +22,7 @@ use self::runner_tests::run_live_provider;
 #[test]
 fn covers_every_real_provider() {
     assert_eq!(LiveProvider::from_kind(ProviderKind::Mock), None);
+    assert_eq!(LiveProvider::from_kind(ProviderKind::TypeSafe), None);
     let expected = BTreeSet::from([
         ProviderKind::Anthropic,
         ProviderKind::DeepSeek,
@@ -65,12 +66,13 @@ fn covers_every_real_provider() {
 }
 
 #[test]
-fn chat_catalog_excludes_specialized_generation_models() {
+fn chat_catalog_excludes_specialized_models() {
     let specialized_model_count = LiveProvider::ALL
         .iter()
         .flat_map(|provider| provider.catalog())
         .filter(|model| {
             model.has_feature(ModelFeature::ImageGeneration)
+                || model.has_feature(ModelFeature::Judgment)
                 || model.has_feature(ModelFeature::VideoGeneration)
         })
         .count();
@@ -83,11 +85,25 @@ fn chat_catalog_excludes_specialized_generation_models() {
         assert!(
             provider.chat_catalog().iter().all(|model| {
                 !model.has_feature(ModelFeature::ImageGeneration)
+                    && !model.has_feature(ModelFeature::Judgment)
                     && !model.has_feature(ModelFeature::VideoGeneration)
             }),
             "{provider:?} chat catalog included a specialized generation model"
         );
     }
+}
+
+#[test]
+fn typesafe_judgment_models_never_reach_other_live_runners() {
+    let catalog = ai_models_typesafe::known_models();
+
+    assert!(!catalog.is_empty(), "TypeSafe catalog must not be empty");
+    assert!(catalog.iter().all(|model| {
+        model.has_feature(ModelFeature::Judgment)
+            && !model.has_feature(ModelFeature::ToolCalling)
+            && !model.has_feature(ModelFeature::ImageGeneration)
+            && !model.has_feature(ModelFeature::VideoGeneration)
+    }));
 }
 
 #[test]

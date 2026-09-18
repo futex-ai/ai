@@ -11,6 +11,10 @@ name = "live_images"
 path = "tests/live_images/mod.rs"
 
 [[test]]
+name = "live_judgments"
+path = "tests/live_judgments/mod.rs"
+
+[[test]]
 name = "live_videos"
 path = "tests/live_videos/mod.rs"
 
@@ -25,6 +29,7 @@ ai-models-kimi.workspace = true
 ai-models-minimax.workspace = true
 ai-models-openai.workspace = true
 ai-models-qwen.workspace = true
+ai-models-typesafe.workspace = true
 ai-models-xai.workspace = true
 ai-tool-calling.workspace = true
 async-trait = "0.1.89"

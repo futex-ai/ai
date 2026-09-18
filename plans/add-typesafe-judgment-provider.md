@@ -142,28 +142,28 @@ Callers can evaluate questions through `TypeSafeJudgmentModel`.
 
 Catalog registration automatically produces credentialed coverage.
 
-- [ ] Add `ai-models-typesafe` to `xtask` and construct `JEV_LATEST` in the
+- [x] Add `ai-models-typesafe` to `xtask` and construct `JEV_LATEST` in the
       credential-free smoke test without a live request.
-- [ ] Add the `live_judgments` test target under `xtask/tests/live_judgments/`
+- [x] Add the `live_judgments` test target under `xtask/tests/live_judgments/`
       with `mod.rs`, `provider_tests.rs`, `runner_tests.rs`,
       `retry_tests.rs`, `validation_tests.rs`, `catalog_tests.rs`,
       `workflow_tests.rs`, and `layout_tests.rs` following the image suite.
-- [ ] Add credential-free guards proving every judgment-capable catalog
+- [x] Add credential-free guards proving every judgment-capable catalog
       provider is registered, adapters construct behind `DynJudgmentModel`,
       the probe request is the documented shape, and validation rejects each
       contract violation.
-- [ ] Update `xtask/tests/live_models.rs` so the all-provider guard treats
+- [x] Update `xtask/tests/live_models.rs` so the all-provider guard treats
       TypeSafe as judgment-only, `chat_catalog` also excludes
       `ModelFeature::Judgment` entries, and a guard proves judgment entries
       never reach the chat, image, or video runners.
-- [ ] Add `.github/workflows/live-judgments.yml` mirroring the image workflow
+- [x] Add `.github/workflows/live-judgments.yml` mirroring the image workflow
       with the `TYPESAFE_API_KEY` secret.
-- [ ] Update the workspace `README.md` feature list, interface map, live-test
+- [x] Update the workspace `README.md` feature list, interface map, live-test
       instructions, key-code pointers, and CI section; update `xtask/README.md`.
-- [ ] Update `docs/protocol/live-model-api-tests.md`,
+- [x] Update `docs/protocol/live-model-api-tests.md`,
       `live-image-api-tests.md`, and `live-video-api-tests.md` to name the
       judgment suite as a sibling.
-- [ ] Change both new protocols from planned to implemented.
+- [x] Change both new protocols from planned to implemented.
 
 ## Milestone 6: Verification, Commit, Push, And Review
 
@@ -214,3 +214,36 @@ its own public consumer paths.
 - [x] Run `cargo fmt --all -- --check`, `cargo clippy -p ai-interface
       --all-targets --all-features -- -D warnings`, and
       `cargo test -p ai-interface --all-features`.
+
+## Milestone 8: Provider Review Follow-Up
+
+Address the design-review findings on the provider crate. At the end of this
+milestone, duplicate score keys and unrequested answer fragments can no longer
+corrupt or fail a judgment, non-2xx statuses are never treated as success,
+credentials are redacted from every diagnostic, and the crate's tests pin the
+remaining protocol rules.
+
+- [ ] Add a failing regression through `judge` proving a repeated score key
+      whose surviving values satisfy every postcondition is rejected, then
+      read successful responses through `send_bytes` and deserialize typed
+      bodies directly from bytes.
+- [ ] Add a failing regression proving an unrequested answer id with an
+      undecodable fragment is ignored, then hold answer entries as raw JSON
+      fragments and decode only requested ids.
+- [ ] Add a failing regression proving a `3xx` status with a valid-looking
+      body is a `Provider` error, then treat only `200..300` as success.
+- [ ] Add failing sentinel-secret regressions for a bearer key, a custom auth
+      header, an auth-hook diagnostic, a transport diagnostic, and a provider
+      body that echo the credential, asserting neither `Display` nor `Debug`
+      contains it, then add the redaction step described by the protocol.
+- [ ] Add a failing test that malformed-body errors retain the decoder
+      diagnostic after the fixed prefix, then implement it.
+- [ ] Add failing wire-mapping tests for structured instructions and
+      descriptions, `no`-only and present-but-empty condition criteria, exact
+      per-input local validation variants, and a JSON `null` error body
+      retained as `null`, then fix the null fallback.
+- [ ] Update the crate README and the protocol wording where behavior
+      changed.
+- [ ] Run `cargo fmt --all -- --check`, `cargo clippy -p ai-models-typesafe
+      --all-targets --all-features -- -D warnings`, and
+      `cargo test -p ai-models-typesafe --all-features`.
