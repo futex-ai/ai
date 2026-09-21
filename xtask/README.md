@@ -52,6 +52,9 @@ catalog, and workflow guards do. The dedicated GitHub Actions workflow invokes
 the ignored tests for eligible pull requests, daily verification, and manual
 dispatch. The MiniMax job first sends MiniMax-M3 a real tool with strict
 `Required` selection and asserts that the provider returns that tool call.
+The judgment workflow additionally requires the repository Actions variable
+`LIVE_JUDGMENT_API_TESTS_ENABLED=true`; its provider job remains skipped until
+the TypeSafe credential is provisioned and that opt-in is enabled.
 
 `tests/live_images/mod.rs` is the corresponding ignored image suite. It selects
 every Google and OpenAI catalog entry advertising `ImageGeneration`, constructs

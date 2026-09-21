@@ -22,7 +22,7 @@ fn workflow_covers_every_registered_provider() {
 }
 
 #[test]
-fn workflow_has_trusted_events_and_read_only_permissions() {
+fn workflow_has_trusted_events_opt_in_and_read_only_permissions() {
     assert!(WORKFLOW.contains("  pull_request:\n    branches:\n      - main"));
     assert!(WORKFLOW.contains("  schedule:"));
     assert!(WORKFLOW.contains("  workflow_dispatch:"));
@@ -33,6 +33,9 @@ fn workflow_has_trusted_events_and_read_only_permissions() {
     );
     assert!(WORKFLOW.contains("github.event.pull_request.user.login != 'dependabot[bot]'"));
     assert!(WORKFLOW.contains("github.ref_name == github.event.repository.default_branch"));
+    let opt_in = "vars.LIVE_JUDGMENT_API_TESTS_ENABLED == 'true'";
+    assert_eq!(WORKFLOW.matches(opt_in).count(), 1);
+    assert!(WORKFLOW.find(opt_in) < WORKFLOW.find("runs-on: ubuntu-latest"));
 }
 
 #[test]

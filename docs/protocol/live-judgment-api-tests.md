@@ -74,19 +74,23 @@ Calibration and threshold tuning remain the consumer's responsibility.
 
 ## CI, Cost, And Credentials
 
-`.github/workflows/live-judgments.yml` runs for same-repository pull requests
-targeting `main`, on the default branch on a daily schedule, and by manual
-dispatch. Forked and Dependabot pull requests skip the credentialed jobs. The
-workflow must not use `pull_request_target`, uses read-only permissions, one
-matrix entry per registered provider, and exposes only the current provider's
-secret to its credential check and test steps.
+`.github/workflows/live-judgments.yml` is eligible for same-repository pull
+requests targeting `main`, on the default branch on a daily schedule, and by
+manual dispatch. Its provider job runs only when the repository Actions
+variable `LIVE_JUDGMENT_API_TESTS_ENABLED` is exactly `true`. Forked and
+Dependabot pull requests skip the credentialed job. The workflow must not use
+`pull_request_target`, uses read-only permissions, has one matrix entry per
+registered provider, and exposes only the current provider's secret to its
+credential check and test steps.
 
 | Provider | Secret |
 | --- | --- |
 | TypeSafe | `TYPESAFE_API_KEY` |
 
 Each attempt sends one small request billed on input tokens only. A missing
-secret on an eligible event is a failing configuration error.
+or non-`true` opt-in variable skips the job. The opt-in should be enabled only
+after `TYPESAFE_API_KEY` is provisioned; once enabled, a missing secret on an
+eligible event is a failing configuration error.
 
 ## Local Invocation
 

@@ -205,9 +205,11 @@ LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
 ```
 
 The `Live judgment APIs` workflow runs the TypeSafe catalog sequentially for
-trusted same-repository pull requests, daily, and on manual dispatch. It uses
-`TYPESAFE_API_KEY` and may make up to three billable attempts per catalog model
-after transient failures.
+trusted same-repository pull requests, daily, and on manual dispatch after the
+repository variable `LIVE_JUDGMENT_API_TESTS_ENABLED` is set to `true`. Enable
+it only after provisioning `TYPESAFE_API_KEY`; once enabled, a missing secret
+fails the job. The workflow may make up to three billable attempts per catalog
+model after transient failures.
 
 Credentialed video checks live in `xtask/tests/live_videos/mod.rs`. They select
 every Google and OpenAI catalog entry advertising `VideoGeneration`, construct
@@ -303,9 +305,10 @@ sequential provider jobs. The `Live video APIs` workflow similarly exercises
 every Google and OpenAI video-capable entry through `DynVideoGenerator`, with
 MP4-specific validation and no asset persistence. The `Live judgment APIs`
 workflow exercises every TypeSafe Jev catalog entry through `DynJudgmentModel`
-with `TYPESAFE_API_KEY`, shared answer validation, and sequential retries.
-Forked and Dependabot pull requests skip all credentialed workflows because
-GitHub does not provide them repository Actions secrets. The ordinary
+with `TYPESAFE_API_KEY`, shared answer validation, and sequential retries once
+`LIVE_JUDGMENT_API_TESTS_ENABLED` opts the repository into those billable
+checks. Forked and Dependabot pull requests skip all credentialed workflows
+because GitHub does not provide them repository Actions secrets. The ordinary
 credential-free suite still enforces the live model registry and
 completion-event coverage policy without making provider calls.
 
