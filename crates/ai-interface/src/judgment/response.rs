@@ -152,7 +152,7 @@ fn selected_problem(
 }
 
 fn score_problem(
-    levels: &[Option<JudgmentContent>],
+    levels: &[JudgmentContent],
     expected: f64,
     probabilities: &BTreeMap<u32, f64>,
     confidence: f64,

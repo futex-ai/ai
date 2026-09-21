@@ -65,14 +65,11 @@ fn every_question_variant_uses_a_snake_case_type_tag() {
             }),
         ),
         (
-            JudgmentQuestion::score(
-                "Rate frustration",
-                [Some(JudgmentContent::from("Calm")), None],
-            ),
+            JudgmentQuestion::score("Rate frustration", ["Calm", "Frustrated"]),
             json!({
                 "type": "score",
                 "instructions": "Rate frustration",
-                "levels": ["Calm", null]
+                "levels": ["Calm", "Frustrated"]
             }),
         ),
     ];
@@ -113,7 +110,7 @@ fn every_question_variant_reports_its_kind() {
             JudgmentQuestionKind::Choice,
         ),
         (
-            JudgmentQuestion::score("score", [None, None]),
+            JudgmentQuestion::score("score", ["low", "high"]),
             JudgmentQuestionKind::Score,
         ),
     ];
@@ -160,6 +157,18 @@ fn questions_round_trip_structured_instructions_and_descriptions() {
 }
 
 #[test]
+fn score_questions_reject_null_level_descriptions() {
+    assert!(
+        serde_json::from_value::<JudgmentQuestion>(json!({
+            "type": "score",
+            "instructions": "Rate frustration",
+            "levels": ["Calm", null, "Very frustrated"]
+        }))
+        .is_err()
+    );
+}
+
+#[test]
 fn constructors_preserve_supplied_values_without_validation() {
     let criteria = JudgmentConditionCriteria::new(
         Some(JudgmentContent::from("yes")),
@@ -185,10 +194,10 @@ fn constructors_preserve_supplied_values_without_validation() {
     );
 
     assert_eq!(
-        JudgmentQuestion::score("score", [Some("only".into())]),
+        JudgmentQuestion::score("score", ["only"]),
         JudgmentQuestion::Score {
             instructions: JudgmentContent::from("score"),
-            levels: vec![Some(JudgmentContent::from("only"))],
+            levels: vec![JudgmentContent::from("only")],
         }
     );
 }

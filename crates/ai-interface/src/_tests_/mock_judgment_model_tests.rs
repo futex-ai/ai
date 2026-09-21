@@ -113,7 +113,7 @@ fn three_kind_request() -> JudgmentRequest {
             ),
             (
                 "score".to_owned(),
-                JudgmentQuestion::score("Rate it", [None, None, None]),
+                JudgmentQuestion::score("Rate it", ["low", "medium", "high"]),
             ),
         ]),
     }

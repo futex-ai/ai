@@ -59,8 +59,8 @@ pub enum JudgmentQuestion {
     Score {
         /// Instructions that define how to score the state.
         instructions: JudgmentContent,
-        /// Ordered levels and their optional descriptions.
-        levels: Vec<Option<JudgmentContent>>,
+        /// Ordered levels and their required descriptions.
+        levels: Vec<JudgmentContent>,
     },
 }
 
@@ -102,11 +102,11 @@ impl JudgmentQuestion {
     /// Builds a score question without validating it.
     pub fn score(
         instructions: impl Into<JudgmentContent>,
-        levels: impl IntoIterator<Item = Option<JudgmentContent>>,
+        levels: impl IntoIterator<Item = impl Into<JudgmentContent>>,
     ) -> Self {
         Self::Score {
             instructions: instructions.into(),
-            levels: levels.into_iter().collect(),
+            levels: levels.into_iter().map(Into::into).collect(),
         }
     }
 }

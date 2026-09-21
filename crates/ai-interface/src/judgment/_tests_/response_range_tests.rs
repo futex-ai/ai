@@ -43,7 +43,7 @@ fn validation_rejects_an_out_of_range_confidence() {
 
 #[test]
 fn validation_rejects_an_out_of_range_expected_score() {
-    let request = request(JudgmentQuestion::score("score", [None, None]));
+    let request = request(JudgmentQuestion::score("score", ["low", "high"]));
     let response = response(JudgmentAnswer::Score {
         expected: 2.0,
         probabilities: BTreeMap::from([(0, 0.5), (1, 0.5)]),
@@ -102,7 +102,7 @@ fn validation_accepts_distribution_sums_at_both_tolerance_boundaries() {
 
 #[test]
 fn numeric_checks_report_ranges_then_sum_then_expected_then_confidence() {
-    let request = request(JudgmentQuestion::score("score", [None, None]));
+    let request = request(JudgmentQuestion::score("score", ["low", "high"]));
     let response = response(JudgmentAnswer::Score {
         expected: 2.0,
         probabilities: BTreeMap::from([(0, 0.4), (1, 0.4)]),

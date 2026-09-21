@@ -73,7 +73,9 @@ dependency on a stateful runtime implementation.
 - Defines the `JudgmentModel` boundary for evaluating text or JSON state
   against typed condition, choice, and score questions in one call. Local
   validation rejects empty state and malformed question maps before provider
-  access. `JudgmentResponse::validate_against` checks successful answer kinds,
+  access. Score rubrics require a description for every ordered level, while
+  condition and choice descriptions remain optional.
+  `JudgmentResponse::validate_against` checks successful answer kinds,
   option and level membership, complete probability distributions, bounded
   numeric values, distribution sums, and internal consistency (the selected
   option is the most probable one and the expected score matches its

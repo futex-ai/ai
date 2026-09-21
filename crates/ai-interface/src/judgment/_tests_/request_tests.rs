@@ -93,7 +93,7 @@ fn validation_rejects_a_blank_choice_option_label() {
 
 #[test]
 fn validation_rejects_scores_with_fewer_than_two_levels() {
-    for levels in [Vec::new(), vec![None]] {
+    for levels in [Vec::new(), vec!["only"]] {
         let questions = BTreeMap::from([(
             "frustration".to_owned(),
             JudgmentQuestion::score("Rate frustration", levels.clone()),
@@ -135,7 +135,7 @@ fn valid_questions() -> BTreeMap<String, JudgmentQuestion> {
         ),
         (
             "score".to_owned(),
-            JudgmentQuestion::score("Score", [None, None]),
+            JudgmentQuestion::score("Score", ["low", "high"]),
         ),
     ])
 }

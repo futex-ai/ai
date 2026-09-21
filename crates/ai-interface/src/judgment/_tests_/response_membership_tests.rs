@@ -45,7 +45,7 @@ fn validation_rejects_an_unknown_selected_option() {
 
 #[test]
 fn validation_rejects_an_unknown_probability_level() {
-    let request = request(JudgmentQuestion::score("score", [None, None]));
+    let request = request(JudgmentQuestion::score("score", ["low", "high"]));
     let response = response(JudgmentAnswer::Score {
         expected: 0.5,
         probabilities: BTreeMap::from([(0, 0.5), (1, 0.5), (2, 0.0)]),
@@ -62,7 +62,7 @@ fn validation_rejects_an_unknown_probability_level() {
 
 #[test]
 fn validation_rejects_a_missing_probability_level() {
-    let request = request(JudgmentQuestion::score("score", [None, None]));
+    let request = request(JudgmentQuestion::score("score", ["low", "high"]));
     let response = response(JudgmentAnswer::Score {
         expected: 0.0,
         probabilities: BTreeMap::from([(0, 1.0)]),

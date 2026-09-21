@@ -64,7 +64,7 @@ async fn duplicate_score_keys_are_rejected_through_judge() {
         state: "ticket".into(),
         questions: BTreeMap::from([(
             "score".to_owned(),
-            JudgmentQuestion::score("Score?", [None, None]),
+            JudgmentQuestion::score("Score?", ["low", "high"]),
         )]),
     };
     let response = JsonHttpResponse {

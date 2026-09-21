@@ -24,8 +24,9 @@ model id, and either an explicit API key or auth hook. It sends one request to
 deployments and deterministic tests.
 
 The adapter preserves text and structured JSON content, maps condition
-questions to TypeSafe `noul` questions, and normalizes condition, choice, and
-score answers into the provider-independent interface. It accepts unlisted
+questions to TypeSafe `noul` questions, requires concrete descriptions for
+every score criterion, and normalizes condition, choice, and score answers
+into the provider-independent interface. It accepts unlisted
 provider model ids so callers can pin newer releases before catalog metadata
 is updated. It does not read environment variables, load credentials, retry,
 price usage, or make network calls during unit tests.

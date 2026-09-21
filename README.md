@@ -194,7 +194,7 @@ up to three billable attempts per catalog model after transient failures.
 Credentialed judgment checks live in `xtask/tests/live_judgments/mod.rs`. They
 select every TypeSafe catalog entry advertising `Judgment`, construct the
 production adapter behind `DynJudgmentModel`, and evaluate one short support
-message against condition, choice, and score questions. Run the
+message against condition, choice, and a fully described score rubric. Run the
 credential-free guards or the billable TypeSafe catalog with:
 
 ```sh

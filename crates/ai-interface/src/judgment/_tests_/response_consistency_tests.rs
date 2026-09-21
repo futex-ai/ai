@@ -119,7 +119,7 @@ fn choice_request() -> crate::JudgmentRequest {
 }
 
 fn score_request() -> crate::JudgmentRequest {
-    request(JudgmentQuestion::score("score", [None, None]))
+    request(JudgmentQuestion::score("score", ["low", "high"]))
 }
 
 fn choice(selected: &str, billing: f64, technical: f64, confidence: f64) -> JudgmentAnswer {

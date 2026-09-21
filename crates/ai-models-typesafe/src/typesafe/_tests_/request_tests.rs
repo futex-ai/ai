@@ -31,11 +31,7 @@ fn every_question_variant_maps_to_the_exact_wire_shape() {
                 "frustration".to_owned(),
                 JudgmentQuestion::score(
                     "How frustrated is the author?",
-                    [
-                        Some(JudgmentContent::from("Calm")),
-                        None,
-                        Some(JudgmentContent::from("Very angry")),
-                    ],
+                    ["Calm", "Frustrated", "Very angry"],
                 ),
             ),
             (
@@ -72,7 +68,7 @@ fn every_question_variant_maps_to_the_exact_wire_shape() {
                 "frustration": {
                     "type": "score",
                     "instructions": "How frustrated is the author?",
-                    "criteria": ["Calm", null, "Very angry"]
+                    "criteria": ["Calm", "Frustrated", "Very angry"]
                 },
                 "is_urgent": {
                     "type": "noul",
@@ -191,7 +187,10 @@ fn structured_instructions_and_descriptions_map_verbatim() {
             ),
             (
                 "score".to_owned(),
-                JudgmentQuestion::score(score_instructions, [None, Some(level_description)]),
+                JudgmentQuestion::score(
+                    score_instructions,
+                    [JudgmentContent::from("Routine"), level_description],
+                ),
             ),
         ]),
     };
@@ -215,7 +214,7 @@ fn structured_instructions_and_descriptions_map_verbatim() {
             "score": {
                 "type": "score",
                 "instructions": ["Assess urgency", {"window_hours": 24}],
-                "criteria": [null, {"label": "critical", "requires_page": true}]
+                "criteria": ["Routine", {"label": "critical", "requires_page": true}]
             }
         })
     );

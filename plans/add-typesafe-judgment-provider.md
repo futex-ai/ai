@@ -118,7 +118,8 @@ Callers can evaluate questions through `TypeSafeJudgmentModel`.
       endpoint and timeout overrides, and pass-through of a versioned provider
       model id that the catalog does not list.
 - [x] Add failing request tests for exact JSON for every question variant,
-      omitted optional criteria, null option and level descriptions, verbatim
+      omitted optional criteria, null option descriptions, required score
+      level descriptions, verbatim
       state, the `model` field, and no extra fields.
 - [x] Add failing response tests for every answer mapping, resolved model id,
       ignored legend and unknown fields, score index parsing, malformed-body

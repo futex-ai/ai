@@ -75,21 +75,23 @@ serialize their own typed state with `serde_json::to_value` or `json!`.
 | --- | --- | --- |
 | `Condition` | `instructions: JudgmentContent`, `criteria: Option<JudgmentConditionCriteria>` | whether a condition holds; answer is the probability of yes |
 | `Choice` | `instructions: JudgmentContent`, `options: BTreeMap<String, Option<JudgmentContent>>` | pick one option; answer includes the full distribution |
-| `Score` | `instructions: JudgmentContent`, `levels: Vec<Option<JudgmentContent>>` | position on an ordered rubric; index zero is the first level |
+| `Score` | `instructions: JudgmentContent`, `levels: Vec<JudgmentContent>` | position on an ordered rubric; index zero is the first level |
 
-`JudgmentConditionCriteria` has optional `yes` and `no` descriptions.
-`None` descriptions leave an option or level undescribed.
+`JudgmentConditionCriteria` has optional `yes` and `no` descriptions, and
+choice option descriptions are optional. Every score level requires a
+description because TypeSafe rejects `null` entries in a score rubric.
 
 Convenience constructors only build values and never validate:
 `JudgmentQuestion::condition(instructions, criteria)`,
 `JudgmentQuestion::choice(instructions, options)`,
 `JudgmentQuestion::score(instructions, levels)`, and
 `JudgmentConditionCriteria::new(yes, no)`. Instructions accept
-`impl Into<JudgmentContent>`; descriptions are plain
+`impl Into<JudgmentContent>`. Condition and choice descriptions are plain
 `Option<JudgmentContent>` values so a bare `None` infers cleanly, for example
 `JudgmentConditionCriteria::new(Some("yes".into()), None)`. Options accept
-any iterator of `(label, Option<JudgmentContent>)` pairs and levels any
-iterator of `Option<JudgmentContent>`.
+any iterator of `(label, Option<JudgmentContent>)` pairs. Levels accept any
+iterator whose items convert into `JudgmentContent`, so string slices can
+define a score rubric directly.
 
 `JudgmentQuestionKind` (`Condition`, `Choice`, `Score`) names a question or
 answer shape; `JudgmentQuestion::kind()` and `JudgmentAnswer::kind()` return
@@ -234,8 +236,8 @@ Mapping rules:
   `yes`/`no` map to the `true`/`false` keys, each omitted when absent.
 - `Choice` options become the `criteria` object; `None` descriptions serialize
   as JSON `null`.
-- `Score` levels become the ordered `criteria` array; `None` levels serialize
-  as JSON `null`.
+- `Score` levels become the ordered `criteria` array. Every entry is required
+  content and therefore cannot serialize as JSON `null`.
 - `model` is the configured provider model id. No other fields are sent.
 
 The adapter performs no token counting. TypeSafe documents a combined budget

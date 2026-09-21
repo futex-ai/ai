@@ -97,7 +97,10 @@ fn probe_request() -> JudgmentRequest {
             ),
             (
                 "frustration".to_owned(),
-                JudgmentQuestion::score("How frustrated is the customer?", [None, None, None]),
+                JudgmentQuestion::score(
+                    "How frustrated is the customer?",
+                    ["Calm", "Frustrated", "Very frustrated"],
+                ),
             ),
         ]),
     }
@@ -173,9 +176,14 @@ fn probe_request_has_the_documented_provider_neutral_shape() {
             if options.keys().map(String::as_str).collect::<Vec<_>>()
                 == vec!["billing", "other", "technical"]
     ));
+    let expected_levels = vec![
+        JudgmentContent::from("Calm"),
+        JudgmentContent::from("Frustrated"),
+        JudgmentContent::from("Very frustrated"),
+    ];
     assert!(matches!(
         request.questions.get("frustration"),
-        Some(JudgmentQuestion::Score { levels, .. }) if levels.len() == 3
+        Some(JudgmentQuestion::Score { levels, .. }) if levels == &expected_levels
     ));
 }
 

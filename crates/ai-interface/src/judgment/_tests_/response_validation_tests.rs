@@ -158,7 +158,7 @@ fn valid_questions() -> BTreeMap<String, JudgmentQuestion> {
         ),
         (
             "score".to_owned(),
-            JudgmentQuestion::score("score", [None, None, None]),
+            JudgmentQuestion::score("score", ["low", "medium", "high"]),
         ),
     ])
 }

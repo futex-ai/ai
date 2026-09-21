@@ -30,7 +30,7 @@ enum TypeSafeQuestion<'a> {
     #[serde(rename = "score")]
     Score {
         instructions: &'a JudgmentContent,
-        criteria: &'a [Option<JudgmentContent>],
+        criteria: &'a [JudgmentContent],
     },
 }
 

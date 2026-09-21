@@ -136,7 +136,10 @@ fn request() -> JudgmentRequest {
             ),
             (
                 "frustration".to_owned(),
-                JudgmentQuestion::score("Rate frustration", [None, None, None]),
+                JudgmentQuestion::score(
+                    "Rate frustration",
+                    ["Calm", "Frustrated", "Very frustrated"],
+                ),
             ),
         ]),
     }

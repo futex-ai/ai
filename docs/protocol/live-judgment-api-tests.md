@@ -48,8 +48,9 @@ validation tests. Every provider test:
 The probe request evaluates one short, policy-safe support message as object
 state with one question of each kind: a condition asking whether the message
 expresses urgency, a choice between `billing`, `technical`, and `other`, and a
-three-level frustration score. It is the shortest request that exercises every
-answer mapping.
+three-level frustration score described as `Calm`, `Frustrated`, and
+`Very frustrated`. It is the shortest request that exercises every answer
+mapping while satisfying TypeSafe's required score-criteria contract.
 
 ## Success Contract
 
