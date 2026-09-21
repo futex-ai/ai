@@ -3,9 +3,9 @@
 use std::{env, sync::Arc, time::Duration};
 
 use ai_interface::{
-    ConversationMessage, DynModel, FinishReason, MockModel, ModelCallControls,
-    ModelCompletionEvent, ModelCompletionMode, ModelExecutionControls, ModelGenerationControls,
-    ModelResponse, ModelToolChoice, NoopLogger,
+    ConversationMessage, DynModel, FinishReason, ModelCallControls, ModelCompletionEvent,
+    ModelCompletionMode, ModelExecutionControls, ModelGenerationControls, ModelResponse,
+    ModelToolChoice, NoopLogger,
 };
 use ai_models_core::{KnownModelSpec, RetryingModel};
 use ai_tool_calling::{
@@ -16,12 +16,14 @@ use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 
 use super::{
     event_tests::{completion_event_failures, observing_model},
-    provider_tests::LiveProvider,
+    provider_tests::{CompletionEventExpectation, LiveProvider},
 };
 
 const API_KEY_ENV: &str = "LIVE_MODEL_API_KEY";
 const EXPECTED_TEXT: &str = "LIVE_MODEL_API_OK";
-const MODEL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const MARKER_MISS_FAILURE: &str = "assistant response did not contain the probe marker";
+const EVENT_PARITY_FAILURE: &str = "assistant events did not have terminal parity";
+pub(super) const MODEL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 pub(super) async fn run_live_provider(provider: LiveProvider) {
     run_synchronous_stream_probe(provider).await;
@@ -45,18 +47,16 @@ async fn run_catalog(provider: LiveProvider) {
         let model: DynModel = Arc::new(RetryingModel::with_standard_transient_retry(
             provider.build(client.clone(), auth.clone(), spec),
         ));
-        match complete_through_runtime(model, ModelCompletionMode::PreferDeferred).await {
-            Ok(completion) => {
-                validate_response(provider, spec, &completion.response, &mut failures);
-                failures.extend(completion_event_failures(
-                    spec.id,
-                    provider.preferred_mode_event_expectation(),
-                    &completion.response.assistant_message,
-                    &completion.events,
-                ));
-            }
-            Err(error) => failures.push(format!("{}: request failed: {error}", spec.id)),
-        }
+        failures.extend(
+            run_probe_with_marker_retry(
+                provider,
+                spec,
+                model,
+                ModelCompletionMode::PreferDeferred,
+                provider.preferred_mode_event_expectation(),
+            )
+            .await,
+        );
     }
 
     assert!(
@@ -78,17 +78,14 @@ async fn run_synchronous_stream_probe(provider: LiveProvider) {
     let model: DynModel = Arc::new(RetryingModel::with_standard_transient_retry(
         provider.build(client, provider.auth(api_key), &spec),
     ));
-    let completion = complete_through_runtime(model, ModelCompletionMode::Synchronous)
-        .await
-        .expect("synchronous streaming probe must complete");
-    let mut failures = Vec::new();
-    validate_response(provider, &spec, &completion.response, &mut failures);
-    failures.extend(completion_event_failures(
-        spec.id,
+    let failures = run_probe_with_marker_retry(
+        provider,
+        &spec,
+        model,
+        ModelCompletionMode::Synchronous,
         provider.synchronous_event_expectation(),
-        &completion.response.assistant_message,
-        &completion.events,
-    ));
+    )
+    .await;
     assert!(
         failures.is_empty(),
         "synchronous stream probe failure(s):\n{}",
@@ -96,7 +93,61 @@ async fn run_synchronous_stream_probe(provider: LiveProvider) {
     );
 }
 
-async fn complete_through_runtime(
+pub(super) async fn run_probe_with_marker_retry(
+    provider: LiveProvider,
+    spec: &KnownModelSpec,
+    model: DynModel,
+    completion_mode: ModelCompletionMode,
+    event_expectation: CompletionEventExpectation,
+) -> Vec<String> {
+    let mut retry_available = true;
+    loop {
+        let completion = match complete_through_runtime(model.clone(), completion_mode).await {
+            Ok(completion) => completion,
+            Err(error) => return vec![format!("{}: request failed: {error}", spec.id)],
+        };
+        let mut response_failures = Vec::new();
+        validate_response(provider, spec, &completion.response, &mut response_failures);
+        let event_failures = completion_event_failures(
+            spec.id,
+            event_expectation,
+            &completion.response.assistant_message,
+            &completion.events,
+        );
+        if retry_available && should_retry_marker_miss(&response_failures, &event_failures) {
+            println!(
+                "retrying {}/{} after a probe-marker miss",
+                provider.kind(),
+                spec.id
+            );
+            retry_available = false;
+            continue;
+        }
+        response_failures.extend(event_failures);
+        return response_failures;
+    }
+}
+
+pub(super) fn should_retry_marker_miss(
+    response_failures: &[String],
+    event_failures: &[String],
+) -> bool {
+    response_failures.len() == 1
+        && has_failure_message(&response_failures[0], MARKER_MISS_FAILURE)
+        && match event_failures {
+            [] => true,
+            [failure] => has_failure_message(failure, EVENT_PARITY_FAILURE),
+            _ => false,
+        }
+}
+
+fn has_failure_message(failure: &str, expected: &str) -> bool {
+    failure
+        .rsplit_once(": ")
+        .is_some_and(|(_, message)| message == expected)
+}
+
+pub(super) async fn complete_through_runtime(
     model: DynModel,
     completion_mode: ModelCompletionMode,
 ) -> Result<ObservedCompletion, String> {
@@ -136,12 +187,12 @@ async fn complete_through_runtime(
     })
 }
 
-struct ObservedCompletion {
-    response: ModelResponse,
-    events: Vec<ModelCompletionEvent>,
+pub(super) struct ObservedCompletion {
+    pub(super) response: ModelResponse,
+    pub(super) events: Vec<ModelCompletionEvent>,
 }
 
-fn probe_controls(completion_mode: ModelCompletionMode) -> ModelCallControls {
+pub(super) fn probe_controls(completion_mode: ModelCompletionMode) -> ModelCallControls {
     ModelCallControls {
         generation: ModelGenerationControls {
             tool_choice: Some(ModelToolChoice::None),
@@ -164,32 +215,6 @@ impl ModelResponseCheckpoint for ResponseCapture {
         self.response = Some(response.clone());
         Ok(())
     }
-}
-
-#[test]
-fn probe_controls_are_provider_neutral() {
-    let controls = probe_controls(ModelCompletionMode::PreferDeferred);
-
-    assert_eq!(controls.generation.tool_choice, Some(ModelToolChoice::None));
-    assert_eq!(controls.execution.total_timeout, Some(MODEL_TIMEOUT));
-    assert_eq!(
-        controls.execution.completion_mode,
-        ModelCompletionMode::PreferDeferred
-    );
-}
-
-#[tokio::test]
-async fn generic_runtime_executes_a_dynamic_model() {
-    let response = complete_through_runtime(
-        Arc::new(MockModel::new("live-probe")),
-        ModelCompletionMode::Synchronous,
-    )
-    .await
-    .expect("generic runtime should complete through the model trait");
-
-    assert_eq!(response.response.provider, "mock");
-    assert_eq!(response.response.model_id, "live-probe");
-    assert!(response.events.is_empty());
 }
 
 fn live_api_key() -> String {
@@ -242,10 +267,7 @@ fn validate_response(
         ));
     }
     if !response.assistant_message.contains(EXPECTED_TEXT) {
-        failures.push(format!(
-            "{}: assistant response did not contain the probe marker",
-            spec.id
-        ));
+        failures.push(format!("{}: {MARKER_MISS_FAILURE}", spec.id));
     }
     if !response.tool_calls.is_empty() {
         failures.push(format!(

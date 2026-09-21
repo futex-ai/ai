@@ -10,7 +10,8 @@
 - Keep retry, sleeping, and concurrency policy out of vendor crates
 - Provide an injectable monotonic clock and async sleep boundary for provider
   operations that must poll within a total deadline
-- Offer provider-agnostic JSON/error helper functions shared by model crates
+- Offer a boundary-neutral HTTP failure classifier and provider-agnostic
+  JSON/error helpers shared by model crates
 - Classify stream failures by provider-event progress and accumulate
   OpenAI-compatible chat-completions deltas into buffered response shapes
 - Provide shared known-model catalog metadata used by composition roots
@@ -19,7 +20,7 @@
 
 ## What This Crate Does
 
-`ai-models-core` exposes wrappers such as `RetryingModel` and `ConcurrencyLimitedModel` so composition roots can assemble policy layers around provider clients. It also includes provider-facing helpers for common response/error handling, including HTTP status classification, structured context-window overflow detection, tool-call JSON parsing, and deterministic local ids for provider tool calls that arrive without upstream ids. HTTP 408, 409, 425, and 5xx model responses are classified as transient provider failures so retry wrappers can apply the configured schedule. Streaming helpers classify failures before any provider event as transient and failures after progress as `ModelError::Interrupted`.
+`ai-models-core` exposes wrappers such as `RetryingModel` and `ConcurrencyLimitedModel` so composition roots can assemble policy layers around provider clients. It also includes provider-facing helpers for common response/error handling, including the boundary-neutral `classify_http_status`, structured context-window overflow detection, tool-call JSON parsing, and deterministic local ids for provider tool calls that arrive without upstream ids. The classifier returns `None` below 400 and distinguishes rate-limited, transient, and terminal failures without depending on a modality-specific error type. HTTP 408, 409, 425, and 5xx responses are transient so retry wrappers can apply the configured schedule. Streaming helpers classify failures before any provider event as transient and failures after progress as `ModelError::Interrupted`.
 
 `ChatCompletionsAccumulator` is the shared typed merger for compatible
 provider streams. It joins visible content and reasoning independently,
@@ -128,7 +129,9 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - `src/catalog.rs` - known-model metadata, catalog lookup, routing tiers, and
   safe thinking-level downgrade resolution
 - `src/pricing.rs` - model usage pricing wrapper and integer cost calculator
-- `src/errors.rs` - provider-agnostic status, JSON parsing, and structured-output validation helpers
+- `src/http_status.rs` - boundary-neutral HTTP failure classification
+- `src/errors.rs` - provider-agnostic JSON error mapping, parsing, and
+  structured-output validation helpers
 - `src/chat_completions/` - typed OpenAI-compatible stream accumulator
 - `src/tool_call_identity.rs` - deterministic synthetic tool-call id helpers
 - `src/sleeper.rs` - abstract sleeper boundary for retry testing

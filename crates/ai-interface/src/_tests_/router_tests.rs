@@ -66,6 +66,12 @@ fn provider_kind_round_trips_config_strings() {
     );
     assert_eq!(ProviderKind::Qwen.as_str(), "qwen");
     assert_eq!(ProviderKind::Qwen.to_string(), "qwen");
+    assert_eq!(
+        ProviderKind::from_config_str("typesafe"),
+        Some(ProviderKind::TypeSafe)
+    );
+    assert_eq!(ProviderKind::TypeSafe.as_str(), "typesafe");
+    assert_eq!(ProviderKind::TypeSafe.to_string(), "typesafe");
     assert_eq!(ProviderKind::Xai.as_str(), "xai");
     assert_eq!(ProviderKind::from_config_str("unknown"), None);
 }
@@ -137,6 +143,19 @@ fn qwen_provider_serializes_with_config_identifier() {
 }
 
 #[test]
+fn typesafe_provider_serializes_with_config_identifier() {
+    assert_eq!(
+        serde_json::to_value(ProviderKind::TypeSafe).unwrap(),
+        json!("typesafe")
+    );
+    assert_eq!(
+        serde_json::from_value::<ProviderKind>(json!("typesafe")).unwrap(),
+        ProviderKind::TypeSafe
+    );
+    assert!(serde_json::from_value::<ProviderKind>(json!("type_safe")).is_err());
+}
+
+#[test]
 fn image_generation_feature_has_stable_config_display_and_serde_values() {
     let feature = ModelFeature::ImageGeneration;
 
@@ -148,6 +167,19 @@ fn image_generation_feature_has_stable_config_display_and_serde_values() {
     );
     assert_eq!(
         serde_json::from_value::<ModelFeature>(json!("image_generation")).unwrap(),
+        feature
+    );
+}
+
+#[test]
+fn judgment_feature_has_stable_config_display_and_serde_values() {
+    let feature = ModelFeature::Judgment;
+
+    assert_eq!(feature.as_str(), "judgment");
+    assert_eq!(feature.to_string(), "judgment");
+    assert_eq!(serde_json::to_value(feature).unwrap(), json!("judgment"));
+    assert_eq!(
+        serde_json::from_value::<ModelFeature>(json!("judgment")).unwrap(),
         feature
     );
 }

@@ -91,6 +91,7 @@ async fn emits_partial_normalized_content_before_an_interruption() {
 #[tokio::test]
 async fn revised_cumulative_content_emits_only_the_terminal_snapshot() {
     let events = completed_stream(vec![
+        text_chunk("dra", None, "", None),
         text_chunk("draft", None, "", None),
         text_chunk("replacement", None, "", Some("stop")),
         usage_chunk(),

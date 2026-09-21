@@ -74,6 +74,7 @@ async fn eof_transport_and_malformed_events_are_progress_aware() {
 #[tokio::test]
 async fn accepts_replaced_cumulative_content_for_buffered_calls() {
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(vec![
+        content_event("fir"),
         content_event("first"),
         event(json!({
             "choices": [{

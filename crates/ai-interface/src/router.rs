@@ -3,9 +3,8 @@
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
-use crate::DynModel;
+use crate::{DynModel, ModelRouterResult};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -30,6 +29,9 @@ pub enum ProviderKind {
     MiniMax,
     /// Alibaba Qwen model provider.
     Qwen,
+    /// TypeSafe System One judgment provider.
+    #[serde(rename = "typesafe")]
+    TypeSafe,
     /// xAI/Grok model provider.
     Xai,
 }
@@ -46,6 +48,7 @@ impl ProviderKind {
             "kimi" => Some(Self::Kimi),
             "minimax" => Some(Self::MiniMax),
             "qwen" => Some(Self::Qwen),
+            "typesafe" => Some(Self::TypeSafe),
             "xai" => Some(Self::Xai),
             _ => None,
         }
@@ -62,6 +65,7 @@ impl ProviderKind {
             Self::Kimi => "kimi",
             Self::MiniMax => "minimax",
             Self::Qwen => "qwen",
+            Self::TypeSafe => "typesafe",
             Self::Xai => "xai",
         }
     }
@@ -91,6 +95,8 @@ pub enum ModelFeature {
     Reasoning,
     /// Supports generating or editing images.
     ImageGeneration,
+    /// Supports typed judgment questions over shared state.
+    Judgment,
     /// Supports generating videos.
     VideoGeneration,
 }
@@ -106,6 +112,7 @@ impl ModelFeature {
             Self::LongContext => "long_context",
             Self::Reasoning => "reasoning",
             Self::ImageGeneration => "image_generation",
+            Self::Judgment => "judgment",
             Self::VideoGeneration => "video_generation",
         }
     }
@@ -207,82 +214,6 @@ impl ModelRouteRequestBuilder {
         }
     }
 }
-
-#[derive(Debug, Error)]
-/// Errors returned by model routers.
-pub enum ModelRouterError {
-    /// No configured models were available.
-    #[error("[ai_interface/model_router] no models configured")]
-    NoModelsConfigured,
-    /// A configured model id is not present in the provider-owned model catalog.
-    #[error("[ai_interface/model_router] unknown configured model `{provider}` `{model_id}`")]
-    UnknownConfiguredModel {
-        /// Configured provider string.
-        provider: String,
-        /// Configured model id.
-        model_id: String,
-    },
-    /// A configured provider string is not supported by routing.
-    #[error(
-        "[ai_interface/model_router] unsupported configured provider `{provider}` for model `{model_id}`"
-    )]
-    UnsupportedConfiguredProvider {
-        /// Configured provider string.
-        provider: String,
-        /// Configured model id.
-        model_id: String,
-    },
-    /// Route requirements removed every candidate model.
-    #[error("[ai_interface/model_router] no models matched route requirements")]
-    NoModelsMatched {
-        /// Requirements that produced no candidates.
-        requirements: Vec<ModelRequirement>,
-    },
-    /// A model could not be built because its API key env var was missing or blank.
-    #[error(
-        "[ai_interface/model_router] missing API key from env `{env_name}` for model `{model_id}`"
-    )]
-    MissingApiKeyEnv {
-        /// Configured model id.
-        model_id: String,
-        /// Environment variable name used by the model config.
-        env_name: String,
-    },
-    /// A model could not be built because its API key secret was missing.
-    #[error(
-        "[ai_interface/model_router] missing API key from secret `{secret_name}` for model `{model_id}`"
-    )]
-    MissingApiKeySecret {
-        /// Configured model id.
-        model_id: String,
-        /// Secret name used by the model config.
-        secret_name: String,
-    },
-    /// A model config had no API key source.
-    #[error("[ai_interface/model_router] model `{model_id}` has no API key credential source")]
-    MissingApiKeySource {
-        /// Configured model id.
-        model_id: String,
-    },
-    /// The router failed while building a model chain.
-    #[error("[ai_interface/model_router] internal error: {source}")]
-    Internal {
-        /// Underlying router failure.
-        source: Box<dyn std::error::Error + Send + Sync>,
-    },
-}
-
-impl ModelRouterError {
-    /// Wraps an internal router failure.
-    pub fn internal(source: impl std::error::Error + Send + Sync + 'static) -> Self {
-        Self::Internal {
-            source: Box::new(source),
-        }
-    }
-}
-
-/// Result alias for model-router operations.
-pub type ModelRouterResult<T> = std::result::Result<T, ModelRouterError>;
 
 #[cfg_attr(
     any(test, doctest, feature = "test-support"),

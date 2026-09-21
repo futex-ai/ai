@@ -119,3 +119,5 @@ suite in the same change.
   chat-model connectivity suite.
 - [Live image API tests](live-image-api-tests.md) defines the separate image
   generation connectivity suite.
+- [Live judgment API tests](live-judgment-api-tests.md) defines the sibling
+  judgment-model connectivity suite.

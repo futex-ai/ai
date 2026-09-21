@@ -6,7 +6,7 @@ use ai_interface::{ModelError, ModelResult, StructuredOutputSchema};
 use json_http::Error as JsonHttpError;
 use serde_json::Value;
 
-use crate::ChatCompletionsStreamError;
+use crate::{ChatCompletionsStreamError, HttpFailureClass, classify_http_status};
 
 /// Normalizes nullable assistant text content into a string.
 pub fn assistant_text(content: Option<String>) -> String {
@@ -28,17 +28,17 @@ pub fn classify_json_http_error(
             format!("HTTP {status}: {message}"),
         );
     }
-    if status == 429 {
-        return ModelError::rate_limited(provider, model_id, format!("HTTP {status}: {message}"));
+    match classify_http_status(status) {
+        Some(HttpFailureClass::RateLimited) => {
+            ModelError::rate_limited(provider, model_id, format!("HTTP {status}: {message}"))
+        }
+        Some(HttpFailureClass::Transient) => {
+            ModelError::transient_provider(provider, model_id, format!("HTTP {status}: {message}"))
+        }
+        Some(HttpFailureClass::Terminal) | None => {
+            ModelError::provider(provider, model_id, format!("HTTP {status}: {message}"))
+        }
     }
-    if status == 408 || status == 409 || status == 425 || (500..=599).contains(&status) {
-        return ModelError::transient_provider(
-            provider,
-            model_id,
-            format!("HTTP {status}: {message}"),
-        );
-    }
-    ModelError::provider(provider, model_id, format!("HTTP {status}: {message}"))
 }
 
 /// Converts a streaming JSON HTTP failure using observed response progress.

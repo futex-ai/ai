@@ -6,6 +6,7 @@ mod catalog;
 mod chat_completions;
 mod concurrency;
 mod errors;
+mod http_status;
 mod polling;
 mod pricing;
 mod retrying;
@@ -32,6 +33,7 @@ pub use errors::{
     classify_json_http_stream_error, classify_stream_error, parse_structured_output,
     parse_tool_call_arguments, validate_structured_output,
 };
+pub use http_status::{HttpFailureClass, classify_http_status};
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use polling::PollingRuntimeMock;
 pub use polling::{DynPollingRuntime, PollingRuntime, TokioPollingRuntime};

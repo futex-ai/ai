@@ -152,3 +152,5 @@ Adding another image provider requires all of the following in the same change:
   response, provider mapping, and error contract.
 - [Live model API tests](live-model-api-tests.md) defines the separate
   credentialed chat-model connectivity suite.
+- [Live judgment API tests](live-judgment-api-tests.md) defines the sibling
+  judgment-model connectivity suite.
