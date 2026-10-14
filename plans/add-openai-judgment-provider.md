@@ -134,7 +134,7 @@ Evidence: gate and test logs in `.context/add-openai-judgment-provider/`
       that a `null` usage object maps to the default, correct the object
       key order in the OpenAI protocol, and describe the adapter
       constructors, the README CI entry, and `http_status_message`.
-- [ ] Run `git add -A`, commit with a Conventional Commit title no longer than
+- [x] Run `git add -A`, commit with a Conventional Commit title no longer than
       50 characters and a descriptive body, and push the current branch.
 - [ ] Review the complete local diff against `origin/main` with the
       `implementation-review` skill after the push. Report the findings,
