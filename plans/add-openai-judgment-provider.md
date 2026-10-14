@@ -120,6 +120,8 @@ Catalog registration automatically produces credentialed coverage.
 Evidence: gate and test logs in `.context/add-openai-judgment-provider/`
 (`xtask-check.log`, `fix-*.log`).
 
+Evidence: review report in `.context/add-openai-judgment-provider/review-round-1.md`.
+
 - [x] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
       --all-targets --all-features`, `cargo test --workspace --all-features`,
       `cargo xtask rust-file-length-lint --all`, and `cargo xtask smoke-test`.
@@ -140,6 +142,8 @@ Evidence: gate and test logs in `.context/add-openai-judgment-provider/`
       `implementation-review` skill after the push. Report the findings,
       then apply the review-fix rule: fix the `Auto-fix: yes` findings,
       re-review once, and report the rest.
+  - Open (round 1, #1): Low, code structure, large effort. Both judgment adapters (`crates/ai-models-openai/src/openai/decisions/client.rs` and `crates/ai-models-typesafe/src/typesafe/client.rs`) repeat the same ~50-line call orchestration and each assembles its own `malformed provider payload` message; the reviewer recommends one shared `ai-models-core` request helper. Needs a user decision.
+  - Open (round 1, #2): Low, docs or spec, large effort. `docs/protocol/openai-judgment-provider.md` (289 lines) and `docs/protocol/typesafe-judgment-provider.md` (393 lines) exceed the ~250-line guidance; the reviewer recommends moving the shared boundary and error contract into a `judgment-boundary.md` page linked from both provider docs. Needs a user decision.
 
 ## Post-merge follow-up (non-blocking)
 
