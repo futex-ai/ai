@@ -7,8 +7,10 @@ mod chat_completions;
 mod concurrency;
 mod errors;
 mod http_status;
+mod judgment_errors;
 mod polling;
 mod pricing;
+mod redaction;
 mod retrying;
 mod sleeper;
 mod tool_call_identity;
@@ -34,10 +36,15 @@ pub use errors::{
     parse_tool_call_arguments, validate_structured_output,
 };
 pub use http_status::{HttpFailureClass, classify_http_status};
+pub use judgment_errors::{
+    AUTH_HOOK_FAILED, classify_judgment_request_error, classify_judgment_status,
+    decode_failure_body, http_status_message, redact_judgment_error,
+};
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use polling::PollingRuntimeMock;
 pub use polling::{DynPollingRuntime, PollingRuntime, TokioPollingRuntime};
 pub use pricing::{ModelPricing, UsagePricingModel, price_usage};
+pub use redaction::{redact_secrets, secrets_from_headers};
 pub use retrying::{RetryingModel, STANDARD_TRANSIENT_RETRY_DELAYS};
 #[cfg(any(test, doctest))]
 pub use sleeper::SleeperMock;

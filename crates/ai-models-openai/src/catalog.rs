@@ -50,6 +50,13 @@ pub const GPT_IMAGE_2: &str = "gpt-image-2";
 /// Current OpenAI video generation model id.
 pub const SORA_2: &str = "sora-2";
 
+/// OpenAI GPT-6 Luna provider model id, currently the only model served by
+/// the Decisions API. Pass it to `OpenAiJudgmentModel`.
+pub const GPT_6_LUNA: &str = "gpt-6-luna";
+
+/// OpenAI GPT-6 Luna judgment catalog id served by the Decisions API.
+pub const GPT_6_LUNA_DECISIONS: &str = "gpt-6-luna-decisions";
+
 const GPT_5_6_FEATURES: &[ModelFeature] = &[
     ModelFeature::ToolCalling,
     ModelFeature::StructuredOutput,
@@ -78,6 +85,8 @@ const GPT_IMAGE_2_FEATURES: &[ModelFeature] =
     &[ModelFeature::ImageGeneration, ModelFeature::Vision];
 
 const SORA_2_FEATURES: &[ModelFeature] = &[ModelFeature::VideoGeneration, ModelFeature::Vision];
+
+const GPT_6_LUNA_DECISIONS_FEATURES: &[ModelFeature] = &[ModelFeature::Judgment];
 
 /// Returns OpenAI models known to this provider crate.
 pub fn known_models() -> Vec<KnownModelSpec> {
@@ -201,6 +210,17 @@ pub fn known_models() -> Vec<KnownModelSpec> {
             cost: CostTier::Premium,
             thinking_level: ThinkingLevel::Disabled,
             features: SORA_2_FEATURES,
+        },
+        KnownModelSpec {
+            provider: ProviderKind::OpenAi,
+            id: GPT_6_LUNA_DECISIONS,
+            provider_model_id: GPT_6_LUNA,
+            context_window_tokens: 1_050_000,
+            intelligence_score: IntelligenceScore::Eight,
+            speed: SpeedTier::VeryFast,
+            cost: CostTier::Low,
+            thinking_level: ThinkingLevel::Disabled,
+            features: GPT_6_LUNA_DECISIONS_FEATURES,
         },
     ]
 }

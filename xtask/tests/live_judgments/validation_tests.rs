@@ -18,10 +18,11 @@ pub(super) fn validation_failures(
     response: &JudgmentResponse,
 ) -> Vec<String> {
     let mut failures = Vec::new();
+    let expected_provider = spec.provider.to_string();
 
-    if response.provider != "typesafe" {
+    if response.provider != expected_provider {
         failures.push(format!(
-            "{}: provider was `{}`, expected `typesafe`",
+            "{}: provider was `{}`, expected `{expected_provider}`",
             spec.id, response.provider
         ));
     }
@@ -67,6 +68,30 @@ async fn reports_identity_mismatches() {
     assert_eq!(failures.len(), 3);
     assert!(failures.iter().any(|failure| failure.contains("provider")));
     assert!(failures.iter().any(|failure| failure.contains("resolved")));
+}
+
+#[tokio::test]
+async fn expects_the_catalog_provider_kind_string_for_every_provider() {
+    let request = request();
+    let mut response = valid_response(&request).await;
+    response.provider = "openai".to_owned();
+    response.model_id = "gpt-6-luna".to_owned();
+    let openai_spec = KnownModelSpec {
+        provider: ProviderKind::OpenAi,
+        id: "gpt-6-luna-decisions",
+        provider_model_id: "gpt-6-luna",
+        context_window_tokens: 1_050_000,
+        intelligence_score: IntelligenceScore::Eight,
+        speed: SpeedTier::VeryFast,
+        cost: CostTier::Low,
+        thinking_level: ThinkingLevel::Disabled,
+        features: JUDGMENT_FEATURES,
+    };
+
+    assert!(validation_failures(&openai_spec, &request, &response).is_empty());
+    let failures = validation_failures(&spec(), &request, &response);
+    assert_eq!(failures.len(), 2);
+    assert!(failures[0].contains("expected `typesafe`"));
 }
 
 #[tokio::test]

@@ -9,8 +9,8 @@ file-length audits, or AI review.
 - Run the standard local verification sequence
 - Enforce the Rust file-length cap for `crates/` and `xtask/`
 - Run a credential-free smoke test for chat, transcription, image-provider,
-  video-provider, and TypeSafe judgment-provider construction, tool-calling
-  registration, MCP tools, and the resource-bound MCP OAuth hook
+  video-provider, and OpenAI and TypeSafe judgment-provider construction,
+  tool-calling registration, MCP tools, and the resource-bound MCP OAuth hook
 - Host credentialed integration tests for every chat, image-provider,
   video-provider, and judgment-provider catalog against real APIs
 - Delegate local AI review to the Codex CLI
@@ -23,8 +23,8 @@ and the smoke test in the same order expected by CI.
 
 `smoke-test` constructs the Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
 OpenAI, QwenCloud, and xAI model adapters, the OpenAI transcriber, and the
-Google and OpenAI image and video generators, plus the TypeSafe Jev judgment
-adapter, with placeholder credentials. It also runs an in-memory tool-output
+Google and OpenAI image and video generators, plus the OpenAI Decisions and
+TypeSafe Jev judgment adapters, with placeholder credentials. It also runs an in-memory tool-output
 pagination flow. Provider construction does not send network requests or
 require real credentials.
 
@@ -53,8 +53,9 @@ the ignored tests for eligible pull requests, daily verification, and manual
 dispatch. The MiniMax job first sends MiniMax-M3 a real tool with strict
 `Required` selection and asserts that the provider returns that tool call.
 The judgment workflow additionally requires the repository Actions variable
-`LIVE_JUDGMENT_API_TESTS_ENABLED=true`; its provider job remains skipped until
-the TypeSafe credential is provisioned and that opt-in is enabled.
+`LIVE_JUDGMENT_API_TESTS_ENABLED=true`; its provider jobs, including the
+OpenAI entry, remain skipped until the TypeSafe credential is provisioned and
+that opt-in is enabled.
 
 `tests/live_images/mod.rs` is the corresponding ignored image suite. It selects
 every Google and OpenAI catalog entry advertising `ImageGeneration`, constructs
@@ -77,9 +78,9 @@ billable renders. Credential-free guards cover catalog registration, adapter
 construction, request shape, response validation, and workflow boundaries.
 
 `tests/live_judgments/mod.rs` is the corresponding ignored judgment suite. It
-selects every TypeSafe catalog entry advertising `Judgment`, constructs the
-production adapter behind `DynJudgmentModel`, and evaluates a short support
-message against condition, choice, and score questions. Transient and
+selects every OpenAI and TypeSafe catalog entry advertising `Judgment`,
+constructs the production adapter behind `DynJudgmentModel`, and evaluates a
+short support message against condition, choice, and score questions. Transient and
 rate-limit failures use the shared retry schedule for no more than three
 attempts. Credential-free guards cover catalog registration, construction,
 probe shape, retry behavior, normalized validation, and workflow boundaries.
@@ -117,6 +118,11 @@ LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_im
 # Billable: tests every video-capable OpenAI catalog entry against the real API.
 LIVE_VIDEO_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_videos \
   catalog_tests::openai_video_catalog -- --ignored --exact --nocapture
+
+# Billable: tests every OpenAI judgment catalog entry against the real API.
+LIVE_JUDGMENT_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
+  --test live_judgments catalog_tests::openai_judgment_catalog \
+  -- --ignored --exact --nocapture
 
 # Billable: tests every TypeSafe judgment catalog entry against the real API.
 LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \

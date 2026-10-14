@@ -5,16 +5,14 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use ai_interface::{
     JudgmentError, JudgmentModel, JudgmentRequest, JudgmentResponse, JudgmentResult,
 };
+use ai_models_core::{
+    AUTH_HOOK_FAILED, classify_judgment_request_error, decode_failure_body, redact_judgment_error,
+    secrets_from_headers,
+};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
-use serde_json::Value;
 
-use super::{
-    error::{AUTH_HOOK_FAILED, classify_request_error, classify_status, http_status_message},
-    redaction::secrets_from_headers,
-    request::build_request,
-    response::{parse_response, redact_response_error},
-};
+use super::{error::classify_status, request::build_request, response::parse_response};
 
 const PROVIDER: &str = "typesafe";
 const TYPESAFE_SYSTEM_ONE_URL: &str = "https://api.typesafe.ai/v1/systemone";
@@ -100,35 +98,37 @@ impl JudgmentModel for TypeSafeJudgmentModel {
         {
             Ok(request) => request,
             Err(source) => {
-                return Err(classify_request_error(source, &self.model_id, &secrets));
+                return Err(classify_judgment_request_error(
+                    PROVIDER,
+                    source,
+                    &self.model_id,
+                    &secrets,
+                ));
             }
         };
         let response = match http_request.send_bytes().await {
             Ok(response) => response,
             Err(source) => {
-                return Err(classify_request_error(source, &self.model_id, &secrets));
+                return Err(classify_judgment_request_error(
+                    PROVIDER,
+                    source,
+                    &self.model_id,
+                    &secrets,
+                ));
             }
         };
         if !(200..300).contains(&response.status) {
-            let classification_body = match serde_json::from_slice::<Value>(&response.body) {
-                Ok(body) => body,
-                Err(_) => Value::String(String::from_utf8_lossy(&response.body).into_owned()),
-            };
-            let classification_body = if response.body.is_empty() {
-                Value::String(http_status_message(response.status))
-            } else {
-                classification_body
-            };
+            let failure_body = decode_failure_body(response.status, &response.body);
             return Err(classify_status(
                 response.status,
                 &self.model_id,
-                &classification_body,
+                &failure_body,
                 &secrets,
             ));
         }
         match parse_response(&self.model_id, request, &response.body) {
             Ok(response) => Ok(response),
-            Err(error) => Err(redact_response_error(error, &secrets)),
+            Err(error) => Err(redact_judgment_error(error, &secrets)),
         }
     }
 }

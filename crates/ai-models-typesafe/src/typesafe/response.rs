@@ -3,13 +3,13 @@
 use std::collections::BTreeMap;
 
 use ai_interface::{
-    JudgmentAnswer, JudgmentAnswerProblem, JudgmentError, JudgmentRequest, JudgmentResponse,
-    JudgmentResult, ModelUsage, deserialize_score_probabilities,
+    JudgmentAnswer, JudgmentError, JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage,
+    deserialize_score_probabilities,
 };
 use serde::Deserialize;
 use serde_json::value::RawValue;
 
-use super::{redaction::redact_secrets, unique_map::deserialize_unique_string_map};
+use super::unique_map::deserialize_unique_string_map;
 
 const PROVIDER: &str = "typesafe";
 const MALFORMED_PROVIDER_PAYLOAD: &str = "malformed provider payload";
@@ -140,53 +140,6 @@ fn malformed_payload_message(source: &serde_json::Error) -> String {
     let detail = source.to_string();
     [MALFORMED_PROVIDER_PAYLOAD, ": ", &detail].concat()
 }
-
-/// Redacts provider diagnostics produced during successful-body decoding.
-pub(super) fn redact_response_error(error: JudgmentError, secrets: &[String]) -> JudgmentError {
-    match error {
-        JudgmentError::Provider {
-            provider,
-            model_id,
-            message,
-        } => JudgmentError::provider(provider, model_id, redact_secrets(&message, secrets)),
-        JudgmentError::InvalidAnswer {
-            provider,
-            model_id,
-            id,
-            problem,
-        } => JudgmentError::invalid_answer(
-            provider,
-            model_id,
-            id,
-            redact_answer_problem(problem, secrets),
-        ),
-        error => error,
-    }
-}
-
-/// Redacts the only answer problems that can carry provider-controlled text.
-///
-/// `UnknownOption` and `MissingOption` echo labels from the provider body.
-/// `SelectedNotMaximal` labels have already passed membership against the
-/// caller's own options, so they cannot carry provider content.
-fn redact_answer_problem(
-    problem: JudgmentAnswerProblem,
-    secrets: &[String],
-) -> JudgmentAnswerProblem {
-    match problem {
-        JudgmentAnswerProblem::UnknownOption { label } => JudgmentAnswerProblem::UnknownOption {
-            label: redact_secrets(&label, secrets),
-        },
-        JudgmentAnswerProblem::MissingOption { label } => JudgmentAnswerProblem::MissingOption {
-            label: redact_secrets(&label, secrets),
-        },
-        problem => problem,
-    }
-}
-
-#[cfg(test)]
-#[path = "_tests_/response_redaction_tests.rs"]
-mod response_redaction_tests;
 
 #[cfg(test)]
 #[path = "_tests_/response_tests.rs"]

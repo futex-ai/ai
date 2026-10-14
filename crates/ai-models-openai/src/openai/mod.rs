@@ -1,5 +1,6 @@
 //! OpenAI Responses model client.
 
+mod decisions;
 mod image_generation;
 mod request;
 mod request_input;
@@ -23,6 +24,7 @@ use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 
 use crate::catalog::known_models;
 
+pub use decisions::OpenAiJudgmentModel;
 pub use image_generation::OpenAiImageGenerator;
 pub use transcription::OpenAiAudioTranscriber;
 pub use video_generation::OpenAiVideoGenerator;

@@ -78,6 +78,18 @@ pub enum JudgmentError {
         /// Specific answer postcondition failure.
         problem: JudgmentAnswerProblem,
     },
+    /// The provider declined to answer one requested question.
+    #[error(
+        "[ai_interface/judgment] provider `{provider}` model `{model_id}` refused to answer `{id}`"
+    )]
+    Refused {
+        /// Provider that refused the question.
+        provider: String,
+        /// Configured provider model identifier.
+        model_id: String,
+        /// Caller-provided id of the refused question.
+        id: String,
+    },
     /// The provider rejected the request due to a rate limit.
     #[error(
         "[ai_interface/judgment] provider rate limit for `{provider}` model `{model_id}`: {message}"
@@ -140,6 +152,19 @@ impl JudgmentError {
             model_id: model_id.into(),
             id: id.into(),
             problem,
+        }
+    }
+
+    /// Builds a refused-question error.
+    pub fn refused(
+        provider: impl Into<String>,
+        model_id: impl Into<String>,
+        id: impl Into<String>,
+    ) -> Self {
+        Self::Refused {
+            provider: provider.into(),
+            model_id: model_id.into(),
+            id: id.into(),
         }
     }
 

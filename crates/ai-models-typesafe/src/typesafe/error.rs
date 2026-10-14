@@ -1,18 +1,15 @@
 //! TypeSafe judgment error classification.
 
 use ai_interface::JudgmentError;
-use ai_models_core::{HttpFailureClass, classify_http_status};
+use ai_models_core::{classify_judgment_status, http_status_message};
 use serde_json::Value;
-
-use super::redaction::redact_secrets;
 
 const PROVIDER: &str = "typesafe";
 
-/// Fixed auth failure diagnostic used because hook errors can contain
-/// undiscovered credentials and therefore cannot be safely sanitized.
-pub(super) const AUTH_HOOK_FAILED: &str = "authentication hook failed";
-
 /// Classifies one unsuccessful System One HTTP response.
+///
+/// TypeSafe reports failures as `{"detail": {"message": ...}}` or
+/// `{"detail": "..."}`; any other body is retained as compact JSON or text.
 pub(super) fn classify_status(
     status: u16,
     model_id: &str,
@@ -23,56 +20,7 @@ pub(super) fn classify_status(
         Some(message) => message,
         None => http_status_message(status),
     };
-    let message = redact_secrets(&message, secrets);
-    match classify_http_status(status) {
-        Some(HttpFailureClass::RateLimited) => {
-            JudgmentError::rate_limited(PROVIDER, model_id, message)
-        }
-        Some(HttpFailureClass::Transient) => {
-            JudgmentError::transient_provider(PROVIDER, model_id, message)
-        }
-        Some(HttpFailureClass::Terminal) | None => {
-            JudgmentError::provider(PROVIDER, model_id, message)
-        }
-    }
-}
-
-/// Classifies request failures while reserving opaque internal errors for local
-/// serialization and client initialization, which cannot contain auth headers.
-pub(super) fn classify_request_error(
-    source: json_http::Error,
-    model_id: &str,
-    secrets: &[String],
-) -> JudgmentError {
-    match source {
-        json_http::Error::Auth { .. } => {
-            JudgmentError::transient_provider(PROVIDER, model_id, AUTH_HOOK_FAILED)
-        }
-        source @ (json_http::Error::Transport { .. }
-        | json_http::Error::ReqwestTransport { .. }
-        | json_http::Error::IdleTimeout { .. }
-        | json_http::Error::DeadlineExceeded { .. }
-        | json_http::Error::SseTransport { .. }) => {
-            let message = redact_secrets(&source.to_string(), secrets);
-            JudgmentError::transient_provider(PROVIDER, model_id, message)
-        }
-        source @ (json_http::Error::SerializeRequest { .. }
-        | json_http::Error::ClientInitialization { .. }) => JudgmentError::internal(source),
-        source @ (json_http::Error::DeserializeResponse { .. }
-        | json_http::Error::SseUnsupported
-        | json_http::Error::HttpStatus { .. }
-        | json_http::Error::InvalidSseContentType { .. }
-        | json_http::Error::SseDecode { .. }) => {
-            let message = redact_secrets(&source.to_string(), secrets);
-            JudgmentError::provider(PROVIDER, model_id, message)
-        }
-    }
-}
-
-/// Builds the fallback diagnostic for an empty response body.
-pub(super) fn http_status_message(status: u16) -> String {
-    let status = status.to_string();
-    ["HTTP ", &status].concat()
+    classify_judgment_status(PROVIDER, status, model_id, &message, secrets)
 }
 
 fn error_message(body: &Value) -> Option<String> {
@@ -92,7 +40,3 @@ fn error_message(body: &Value) -> Option<String> {
         body => body.to_string(),
     })
 }
-
-#[cfg(test)]
-#[path = "_tests_/error_tests.rs"]
-mod error_tests;

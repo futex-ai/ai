@@ -2,9 +2,9 @@
 
 `ai-models-openai` is the OpenAI-specific `ai-interface` implementation crate
 for the workspace. Depend on it when you want to call OpenAI Responses
-generation models, image or video generation, image editing, or the audio
-transcription endpoint with explicit auth and shared runtime wrappers from
-neighboring crates.
+generation models, image or video generation, image editing, Decisions
+judgments, or the audio transcription endpoint with explicit auth and shared
+runtime wrappers from neighboring crates.
 
 ## Responsibilities
 
@@ -13,6 +13,7 @@ neighboring crates.
   `ai_interface::AudioTranscriber`
 - Implement the OpenAI image client behind `ai_interface::ImageGenerator`
 - Implement the OpenAI video client behind `ai_interface::VideoGenerator`
+- Implement the OpenAI Decisions client behind `ai_interface::JudgmentModel`
 - Export strongly typed known OpenAI model metadata for model routing
 - Map shared model/tool DTOs to the OpenAI Responses API
 - Consume OpenAI Responses SSE events, emit public text progress, and retain
@@ -20,6 +21,7 @@ neighboring crates.
 - Map shared audio transcription DTOs to `v1/audio/transcriptions`
 - Map shared image DTOs to `v1/images/generations` and `v1/images/edits`
 - Map shared video DTOs to asynchronous `v1/videos` jobs and downloads
+- Map shared judgment DTOs to `v1/decisions` and named typed answers back
 - Parse OpenAI responses into shared response DTOs and typed model errors
 
 ## What This Crate Does
@@ -115,15 +117,33 @@ limit, transient, and terminal failures typed. This upstream API is currently
 scheduled to shut down on September 24, 2026, so consumers should treat the
 adapter as a time-bounded compatibility integration.
 
+`OpenAiJudgmentModel` implements the shared `JudgmentModel` boundary over the
+Decisions API (`POST /v1/decisions`). `GPT_6_LUNA` is the provider model id to
+construct it with, and `GPT_6_LUNA_DECISIONS` is the judgment-only catalog
+entry. The adapter renders object and array content as compact JSON text,
+folds optional condition criteria into the predicate instructions, sends
+caller question ids as answer names, and maps `predicate`, `choice`, and
+`score` answers back into the shared condition, choice, and score answers
+before applying the shared postconditions. A provider `refusal` becomes the
+typed `JudgmentError::Refused` for the refused question id. Usage separates
+cached input and reasoning tokens like the Responses adapter. Credential
+redaction, status classification, and transport error mapping come from the
+shared `ai-models-core` judgment helpers that the TypeSafe adapter also uses,
+so API keys and auth header values never appear in diagnostics.
+
 ## Quick Start
 
 ```rust
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
-use ai_interface::{AudioTranscriber, ImageGenerator, Model, VideoGenerator};
+use ai_interface::{
+    AudioTranscriber, DynJudgmentModel, ImageGenerator, JudgmentQuestion, JudgmentRequest,
+    Model, VideoGenerator,
+};
 use ai_models_openai::{
-    GPT_5_6_SOL, GPT_IMAGE_2, SORA_2, OpenAiAudioTranscriber, OpenAiImageGenerator,
-    OpenAiModel, OpenAiVideoGenerator, known_models,
+    GPT_5_6_SOL, GPT_6_LUNA, GPT_IMAGE_2, SORA_2, OpenAiAudioTranscriber,
+    OpenAiImageGenerator, OpenAiJudgmentModel, OpenAiModel, OpenAiVideoGenerator,
+    known_models,
 };
 use json_http::ReqwestJsonHttpClient;
 
@@ -158,6 +178,24 @@ fn build_video_generator() -> OpenAiVideoGenerator {
         "sk-demo",
     )
 }
+
+fn build_judgment_model() -> DynJudgmentModel {
+    Arc::new(OpenAiJudgmentModel::new(
+        Arc::new(ReqwestJsonHttpClient::new()),
+        GPT_6_LUNA,
+        "sk-demo",
+    ))
+}
+
+fn urgent_request() -> JudgmentRequest {
+    JudgmentRequest {
+        state: "Payouts have failed for three days.".into(),
+        questions: BTreeMap::from([(
+            "is_urgent".to_owned(),
+            JudgmentQuestion::condition("Does this need urgent attention?", None),
+        )]),
+    }
+}
 ```
 
 ## Development
@@ -182,6 +220,8 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - `src/openai/image_generation/` - OpenAI image request, response, and error mapping
 - `src/openai/video_generation/` - OpenAI asynchronous video submission,
   polling, download, request, response, and error mapping
+- `src/openai/decisions/` - OpenAI Decisions judgment client, request and
+  response mapping, refusal handling, and usage normalization
 
 ### Related Docs
 
@@ -195,6 +235,9 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/live-image-api-tests.md`](../../docs/protocol/live-image-api-tests.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
 - [`../../docs/protocol/live-video-api-tests.md`](../../docs/protocol/live-video-api-tests.md)
+- [`../../docs/protocol/typesafe-judgment-provider.md`](../../docs/protocol/typesafe-judgment-provider.md)
+- [`../../docs/protocol/openai-judgment-provider.md`](../../docs/protocol/openai-judgment-provider.md)
+- [`../../docs/protocol/live-judgment-api-tests.md`](../../docs/protocol/live-judgment-api-tests.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

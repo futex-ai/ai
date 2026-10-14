@@ -1,4 +1,4 @@
-//! Credential redaction for TypeSafe provider diagnostics.
+//! Credential redaction for provider diagnostics.
 
 use std::collections::BTreeMap;
 
@@ -8,7 +8,7 @@ const REDACTED: &str = "[redacted]";
 ///
 /// Secrets are applied longest first so a shorter secret that is a substring
 /// of a longer one cannot leave the longer credential's remainder exposed.
-pub(super) fn redact_secrets(message: &str, secrets: &[String]) -> String {
+pub fn redact_secrets(message: &str, secrets: &[String]) -> String {
     let mut ordered = secrets
         .iter()
         .filter(|secret| !secret.is_empty())
@@ -23,7 +23,11 @@ pub(super) fn redact_secrets(message: &str, secrets: &[String]) -> String {
 }
 
 /// Collects explicit and transmitted header secrets for diagnostic redaction.
-pub(super) fn secrets_from_headers(
+///
+/// Every non-empty header value is a secret. For scheme-prefixed values such
+/// as `Bearer <token>`, the token after the last whitespace is also a secret
+/// so a provider body that echoes the bare token is still redacted.
+pub fn secrets_from_headers(
     explicit: &[String],
     headers: &BTreeMap<String, String>,
 ) -> Vec<String> {
@@ -44,5 +48,5 @@ pub(super) fn secrets_from_headers(
 }
 
 #[cfg(test)]
-#[path = "_tests_/redaction_unit_tests.rs"]
-mod redaction_unit_tests;
+#[path = "_tests_/redaction_tests.rs"]
+mod redaction_tests;

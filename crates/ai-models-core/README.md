@@ -12,6 +12,8 @@
   operations that must poll within a total deadline
 - Offer a boundary-neutral HTTP failure classifier and provider-agnostic
   JSON/error helpers shared by model crates
+- Provide the shared judgment error classification and credential redaction
+  helpers used by every `JudgmentModel` adapter
 - Classify stream failures by provider-event progress and accumulate
   OpenAI-compatible chat-completions deltas into buffered response shapes
 - Provide shared known-model catalog metadata used by composition roots
@@ -21,6 +23,17 @@
 ## What This Crate Does
 
 `ai-models-core` exposes wrappers such as `RetryingModel` and `ConcurrencyLimitedModel` so composition roots can assemble policy layers around provider clients. It also includes provider-facing helpers for common response/error handling, including the boundary-neutral `classify_http_status`, structured context-window overflow detection, tool-call JSON parsing, and deterministic local ids for provider tool calls that arrive without upstream ids. The classifier returns `None` below 400 and distinguishes rate-limited, transient, and terminal failures without depending on a modality-specific error type. HTTP 408, 409, 425, and 5xx responses are transient so retry wrappers can apply the configured schedule. Streaming helpers classify failures before any provider event as transient and failures after progress as `ModelError::Interrupted`.
+
+Judgment adapters share one error path. `decode_failure_body` turns a non-2xx
+body into JSON, lossy text, or an `HTTP <status>` fallback;
+`classify_judgment_status` and `classify_judgment_request_error` map a status
+with its extracted message, or a `json-http` failure, onto `JudgmentError`
+with rate-limited, transient, terminal, and internal classes;
+`redact_judgment_error` redacts provider-controlled text in decode failures
+and `InvalidAnswer` labels; and `redact_secrets` with `secrets_from_headers`
+derive the redaction set from the transmitted auth headers, replacing each
+secret longest first. A failing auth hook uses the fixed `AUTH_HOOK_FAILED`
+diagnostic because its message cannot be sanitized.
 
 `ChatCompletionsAccumulator` is the shared typed merger for compatible
 provider streams. It joins visible content and reasoning independently,
@@ -130,6 +143,10 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
   safe thinking-level downgrade resolution
 - `src/pricing.rs` - model usage pricing wrapper and integer cost calculator
 - `src/http_status.rs` - boundary-neutral HTTP failure classification
+- `src/judgment_errors.rs` - shared judgment status, transport, failure-body,
+  and answer-label error helpers
+- `src/redaction.rs` - transmitted-auth secret derivation and longest-first
+  diagnostic redaction
 - `src/errors.rs` - provider-agnostic JSON error mapping, parsing, and
   structured-output validation helpers
 - `src/chat_completions/` - typed OpenAI-compatible stream accumulator
@@ -147,4 +164,6 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
+- [`../../docs/protocol/typesafe-judgment-provider.md`](../../docs/protocol/typesafe-judgment-provider.md)
+- [`../../docs/protocol/openai-judgment-provider.md`](../../docs/protocol/openai-judgment-provider.md)
 - [`../../plans/README.md`](../../plans/README.md)

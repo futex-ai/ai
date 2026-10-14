@@ -13,19 +13,22 @@ normalized response still work together.
 
 ## Scope
 
-The initial provider set is TypeSafe because it is the only provider that
-implements `JudgmentModel`. Each provider test obtains entries from its crate's
+The provider set is OpenAI and TypeSafe, the providers that implement
+`JudgmentModel`. Each provider test obtains entries from its crate's
 `known_models()` and selects every entry advertising `ModelFeature::Judgment`.
 Adding a judgment model to a catalog therefore adds live coverage
 automatically. A credential-free guard fails when a judgment-capable catalog
 provider has no registered live adapter or CI matrix entry.
 
-The chat live suite must treat `ProviderKind::TypeSafe` as judgment-only: its
-provider registry maps that kind to no chat adapter, its all-provider guard
-expects it to be absent from the chat registry, and its chat catalog filter
-also excludes entries advertising `ModelFeature::Judgment`. The image and
-video suites already select by their own features and only need the new
-provider kind in their non-matching lists.
+Every judgment catalog entry, from any provider, advertises only
+`ModelFeature::Judgment`; a credential-free guard in this suite and in the
+chat suite proves that no judgment entry advertises chat, image, or video
+features. The chat live suite must treat `ProviderKind::TypeSafe` as
+judgment-only: its provider registry maps that kind to no chat adapter, its
+all-provider guard expects it to be absent from the chat registry, and its
+chat catalog filter also excludes entries advertising `ModelFeature::Judgment`.
+OpenAI stays in the chat registry; its judgment entry is excluded by the same
+feature filter. The image and video suites select by their own features.
 
 ## Execution
 
@@ -56,8 +59,9 @@ mapping while satisfying TypeSafe's required score-criteria contract.
 
 Every successful live call must:
 
-- report `provider: "typesafe"`, the catalog provider model id as `model_id`,
-  and a non-empty `resolved_model_id`;
+- report the catalog entry's `ProviderKind` string (`openai` or `typesafe`)
+  as `provider`, the catalog provider model id as `model_id`, and a non-empty
+  `resolved_model_id`;
 - return exactly the three requested answer ids and no others;
 - satisfy the shared `JudgmentResponse::validate_against` postconditions
   defined by the judgment provider protocol (matching kinds, complete
@@ -86,17 +90,22 @@ credential check and test steps.
 
 | Provider | Secret |
 | --- | --- |
+| OpenAI | `OPENAI_API_KEY` |
 | TypeSafe | `TYPESAFE_API_KEY` |
 
 Each attempt sends one small request billed on input tokens only. A missing
-or non-`true` opt-in variable skips the job. The opt-in should be enabled only
-after `TYPESAFE_API_KEY` is provisioned; once enabled, a missing secret on an
-eligible event is a failing configuration error.
+or non-`true` opt-in variable skips the whole job, including the OpenAI
+entry. The opt-in should be enabled only after both secrets are provisioned;
+once enabled, a missing secret on an eligible event is a failing
+configuration error for that provider's matrix entry.
 
 ## Local Invocation
 
 ```sh
 cargo test --locked -p xtask --test live_judgments
+LIVE_JUDGMENT_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
+  --test live_judgments catalog_tests::openai_judgment_catalog \
+  -- --ignored --exact --nocapture
 LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
   --test live_judgments catalog_tests::typesafe_judgment_catalog \
   -- --ignored --exact --nocapture
@@ -104,8 +113,8 @@ LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
 
 ## Extending Coverage
 
-Adding a judgment-capable catalog entry to TypeSafe requires no workflow
-change. Adding another judgment provider requires implementing
+Adding a judgment-capable catalog entry to OpenAI or TypeSafe requires no
+workflow change. Adding another judgment provider requires implementing
 `JudgmentModel`, advertising `ModelFeature::Judgment`, registering identity,
 authentication, construction, test name, and secret in `LiveJudgmentProvider`,
 adding an ignored catalog test, extending the workflow matrix, and updating
@@ -115,6 +124,8 @@ this protocol's credential table in the same change.
 
 - [TypeSafe judgment provider](typesafe-judgment-provider.md) defines the
   shared boundary, wire mapping, and error contract.
+- [OpenAI judgment provider](openai-judgment-provider.md) defines the OpenAI
+  Decisions mapping, refusal handling, and usage normalization.
 - [Live model API tests](live-model-api-tests.md), [live image API
   tests](live-image-api-tests.md), and [live video API
   tests](live-video-api-tests.md) define the sibling credentialed suites.

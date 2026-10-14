@@ -19,12 +19,13 @@ in-memory tool-calling runtime behavior.
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, Google and MiniMax inline video
   input, OpenAI and Gemini image generation, OpenAI Sora and Google Veo video
-  generation, internally streamed completions and public incremental events for
+  generation, OpenAI Decisions judgments, internally streamed completions and public incremental events for
   every synchronous provider path (with xAI's deferred path remaining buffered
   and event-silent), structured output, usage normalization, catalog-aware
   thinking-level downgrades, and typed errors
-- TypeSafe Jev judgment evaluation through a provider-neutral typed boundary
-  for condition, choice, and score questions over shared text or JSON state
+- TypeSafe Jev and OpenAI Decisions judgment evaluation through one
+  provider-neutral typed boundary for condition, choice, and score questions
+  over shared text or JSON state, with typed refusals
 - Provider-agnostic wrappers for retry, concurrency, structured output
   validation, known-model catalogs, usage pricing, streaming failure
   classification, and chat-completions delta accumulation
@@ -64,6 +65,9 @@ in-memory tool-calling runtime behavior.
 - [TypeSafe judgment provider](docs/protocol/typesafe-judgment-provider.md)
   defines the implemented provider-agnostic condition/choice/score judgment
   boundary and the TypeSafe Jev wire, validation, usage, and error mapping.
+- [OpenAI judgment provider](docs/protocol/openai-judgment-provider.md)
+  defines the OpenAI Decisions mapping of the same boundary: catalog, content
+  rendering, criteria folding, named answers, refusals, usage, and errors.
 - [Live judgment API tests](docs/protocol/live-judgment-api-tests.md) defines
   the implemented credentialed judgment catalog coverage, probe, validation,
   and CI secret boundary.
@@ -107,7 +111,8 @@ boundary they need:
 - `ai-models-kimi`: Kimi K3 model adapter
 - `ai-models-minimax`: MiniMax Chat Completions model adapter and known-model
   catalog
-- `ai-models-openai`: OpenAI model, transcription, image, and video adapters
+- `ai-models-openai`: OpenAI model, transcription, image, video, and
+  Decisions judgment adapters
 - `ai-models-qwen`: Qwen 3.7 Max/Plus/Flash Chat Completions adapter and
   known-model catalog
 - `ai-models-typesafe`: TypeSafe Jev judgment adapter and known-model catalog
@@ -192,24 +197,28 @@ same-repository pull requests, daily, and on manual dispatch. It uses
 up to three billable attempts per catalog model after transient failures.
 
 Credentialed judgment checks live in `xtask/tests/live_judgments/mod.rs`. They
-select every TypeSafe catalog entry advertising `Judgment`, construct the
-production adapter behind `DynJudgmentModel`, and evaluate one short support
-message against condition, choice, and a fully described score rubric. Run the
-credential-free guards or the billable TypeSafe catalog with:
+select every OpenAI and TypeSafe catalog entry advertising `Judgment`,
+construct the production adapter behind `DynJudgmentModel`, and evaluate one
+short support message against condition, choice, and a fully described score
+rubric. Run the credential-free guards or one billable provider catalog with:
 
 ```sh
 cargo test --locked -p xtask --test live_judgments
+LIVE_JUDGMENT_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
+  --test live_judgments catalog_tests::openai_judgment_catalog \
+  -- --ignored --exact --nocapture
 LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
   --test live_judgments catalog_tests::typesafe_judgment_catalog \
   -- --ignored --exact --nocapture
 ```
 
-The `Live judgment APIs` workflow runs the TypeSafe catalog sequentially for
-trusted same-repository pull requests, daily, and on manual dispatch after the
-repository variable `LIVE_JUDGMENT_API_TESTS_ENABLED` is set to `true`. Enable
-it only after provisioning `TYPESAFE_API_KEY`; once enabled, a missing secret
-fails the job. The workflow may make up to three billable attempts per catalog
-model after transient failures.
+The `Live judgment APIs` workflow runs the OpenAI and TypeSafe catalogs
+sequentially for trusted same-repository pull requests, daily, and on manual
+dispatch after the repository variable `LIVE_JUDGMENT_API_TESTS_ENABLED` is
+set to `true`. Enable it only after provisioning `OPENAI_API_KEY` and
+`TYPESAFE_API_KEY`; once enabled, a missing secret fails that provider's job.
+The workflow may make up to three billable attempts per catalog model after
+transient failures.
 
 Credentialed video checks live in `xtask/tests/live_videos/mod.rs`. They select
 every Google and OpenAI catalog entry advertising `VideoGeneration`, construct
@@ -251,6 +260,11 @@ cargo xtask review
   request/replay, structured output, usage, and error mapping
 - `crates/ai-models-typesafe`: TypeSafe Jev catalog, judgment request/response
   mapping, validation, usage, authentication, and provider-error translation
+- `crates/ai-models-openai/src/openai/decisions/`: OpenAI Decisions judgment
+  request/response mapping, refusal handling, and usage normalization
+- `crates/ai-models-core/src/judgment_errors.rs` and `src/redaction.rs`:
+  judgment error classification and credential redaction shared by every
+  judgment adapter
 - `crates/ai-models-*`: concrete provider and fallback adapters
 - `crates/ai-tool-calling`: in-memory tool-calling runtime, including
   `src/policy.rs`, `src/output_store/`, and the intrinsic output reader

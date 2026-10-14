@@ -80,8 +80,10 @@ dependency on a stateful runtime implementation.
   numeric values, distribution sums, and internal consistency (the selected
   option is the most probable one and the expected score matches its
   distribution within documented tolerances) before callers consume them.
-  `ProviderKind::TypeSafe` and `ModelFeature::Judgment` are the stable routing
-  identities.
+  `JudgmentError::Refused` names the question a provider declined to answer
+  so callers can route that state elsewhere instead of retrying.
+  `ModelFeature::Judgment` is the stable routing capability; TypeSafe and
+  OpenAI implement the boundary.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
   tool idempotency key alongside the model-visible tool name and JSON input.
 - Defines `ToolOutputEnvelope` as the model-visible success payload for tools.
@@ -275,6 +277,7 @@ tool dispatch live in `ai-tool-calling`.
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
 - [`../../docs/protocol/typesafe-judgment-provider.md`](../../docs/protocol/typesafe-judgment-provider.md)
+- [`../../docs/protocol/openai-judgment-provider.md`](../../docs/protocol/openai-judgment-provider.md)
 - [`../../docs/protocol/live-judgment-api-tests.md`](../../docs/protocol/live-judgment-api-tests.md)
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)

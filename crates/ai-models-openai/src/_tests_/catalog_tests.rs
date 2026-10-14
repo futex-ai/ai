@@ -1,11 +1,13 @@
 //! OpenAI catalog tests.
 
-use ai_models_core::{ModelFeature, ProviderKind, ThinkingLevel};
+use ai_models_core::{
+    CostTier, IntelligenceScore, ModelFeature, ProviderKind, SpeedTier, ThinkingLevel,
+};
 
 use super::{
     GPT_5_4_MINI, GPT_5_4_NANO, GPT_5_5, GPT_5_5_THINKING_EXTRA_HIGH, GPT_5_5_THINKING_HIGH,
     GPT_5_5_THINKING_LOW, GPT_5_6_LUNA, GPT_5_6_SOL, GPT_5_6_SOL_THINKING_MAX, GPT_5_6_TERRA,
-    GPT_IMAGE_2, SORA_2, known_models,
+    GPT_6_LUNA, GPT_6_LUNA_DECISIONS, GPT_IMAGE_2, SORA_2, known_models,
 };
 
 #[test]
@@ -90,6 +92,29 @@ fn gpt_5_6_family_has_current_metadata() {
         .expect("GPT-5.6 Sol max-thinking model should exist");
     assert_eq!(max.provider_model_id, GPT_5_6_SOL);
     assert_eq!(max.thinking_level, ThinkingLevel::Max);
+}
+
+#[test]
+fn gpt_6_luna_decisions_is_the_only_judgment_entry() {
+    let models = known_models();
+    let judgment_models = models
+        .iter()
+        .filter(|model| model.has_feature(ModelFeature::Judgment))
+        .collect::<Vec<_>>();
+
+    assert_eq!(judgment_models.len(), 1);
+    let model = judgment_models[0];
+    assert_eq!(model.id, GPT_6_LUNA_DECISIONS);
+    assert_eq!(model.provider, ProviderKind::OpenAi);
+    assert_eq!(model.provider_model_id, GPT_6_LUNA);
+    assert_eq!(model.provider_model_id, "gpt-6-luna");
+    assert_eq!(model.context_window_tokens, 1_050_000);
+    assert_eq!(model.intelligence_score, IntelligenceScore::Eight);
+    assert_eq!(model.speed, SpeedTier::VeryFast);
+    assert_eq!(model.cost, CostTier::Low);
+    assert_eq!(model.thinking_level, ThinkingLevel::Disabled);
+    assert_eq!(model.features, [ModelFeature::Judgment]);
+    assert!(models.iter().all(|model| model.id != GPT_6_LUNA));
 }
 
 #[test]

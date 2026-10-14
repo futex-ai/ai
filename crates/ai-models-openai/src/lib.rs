@@ -9,6 +9,9 @@ pub use catalog::{
     GPT_5_4_MINI, GPT_5_4_NANO, GPT_5_5, GPT_5_5_THINKING_EXTRA_HIGH, GPT_5_5_THINKING_HIGH,
     GPT_5_5_THINKING_LOW, GPT_5_6_LUNA, GPT_5_6_SOL, GPT_5_6_SOL_THINKING_EXTRA_HIGH,
     GPT_5_6_SOL_THINKING_HIGH, GPT_5_6_SOL_THINKING_LOW, GPT_5_6_SOL_THINKING_MAX, GPT_5_6_TERRA,
-    GPT_IMAGE_2, SORA_2, known_models,
+    GPT_6_LUNA, GPT_6_LUNA_DECISIONS, GPT_IMAGE_2, SORA_2, known_models,
 };
-pub use openai::{OpenAiAudioTranscriber, OpenAiImageGenerator, OpenAiModel, OpenAiVideoGenerator};
+pub use openai::{
+    OpenAiAudioTranscriber, OpenAiImageGenerator, OpenAiJudgmentModel, OpenAiModel,
+    OpenAiVideoGenerator,
+};

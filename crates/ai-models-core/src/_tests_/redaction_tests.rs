@@ -1,4 +1,4 @@
-//! TypeSafe credential secret derivation tests.
+//! Credential secret derivation and redaction tests.
 
 use std::collections::BTreeMap;
 
@@ -46,4 +46,13 @@ fn overlapping_secrets_are_redacted_longest_first() {
         ),
         "rejected [redacted]"
     );
+}
+
+#[test]
+fn empty_secrets_leave_the_message_unchanged() {
+    assert_eq!(
+        redact_secrets("rejected request", &[String::new()]),
+        "rejected request"
+    );
+    assert_eq!(redact_secrets("rejected request", &[]), "rejected request");
 }

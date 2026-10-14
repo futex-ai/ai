@@ -96,12 +96,35 @@ fn chat_catalog_excludes_specialized_models() {
 }
 
 #[test]
-fn typesafe_judgment_models_never_reach_other_live_runners() {
-    let catalog = ai_models_typesafe::known_models();
+fn judgment_models_never_reach_other_live_runners() {
+    let typesafe_catalog = ai_models_typesafe::known_models();
+    assert!(
+        !typesafe_catalog.is_empty(),
+        "TypeSafe catalog must not be empty"
+    );
+    assert!(
+        typesafe_catalog
+            .iter()
+            .all(|model| model.has_feature(ModelFeature::Judgment))
+    );
 
-    assert!(!catalog.is_empty(), "TypeSafe catalog must not be empty");
-    assert!(catalog.iter().all(|model| {
-        model.has_feature(ModelFeature::Judgment)
+    let judgment_catalog = LiveProvider::ALL
+        .iter()
+        .flat_map(|provider| provider.catalog())
+        .chain(typesafe_catalog)
+        .filter(|model| model.has_feature(ModelFeature::Judgment))
+        .collect::<Vec<_>>();
+    let judgment_providers = judgment_catalog
+        .iter()
+        .map(|model| model.provider)
+        .collect::<BTreeSet<_>>();
+
+    assert_eq!(
+        judgment_providers,
+        BTreeSet::from([ProviderKind::OpenAi, ProviderKind::TypeSafe])
+    );
+    assert!(judgment_catalog.iter().all(|model| {
+        model.features == [ModelFeature::Judgment]
             && !model.has_feature(ModelFeature::ToolCalling)
             && !model.has_feature(ModelFeature::ImageGeneration)
             && !model.has_feature(ModelFeature::VideoGeneration)

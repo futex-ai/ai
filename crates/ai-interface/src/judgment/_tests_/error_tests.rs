@@ -126,6 +126,24 @@ fn invalid_answer_constructor_preserves_context_and_problem() {
 }
 
 #[test]
+fn refused_constructor_preserves_context_and_display_contract() {
+    let error = JudgmentError::refused("openai", "gpt-6-luna", "urgent");
+
+    assert_eq!(
+        error.to_string(),
+        "[ai_interface/judgment] provider `openai` model `gpt-6-luna` refused to answer `urgent`"
+    );
+    assert!(matches!(
+        error,
+        JudgmentError::Refused {
+            provider,
+            model_id,
+            id,
+        } if provider == "openai" && model_id == "gpt-6-luna" && id == "urgent"
+    ));
+}
+
+#[test]
 fn internal_error_preserves_contract_and_caller_locations() {
     let expected_line = line!() + 1;
     let error = JudgmentError::internal(TestSourceError);

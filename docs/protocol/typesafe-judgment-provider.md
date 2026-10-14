@@ -7,7 +7,9 @@ provider. TypeSafe does not generate text: it evaluates a caller-supplied
 `state` against a map of typed questions and returns calibrated probabilities.
 That contract does not fit `ai_interface::Model`, so this protocol defines a
 separate provider-agnostic judgment boundary and the TypeSafe implementation
-of it.
+of it. The [OpenAI judgment provider protocol](openai-judgment-provider.md)
+implements the same boundary over OpenAI's Decisions API and defines only its
+own provider mapping.
 
 This contract is implemented. The
 [Add TypeSafe judgment provider plan](../../plans/add-typesafe-judgment-provider.md)
@@ -32,7 +34,11 @@ capture, and confidence-threshold policy. Composition roots own those.
   judgment DTOs, typed errors, the `JudgmentModel` trait, its dyn alias and
   unimock API, and the deterministic `MockJudgmentModel`.
 - `ai-models-core` owns the shared HTTP status classifier reused by this
-  provider, plus catalog metadata types.
+  provider, catalog metadata types, and the provider-neutral judgment helpers
+  shared with the OpenAI adapter: credential redaction (`redact_secrets`,
+  `secrets_from_headers`), failure-body decoding, status and transport error
+  classification into `JudgmentError`, and redaction of provider-controlled
+  `InvalidAnswer` labels.
 - `ai-models-typesafe` owns the Jev catalog, authentication, wire mapping,
   local validation, response validation, usage normalization, and provider
   error translation.
@@ -66,8 +72,9 @@ serialize their own typed state with `serde_json::to_value` or `json!`.
 - `state: JudgmentContent`: the material to evaluate. Whitespace-only text,
   an empty object, or an empty array is the local `EmptyState` error.
 - `questions: BTreeMap<String, JudgmentQuestion>`: caller-chosen ids mapped to
-  questions. Ids are for code only and are never sent to the model. An empty
-  map is the local `NoQuestions` error.
+  questions. Ids are for code only. TypeSafe never sends them to the model;
+  the OpenAI adapter sends them as the question `name` so answers can be
+  matched by name. An empty map is the local `NoQuestions` error.
 
 `JudgmentQuestion` is internally tagged by `type` with snake-case variants:
 
@@ -320,6 +327,7 @@ only.
 | `NoQuestions` | local empty question map | fix request; do not retry |
 | `InvalidQuestion` | local typed question problem | fix request; do not retry |
 | `InvalidAnswer` | a provider answer failed the shared `validate_against` postconditions; carries provider, model id, answer id, and a typed `JudgmentAnswerProblem` | terminal |
+| `Refused` | the provider declined to answer one question; carries provider, model id, and the question id. TypeSafe never returns it; see the [OpenAI protocol](openai-judgment-provider.md) | terminal; route the state elsewhere |
 | `RateLimited` | HTTP 429 | retry with backoff |
 | `TransientProvider` | transport or auth-hook failure, HTTP 408/409/425, or 5xx including 529 overloaded | retry with backoff |
 | `Provider` | HTTP 401/403 authentication, 422 validation, other statuses, or invalid response semantics | terminal |
@@ -341,7 +349,8 @@ Error bodies are decoded best-effort: a `detail` object supplies its
 `{"detail": {"error_type": "authentication_error", "message": "..."}}`.
 
 API keys and auth headers must never appear in errors or diagnostics. The
-adapter enforces this rather than assuming it. It applies the injected auth
+adapter enforces this rather than assuming it, through the shared
+`ai-models-core` judgment helpers that the OpenAI adapter also uses. It applies the injected auth
 hook exactly once per call, sends exactly the header values that application
 produced, and derives the redaction set from those values: each full value
 and, for scheme-prefixed values such as `Bearer <token>`, the token after the

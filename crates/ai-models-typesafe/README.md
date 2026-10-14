@@ -31,6 +31,9 @@ provider model ids so callers can pin newer releases before catalog metadata
 is updated. It does not read environment variables, load credentials, retry,
 price usage, or make network calls during unit tests.
 
+Credential redaction, status and transport classification, and
+`InvalidAnswer` label redaction come from the shared `ai-models-core` judgment
+helpers, which the OpenAI judgment adapter in `ai-models-openai` also uses.
 Responses are decoded directly from bytes, and only `2xx` statuses are treated
 as successful judgments. Requested answer fragments are decoded independently,
 so unknown unrequested answers are ignored, and repeated answer ids, option
@@ -91,9 +94,8 @@ credentials or network access are required.
 - `src/typesafe/client.rs` - construction, local validation, and HTTP dispatch.
 - `src/typesafe/request.rs` - shared-to-TypeSafe request mapping.
 - `src/typesafe/response.rs` - answer, score-key, and usage normalization.
-- `src/typesafe/error.rs` - status, transport, and auth error classification.
-- `src/typesafe/redaction.rs` - transmitted-auth secret derivation and
-  longest-first diagnostic redaction.
+- `src/typesafe/error.rs` - TypeSafe failure-message extraction over the
+  shared `ai-models-core` judgment status classifier.
 - `src/typesafe/unique_map.rs` - duplicate-rejecting provider map decoding.
 
 ### Related Docs

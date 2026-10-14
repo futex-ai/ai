@@ -6,6 +6,7 @@ milestones are finished.
 
 ## Active
 
+- [Add OpenAI Decisions judgment provider](add-openai-judgment-provider.md)
 - [Model completion streaming](model-completion-streaming.md)
 
 ## Completed
