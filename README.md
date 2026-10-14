@@ -212,12 +212,14 @@ LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
   -- --ignored --exact --nocapture
 ```
 
-The `Live judgment APIs` workflow runs the OpenAI and TypeSafe catalogs
-sequentially for trusted same-repository pull requests, daily, and on manual
-dispatch after the repository variable `LIVE_JUDGMENT_API_TESTS_ENABLED` is
-set to `true`. Enable it only after provisioning `OPENAI_API_KEY` and
-`TYPESAFE_API_KEY`; once enabled, a missing secret fails that provider's job.
-The workflow may make up to three billable attempts per catalog model after
+The `Live judgment APIs` workflow runs the OpenAI and TypeSafe catalogs as
+sequential matrix entries of one job for trusted same-repository pull
+requests, daily, and on manual dispatch. The whole job is skipped while the
+repository variable `LIVE_JUDGMENT_API_TESTS_ENABLED` is not `true`. Once it
+is `true`, each matrix entry requires only its own secret (`OPENAI_API_KEY`
+for OpenAI, `TYPESAFE_API_KEY` for TypeSafe), and a missing secret fails only
+that entry. Provision both secrets before you enable the variable. The
+workflow may make up to three billable attempts per catalog model after
 transient failures.
 
 Credentialed video checks live in `xtask/tests/live_videos/mod.rs`. They select
@@ -287,6 +289,8 @@ cargo xtask review
   catalog and CI verification contract
 - `docs/protocol/typesafe-judgment-provider.md`: normative shared judgment
   boundary and TypeSafe Jev provider contract
+- `docs/protocol/openai-judgment-provider.md`: normative OpenAI Decisions
+  judgment provider contract
 - `docs/protocol/live-judgment-api-tests.md`: implemented credentialed judgment
   catalog and CI verification contract
 - `docs/protocol/provider-call-controls.md`: normative model-call control and
@@ -318,10 +322,11 @@ catalog entry through `DynImageGenerator` with image-specific validation and
 sequential provider jobs. The `Live video APIs` workflow similarly exercises
 every Google and OpenAI video-capable entry through `DynVideoGenerator`, with
 MP4-specific validation and no asset persistence. The `Live judgment APIs`
-workflow exercises every TypeSafe Jev catalog entry through `DynJudgmentModel`
-with `TYPESAFE_API_KEY`, shared answer validation, and sequential retries once
-`LIVE_JUDGMENT_API_TESTS_ENABLED` opts the repository into those billable
-checks. Forked and Dependabot pull requests skip all credentialed workflows
+workflow exercises every OpenAI Decisions and TypeSafe Jev catalog entry
+through `DynJudgmentModel` with each provider's own secret, shared answer
+validation, and sequential retries once `LIVE_JUDGMENT_API_TESTS_ENABLED`
+opts the repository into those billable checks. Forked and Dependabot pull
+requests skip all credentialed workflows
 because GitHub does not provide them repository Actions secrets. The ordinary
 credential-free suite still enforces the live model registry and
 completion-event coverage policy without making provider calls.

@@ -117,12 +117,23 @@ Catalog registration automatically produces credentialed coverage.
 
 ## Milestone 5: Verification, Commit, Push, And Review
 
+Evidence: gate and test logs in `.context/add-openai-judgment-provider/`
+(`xtask-check.log`, `fix-*.log`).
+
 - [x] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
       --all-targets --all-features`, `cargo test --workspace --all-features`,
       `cargo xtask rust-file-length-lint --all`, and `cargo xtask smoke-test`.
 - [x] Run `cargo xtask check`.
 - [x] Review `git diff origin/main...` for scope, docs, public API, tests,
       credentials, and untracked files.
+- [x] Correct the judgment workflow gating text in `xtask/README.md`, the
+      workspace `README.md`, and the live judgment protocol: the opt-in
+      variable skips the whole job, and each matrix entry needs only its
+      own secret (Codex review finding, P3).
+- [x] Close the verification gaps: test that `Refused` is not retried and
+      that a `null` usage object maps to the default, correct the object
+      key order in the OpenAI protocol, and describe the adapter
+      constructors, the README CI entry, and `http_status_message`.
 - [ ] Run `git add -A`, commit with a Conventional Commit title no longer than
       50 characters and a descriptive body, and push the current branch.
 - [ ] Review the complete local diff against `origin/main` with the

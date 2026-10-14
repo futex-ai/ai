@@ -94,11 +94,14 @@ Every `JudgmentContent` value therefore renders to one string:
 | Content | Rendering |
 | --- | --- |
 | `Text` | the text verbatim, including surrounding whitespace |
-| `Object` | compact JSON with no insertion of whitespace, for example `{"ticket":"My payouts failed","attempts":4}` |
-| `Array` | compact JSON, for example `["verbatim",null,3]` |
+| `Object` | compact JSON with no inserted whitespace, for example `{"attempts":4,"ticket":"My payouts failed"}` |
+| `Array` | compact JSON in element order, for example `["verbatim",null,3]` |
 
-The same rendering applies to state, instructions, option descriptions, and
-score levels. A rendering failure is an `Internal` error.
+Object keys at every nesting level render in `serde_json::Map` order, which
+is ascending key order because no workspace crate enables serde_json's
+`preserve_order` feature; a build that enables it renders insertion order.
+The same rendering applies to state, instructions, condition criteria, option
+descriptions, and score levels. A rendering failure is an `Internal` error.
 
 ## Request Contract
 
@@ -237,7 +240,7 @@ saturating arithmetic; `output_tokens_details.reasoning_tokens` maps to
 `reasoning_tokens` and is subtracted from `output_tokens`. `total_tokens` is
 the provider value when present and otherwise the saturating sum of the four
 normalized buckets. Every counter and detail object is nullable; absent or
-`null` values map to zero, and a missing `usage` object is
+`null` values map to zero, and a missing or `null` `usage` object is
 `ModelUsage::default()`. `cache_write_tokens` is not surfaced. Cost lines
 remain empty until a composition root applies `ai_models_core::price_usage`;
 OpenAI currently bills Decisions input tokens only.

@@ -118,9 +118,16 @@ scheduled to shut down on September 24, 2026, so consumers should treat the
 adapter as a time-bounded compatibility integration.
 
 `OpenAiJudgmentModel` implements the shared `JudgmentModel` boundary over the
-Decisions API (`POST /v1/decisions`). `GPT_6_LUNA` is the provider model id to
-construct it with, and `GPT_6_LUNA_DECISIONS` is the judgment-only catalog
-entry. The adapter renders object and array content as compact JSON text,
+Decisions API (`POST /v1/decisions`). `OpenAiJudgmentModel::new` takes an
+injected `json-http` client, a provider model id, and an API key; `with_auth`
+takes an auth hook instead of the key. Each call sends every question in one
+request to `https://api.openai.com/v1/decisions` with a 60-second timeout, and
+`with_endpoint` and `with_timeout` override both. `GPT_6_LUNA` is the provider
+model id to construct it with, and `GPT_6_LUNA_DECISIONS` is the
+judgment-only catalog entry. Unlisted provider model ids are accepted so
+callers can adopt a new Decisions model before the catalog lists it.
+
+The adapter renders object and array content as compact JSON text,
 folds optional condition criteria into the predicate instructions, sends
 caller question ids as answer names, and maps `predicate`, `choice`, and
 `score` answers back into the shared condition, choice, and score answers

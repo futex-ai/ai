@@ -5,7 +5,9 @@
 This protocol defines credentialed end-to-end verification for every
 judgment adapter and every catalog entry advertising `ModelFeature::Judgment`.
 It is implemented and tracked by the
-[Add TypeSafe judgment provider plan](../../plans/add-typesafe-judgment-provider.md).
+[Add TypeSafe judgment provider plan](../../plans/add-typesafe-judgment-provider.md);
+the [Add OpenAI Decisions judgment provider plan](../../plans/add-openai-judgment-provider.md)
+adds the OpenAI provider.
 
 The suite complements deterministic wire-mapping tests. It proves that the
 production adapter, current model ids, authentication, upstream API, and
@@ -46,7 +48,7 @@ validation tests. Every provider test:
    failing the job.
 5. Retries only `RateLimited` and `TransientProvider`, with at most three total
    attempts using the shared `STANDARD_TRANSIENT_RETRY_DELAYS` schedule.
-   Request, terminal provider, and internal failures are not retried.
+   Request, refusal, terminal provider, and internal failures are not retried.
 
 The probe request evaluates one short, policy-safe support message as object
 state with one question of each kind: a condition asking whether the message
@@ -94,10 +96,12 @@ credential check and test steps.
 | TypeSafe | `TYPESAFE_API_KEY` |
 
 Each attempt sends one small request billed on input tokens only. A missing
-or non-`true` opt-in variable skips the whole job, including the OpenAI
-entry. The opt-in should be enabled only after both secrets are provisioned;
-once enabled, a missing secret on an eligible event is a failing
-configuration error for that provider's matrix entry.
+or non-`true` opt-in variable skips the whole job, including every matrix
+entry. Once the variable is `true`, each matrix entry checks only its own
+secret in its first step: on an eligible event, a missing secret is a failing
+configuration error for that entry only, and the other entries still run
+because the matrix does not fail fast. Enable the opt-in only after both
+secrets are provisioned.
 
 ## Local Invocation
 

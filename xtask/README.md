@@ -53,9 +53,10 @@ the ignored tests for eligible pull requests, daily verification, and manual
 dispatch. The MiniMax job first sends MiniMax-M3 a real tool with strict
 `Required` selection and asserts that the provider returns that tool call.
 The judgment workflow additionally requires the repository Actions variable
-`LIVE_JUDGMENT_API_TESTS_ENABLED=true`; its provider jobs, including the
-OpenAI entry, remain skipped until the TypeSafe credential is provisioned and
-that opt-in is enabled.
+`LIVE_JUDGMENT_API_TESTS_ENABLED`: while it is not `true`, the whole provider
+job, with every matrix entry, is skipped. Once it is `true`, each matrix entry
+requires only its own secret (`OPENAI_API_KEY` for OpenAI, `TYPESAFE_API_KEY`
+for TypeSafe), and a missing secret fails only that entry.
 
 `tests/live_images/mod.rs` is the corresponding ignored image suite. It selects
 every Google and OpenAI catalog entry advertising `ImageGeneration`, constructs

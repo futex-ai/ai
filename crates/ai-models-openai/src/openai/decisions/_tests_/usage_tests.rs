@@ -41,6 +41,14 @@ fn missing_usage_uses_the_shared_default() {
 }
 
 #[test]
+fn null_usage_object_uses_the_shared_default() {
+    let response =
+        parse_value(body_with_usage(Some(Value::Null))).expect("null usage should not fail");
+
+    assert_eq!(response.usage, ModelUsage::default());
+}
+
+#[test]
 fn null_or_absent_counters_map_to_zero_and_total_is_reconstructed() {
     for usage in [
         json!({"input_tokens": null, "output_tokens": null, "total_tokens": null}),

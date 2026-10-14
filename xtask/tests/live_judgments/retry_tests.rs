@@ -139,6 +139,7 @@ async fn terminal_error_classes_stop_after_one_attempt() {
             "urgent",
             JudgmentAnswerProblem::Missing,
         ),
+        JudgmentError::refused("openai", "gpt-6-luna", "urgent"),
         JudgmentError::provider("typesafe", "jev-latest", "rejected"),
         JudgmentError::internal(std::io::Error::other("internal")),
     ];

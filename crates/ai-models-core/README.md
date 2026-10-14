@@ -25,7 +25,8 @@
 `ai-models-core` exposes wrappers such as `RetryingModel` and `ConcurrencyLimitedModel` so composition roots can assemble policy layers around provider clients. It also includes provider-facing helpers for common response/error handling, including the boundary-neutral `classify_http_status`, structured context-window overflow detection, tool-call JSON parsing, and deterministic local ids for provider tool calls that arrive without upstream ids. The classifier returns `None` below 400 and distinguishes rate-limited, transient, and terminal failures without depending on a modality-specific error type. HTTP 408, 409, 425, and 5xx responses are transient so retry wrappers can apply the configured schedule. Streaming helpers classify failures before any provider event as transient and failures after progress as `ModelError::Interrupted`.
 
 Judgment adapters share one error path. `decode_failure_body` turns a non-2xx
-body into JSON, lossy text, or an `HTTP <status>` fallback;
+body into JSON, lossy text, or the `HTTP <status>` fallback that
+`http_status_message` builds;
 `classify_judgment_status` and `classify_judgment_request_error` map a status
 with its extracted message, or a `json-http` failure, onto `JudgmentError`
 with rate-limited, transient, terminal, and internal classes;
