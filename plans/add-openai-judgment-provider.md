@@ -266,14 +266,18 @@ Evidence: `.context/add-openai-judgment-provider/round2-m8-*.log`
 
 ## Milestone 9: Verification, Commit, Push, And Review (Round 2)
 
-- [ ] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
+Evidence: gate logs in `.context/add-openai-judgment-provider/`
+(`round2-gate-summary.log`, `round2-*.log`, and the per-milestone
+`round2-m*-audit-*.log` deletion audits).
+
+- [x] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
       --all-targets --all-features`, `cargo test --workspace --all-features`,
       `cargo xtask rust-file-length-lint --all`, `cargo xtask smoke-test`,
       and `cargo xtask check`.
-- [ ] Run the deletion audit; the only removals are the text moved into
+- [x] Run the deletion audit; the only removals are the text moved into
       `judgment-boundary.md` and the TypeSafe helper files moved in
       Milestone 2, both approved.
-- [ ] Run `git add -A`, commit each milestone with a Conventional Commit
+- [x] Run `git add -A`, commit each milestone with a Conventional Commit
       title no longer than 50 characters and a descriptive body, and push
       the current branch.
 - [ ] Review the complete local diff against `origin/main` with the
