@@ -62,9 +62,12 @@ in-memory tool-calling runtime behavior.
 - [Live video API tests](docs/protocol/live-video-api-tests.md) defines the
   implemented credentialed video catalog coverage, shortest portable probe,
   MP4 validation, and CI secret boundary.
+- [Judgment boundary](docs/protocol/judgment-boundary.md) defines the
+  implemented provider-agnostic condition/choice/score judgment boundary, the
+  shared judgment transport, and the typed error contract.
 - [TypeSafe judgment provider](docs/protocol/typesafe-judgment-provider.md)
-  defines the implemented provider-agnostic condition/choice/score judgment
-  boundary and the TypeSafe Jev wire, validation, usage, and error mapping.
+  defines the TypeSafe Jev mapping of that boundary: catalog, wire, usage, and
+  failure messages.
 - [OpenAI judgment provider](docs/protocol/openai-judgment-provider.md)
   defines the OpenAI Decisions mapping of the same boundary: catalog, content
   rendering, criteria folding, named answers, refusals, usage, and errors.
@@ -287,8 +290,10 @@ cargo xtask review
   asynchronous provider mapping contract
 - `docs/protocol/live-video-api-tests.md`: implemented credentialed video-provider
   catalog and CI verification contract
-- `docs/protocol/typesafe-judgment-provider.md`: normative shared judgment
-  boundary and TypeSafe Jev provider contract
+- `docs/protocol/judgment-boundary.md`: normative shared judgment boundary,
+  transport, and error contract
+- `docs/protocol/typesafe-judgment-provider.md`: normative TypeSafe Jev
+  judgment provider contract
 - `docs/protocol/openai-judgment-provider.md`: normative OpenAI Decisions
   judgment provider contract
 - `docs/protocol/live-judgment-api-tests.md`: implemented credentialed judgment

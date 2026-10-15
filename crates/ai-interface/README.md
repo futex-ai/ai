@@ -276,6 +276,7 @@ tool dispatch live in `ai-tool-calling`.
 - [`../../docs/protocol/minimax-model-provider.md`](../../docs/protocol/minimax-model-provider.md)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
+- [`../../docs/protocol/judgment-boundary.md`](../../docs/protocol/judgment-boundary.md)
 - [`../../docs/protocol/typesafe-judgment-provider.md`](../../docs/protocol/typesafe-judgment-provider.md)
 - [`../../docs/protocol/openai-judgment-provider.md`](../../docs/protocol/openai-judgment-provider.md)
 - [`../../docs/protocol/live-judgment-api-tests.md`](../../docs/protocol/live-judgment-api-tests.md)

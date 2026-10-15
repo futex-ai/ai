@@ -66,10 +66,11 @@ Every successful live call must:
   `resolved_model_id`;
 - return exactly the three requested answer ids and no others;
 - satisfy the shared `JudgmentResponse::validate_against` postconditions
-  defined by the judgment provider protocol (matching kinds, complete
-  distributions over exactly the requested options and levels, finite
-  probabilities and confidences within zero to one, a score expectation
-  within zero to two, and distribution sums within the shared tolerance); and
+  defined by the [judgment boundary protocol](judgment-boundary.md) (matching
+  kinds, complete distributions over exactly the requested options and
+  levels, finite probabilities and confidences within zero to one, a score
+  expectation within zero to two, and distribution sums within the shared
+  tolerance); and
 - report a non-zero input token count.
 
 The production adapter already applies the shared postconditions before
@@ -83,25 +84,25 @@ Calibration and threshold tuning remain the consumer's responsibility.
 
 `.github/workflows/live-judgments.yml` is eligible for same-repository pull
 requests targeting `main`, on the default branch on a daily schedule, and by
-manual dispatch. Its provider job runs only when the repository Actions
-variable `LIVE_JUDGMENT_API_TESTS_ENABLED` is exactly `true`. Forked and
-Dependabot pull requests skip the credentialed job. The workflow must not use
+manual dispatch. No repository variable gates it. Forked and Dependabot pull
+requests skip the credentialed job. The workflow must not use
 `pull_request_target`, uses read-only permissions, has one matrix entry per
 registered provider, and exposes only the current provider's secret to its
-credential check and test steps.
+credential detection and test steps.
 
 | Provider | Secret |
 | --- | --- |
 | OpenAI | `OPENAI_API_KEY` |
 | TypeSafe | `TYPESAFE_API_KEY` |
 
-Each attempt sends one small request billed on input tokens only. A missing
-or non-`true` opt-in variable skips the whole job, including every matrix
-entry. Once the variable is `true`, each matrix entry checks only its own
-secret in its first step: on an eligible event, a missing secret is a failing
-configuration error for that entry only, and the other entries still run
-because the matrix does not fail fast. Enable the opt-in only after both
-secrets are provisioned.
+Each attempt sends one small request billed on input tokens only. Each
+matrix entry detects only its own secret in its first step, before checkout.
+An entry whose secret is absent writes a workflow warning that names the
+missing secret and skips its remaining steps, so its catalog test does not
+run and the entry does not fail. An entry whose secret is present runs its
+catalog test and may make up to three billable attempts per catalog model.
+The entries run one at a time, and the matrix does not fail fast, so one
+failing entry does not stop the others.
 
 ## Local Invocation
 
@@ -126,8 +127,10 @@ this protocol's credential table in the same change.
 
 ## Related Protocols
 
+- [Judgment boundary](judgment-boundary.md) defines the shared boundary,
+  transport, and error contract.
 - [TypeSafe judgment provider](typesafe-judgment-provider.md) defines the
-  shared boundary, wire mapping, and error contract.
+  TypeSafe Jev mapping.
 - [OpenAI judgment provider](openai-judgment-provider.md) defines the OpenAI
   Decisions mapping, refusal handling, and usage normalization.
 - [Live model API tests](live-model-api-tests.md), [live image API

@@ -15,7 +15,7 @@ OpenAI or TypeSafe behind the same `DynJudgmentModel`.
 The normative behavior is defined by the
 [OpenAI judgment provider protocol](../docs/protocol/openai-judgment-provider.md),
 which builds on the shared boundary in the
-[TypeSafe judgment provider protocol](../docs/protocol/typesafe-judgment-provider.md),
+[judgment boundary protocol](../docs/protocol/judgment-boundary.md),
 and by the
 [live judgment API test protocol](../docs/protocol/live-judgment-api-tests.md).
 
@@ -173,13 +173,13 @@ Define the shared contract once so both provider protocols stay under the
 250-line guidance, and document the shared transport and the workflow skip
 rule before the code changes in Milestones 7 and 8.
 
-- [ ] Create `docs/protocol/judgment-boundary.md` and move into it, without
+- [x] Create `docs/protocol/judgment-boundary.md` and move into it, without
       changing the wording, the Shared Boundary section of
       `docs/protocol/typesafe-judgment-provider.md`, the shared parts of its
       Error Contract (the `JudgmentError` table, status classification,
       failure-body decoding, and the credential-redaction rules), and the
       `ai-interface` and `ai-models-core` ownership bullets.
-- [ ] Add a Shared Transport section to the new page that defines the
+- [x] Add a Shared Transport section to the new page that defines the
       `ai-models-core` judgment transport contract of Milestone 7: the
       `JudgmentTransport` trait, `HttpJudgmentTransport`, the
       `JudgmentEndpoint` value, `JudgmentHttpResponse`, the
@@ -187,15 +187,15 @@ rule before the code changes in Milestones 7 and 8.
       the step order (validate, build, apply auth once, send, classify,
       parse, redact), and the rule that build failures precede auth-hook
       failures.
-- [ ] Reduce `typesafe-judgment-provider.md` and
+- [x] Reduce `typesafe-judgment-provider.md` and
       `openai-judgment-provider.md` to their provider-specific sections,
       link the new page from both, and keep each at or under 250 lines
       without dropping any provider-specific rule.
-- [ ] Update `docs/protocol/live-judgment-api-tests.md` for Milestone 8:
+- [x] Update `docs/protocol/live-judgment-api-tests.md` for Milestone 8:
       no opt-in variable, each matrix entry detects its own secret and is
       skipped with a workflow warning when the secret is absent, and the
       success contract and credential table are unchanged.
-- [ ] Update every link to the moved sections: the workspace `README.md`
+- [x] Update every link to the moved sections: the workspace `README.md`
       protocol list, the `ai-interface`, `ai-models-core`,
       `ai-models-openai`, and `ai-models-typesafe` READMEs, and
       `docs/protocol/live-judgment-api-tests.md`. Do not edit the completed

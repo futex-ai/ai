@@ -100,6 +100,7 @@ credentials or network access are required.
 
 ### Related Docs
 
+- [`../../docs/protocol/judgment-boundary.md`](../../docs/protocol/judgment-boundary.md)
 - [`../../docs/protocol/typesafe-judgment-provider.md`](../../docs/protocol/typesafe-judgment-provider.md)
 - [`../../docs/protocol/live-judgment-api-tests.md`](../../docs/protocol/live-judgment-api-tests.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)

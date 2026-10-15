@@ -242,7 +242,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/live-image-api-tests.md`](../../docs/protocol/live-image-api-tests.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
 - [`../../docs/protocol/live-video-api-tests.md`](../../docs/protocol/live-video-api-tests.md)
-- [`../../docs/protocol/typesafe-judgment-provider.md`](../../docs/protocol/typesafe-judgment-provider.md)
+- [`../../docs/protocol/judgment-boundary.md`](../../docs/protocol/judgment-boundary.md)
 - [`../../docs/protocol/openai-judgment-provider.md`](../../docs/protocol/openai-judgment-provider.md)
 - [`../../docs/protocol/live-judgment-api-tests.md`](../../docs/protocol/live-judgment-api-tests.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)

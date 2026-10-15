@@ -10,6 +10,13 @@ matches the `Condition`, `Choice`, and `Score` questions of
 `ai_interface::JudgmentModel`, so `ai-models-openai` implements the same trait
 instead of a new boundary.
 
+One synchronous evaluation of text or JSON state against one or more
+independent questions, all sent in one Decisions call. Out of scope: image
+input (the shared `JudgmentContent` is text or JSON only), `safety_identifier`,
+token counting, question fan-out across requests, model listing, retry,
+concurrency, and pricing wrappers, request-id capture, and
+confidence-threshold policy. Composition roots own those.
+
 This contract is implemented. The
 [Add OpenAI Decisions judgment provider plan](../../plans/add-openai-judgment-provider.md)
 records the implementation. Credentialed verification is defined by the
@@ -18,31 +25,15 @@ records the implementation. Credentialed verification is defined by the
 ## Shared Boundary
 
 The request, question, answer, response, local validation, response
-postconditions, and typed `JudgmentError` contract are defined once in the
-[TypeSafe judgment provider protocol](typesafe-judgment-provider.md) and are
-not repeated here. Every rule in that document's Shared Boundary and Error
-Contract sections applies to the OpenAI adapter. This document defines only
-the OpenAI identity, catalog, wire mapping, usage, and provider-specific error
-behavior.
-
-## Scope
-
-One synchronous evaluation of text or JSON state against one or more
-independent questions, all sent in one Decisions call. Out of scope: image
-input (the shared `JudgmentContent` is text or JSON only), `safety_identifier`,
-token counting, question fan-out across requests, model listing, retry,
-concurrency, and pricing wrappers, request-id capture, and
-confidence-threshold policy. Composition roots own those.
+postconditions, shared transport, typed `JudgmentError` contract, and the
+`ai-interface` and `ai-models-core` ownership are defined once in the
+[judgment boundary protocol](judgment-boundary.md) and are not repeated here.
+Every rule in that document applies to the OpenAI adapter. This document
+defines only the OpenAI identity, catalog, wire mapping, usage, and
+provider-specific error behavior.
 
 ## Ownership
 
-- `ai-interface` owns the shared judgment DTOs, trait, validation, and typed
-  errors, including the `Refused` variant introduced by this change.
-- `ai-models-core` owns the shared HTTP status classifier plus the shared
-  judgment helpers introduced by this change: credential redaction
-  (`redact_secrets`, `secrets_from_headers`), failure-body decoding, status
-  and transport error classification into `JudgmentError`, and redaction of
-  provider-controlled `InvalidAnswer` labels.
 - `ai-models-openai` owns the Decisions catalog entry, wire mapping,
   response decoding, refusal mapping, usage normalization, and OpenAI error
   message extraction. `json-http` owns the injected client and auth hook
@@ -112,26 +103,17 @@ The adapter serializes one JSON body:
   "model": "gpt-6-luna",
   "input": "{\"ticket\":\"My payouts have been failing for 3 days.\"}",
   "questions": [
-    {
-      "type": "choice",
-      "name": "department",
+    { "type": "choice", "name": "department",
       "instructions": "Which team should handle `ticket`?",
       "choices": [
         { "value": "billing", "description": "Payments and refunds" },
         { "value": "technical" }
-      ]
-    },
-    {
-      "type": "score",
-      "name": "frustration",
+      ] },
+    { "type": "score", "name": "frustration",
       "instructions": "How frustrated is the author of `ticket`?",
-      "levels": [{ "label": "Calm" }, { "label": "Frustrated" }, { "label": "Very angry" }]
-    },
-    {
-      "type": "predicate",
-      "name": "is_urgent",
-      "instructions": "Does `ticket` convey urgency?\n\nTrue when: Explicitly time-sensitive\nFalse when: No urgency"
-    }
+      "levels": [{ "label": "Calm" }, { "label": "Frustrated" }, { "label": "Very angry" }] },
+    { "type": "predicate", "name": "is_urgent",
+      "instructions": "Does `ticket` convey urgency?\n\nTrue when: Explicitly time-sensitive\nFalse when: No urgency" }
   ]
 }
 ```
@@ -174,22 +156,18 @@ A `2xx` body has this shape:
       "probabilities": [
         { "value": "billing", "probability": 0.84 },
         { "value": "technical", "probability": 0.16 }
-      ],
-      "confidence": 0.6 },
+      ], "confidence": 0.6 },
     { "type": "score", "name": "frustration", "score": 1.6,
       "probabilities": [
         { "value": 0, "label": "Calm", "probability": 0.05 },
         { "value": 1, "label": "Frustrated", "probability": 0.3 },
         { "value": 2, "label": "Very angry", "probability": 0.65 }
-      ],
-      "confidence": 0.78 },
+      ], "confidence": 0.78 },
     { "type": "predicate", "name": "is_urgent", "probability": 0.92 }
   ],
   "usage": {
-    "input_tokens": 312,
-    "input_tokens_details": { "cached_tokens": 0, "cache_write_tokens": 0 },
-    "output_tokens": 0,
-    "output_tokens_details": { "reasoning_tokens": 0 },
+    "input_tokens": 312, "input_tokens_details": { "cached_tokens": 0, "cache_write_tokens": 0 },
+    "output_tokens": 0, "output_tokens_details": { "reasoning_tokens": 0 },
     "total_tokens": 312
   }
 }
@@ -215,10 +193,7 @@ statuses in `200..300` are treated as success.
 A body that fails to decode is a non-retryable `Provider` error whose message
 is the fixed text `malformed provider payload` followed by the decoder's own
 diagnostic. After mapping, the adapter applies the shared `validate_against`
-postconditions, so a missing answer, a kind mismatch, an unknown or missing
-option or level, an out-of-range value, a bad distribution sum, a selection
-that is not the most probable option, or an inconsistent expectation is a
-typed `InvalidAnswer` error.
+postconditions.
 
 ## Refusals
 
@@ -247,38 +222,23 @@ OpenAI currently bills Decisions input tokens only.
 
 ## Error Contract
 
-The shared `JudgmentError` table applies. OpenAI-specific rules:
+The [judgment boundary protocol](judgment-boundary.md#error-contract) defines
+the shared error rules. OpenAI-specific rules:
 
 - Error bodies are decoded best-effort: an `error` object supplies its
   `message`; a JSON string body is used directly; any other body, including
   JSON `null`, is retained as compact JSON or text; an empty body falls back
   to `HTTP <status>`.
-- Status classification uses `ai_models_core::classify_http_status`: 429 is
-  `RateLimited`; 408, 409, 425, and 5xx are `TransientProvider`; every other
-  failure status, including 400 validation, 401 and 403 authentication, and
-  the `403` returned while an account lacks Decisions access, is `Provider`.
-- Transport and auth-hook failures, redirects, malformed payloads, internal
-  serialization failures, and credential redaction follow the TypeSafe
-  protocol exactly, through the shared `ai-models-core` helpers: the auth hook
-  is applied exactly once per call, the transmitted header values and their
-  scheme-stripped tokens are redacted longest first from every diagnostic and
-  from provider-controlled `UnknownOption` and `MissingOption` labels, and a
-  failing hook is reported as `TransientProvider` with the fixed message
-  `authentication hook failed`.
+- HTTP 400 validation, 401 and 403 authentication, and the `403` returned
+  while an account lacks Decisions access are terminal `Provider` errors.
 
 ## Required Verification
 
-Credential-free tests must cover the catalog entry, bearer auth and endpoint
-selection, construction overrides, exact wire mapping for every question
-variant including criteria folding and compact JSON rendering, response
-mapping, ignored unnamed and unrequested fragments, duplicate names and
-values, refusals, every validation failure class, usage normalization, status
-classification, transport failures, malformed bodies, and credential
-redaction. The credential-free smoke test must construct the adapter with
-`GPT_6_LUNA`, and the ignored live suite calls every judgment-capable OpenAI
-catalog entry through `DynJudgmentModel` when `LIVE_JUDGMENT_API_KEY` is
-supplied. The repository gate, commit and push, and the post-push review are
-required before handoff.
+Credential-free tests must cover every rule in this document, including the
+catalog entry, construction overrides, wire mapping, response mapping,
+refusals, usage, failure messages, and redaction through `judge`. The smoke
+test constructs the adapter with `GPT_6_LUNA`, and the [live judgment API test
+protocol](live-judgment-api-tests.md) defines the credentialed suite.
 
 ## References
 
@@ -286,4 +246,4 @@ required before handoff.
 - [OpenAI Python SDK decisions resource](https://github.com/openai/openai-python/blob/main/src/openai/resources/decisions.py)
 - [OpenAI Python SDK decision response types](https://github.com/openai/openai-python/blob/main/src/openai/types/decision.py)
 - [OpenAI Node SDK decisions resource](https://github.com/openai/openai-node/blob/master/src/resources/decisions.ts)
-- [TypeSafe judgment provider protocol](typesafe-judgment-provider.md)
+- [Judgment boundary protocol](judgment-boundary.md)
