@@ -262,7 +262,8 @@ cargo xtask review
 - `crates/ai-models-qwen`: Qwen 3.7 catalog, typed client, thinking, vision,
   request/replay, structured output, usage, and error mapping
 - `crates/ai-models-typesafe`: TypeSafe Jev catalog, judgment request/response
-  mapping, validation, usage, authentication, and provider-error translation
+  mapping, usage normalization, and failure-message extraction over the shared
+  judgment transport
 - `crates/ai-models-openai/src/openai/decisions/`: OpenAI Decisions judgment
   request/response mapping, refusal handling, and usage normalization
 - `crates/ai-models-core/src/judgment_transport.rs`,

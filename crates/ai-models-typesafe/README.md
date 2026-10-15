@@ -12,8 +12,8 @@ JSON state with explicit credentials.
 - Map shared judgment requests and responses to the System One wire contract.
 - Apply shared request validation before transport and shared response
   postconditions after normalization.
-- Normalize provider token usage and translate transport, HTTP, and malformed
-  payload failures into shared typed judgment errors.
+- Normalize provider token usage and supply the failure-message extractor that
+  the shared judgment transport uses to classify failures.
 
 ## What This Crate Does
 
@@ -35,15 +35,16 @@ Every call goes through the shared `ai-models-core` judgment transport, which
 the OpenAI judgment adapter in `ai-models-openai` also uses. It supplies
 authentication, credential redaction, and status and transport
 classification, and the shared helpers redact `InvalidAnswer` labels.
-Responses are decoded directly from bytes, and only `2xx` statuses are treated
-as successful judgments. Requested answer fragments are decoded independently,
-so unknown unrequested answers are ignored, and repeated answer ids, option
-labels, or score levels are rejected instead of silently taking the last
-value. Authentication hooks are applied exactly once, and the
-captured headers are transmitted unchanged. Provider, transport,
-malformed-payload, and provider-controlled answer-label diagnostics redact the
-explicit API key, every applied authentication header value, and tokens after
-the last whitespace in scheme-prefixed values. Hook failures discard their
+The transport treats only `2xx` statuses as successful judgments, and the
+adapter decodes those responses directly from bytes. Requested answer
+fragments are decoded independently, so unknown unrequested answers are
+ignored, and repeated answer ids, option labels, or score levels are rejected
+instead of silently taking the last value. The transport applies
+authentication hooks exactly once and transmits the captured headers
+unchanged. The shared transport and helpers redact the explicit API key, every
+applied authentication header value, and tokens after the last whitespace in
+scheme-prefixed values from provider, transport, malformed-payload, and
+provider-controlled answer-label diagnostics. Hook failures discard their
 unsanitizable diagnostic and use the fixed `authentication hook failed`
 message.
 

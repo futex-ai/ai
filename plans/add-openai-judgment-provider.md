@@ -362,7 +362,7 @@ Evidence: `.context/add-openai-judgment-provider/round3-m10-*.log`
 
 ## Milestone 11: Round-2 Review Fixes, Verification, And Re-Review
 
-- [ ] Fix round-2 finding #2: rewrite the TypeSafe key-code bullet in the
+- [x] Fix round-2 finding #2: rewrite the TypeSafe key-code bullet in the
       workspace `README.md` and the Responsibilities bullet in
       `crates/ai-models-typesafe/README.md` so the TypeSafe crate owns the Jev
       catalog, wire mapping, response decoding, usage normalization, and the
