@@ -27,10 +27,9 @@ records the implementation. Credentialed verification is defined by the
 The request, question, answer, response, local validation, response
 postconditions, shared transport, typed `JudgmentError` contract, and the
 `ai-interface` and `ai-models-core` ownership are defined once in the
-[judgment boundary protocol](judgment-boundary.md) and are not repeated here.
-Every rule in that document applies to the OpenAI adapter. This document
-defines only the OpenAI identity, catalog, wire mapping, usage, and
-provider-specific error behavior.
+[judgment boundary protocol](judgment-boundary.md), and every rule there
+applies to the OpenAI adapter. This document defines only the OpenAI
+identity, catalog, wire mapping, usage, and provider-specific error behavior.
 
 ## Ownership
 
@@ -75,7 +74,8 @@ context window of 1,050,000 tokens, `IntelligenceScore::Eight`,
 catalog id carries the `-decisions` suffix so a future GPT-6 Luna chat entry
 can own the bare `gpt-6-luna` catalog id. `GPT_6_LUNA` is exported as the
 provider model id because the adapter constructors take the provider id, not
-the catalog id.
+the catalog id. The entry does not take part in chat thinking-level
+resolution, so it cannot downgrade a chat caller that pins `gpt-6-luna`.
 
 ## Content Rendering
 

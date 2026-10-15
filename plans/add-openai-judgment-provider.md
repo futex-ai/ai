@@ -330,28 +330,34 @@ catalog entries that describe chat models, so a judgment, image, or video
 entry that shares a provider model id cannot downgrade a chat caller's
 requested level.
 
-- [ ] Add failing `ai-models-core` catalog tests: `KnownModelSpec::supports_chat`
+Evidence: `.context/add-openai-judgment-provider/round3-m10-*.log`
+(failing-first runs, Clippy, and the targeted tests).
+
+- [x] Add failing `ai-models-core` catalog tests: `KnownModelSpec::supports_chat`
       is false for entries that advertise `Judgment`, `ImageGeneration`, or
       `VideoGeneration` and true otherwise; with only a judgment-only entry
       for a provider model id the resolver returns `None`; with judgment and
       chat entries for the same provider model id the resolver uses only the
       chat entries, including a request below the lowest chat level.
-- [ ] Add a failing `ai-models-openai` regression through
+- [x] Add a failing `ai-models-openai` regression through
       `OpenAiModel::with_catalog_auth(client, "gpt-6-luna", "gpt-6-luna",
       ThinkingLevel::High, auth)` with the buffered-body test client: the
       Responses request body sends `reasoning.effort` `high` and the response
       reports thinking level `high`.
-- [ ] Implement `KnownModelSpec::supports_chat` and filter the resolver with
+- [x] Implement `KnownModelSpec::supports_chat` and filter the resolver with
       it; keep every existing resolver test green.
-- [ ] Use `supports_chat` in the chat catalog filter of
+- [x] Use `supports_chat` in the chat catalog filter of
       `xtask/tests/live_models/provider_tests.rs` and in the judgment-only
       guard of `xtask/tests/live_models.rs` instead of the repeated feature
       list, keeping their assertions.
-- [ ] Document the rule in `crates/ai-models-core/README.md` (resolver
+- [x] Document the rule in `crates/ai-models-core/README.md` (resolver
       paragraph and `KnownModelSpec` paragraph) and in the Catalog section of
       `docs/protocol/openai-judgment-provider.md` (the judgment entry does not
       take part in chat thinking-level resolution).
-- [ ] Run formatting, Clippy, and tests for `ai-models-core`,
+- [x] Add the chat-only rule to the Thinking-Level Resolution section of
+      `docs/protocol/provider-call-controls.md`, the normative resolver
+      contract (discovered during implementation).
+- [x] Run formatting, Clippy, and tests for `ai-models-core`,
       `ai-models-openai`, and the `xtask` live model suite.
 
 ## Milestone 11: Round-2 Review Fixes, Verification, And Re-Review

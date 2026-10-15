@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use ai_interface::{DynModel, ProviderKind};
 use ai_models_anthropic::AnthropicModel;
-use ai_models_core::{KnownModelSpec, ModelFeature};
+use ai_models_core::KnownModelSpec;
 use ai_models_deepseek::DeepSeekModel;
 use ai_models_google::GoogleModel;
 use ai_models_kimi::KimiModel;
@@ -140,11 +140,7 @@ impl LiveProvider {
     pub(super) fn chat_catalog(self) -> Vec<KnownModelSpec> {
         self.catalog()
             .into_iter()
-            .filter(|model| {
-                !model.has_feature(ModelFeature::ImageGeneration)
-                    && !model.has_feature(ModelFeature::Judgment)
-                    && !model.has_feature(ModelFeature::VideoGeneration)
-            })
+            .filter(KnownModelSpec::supports_chat)
             .collect()
     }
 

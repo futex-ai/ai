@@ -65,7 +65,11 @@ It also defines `KnownModelSpec`, `KnownModelCatalog`, coarse `SpeedTier` and
 by worker-side model routing. Provider crates own their concrete catalog
 entries. A known model spec has a unique workspace catalog id plus a separate
 provider model id, so a provider catalog can expose multiple deployable
-variants for the same upstream model.
+variants for the same upstream model. `KnownModelSpec::supports_chat` is false
+for an entry that advertises `Judgment`, `ImageGeneration`, or
+`VideoGeneration`, because that entry describes a specialized model behind its
+own interface; chat suites and chat thinking-level resolution use only entries
+for which it is true.
 
 `ThinkingLevel` is ordered from `Disabled` through `Low`, `Medium`, `High`,
 `ExtraHigh`, and `Max`. The level is normalized routing metadata; each
@@ -73,7 +77,9 @@ provider crate owns the mapping to provider-native fields and must only expose
 catalog variants that the provider/model supports.
 `resolve_catalog_thinking_level` keeps an exact requested level when a matching
 variant exists and otherwise returns the highest variant for the same provider
-model that does not exceed the request. Provider constructors use this helper
+model that does not exceed the request. It considers only chat entries, so a
+judgment, image, or video entry that shares a provider model id with chat
+entries cannot downgrade a chat request. Provider constructors use this helper
 to downgrade unsupported levels without silently increasing reasoning cost.
 If no catalog level is at or below the request, the helper returns `None` so
 the adapter can preserve an explicit custom mapping or return a typed error.

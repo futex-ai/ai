@@ -119,18 +119,43 @@ pub struct KnownModelSpec {
     pub features: &'static [ModelFeature],
 }
 
+/// Features that mark a catalog entry as a specialized model that is served
+/// behind its own interface instead of chat.
+const NON_CHAT_FEATURES: [ModelFeature; 3] = [
+    ModelFeature::Judgment,
+    ModelFeature::ImageGeneration,
+    ModelFeature::VideoGeneration,
+];
+
 impl KnownModelSpec {
     /// Returns true when this model advertises the supplied feature.
     pub fn has_feature(&self, feature: ModelFeature) -> bool {
         self.features.contains(&feature)
+    }
+
+    /// Returns true when this entry describes a chat model.
+    ///
+    /// An entry that advertises `Judgment`, `ImageGeneration`, or
+    /// `VideoGeneration` describes a specialized model behind its own
+    /// interface, so chat callers and [`resolve_catalog_thinking_level`]
+    /// ignore it even when it shares a provider model id with chat entries.
+    pub fn supports_chat(&self) -> bool {
+        !NON_CHAT_FEATURES
+            .iter()
+            .any(|feature| self.has_feature(*feature))
     }
 }
 
 /// Resolves a requested thinking level to the highest catalog level for the
 /// provider model that does not exceed the request.
 ///
-/// Returns `None` when the catalog has no level at or below the request. This
-/// lets adapters preserve explicit custom mappings or return a typed
+/// Only chat entries take part: an entry for which
+/// [`KnownModelSpec::supports_chat`] is false is ignored, so a judgment,
+/// image, or video entry that shares the provider model id cannot downgrade
+/// a chat request.
+///
+/// Returns `None` when the catalog has no chat level at or below the request.
+/// This lets adapters preserve explicit custom mappings or return a typed
 /// configuration error when no safe downgrade exists.
 pub fn resolve_catalog_thinking_level(
     models: &[KnownModelSpec],
@@ -143,6 +168,7 @@ pub fn resolve_catalog_thinking_level(
         .filter(|model| {
             model.provider == provider
                 && model.provider_model_id == provider_model_id
+                && model.supports_chat()
                 && model.thinking_level <= requested
         })
         .map(|model| model.thinking_level)

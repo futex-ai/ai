@@ -125,6 +125,7 @@ fn judgment_models_never_reach_other_live_runners() {
     );
     assert!(judgment_catalog.iter().all(|model| {
         model.features == [ModelFeature::Judgment]
+            && !model.supports_chat()
             && !model.has_feature(ModelFeature::ToolCalling)
             && !model.has_feature(ModelFeature::ImageGeneration)
             && !model.has_feature(ModelFeature::VideoGeneration)

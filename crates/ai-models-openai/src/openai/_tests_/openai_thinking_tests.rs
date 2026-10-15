@@ -3,11 +3,11 @@
 use std::sync::Arc;
 
 use ai_interface::{ConversationMessage, Model, ModelRequest, ToolDefinition};
-use ai_models_core::ThinkingLevel;
+use ai_models_core::{ModelFeature, ThinkingLevel};
 use json_http::StaticHeaderAuth;
 use serde_json::json;
 
-use crate::{GPT_5_5, GPT_5_6_SOL, GPT_5_6_SOL_THINKING_MAX};
+use crate::{GPT_5_5, GPT_5_6_SOL, GPT_5_6_SOL_THINKING_MAX, GPT_6_LUNA, known_models};
 
 use super::OpenAiModel;
 use crate::openai::stream_support::client_for_buffered_bodies;
@@ -119,6 +119,44 @@ async fn downgrades_max_to_gpt_5_5_extra_high() {
     let body = requests[0].body.as_ref().expect("body present");
     assert_eq!(body["reasoning"]["effort"], "xhigh");
     assert_eq!(response.thinking_level.as_deref(), Some("extra_high"));
+}
+
+/// `gpt-6-luna-decisions` shares provider model id `gpt-6-luna` with
+/// `ThinkingLevel::Disabled`. Chat thinking resolution must ignore it, so a
+/// chat caller that pins `gpt-6-luna` keeps the requested effort.
+#[tokio::test]
+async fn judgment_entry_does_not_downgrade_gpt_6_luna_chat_thinking() {
+    assert!(known_models().iter().any(|model| {
+        model.provider_model_id == GPT_6_LUNA && model.has_feature(ModelFeature::Judgment)
+    }));
+    let (http_client, requests) = client_for_buffered_bodies(vec![json!({
+        "status": "completed",
+        "output": [{
+            "type": "message",
+            "role": "assistant",
+            "content": [{ "type": "output_text", "text": "Done" }]
+        }]
+    })]);
+    let model = OpenAiModel::with_catalog_auth(
+        http_client,
+        GPT_6_LUNA,
+        GPT_6_LUNA,
+        ThinkingLevel::High,
+        Arc::new(StaticHeaderAuth::bearer_token("sk-openai")),
+    );
+
+    let response = model
+        .complete(&simple_request())
+        .await
+        .expect("OpenAI GPT-6 Luna response should parse");
+
+    let requests = requests
+        .lock()
+        .expect("requests lock should not be poisoned");
+    let body = requests[0].body.as_ref().expect("body present");
+    assert_eq!(body["model"], GPT_6_LUNA);
+    assert_eq!(body["reasoning"]["effort"], "high");
+    assert_eq!(response.thinking_level.as_deref(), Some("high"));
 }
 
 fn simple_request() -> ModelRequest {

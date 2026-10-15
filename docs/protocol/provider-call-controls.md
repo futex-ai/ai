@@ -71,8 +71,11 @@ Thinking level is model-construction metadata rather than a per-call
 `ModelRequest` control. For a known provider model, an exact catalog level is
 retained. When the requested level has no exact variant, the adapter selects
 the highest catalog level for that provider model that does not exceed the
-request. Resolution never increases the requested level. The effective level
-drives provider serialization and is recorded in `ModelResponse`.
+request. Only chat entries (`KnownModelSpec::supports_chat`) take part: an
+entry that advertises `Judgment`, `ImageGeneration`, or `VideoGeneration` is
+ignored even when it shares the provider model id. Resolution never increases
+the requested level. The effective level drives provider serialization and is
+recorded in `ModelResponse`.
 
 When no catalog level exists at or below the request, adapters with validated
 model families return their typed configuration error. Explicit custom or

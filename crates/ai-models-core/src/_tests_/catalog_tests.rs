@@ -144,10 +144,117 @@ fn resolves_to_the_highest_catalog_thinking_level_not_above_the_request() {
     );
 }
 
+#[test]
+fn only_entries_without_specialized_features_support_chat() {
+    let specialized: [&'static [ModelFeature]; 4] = [
+        &[ModelFeature::Judgment],
+        &[ModelFeature::ImageGeneration, ModelFeature::Vision],
+        &[ModelFeature::VideoGeneration, ModelFeature::Vision],
+        &[ModelFeature::ToolCalling, ModelFeature::Judgment],
+    ];
+    for features in specialized {
+        let model = known_model_with_features("specialized", "id", ThinkingLevel::Low, features);
+        assert!(!model.supports_chat(), "{features:?}");
+    }
+
+    let chat: [&'static [ModelFeature]; 3] = [
+        &[],
+        &[ModelFeature::Vision],
+        &[
+            ModelFeature::ToolCalling,
+            ModelFeature::StructuredOutput,
+            ModelFeature::Vision,
+            ModelFeature::VideoInput,
+            ModelFeature::LongContext,
+            ModelFeature::Reasoning,
+        ],
+    ];
+    for features in chat {
+        let model = known_model_with_features("chat", "id", ThinkingLevel::Low, features);
+        assert!(model.supports_chat(), "{features:?}");
+    }
+    assert!(
+        known_mock_models()
+            .iter()
+            .all(KnownModelSpec::supports_chat)
+    );
+}
+
+#[test]
+fn resolver_ignores_a_provider_model_id_that_only_specialized_entries_use() {
+    let models = [known_model_with_features(
+        "provider-a-judgment",
+        "provider-a",
+        ThinkingLevel::Disabled,
+        &[ModelFeature::Judgment],
+    )];
+
+    for requested in [
+        ThinkingLevel::Disabled,
+        ThinkingLevel::High,
+        ThinkingLevel::Max,
+    ] {
+        assert_eq!(
+            resolve_catalog_thinking_level(&models, ProviderKind::OpenAi, "provider-a", requested),
+            None,
+            "requested {requested:?}"
+        );
+    }
+}
+
+#[test]
+fn resolver_uses_only_chat_entries_when_specialized_entries_share_the_id() {
+    let models = [
+        known_model_with_features(
+            "provider-a-judgment",
+            "provider-a",
+            ThinkingLevel::Disabled,
+            &[ModelFeature::Judgment],
+        ),
+        known_model_with_features(
+            "provider-a-image",
+            "provider-a",
+            ThinkingLevel::Low,
+            &[ModelFeature::ImageGeneration, ModelFeature::Vision],
+        ),
+        known_model_with_features(
+            "provider-a-video",
+            "provider-a",
+            ThinkingLevel::Low,
+            &[ModelFeature::VideoGeneration, ModelFeature::Vision],
+        ),
+        known_model("provider-a-medium", "provider-a", ThinkingLevel::Medium),
+        known_model("provider-a-high", "provider-a", ThinkingLevel::High),
+    ];
+    let resolve = |requested| {
+        resolve_catalog_thinking_level(&models, ProviderKind::OpenAi, "provider-a", requested)
+    };
+
+    assert_eq!(resolve(ThinkingLevel::Max), Some(ThinkingLevel::High));
+    assert_eq!(resolve(ThinkingLevel::High), Some(ThinkingLevel::High));
+    assert_eq!(resolve(ThinkingLevel::Medium), Some(ThinkingLevel::Medium));
+    assert_eq!(resolve(ThinkingLevel::Low), None);
+    assert_eq!(resolve(ThinkingLevel::Disabled), None);
+}
+
 fn known_model(
     id: &'static str,
     provider_model_id: &'static str,
     thinking_level: ThinkingLevel,
+) -> KnownModelSpec {
+    known_model_with_features(
+        id,
+        provider_model_id,
+        thinking_level,
+        &[ModelFeature::Reasoning],
+    )
+}
+
+fn known_model_with_features(
+    id: &'static str,
+    provider_model_id: &'static str,
+    thinking_level: ThinkingLevel,
+    features: &'static [ModelFeature],
 ) -> KnownModelSpec {
     KnownModelSpec {
         provider: ProviderKind::OpenAi,
@@ -158,6 +265,6 @@ fn known_model(
         speed: crate::SpeedTier::Medium,
         cost: crate::CostTier::Medium,
         thinking_level,
-        features: &[ModelFeature::Reasoning],
+        features,
     }
 }
