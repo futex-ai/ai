@@ -1,5 +1,7 @@
 # OAuth Transport Status-Aware JSON
 
+Status: Completed. [PR #3](https://github.com/futex-ai/ai/pull/3) merged on 2026-08-10.
+
 Align OAuth response decoding with endpoint status semantics in
 [`docs/protocol/mcp-oauth.md`](../docs/protocol/mcp-oauth.md) without changing
 the public transport trait or response DTO.

@@ -1,5 +1,7 @@
 # OAuth Token-Grant Error Mapping
 
+Status: Completed. [PR #3](https://github.com/futex-ai/ai/pull/3) merged on 2026-08-10.
+
 ## Summary
 
 Preserve token endpoint `invalid_grant` as a status-bearing rejection for an

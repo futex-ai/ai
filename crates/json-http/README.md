@@ -125,4 +125,4 @@ server and requires no external network or credentials.
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../ai-models-openai/README.md`](../ai-models-openai/README.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
-- [`../../plans/README.md`](../../plans/README.md)
+- [`../../plans/`](../../plans/)

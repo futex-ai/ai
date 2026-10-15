@@ -135,4 +135,4 @@ cargo clippy -p ai-models-minimax --all-targets --all-features -- -D warnings
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [MiniMax provider protocol](../../docs/protocol/minimax-model-provider.md)
-- [Implementation plans](../../plans/README.md)
+- [Implementation plans](../../plans/)

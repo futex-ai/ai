@@ -1,5 +1,7 @@
 # OAuth Unrefreshable Token Expiry Window
 
+Status: Completed. [PR #3](https://github.com/futex-ai/ai/pull/3) merged on 2026-08-10.
+
 ## Summary
 
 Keep a stored Bearer access token usable until its actual expiry when the

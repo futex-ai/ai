@@ -1,5 +1,7 @@
 # DeepSeek Model Provider Implementation Plan
 
+Status: Completed. [PR #7](https://github.com/futex-ai/ai/pull/7) merged on 2026-07-30.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
 > `superpowers:subagent-driven-development` (recommended) or
 > `superpowers:executing-plans` to implement this plan task-by-task. Steps use

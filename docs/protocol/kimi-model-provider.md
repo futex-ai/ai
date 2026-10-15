@@ -263,8 +263,8 @@ separately calls every Kimi catalog entry through the production adapter when
 an explicit `LIVE_MODEL_API_KEY` is supplied; GitHub Actions runs it for
 eligible pull requests and from the scheduled/manual `Live model APIs`
 workflow. Full formatting, file-length
-lint, Clippy, workspace tests, `cargo xtask check`, commit and push, and
-post-push `cargo xtask review` are required before implementation handoff.
+lint, Clippy, workspace tests, `cargo xtask check`, commit and push, and the
+post-push implementation review are required before implementation handoff.
 
 ## References
 

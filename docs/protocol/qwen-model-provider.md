@@ -247,8 +247,8 @@ eligible pull requests and from the scheduled/manual `Live model APIs`
 workflow.
 
 Full formatting, file-length lint, Clippy, workspace tests, smoke tests,
-`cargo xtask check`, commit and push, and post-push `cargo xtask review` are
-required before handoff.
+`cargo xtask check`, commit and push, and the post-push implementation review
+are required before handoff.
 
 ## Official References
 

@@ -1,5 +1,10 @@
 # Model Completion Streaming
 
+Status: Completed. [PR #18](https://github.com/futex-ai/ai/pull/18) merged on
+2026-08-22. Open: the post-push review did not run because the Codex reviewer
+returned `401 Unauthorized`, and the protocol status still says that final
+verification and review are in progress.
+
 ## Goal
 
 Move model completion calls from buffered JSON responses to internally
@@ -208,5 +213,4 @@ and downstream handoff are aligned and independently reviewed.
 - [x] Do not automatically fix review findings. Report each numbered with
       severity, codebase/feature context, impact of doing nothing, lettered
       solution options, and the recommended option.
-- [ ] After the implementation is merged, mark the protocol Implemented and
-      move this plan from Active to Completed in `plans/README.md`.
+- [ ] After the implementation is merged, mark the protocol Implemented.

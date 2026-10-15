@@ -1,5 +1,7 @@
 # Add TypeSafe Judgment Provider
 
+Status: Completed. [PR #20](https://github.com/futex-ai/ai/pull/20) merged on 2026-09-21.
+
 ## Summary
 
 Add TypeSafe's System One models (Jev) as a new `ai-models-typesafe` crate

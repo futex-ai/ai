@@ -186,4 +186,4 @@ cargo clippy -p ai-tool-calling --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
-- [`../../plans/README.md`](../../plans/README.md)
+- [`../../plans/`](../../plans/)

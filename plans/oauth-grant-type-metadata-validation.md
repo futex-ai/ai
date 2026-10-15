@@ -1,5 +1,7 @@
 # OAuth Grant-Type Metadata Validation
 
+Status: Completed. [PR #3](https://github.com/futex-ai/ai/pull/3) merged on 2026-08-10.
+
 ## Summary
 
 Fail before registration or browser side effects when authorization-server

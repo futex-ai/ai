@@ -1,5 +1,7 @@
 # Public Model Completion Events
 
+Status: Completed. [PR #19](https://github.com/futex-ai/ai/pull/19) merged on 2026-08-22.
+
 ## Goal
 
 Expose ordered assistant, reasoning, and fallback-restart events through the

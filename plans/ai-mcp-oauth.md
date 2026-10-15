@@ -1,5 +1,7 @@
 # AI MCP OAuth
 
+Status: Completed. [PR #3](https://github.com/futex-ai/ai/pull/3) merged on 2026-08-10.
+
 ## Summary
 
 Add `crates/ai-mcp-oauth` as the reusable, host-side OAuth companion to

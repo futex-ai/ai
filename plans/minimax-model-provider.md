@@ -1,5 +1,7 @@
 # MiniMax Model Provider
 
+Status: Completed. [PR #4](https://github.com/futex-ai/ai/pull/4) merged on 2026-07-27.
+
 ## Summary
 
 Add a first-class `ai-models-minimax` crate that implements

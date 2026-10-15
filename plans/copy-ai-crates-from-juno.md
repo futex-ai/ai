@@ -1,5 +1,7 @@
 # Copy AI Crates From Juno
 
+Status: Completed. [PR #1](https://github.com/futex-ai/ai/pull/1) merged on 2026-07-01.
+
 ## Summary
 
 Copy every Rust crate with an `ai-` prefix from

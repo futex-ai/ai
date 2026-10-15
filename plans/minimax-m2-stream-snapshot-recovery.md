@@ -1,5 +1,7 @@
 # MiniMax M2.x Stream Snapshot Recovery
 
+Status: Completed. [PR #20](https://github.com/futex-ai/ai/pull/20) merged on 2026-09-21.
+
 ## Summary
 
 The credentialed `MiniMax catalog` job fails intermittently with

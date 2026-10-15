@@ -1,5 +1,7 @@
 # Add Video Generation Support
 
+Status: Completed. [PR #16](https://github.com/futex-ai/ai/pull/16) merged on 2026-08-14.
+
 ## Summary
 
 Add a provider-agnostic video generation boundary to `ai-interface` and

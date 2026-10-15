@@ -1,5 +1,7 @@
 # Add Image Generation Support
 
+Status: Completed. [PR #9](https://github.com/futex-ai/ai/pull/9) merged on 2026-08-12.
+
 ## Summary
 
 Add a provider-agnostic image generation boundary to `ai-interface` and

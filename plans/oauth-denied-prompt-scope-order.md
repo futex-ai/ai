@@ -1,5 +1,7 @@
 # OAuth Denied-Prompt Scope Order
 
+Status: Completed. [PR #3](https://github.com/futex-ai/ai/pull/3) merged on 2026-08-10.
+
 ## Summary
 
 Key incremental-consent denial suppression by the semantic OAuth scope set so

@@ -1,5 +1,7 @@
 # MCP Lazy Result Serialization
 
+Status: Completed. [PR #3](https://github.com/futex-ai/ai/pull/3) merged on 2026-08-10.
+
 Remove discarded content serialization from the result-precedence path defined
 by [`docs/protocol/ai-mcp.md`](../docs/protocol/ai-mcp.md). This is a
 performance-only cleanup: model-visible output and error precedence must remain

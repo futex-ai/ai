@@ -660,8 +660,8 @@ authentication, and DELETE using only in-process servers.
 - 300-line file cap; thin `lib.rs`; module-level doc comments; doc comments on
   all public items; `#![warn(unreachable_pub)]`.
 - `cargo fmt --all -- --check`, clippy, full test pass, `cargo xtask check`
-  before completion; crate README with the six required sections; add the
-  plan to `plans/README.md`.
+  before completion; crate README with the six required sections; record the
+  plan status in the first paragraph below the plan title.
 
 ## Suggested milestones
 
@@ -669,8 +669,8 @@ authentication, and DELETE using only in-process servers.
    SSE parser, `ReqwestMcpHttpTransport`, `StreamableHttpMcpClient`
    (initialize/list/call/close, session, version header, typed 401), unit
    tests, crate README. Green build + tests; commit and push (Conventional
-   Commits, lowercase); run `cargo xtask review` and report findings without
-   auto-fixing.
+   Commits, lowercase); run the post-push implementation review and apply its
+   review-fix rule.
 2. **M2 — tool adapter**: `McpToolSet` + naming rules + result mapping +
    `Tool` impl + unit tests. Same check/commit/push/review steps.
 3. **M3 — integration hardening**: axum fake-server integration tests (JSON +

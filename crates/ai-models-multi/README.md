@@ -62,4 +62,4 @@ cargo clippy -p ai-models-multi --all-targets --all-features -- -D warnings
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
-- [`../../plans/README.md`](../../plans/README.md)
+- [`../../plans/`](../../plans/)

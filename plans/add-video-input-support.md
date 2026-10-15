@@ -1,5 +1,7 @@
 # Add Video Input Support
 
+Status: Completed. [PR #14](https://github.com/futex-ai/ai/pull/14) merged on 2026-08-13.
+
 Add a shared video content part to conversation messages so video-capable
 providers receive inline video the same way they receive inline images, as
 defined by the [video input protocol](../docs/protocol/video-input.md).

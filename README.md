@@ -229,7 +229,7 @@ trusted same-repository pull requests, daily, and on manual dispatch. It uses
 `GOOGLE_API_KEY` and `OPENAI_API_KEY`. Video jobs are not automatically retried
 after submission because a transport failure can leave a billable job running.
 
-Run local AI review after checks pass and the branch has been pushed:
+For an optional Codex review of the pushed branch against `origin/main`, run:
 
 ```sh
 cargo xtask review
@@ -314,5 +314,5 @@ completion-event coverage policy without making provider calls.
 
 ## Plans
 
-See [plans/README.md](plans/README.md) for active and completed implementation
-plans.
+See [plans/](plans/) for implementation plans. Each plan states its status in
+the first paragraph below its title.

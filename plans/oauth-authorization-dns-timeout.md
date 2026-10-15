@@ -1,5 +1,7 @@
 # OAuth Authorization DNS Timeout
 
+Status: Completed. [PR #3](https://github.com/futex-ai/ai/pull/3) merged on 2026-08-10.
+
 Align browser-handoff destination validation with the bounded OAuth network
 contract in [`docs/protocol/mcp-oauth.md`](../docs/protocol/mcp-oauth.md).
 Authorization-server selection remains a host-owned interaction without a

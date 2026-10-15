@@ -1,5 +1,7 @@
 # Add Kimi Model Provider
 
+Status: Completed. [PR #5](https://github.com/futex-ai/ai/pull/5) merged on 2026-07-27.
+
 ## Summary
 
 Add a first-class `ai-models-kimi` crate for Kimi K3. The adapter will use

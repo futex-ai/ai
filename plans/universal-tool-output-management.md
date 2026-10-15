@@ -1,5 +1,7 @@
 # Universal Tool Output Management
 
+Status: Completed. [PR #2](https://github.com/futex-ai/ai/pull/2) merged on 2026-07-24.
+
 ## Summary
 
 Move tool-output identification and pagination into the shared tool-calling

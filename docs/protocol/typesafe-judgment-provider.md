@@ -370,8 +370,8 @@ classification, transport failures, and malformed bodies.
 The credential-free smoke test must construct the default catalog model. The
 ignored live suite calls every catalog entry through `DynJudgmentModel` when
 `LIVE_JUDGMENT_API_KEY` is supplied. Formatting, file-length lint, Clippy,
-workspace tests, `cargo xtask check`, commit and push, and post-push
-`cargo xtask review` are required before handoff.
+workspace tests, `cargo xtask check`, commit and push, and the post-push
+implementation review are required before handoff.
 
 ## References
 

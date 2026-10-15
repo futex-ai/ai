@@ -147,4 +147,4 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
-- [`../../plans/README.md`](../../plans/README.md)
+- [`../../plans/`](../../plans/)

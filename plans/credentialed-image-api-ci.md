@@ -1,5 +1,7 @@
 # Credentialed Image API CI
 
+Status: Completed. [PR #13](https://github.com/futex-ai/ai/pull/13) merged on 2026-08-13.
+
 ## Summary
 
 Add a dedicated credentialed CI suite that generates one real image through

@@ -1,5 +1,7 @@
 # Provider Call Controls
 
+Status: Completed. [PR #11](https://github.com/futex-ai/ai/pull/11) merged on 2026-08-12.
+
 ## Goal
 
 Make `ai_interface::ModelRequest` the provider-neutral source of generation

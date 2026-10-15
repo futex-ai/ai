@@ -154,4 +154,4 @@ cargo clippy -p xtask --all-targets --all-features
 - [`../docs/protocol/live-image-api-tests.md`](../docs/protocol/live-image-api-tests.md)
 - [`../docs/protocol/live-video-api-tests.md`](../docs/protocol/live-video-api-tests.md)
 - [`../docs/protocol/live-judgment-api-tests.md`](../docs/protocol/live-judgment-api-tests.md)
-- [`../plans/README.md`](../plans/README.md)
+- [`../plans/`](../plans/)

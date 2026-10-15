@@ -1,5 +1,7 @@
 # MCP JSON-RPC Response Exclusivity
 
+Status: Completed. [PR #3](https://github.com/futex-ai/ai/pull/3) merged on 2026-08-10.
+
 ## Summary
 
 Reject inbound JSON-RPC response objects that contain both `result` and
