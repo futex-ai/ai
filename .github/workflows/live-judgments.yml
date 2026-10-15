@@ -19,12 +19,11 @@ jobs:
   provider:
     name: ${{ matrix.provider }} judgment catalog
     if: >-
-      vars.LIVE_JUDGMENT_API_TESTS_ENABLED == 'true' &&
-      ((github.event_name == 'pull_request' &&
+      (github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]') ||
       (github.event_name != 'pull_request' &&
-      github.ref_name == github.event.repository.default_branch))
+      github.ref_name == github.event.repository.default_branch)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -39,24 +38,30 @@ jobs:
             test: catalog_tests::typesafe_judgment_catalog
             api_key: TYPESAFE_API_KEY
     steps:
-      - name: Require provider credential
+      - name: Detect provider credential
+        id: credential
         env:
           LIVE_JUDGMENT_API_KEY: ${{ secrets[matrix.api_key] }}
         run: |
           if [[ -z "$LIVE_JUDGMENT_API_KEY" ]]; then
-            echo "::error::Missing required Actions secret ${{ matrix.api_key }}"
-            exit 1
+            echo "::warning::Skipping the ${{ matrix.provider }} judgment catalog: Actions secret ${{ matrix.api_key }} is not set"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout
+        if: steps.credential.outputs.present == 'true'
         uses: actions/checkout@v4
 
       - name: Install Rust
+        if: steps.credential.outputs.present == 'true'
         run: |
           rustup toolchain install 1.95.0 --profile minimal
           rustup default 1.95.0
 
       - name: Cache Cargo
+        if: steps.credential.outputs.present == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -69,6 +74,7 @@ jobs:
             cargo-${{ runner.os }}-
 
       - name: Test every judgment catalog model
+        if: steps.credential.outputs.present == 'true'
         env:
           LIVE_JUDGMENT_API_KEY: ${{ secrets[matrix.api_key] }}
         run: cargo test --locked -p xtask --test live_judgments "${{ matrix.test }}" -- --ignored --exact --nocapture

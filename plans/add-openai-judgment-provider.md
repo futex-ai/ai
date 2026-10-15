@@ -40,8 +40,9 @@ and by the
 - Add one judgment-only catalog entry, `gpt-6-luna-decisions`, whose provider
   model id is `gpt-6-luna`, so a future chat entry for the same model keeps
   its own catalog id.
-- Register OpenAI in the existing opt-in live judgment workflow matrix; the
-  `LIVE_JUDGMENT_API_TESTS_ENABLED` gate stays unchanged.
+- Register OpenAI in the live judgment workflow matrix. Decision 1 below
+  (2026-10-15) replaced the `LIVE_JUDGMENT_API_TESTS_ENABLED` gate with a
+  per-entry secret check.
 
 ## Decisions (2026-10-15)
 
@@ -245,20 +246,23 @@ Evidence: `.context/add-openai-judgment-provider/round2-m7-*.log`
 The judgment workflow runs every provider whose secret exists and skips the
 rest with a visible warning, so no repository variable is needed.
 
-- [ ] Update `xtask/tests/live_judgments/workflow_tests.rs` first: the
+Evidence: `.context/add-openai-judgment-provider/round2-m8-*.log`
+(failing-first workflow test run and the credential-free suite).
+
+- [x] Update `xtask/tests/live_judgments/workflow_tests.rs` first: the
       workflow must not reference `LIVE_JUDGMENT_API_TESTS_ENABLED`, must
       detect the credential in a step named `Detect provider credential`
       that runs before `Checkout`, must write a `present` step output and a
       `::warning::` annotation naming the missing secret, must not `exit 1`
       on a missing secret, and must guard every later step with
       `if: steps.credential.outputs.present == 'true'`.
-- [ ] Update `.github/workflows/live-judgments.yml` to match, keeping the
+- [x] Update `.github/workflows/live-judgments.yml` to match, keeping the
       trusted-event conditions, read-only permissions, `fail-fast: false`,
       `max-parallel: 1`, the 20-minute timeout, and the per-entry secret
       exposure.
-- [ ] Update the workspace `README.md` and `xtask/README.md` so neither
+- [x] Update the workspace `README.md` and `xtask/README.md` so neither
       mentions the opt-in variable and both describe the per-entry skip.
-- [ ] Run the credential-free `live_judgments` suite.
+- [x] Run the credential-free `live_judgments` suite.
 
 ## Milestone 9: Verification, Commit, Push, And Review (Round 2)
 

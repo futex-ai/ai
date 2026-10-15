@@ -52,11 +52,11 @@ catalog, and workflow guards do. The dedicated GitHub Actions workflow invokes
 the ignored tests for eligible pull requests, daily verification, and manual
 dispatch. The MiniMax job first sends MiniMax-M3 a real tool with strict
 `Required` selection and asserts that the provider returns that tool call.
-The judgment workflow additionally requires the repository Actions variable
-`LIVE_JUDGMENT_API_TESTS_ENABLED`: while it is not `true`, the whole provider
-job, with every matrix entry, is skipped. Once it is `true`, each matrix entry
-requires only its own secret (`OPENAI_API_KEY` for OpenAI, `TYPESAFE_API_KEY`
-for TypeSafe), and a missing secret fails only that entry.
+In the judgment workflow, each matrix entry detects its own secret
+(`OPENAI_API_KEY` for OpenAI, `TYPESAFE_API_KEY` for TypeSafe) before
+checkout. An entry whose secret is absent is skipped with a workflow warning
+that names the secret; an entry whose secret is present runs and may make up
+to three billable attempts per catalog model.
 
 `tests/live_images/mod.rs` is the corresponding ignored image suite. It selects
 every Google and OpenAI catalog entry advertising `ImageGeneration`, constructs

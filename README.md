@@ -217,13 +217,11 @@ LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
 
 The `Live judgment APIs` workflow runs the OpenAI and TypeSafe catalogs as
 sequential matrix entries of one job for trusted same-repository pull
-requests, daily, and on manual dispatch. The whole job is skipped while the
-repository variable `LIVE_JUDGMENT_API_TESTS_ENABLED` is not `true`. Once it
-is `true`, each matrix entry requires only its own secret (`OPENAI_API_KEY`
-for OpenAI, `TYPESAFE_API_KEY` for TypeSafe), and a missing secret fails only
-that entry. Provision both secrets before you enable the variable. The
-workflow may make up to three billable attempts per catalog model after
-transient failures.
+requests, daily, and on manual dispatch. Each matrix entry detects its own
+secret (`OPENAI_API_KEY` for OpenAI, `TYPESAFE_API_KEY` for TypeSafe). An
+entry whose secret is absent is skipped with a workflow warning that names the
+secret. An entry whose secret is present runs and may make up to three
+billable attempts per catalog model after transient failures.
 
 Credentialed video checks live in `xtask/tests/live_videos/mod.rs`. They select
 every Google and OpenAI catalog entry advertising `VideoGeneration`, construct
@@ -328,10 +326,11 @@ sequential provider jobs. The `Live video APIs` workflow similarly exercises
 every Google and OpenAI video-capable entry through `DynVideoGenerator`, with
 MP4-specific validation and no asset persistence. The `Live judgment APIs`
 workflow exercises every OpenAI Decisions and TypeSafe Jev catalog entry
-through `DynJudgmentModel` with each provider's own secret, shared answer
-validation, and sequential retries once `LIVE_JUDGMENT_API_TESTS_ENABLED`
-opts the repository into those billable checks. Forked and Dependabot pull
-requests skip all credentialed workflows
+through `DynJudgmentModel` with shared answer validation and sequential
+retries. Each provider entry detects its own secret: an entry whose secret is
+absent is skipped with a workflow warning, and an entry whose secret is
+present may make up to three billable attempts per catalog model. Forked and
+Dependabot pull requests skip all credentialed workflows
 because GitHub does not provide them repository Actions secrets. The ordinary
 credential-free suite still enforces the live model registry and
 completion-event coverage policy without making provider calls.
