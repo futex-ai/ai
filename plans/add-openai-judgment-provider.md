@@ -64,7 +64,22 @@ Cal decided the open review items on 2026-10-15:
    review round 1, finding #2). Cal approved moving that text out of a doc
    on `origin/main`.
 5. Keep the live-suite check that input tokens are non-zero (option A).
-6. Thinking-level resolution across judgment-only catalog entries: pending.
+6. Thinking-level resolution across judgment-only catalog entries. Every
+   chat adapter's `with_catalog_auth` calls the shared
+   `resolve_catalog_thinking_level`, which considers every catalog entry
+   with the same provider model id. The judgment entry
+   `gpt-6-luna-decisions` shares provider model id `gpt-6-luna` and has
+   `ThinkingLevel::Disabled`, so a chat caller that pins `gpt-6-luna` with
+   an enabled level would silently resolve to `Disabled`. Options: A leave
+   it; B make the resolver ignore entries that advertise `Judgment`,
+   `ImageGeneration`, or `VideoGeneration`; C add a `gpt-6-luna` chat entry.
+   Cal asked for detail on 2026-10-15 and had not answered when the round-2
+   Codex review flagged the same issue as P2. Option B is applied as the
+   recommended default under the unanswered-decision rule (Milestone 10) and
+   is one revertible commit.
+7. Apply the same skip-on-missing-secret rule to the chat, image, and video
+   live workflows: no answer; the recommended default A (leave them) is
+   applied, which changes nothing.
 
 ## Milestone 1: Protocol And Plan
 
@@ -161,10 +176,12 @@ Evidence: review report in `.context/add-openai-judgment-provider/review-round-1
       constructors, the README CI entry, and `http_status_message`.
 - [x] Run `git add -A`, commit with a Conventional Commit title no longer than
       50 characters and a descriptive body, and push the current branch.
-- [ ] Review the complete local diff against `origin/main` with the
+- [x] Review the complete local diff against `origin/main` with the
       `implementation-review` skill after the push. Report the findings,
       then apply the review-fix rule: fix the `Auto-fix: yes` findings,
-      re-review once, and report the rest.
+      re-review once, and report the rest. Round 1 is complete; its two open
+      findings were decided on 2026-10-15 and are tracked below. Milestone 9
+      owns round 2.
   - Open (round 1, #1): Low, code structure, large effort. Both judgment adapters (`crates/ai-models-openai/src/openai/decisions/client.rs` and `crates/ai-models-typesafe/src/typesafe/client.rs`) repeat the same ~50-line call orchestration and each assembles its own `malformed provider payload` message; the reviewer recommends one shared `ai-models-core` request helper. Needs a user decision. Decided 2026-10-15: fix in this PR, Milestone 7.
   - Open (round 1, #2): Low, docs or spec, large effort. `docs/protocol/openai-judgment-provider.md` (289 lines) and `docs/protocol/typesafe-judgment-provider.md` (393 lines) exceed the ~250-line guidance; the reviewer recommends moving the shared boundary and error contract into a `judgment-boundary.md` page linked from both provider docs. Needs a user decision. Decided 2026-10-15: fix in this PR, Milestone 6.
 
@@ -280,10 +297,80 @@ Evidence: gate logs in `.context/add-openai-judgment-provider/`
 - [x] Run `git add -A`, commit each milestone with a Conventional Commit
       title no longer than 50 characters and a descriptive body, and push
       the current branch.
-- [ ] Review the complete local diff against `origin/main` with the
+- [x] Review the complete local diff against `origin/main` with the
       `implementation-review` skill after the push. Report the findings,
       then apply the review-fix rule: fix the `Auto-fix: yes` findings,
-      re-review once, and report the rest.
+      re-review once, and report the rest. Round 2 reported on 2026-10-15;
+      evidence in `.context/add-openai-judgment-provider/review-round-2.md`
+      and `codex-review-round2.log`.
+  - Fixed in Milestone 11 (round 2, #2): Low, docs, small. The workspace
+    README key-code bullet and the TypeSafe README Responsibilities bullet
+    still assigned authentication and error translation to the TypeSafe
+    crate. Auto-fix: yes.
+  - Fixed in Milestone 10 (Codex round 2, P2): judgment entry disables
+    chat thinking resolution for `gpt-6-luna`; decision 6 option B.
+  - Open (round 2, #1): Low, code structure, large effort. Both adapters
+    hold the concrete `HttpJudgmentTransport`, so the `JudgmentTransport`
+    trait and `JudgmentTransportMock` cannot be injected into an adapter.
+    Options: A record the exception in the core README; B adapters depend
+    on `Arc<dyn JudgmentTransport>` with a `with_transport` constructor; C
+    delete the trait. Reviewer recommends B. Needs a user decision.
+  - Open (round 2, #3): Low, docs, large effort.
+    `docs/protocol/judgment-boundary.md` has no Required Verification
+    section for the shared transport. Options: A add the section; B point
+    to the core tests from each provider page. Reviewer recommends A. Needs
+    a user decision.
+  - Resolved (round 2, #4): decision 6 is written out above and the
+    Milestone 5 review TODO is ticked with a note.
+
+## Milestone 10: Chat Thinking Resolution Ignores Specialized Entries
+
+Decision 6, option B. The shared thinking-level resolver considers only
+catalog entries that describe chat models, so a judgment, image, or video
+entry that shares a provider model id cannot downgrade a chat caller's
+requested level.
+
+- [ ] Add failing `ai-models-core` catalog tests: `KnownModelSpec::supports_chat`
+      is false for entries that advertise `Judgment`, `ImageGeneration`, or
+      `VideoGeneration` and true otherwise; with only a judgment-only entry
+      for a provider model id the resolver returns `None`; with judgment and
+      chat entries for the same provider model id the resolver uses only the
+      chat entries, including a request below the lowest chat level.
+- [ ] Add a failing `ai-models-openai` regression through
+      `OpenAiModel::with_catalog_auth(client, "gpt-6-luna", "gpt-6-luna",
+      ThinkingLevel::High, auth)` with the buffered-body test client: the
+      Responses request body sends `reasoning.effort` `high` and the response
+      reports thinking level `high`.
+- [ ] Implement `KnownModelSpec::supports_chat` and filter the resolver with
+      it; keep every existing resolver test green.
+- [ ] Use `supports_chat` in the chat catalog filter of
+      `xtask/tests/live_models/provider_tests.rs` and in the judgment-only
+      guard of `xtask/tests/live_models.rs` instead of the repeated feature
+      list, keeping their assertions.
+- [ ] Document the rule in `crates/ai-models-core/README.md` (resolver
+      paragraph and `KnownModelSpec` paragraph) and in the Catalog section of
+      `docs/protocol/openai-judgment-provider.md` (the judgment entry does not
+      take part in chat thinking-level resolution).
+- [ ] Run formatting, Clippy, and tests for `ai-models-core`,
+      `ai-models-openai`, and the `xtask` live model suite.
+
+## Milestone 11: Round-2 Review Fixes, Verification, And Re-Review
+
+- [ ] Fix round-2 finding #2: rewrite the TypeSafe key-code bullet in the
+      workspace `README.md` and the Responsibilities bullet in
+      `crates/ai-models-typesafe/README.md` so the TypeSafe crate owns the Jev
+      catalog, wire mapping, response decoding, usage normalization, and the
+      failure-message extractor, and the shared transport owns
+      authentication, classification, and redaction.
+- [ ] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
+      --all-targets --all-features`, `cargo test --workspace --all-features`,
+      `cargo xtask rust-file-length-lint --all`, `cargo xtask smoke-test`,
+      and `cargo xtask check`.
+- [ ] Run the deletion audit, `git add -A`, commit with Conventional Commits
+      titles no longer than 50 characters, and push the current branch.
+- [ ] Re-review the complete local diff against `origin/main` once with the
+      `implementation-review` skill, then stop: report fixed and open
+      findings without a third fix round.
 
 ## Post-merge follow-up (non-blocking)
 
