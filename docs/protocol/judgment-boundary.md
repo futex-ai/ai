@@ -17,13 +17,12 @@ record the implementation.
 - `ai-interface` owns `ProviderKind::TypeSafe`, `ModelFeature::Judgment`, the
   judgment DTOs, typed errors, the `JudgmentModel` trait, its dyn alias and
   unimock API, and the deterministic `MockJudgmentModel`.
-- `ai-models-core` owns the shared HTTP status classifier reused by this
-  provider, catalog metadata types, and the provider-neutral judgment helpers
-  shared with the OpenAI adapter: credential redaction (`redact_secrets`,
-  `secrets_from_headers`), failure-body decoding, status and transport error
-  classification into `JudgmentError`, and redaction of provider-controlled
-  `InvalidAnswer` labels.
-- `ai-models-core` also owns the shared judgment transport defined below.
+- `ai-models-core` owns the shared HTTP status classifier, catalog metadata
+  types, the shared judgment transport defined below, and the provider-neutral
+  judgment helpers that every adapter uses: credential redaction
+  (`redact_secrets`, `secrets_from_headers`), failure-body decoding, status
+  and transport error classification into `JudgmentError`, and redaction of
+  provider-controlled `InvalidAnswer` labels.
 
 ## Shared Boundary
 
@@ -215,19 +214,18 @@ All provider variants retain the provider, the configured model id, and the
 available provider message. `Internal` uses the shared tracked
 `InternalError` carrier.
 
-Status classification uses `ai_models_core::classify_http_status`, a new
-boundary-neutral helper introduced by this change. It returns
-`Option<HttpFailureClass>`: `None` for statuses below 400 and otherwise
-`RateLimited` (429), `Transient` (408, 409, 425, 5xx), or `Terminal`, so the
-image, video, and judgment boundaries stop duplicating the same status table.
+Status classification uses the boundary-neutral
+`ai_models_core::classify_http_status`. It returns `Option<HttpFailureClass>`:
+`None` for statuses below 400 and otherwise `RateLimited` (429), `Transient`
+(408, 409, 425, 5xx), or `Terminal`. The image, video, and judgment
+boundaries share it.
 
 Error bodies are decoded best-effort: each provider protocol names the fields
 that supply the message; any other body, including JSON `null`, is retained
 as compact JSON or text; an empty body falls back to `HTTP <status>`.
 
-API keys and auth headers must never appear in errors or diagnostics. The
-adapter enforces this rather than assuming it, through the shared
-`ai-models-core` judgment helpers that the OpenAI adapter also uses. It applies the injected auth
+API keys and auth headers must never appear in errors or diagnostics. The shared
+transport enforces this rather than assuming it. It applies the injected auth
 hook exactly once per call, sends exactly the header values that application
 produced, and derives the redaction set from those values: each full value
 and, for scheme-prefixed values such as `Bearer <token>`, the token after the

@@ -35,9 +35,8 @@ capture, and confidence-threshold policy. Composition roots own those.
 The [judgment boundary protocol](judgment-boundary.md#ownership) defines what
 `ai-interface` and `ai-models-core` own.
 
-- `ai-models-typesafe` owns the Jev catalog, authentication, wire mapping,
-  local validation, response validation, usage normalization, and provider
-  error translation.
+- `ai-models-typesafe` owns the Jev catalog, wire mapping, response decoding,
+  usage normalization, and failure-message extraction.
 - `json-http` owns the injected HTTP client and auth hook boundaries.
 - Composition roots own API-key retrieval, wrapper policy, pricing, and
   conversion of the concrete adapter into `DynJudgmentModel`.
@@ -161,14 +160,14 @@ The adapter maps `model` to `resolved_model_id`, `noul` to
 level indexes. `legend` is not surfaced because the caller owns the levels.
 Unknown fields are ignored.
 
-The adapter reads the response as raw bytes and deserializes successful
-bodies directly from those bytes, never through an intermediate
-`serde_json::Value`, so repeated JSON keys reach the typed decoder instead of
-silently collapsing. The typed decoder rejects a repeated key in the `answers`
-map, in a choice `probabilities` map, and in a score `probabilities` map, so
-an ambiguous payload never becomes a successful judgment. Only statuses in
-`200..300` are treated as success;
-every other status is classified as a failure. Answer entries are held as raw
+The shared transport returns the response as raw bytes, and the adapter
+deserializes successful bodies directly from those bytes, never through an
+intermediate `serde_json::Value`, so repeated JSON keys reach the typed
+decoder instead of silently collapsing. The typed decoder rejects a repeated
+key in the `answers` map, in a choice `probabilities` map, and in a score
+`probabilities` map, so an ambiguous payload never becomes a successful
+judgment. The shared transport treats only statuses in `200..300` as success
+and classifies every other status as a failure. Answer entries are held as raw
 JSON fragments until their id is matched to a requested question, so
 unrequested ids are ignored even when their fragments would not decode.
 
