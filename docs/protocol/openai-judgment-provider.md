@@ -180,15 +180,16 @@ each score `probabilities[].value` to a zero-based level index. The score
 `label` is not surfaced because the caller owns the levels. Unknown fields
 are ignored.
 
-The adapter reads the response as raw bytes and deserializes the success body
-directly from those bytes. Answer entries are held as raw JSON fragments. A
-fragment whose `name` cannot be read, is `null`, or is not a requested id is
-ignored even when the rest of the fragment would not decode. A fragment whose
-`name` is a requested id must decode as a typed answer. Two fragments with the
-same requested name, two choice probability entries with the same value, and
-two score probability entries with the same index are rejected. Choice values
-decode as strings only because the adapter never sends boolean values. Only
-statuses in `200..300` are treated as success.
+The shared transport returns the response as raw bytes, and the adapter
+deserializes the success body directly from those bytes. Answer entries are
+held as raw JSON fragments. A fragment whose `name` cannot be read, is `null`,
+or is not a requested id is ignored even when the rest of the fragment would
+not decode. A fragment whose `name` is a requested id must decode as a typed
+answer. Two fragments with the same requested name, two choice probability
+entries with the same value, and two score probability entries with the same
+index are rejected. Choice values decode as strings only because the adapter
+never sends boolean values. The shared transport treats only statuses in
+`200..300` as success and classifies every other status as a failure.
 
 A body that fails to decode is a non-retryable `Provider` error whose message
 is the fixed text `malformed provider payload` followed by the decoder's own
