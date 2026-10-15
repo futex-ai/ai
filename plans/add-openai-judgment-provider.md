@@ -362,18 +362,24 @@ Evidence: `.context/add-openai-judgment-provider/round3-m10-*.log`
 
 ## Milestone 11: Round-2 Review Fixes, Verification, And Re-Review
 
+Evidence: gate logs in `.context/add-openai-judgment-provider/`
+(`round3-gate-summary.log`, `round3-*.log`, and the `round3-m*-audit-*.log`
+deletion audits).
+
 - [x] Fix round-2 finding #2: rewrite the TypeSafe key-code bullet in the
       workspace `README.md` and the Responsibilities bullet in
       `crates/ai-models-typesafe/README.md` so the TypeSafe crate owns the Jev
       catalog, wire mapping, response decoding, usage normalization, and the
       failure-message extractor, and the shared transport owns
       authentication, classification, and redaction.
-- [ ] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
+- [x] Run `cargo fmt --all -- --check`, `cargo clippy --workspace
       --all-targets --all-features`, `cargo test --workspace --all-features`,
       `cargo xtask rust-file-length-lint --all`, `cargo xtask smoke-test`,
       and `cargo xtask check`.
-- [ ] Run the deletion audit, `git add -A`, commit with Conventional Commits
+- [x] Run the deletion audit, `git add -A`, commit with Conventional Commits
       titles no longer than 50 characters, and push the current branch.
+  - Exception: the title of `ede9181` has 53 characters. Pushed history is
+    not rewritten without approval.
 - [ ] Re-review the complete local diff against `origin/main` once with the
       `implementation-review` skill, then stop: report fixed and open
       findings without a third fix round.
