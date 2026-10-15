@@ -12,8 +12,8 @@
   operations that must poll within a total deadline
 - Offer a boundary-neutral HTTP failure classifier and provider-agnostic
   JSON/error helpers shared by model crates
-- Provide the shared judgment error classification and credential redaction
-  helpers used by every `JudgmentModel` adapter
+- Provide the shared judgment transport, error classification, and
+  credential redaction helpers used by every `JudgmentModel` adapter
 - Classify stream failures by provider-event progress and accumulate
   OpenAI-compatible chat-completions deltas into buffered response shapes
 - Provide shared known-model catalog metadata used by composition roots
@@ -35,6 +35,19 @@ and `InvalidAnswer` labels; and `redact_secrets` with `secrets_from_headers`
 derive the redaction set from the transmitted auth headers, replacing each
 secret longest first. A failing auth hook uses the fixed `AUTH_HOOK_FAILED`
 diagnostic because its message cannot be sanitized.
+
+Judgment adapters also share one transport. Each adapter defines a
+`JudgmentEndpoint` constant with its provider name, URL, timeout, and
+`JudgmentFailureMessage` extractor, builds an `HttpJudgmentTransport` from it
+with an injected `json-http` client and auth hook, and posts its serialized
+provider body through the `JudgmentTransport` trait. `post` applies the auth
+hook once, derives the redaction set from the transmitted headers, classifies
+request failures and every non-`2xx` status onto `JudgmentError`, and returns
+the `2xx` body bytes with the secrets in a `JudgmentHttpResponse`, so the
+adapter only parses the body and passes parse errors to
+`redact_judgment_error`. `malformed_judgment_payload` builds the shared
+terminal error for a body that fails to decode. Tests can enable the
+`test-support` feature and inject `JudgmentTransportMock`.
 
 `ChatCompletionsAccumulator` is the shared typed merger for compatible
 provider streams. It joins visible content and reasoning independently,
@@ -146,6 +159,8 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - `src/http_status.rs` - boundary-neutral HTTP failure classification
 - `src/judgment_errors.rs` - shared judgment status, transport, failure-body,
   and answer-label error helpers
+- `src/judgment_transport.rs` - shared judgment transport, endpoint value,
+  and malformed-payload error
 - `src/redaction.rs` - transmitted-auth secret derivation and longest-first
   diagnostic redaction
 - `src/errors.rs` - provider-agnostic JSON error mapping, parsing, and

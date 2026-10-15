@@ -267,9 +267,9 @@ cargo xtask review
   mapping, validation, usage, authentication, and provider-error translation
 - `crates/ai-models-openai/src/openai/decisions/`: OpenAI Decisions judgment
   request/response mapping, refusal handling, and usage normalization
-- `crates/ai-models-core/src/judgment_errors.rs` and `src/redaction.rs`:
-  judgment error classification and credential redaction shared by every
-  judgment adapter
+- `crates/ai-models-core/src/judgment_transport.rs`,
+  `src/judgment_errors.rs`, and `src/redaction.rs`: judgment transport, error
+  classification, and credential redaction shared by every judgment adapter
 - `crates/ai-models-*`: concrete provider and fallback adapters
 - `crates/ai-tool-calling`: in-memory tool-calling runtime, including
   `src/policy.rs`, `src/output_store/`, and the intrinsic output reader

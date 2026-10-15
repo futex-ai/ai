@@ -8,6 +8,7 @@ mod concurrency;
 mod errors;
 mod http_status;
 mod judgment_errors;
+mod judgment_transport;
 mod polling;
 mod pricing;
 mod redaction;
@@ -39,6 +40,12 @@ pub use http_status::{HttpFailureClass, classify_http_status};
 pub use judgment_errors::{
     AUTH_HOOK_FAILED, classify_judgment_request_error, classify_judgment_status,
     decode_failure_body, http_status_message, redact_judgment_error,
+};
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub use judgment_transport::JudgmentTransportMock;
+pub use judgment_transport::{
+    HttpJudgmentTransport, JudgmentEndpoint, JudgmentFailureMessage, JudgmentHttpResponse,
+    JudgmentTransport, malformed_judgment_payload,
 };
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use polling::PollingRuntimeMock;

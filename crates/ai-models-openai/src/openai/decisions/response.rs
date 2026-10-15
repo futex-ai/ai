@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use ai_interface::{
     JudgmentAnswer, JudgmentError, JudgmentRequest, JudgmentResponse, JudgmentResult,
 };
+use ai_models_core::malformed_judgment_payload;
 use serde::Deserialize;
 use serde_json::value::RawValue;
 use thiserror::Error;
@@ -12,7 +13,6 @@ use thiserror::Error;
 use super::usage::{DecisionsUsage, normalize_usage};
 
 const PROVIDER: &str = "openai";
-const MALFORMED_PROVIDER_PAYLOAD: &str = "malformed provider payload";
 
 #[derive(Debug, Deserialize)]
 struct DecisionsResponse {
@@ -90,11 +90,17 @@ pub(super) fn parse_response(
 ) -> JudgmentResult<JudgmentResponse> {
     let response = match serde_json::from_slice::<DecisionsResponse>(body) {
         Ok(response) => response,
-        Err(source) => return Err(malformed_payload(model_id, &DecodeError::Json { source })),
+        Err(source) => {
+            return Err(malformed_judgment_payload(
+                PROVIDER,
+                model_id,
+                &DecodeError::Json { source },
+            ));
+        }
     };
     let decoded = match decode_requested_answers(request, &response.answers) {
         Ok(decoded) => decoded,
-        Err(error) => return Err(malformed_payload(model_id, &error)),
+        Err(error) => return Err(malformed_judgment_payload(PROVIDER, model_id, &error)),
     };
     let mut answers = BTreeMap::new();
     for (id, answer) in decoded {
@@ -196,15 +202,6 @@ fn score_probabilities(entries: Vec<ScoreProbability>) -> Result<BTreeMap<u32, f
         probabilities.insert(entry.value, entry.probability);
     }
     Ok(probabilities)
-}
-
-fn malformed_payload(model_id: &str, source: &DecodeError) -> JudgmentError {
-    let detail = source.to_string();
-    JudgmentError::provider(
-        PROVIDER,
-        model_id,
-        [MALFORMED_PROVIDER_PAYLOAD, ": ", &detail].concat(),
-    )
 }
 
 #[cfg(test)]

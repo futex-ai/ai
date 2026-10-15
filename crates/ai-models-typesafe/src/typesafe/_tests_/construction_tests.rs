@@ -4,13 +4,15 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use ai_interface::JudgmentModel;
+use ai_interface::{JudgmentError, JudgmentModel};
 use json_http::{JsonHttpBody, StaticHeaderAuth};
+use serde_json::json;
 
 use super::{
     TypeSafeJudgmentModel,
     test_support::{
-        recording_http_client, simple_request, successful_response, unused_http_client,
+        json_response, recording_http_client, simple_request, successful_response,
+        unused_http_client,
     },
 };
 
@@ -18,17 +20,51 @@ use super::{
 fn constructors_use_the_documented_defaults_and_clone() {
     let keyed = TypeSafeJudgmentModel::new(unused_http_client(), "jev-latest", "typesafe-key");
 
-    assert_eq!(keyed.model_id, "jev-latest");
-    assert_eq!(keyed.endpoint, "https://api.typesafe.ai/v1/systemone");
-    assert_eq!(keyed.timeout, Duration::from_secs(60));
+    assert_eq!(keyed.transport.provider(), "typesafe");
+    assert_eq!(keyed.transport.model_id(), "jev-latest");
+    assert_eq!(
+        keyed.transport.endpoint(),
+        "https://api.typesafe.ai/v1/systemone"
+    );
+    assert_eq!(keyed.transport.timeout(), Duration::from_secs(60));
 
     let authenticated = TypeSafeJudgmentModel::with_auth(
         unused_http_client(),
         "jev-1.13.0",
         Arc::new(StaticHeaderAuth::default()),
     );
-    assert_eq!(authenticated.model_id, "jev-1.13.0");
+    assert_eq!(authenticated.transport.model_id(), "jev-1.13.0");
     let _clone = authenticated.clone();
+}
+
+/// The bearer header yields only `Bearer typesafe split-key` and `split-key`,
+/// so only the explicit secret that `new` registers redacts the whole key.
+#[tokio::test]
+async fn api_key_constructor_redacts_the_whole_key_and_auth_hooks_add_no_secret() {
+    let rejection = json!({"detail": {"message": "rejected typesafe split-key"}});
+    let (http_client, _) = recording_http_client(json_response(400, rejection.clone()));
+    let keyed = TypeSafeJudgmentModel::new(http_client, "jev-latest", "typesafe split-key")
+        .judge(&simple_request())
+        .await
+        .expect_err("provider rejection should return an error");
+    assert!(
+        matches!(&keyed, JudgmentError::Provider { message, .. } if message == "rejected [redacted]"),
+        "{keyed}"
+    );
+
+    let (http_client, _) = recording_http_client(json_response(400, rejection));
+    let hooked = TypeSafeJudgmentModel::with_auth(
+        http_client,
+        "jev-latest",
+        Arc::new(StaticHeaderAuth::default()),
+    )
+    .judge(&simple_request())
+    .await
+    .expect_err("provider rejection should return an error");
+    assert!(
+        matches!(&hooked, JudgmentError::Provider { message, .. } if message == "rejected typesafe split-key"),
+        "{hooked}"
+    );
 }
 
 #[tokio::test]

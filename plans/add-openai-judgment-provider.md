@@ -206,7 +206,10 @@ rule before the code changes in Milestones 7 and 8.
 Both adapters send through one tested transport, so a third provider adds
 only its wire mapping and failure-message extractor.
 
-- [ ] Add failing `ai-models-core` tests for `HttpJudgmentTransport` with
+Evidence: `.context/add-openai-judgment-provider/round2-m7-*.log`
+(failing-first test run, Clippy, and tests for the three crates).
+
+- [x] Add failing `ai-models-core` tests for `HttpJudgmentTransport` with
       the mocked `json-http` transport and auth hook: the auth hook is
       applied exactly once and its headers are transmitted unchanged; the
       explicit secret and every transmitted header value, plus the token
@@ -218,7 +221,7 @@ only its wire mapping and failure-message extractor.
       auth hook returns the fixed `authentication hook failed` diagnostic
       without a transport call; and `malformed_judgment_payload` builds the
       fixed prefix.
-- [ ] Implement `src/judgment_transport.rs` in `ai-models-core`:
+- [x] Implement `src/judgment_transport.rs` in `ai-models-core`:
       `JudgmentFailureMessage = fn(&Value) -> String`, the `JudgmentEndpoint`
       value (`provider`, `url`, `timeout`, `failure_message`),
       `JudgmentHttpResponse { body, secrets }`, the unimock-enabled
@@ -227,15 +230,15 @@ only its wire mapping and failure-message extractor.
       with `with_explicit_secret`, `with_endpoint`, `with_timeout`, and
       `provider`, `model_id`, `endpoint`, `timeout` accessors, and
       `malformed_judgment_payload(provider, model_id, detail)`.
-- [ ] Rewrite `OpenAiJudgmentModel` and `TypeSafeJudgmentModel` to hold one
+- [x] Rewrite `OpenAiJudgmentModel` and `TypeSafeJudgmentModel` to hold one
       `HttpJudgmentTransport`, keep their public constructors and overrides
       unchanged, keep their own failure-message extractors, and reduce
       `judge` to validate, build, serialize, post, parse, redact. Keep every
       existing adapter test; adjust only the construction tests that read
       private fields.
-- [ ] Update the `ai-models-core`, `ai-models-openai`, and
+- [x] Update the `ai-models-core`, `ai-models-openai`, and
       `ai-models-typesafe` READMEs.
-- [ ] Run formatting, Clippy, and tests for the three crates.
+- [x] Run formatting, Clippy, and tests for the three crates.
 
 ## Milestone 8: Live Judgment Workflow Skips Entries Without A Secret
 

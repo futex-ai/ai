@@ -4,11 +4,12 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use ai_interface::JudgmentModel;
+use ai_interface::{JudgmentError, JudgmentModel};
 use json_http::{JsonHttpBody, StaticHeaderAuth};
+use serde_json::json;
 
 use super::super::test_support::{
-    recording_http_client, simple_request, successful_response, unused_http_client,
+    json_response, recording_http_client, simple_request, successful_response, unused_http_client,
 };
 use super::OpenAiJudgmentModel;
 
@@ -16,19 +17,51 @@ use super::OpenAiJudgmentModel;
 fn constructors_use_the_documented_defaults_and_clone() {
     let keyed = OpenAiJudgmentModel::new(unused_http_client(), "gpt-6-luna", "openai-key");
 
-    assert_eq!(keyed.model_id, "gpt-6-luna");
-    assert_eq!(keyed.endpoint, "https://api.openai.com/v1/decisions");
-    assert_eq!(keyed.timeout, Duration::from_secs(60));
-    assert_eq!(keyed.redaction_secrets, vec!["openai-key".to_owned()]);
+    assert_eq!(keyed.transport.provider(), "openai");
+    assert_eq!(keyed.transport.model_id(), "gpt-6-luna");
+    assert_eq!(
+        keyed.transport.endpoint(),
+        "https://api.openai.com/v1/decisions"
+    );
+    assert_eq!(keyed.transport.timeout(), Duration::from_secs(60));
 
     let authenticated = OpenAiJudgmentModel::with_auth(
         unused_http_client(),
         "gpt-6-luna",
         Arc::new(StaticHeaderAuth::default()),
     );
-    assert_eq!(authenticated.model_id, "gpt-6-luna");
-    assert!(authenticated.redaction_secrets.is_empty());
+    assert_eq!(authenticated.transport.model_id(), "gpt-6-luna");
     let _clone = authenticated.clone();
+}
+
+/// The bearer header yields only `Bearer openai split-key` and `split-key`, so
+/// only the explicit secret that `new` registers redacts the whole key.
+#[tokio::test]
+async fn api_key_constructor_redacts_the_whole_key_and_auth_hooks_add_no_secret() {
+    let rejection = json!({"error": {"message": "rejected openai split-key"}});
+    let (http_client, _) = recording_http_client(json_response(400, rejection.clone()));
+    let keyed = OpenAiJudgmentModel::new(http_client, "gpt-6-luna", "openai split-key")
+        .judge(&simple_request())
+        .await
+        .expect_err("provider rejection should return an error");
+    assert!(
+        matches!(&keyed, JudgmentError::Provider { message, .. } if message == "rejected [redacted]"),
+        "{keyed}"
+    );
+
+    let (http_client, _) = recording_http_client(json_response(400, rejection));
+    let hooked = OpenAiJudgmentModel::with_auth(
+        http_client,
+        "gpt-6-luna",
+        Arc::new(StaticHeaderAuth::default()),
+    )
+    .judge(&simple_request())
+    .await
+    .expect_err("provider rejection should return an error");
+    assert!(
+        matches!(&hooked, JudgmentError::Provider { message, .. } if message == "rejected openai split-key"),
+        "{hooked}"
+    );
 }
 
 #[tokio::test]

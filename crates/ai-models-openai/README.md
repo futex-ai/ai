@@ -133,10 +133,11 @@ caller question ids as answer names, and maps `predicate`, `choice`, and
 `score` answers back into the shared condition, choice, and score answers
 before applying the shared postconditions. A provider `refusal` becomes the
 typed `JudgmentError::Refused` for the refused question id. Usage separates
-cached input and reasoning tokens like the Responses adapter. Credential
-redaction, status classification, and transport error mapping come from the
-shared `ai-models-core` judgment helpers that the TypeSafe adapter also uses,
-so API keys and auth header values never appear in diagnostics.
+cached input and reasoning tokens like the Responses adapter. Every call goes
+through the shared `ai-models-core` judgment transport that the TypeSafe
+adapter also uses, so authentication, credential redaction, status
+classification, and transport error mapping match across providers and API
+keys and auth header values never appear in diagnostics.
 
 ## Quick Start
 
@@ -227,8 +228,9 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - `src/openai/image_generation/` - OpenAI image request, response, and error mapping
 - `src/openai/video_generation/` - OpenAI asynchronous video submission,
   polling, download, request, response, and error mapping
-- `src/openai/decisions/` - OpenAI Decisions judgment client, request and
-  response mapping, refusal handling, and usage normalization
+- `src/openai/decisions/` - OpenAI Decisions judgment client over the shared
+  judgment transport, request and response mapping, refusal handling, usage
+  normalization, and failure-message extraction
 
 ### Related Docs
 

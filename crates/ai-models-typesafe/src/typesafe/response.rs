@@ -3,16 +3,16 @@
 use std::collections::BTreeMap;
 
 use ai_interface::{
-    JudgmentAnswer, JudgmentError, JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage,
+    JudgmentAnswer, JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage,
     deserialize_score_probabilities,
 };
+use ai_models_core::malformed_judgment_payload;
 use serde::Deserialize;
 use serde_json::value::RawValue;
 
 use super::unique_map::deserialize_unique_string_map;
 
 const PROVIDER: &str = "typesafe";
-const MALFORMED_PROVIDER_PAYLOAD: &str = "malformed provider payload";
 
 #[derive(Debug, Deserialize)]
 struct TypeSafeResponse {
@@ -62,7 +62,7 @@ pub(super) fn parse_response(
 ) -> JudgmentResult<JudgmentResponse> {
     let response = match serde_json::from_slice::<TypeSafeResponse>(body) {
         Ok(response) => response,
-        Err(source) => return Err(malformed_payload(model_id, &source)),
+        Err(source) => return Err(malformed_judgment_payload(PROVIDER, model_id, &source)),
     };
     let TypeSafeResponse {
         model,
@@ -77,7 +77,7 @@ pub(super) fn parse_response(
         };
         let answer = match serde_json::from_str::<TypeSafeAnswer>(fragment.get()) {
             Ok(answer) => answer,
-            Err(source) => return Err(malformed_payload(model_id, &source)),
+            Err(source) => return Err(malformed_judgment_payload(PROVIDER, model_id, &source)),
         };
         answers.insert(id.clone(), answer.normalize());
     }
@@ -130,15 +130,6 @@ fn normalize_usage(usage: Option<TypeSafeUsage>) -> ModelUsage {
         total_tokens: input_tokens.saturating_add(output_tokens),
         ..ModelUsage::default()
     }
-}
-
-fn malformed_payload(model_id: &str, source: &serde_json::Error) -> JudgmentError {
-    JudgmentError::provider(PROVIDER, model_id, malformed_payload_message(source))
-}
-
-fn malformed_payload_message(source: &serde_json::Error) -> String {
-    let detail = source.to_string();
-    [MALFORMED_PROVIDER_PAYLOAD, ": ", &detail].concat()
 }
 
 #[cfg(test)]
