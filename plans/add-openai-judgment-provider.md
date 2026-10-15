@@ -380,9 +380,22 @@ deletion audits).
       titles no longer than 50 characters, and push the current branch.
   - Exception: the title of `ede9181` has 53 characters. Pushed history is
     not rewritten without approval.
-- [ ] Re-review the complete local diff against `origin/main` once with the
+- [x] Re-review the complete local diff against `origin/main` once with the
       `implementation-review` skill, then stop: report fixed and open
-      findings without a third fix round.
+      findings without a third fix round. Round 3 reported on 2026-10-15;
+      evidence in `.context/add-openai-judgment-provider/review-round-3.md`
+      and `codex-review-round3.log`. Codex found no actionable defects.
+  - Open (round 3, #1): Low, process, small effort. Commit `ede9181` has a
+    53-character title against the 50-character rule. Options: A leave it
+    and set a compliant title at squash merge; B amend and force-push with
+    lease; C add a title-length check to `cargo xtask check`. Reviewer
+    recommends A for a squash merge. Needs a user decision.
+  - Open (round 3, #2): Low, code structure, small effort.
+    `KnownModelSpec::supports_chat` uses a three-item deny-list instead of an
+    exhaustive match on `ModelFeature`, so a future specialized variant could
+    rejoin chat resolution unnoticed. Options: A leave; B exhaustive match in
+    `supports_chat`; C add `ModelFeature::serves_separate_interface` in
+    `ai-interface` and call it. Reviewer recommends C. Needs a user decision.
 
 ## Post-merge follow-up (non-blocking)
 
