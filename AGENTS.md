@@ -9,23 +9,8 @@ plans under `plans/`.
 
 This file holds the rules that are specific to this repository. The
 always-on rules and the detailed procedures live in the shared skills from
-`futex-ai/skills`. Read the skill at the named moment instead of guessing
-the rule.
-
-## Shared skills
-
-- `finish-work`: before you say work is complete, and before you commit.
-- `plans`: before you create, edit, or tick a plan under `plans/`.
-- `implementation-review`: after you push, before you run or apply a
-  review.
-- `deterministic-tests`: when a test flakes, or when a test would assert
-  elapsed time.
-- `git-commit`: before and after you commit, and when you open a pull
-  request.
-- `git-merge`: before you merge or rebase, and after each merge commit.
-- `documentation`: before you edit a `README.md`, a doc, or a protocol doc,
-  and when a change or a review option conflicts with a protocol doc.
-- `rust`: before you edit Rust.
+`futex-ai/skills`. Each skill's description says when to read it. Read the
+skill at that moment instead of guessing the rule.
 
 ## Communication
 
@@ -37,10 +22,11 @@ the rule.
   the reader saw earlier messages, the diff, or the plan.
 - Report outcomes faithfully. Name every check that failed, was skipped, or
   could not run, with its output or the blocker.
-- Ask for all decisions in one numbered message. For each decision give
-  its severity and effort, the context, the impact if no action is taken,
-  lettered options, and a recommended option. Do the independent work
-  first, then stop and wait.
+- Ask for all decisions in one numbered message. List decisions and review
+  findings by severity, highest first. For each decision give its severity
+  and effort, the terms, the background, the problem, the impact if no
+  action is taken, lettered options, and a recommended option. Do the
+  independent work first, then stop and wait.
 - End every task with a final report: what changed and the commit, each
   decision and its outcome, the checks that ran, anything skipped, and the
   outstanding decisions or review items that still need the user.
@@ -70,8 +56,9 @@ the rule.
 
 ## Review focus
 
-- Protocol alignment: code under `crates/` matches its `docs/protocol/`
-  contract, and both change in the same commit.
+- Protocol alignment: the behaviour of code under `crates/` meets the
+  requirements in its `docs/protocol/` doc. A change to that behaviour
+  updates the protocol doc in the same change.
 - Provider boundaries: `ai-interface` stays provider-neutral. Each
   `ai-models-*` crate owns its wire mapping, usage normalization, and typed
   error translation.
