@@ -1,8 +1,7 @@
 # MiniMax M2.x Stream Snapshot Recovery
 
 Status: Completed. [PR #20](https://github.com/futex-ai/ai/pull/20) merged on
-2026-09-21. Open: no record shows that the post-push review ran. The
-`MiniMax catalog` job passed on PR #20.
+2026-09-21. Open: no record shows that the post-push review ran.
 
 ## Summary
 
@@ -90,11 +89,11 @@ a provider job, while every deterministic contract failure still does.
 - [x] Review `git diff origin/main...` for scope, docs, tests, and untracked
       files.
 - [x] Move this plan to Completed in `plans/README.md`.
-- [ ] Run `git add -A`, commit with a Conventional Commit message, and push
+- [x] Run `git add -A`, commit with a Conventional Commit message, and push
       the current branch without renaming it.
 - [ ] Run `cargo xtask review` after the push against `origin/main` and
       report findings without automatically fixing them.
-- [ ] Confirm the `MiniMax catalog` job on the pull request after the push.
+- [x] Confirm the `MiniMax catalog` job on the pull request after the push.
 - [x] Treat a value equal to the retained text as a repeated fragment before
       snapshot evidence and a repeated snapshot afterward, with regressions
       for both.
