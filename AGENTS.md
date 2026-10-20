@@ -59,11 +59,13 @@ skill at that moment instead of guessing the rule.
 - Protocol alignment: the behaviour of code under `crates/` meets the
   requirements in its `docs/protocol/` doc. A change to that behaviour
   updates the protocol doc in the same change.
-- Provider boundaries: `ai-interface` stays provider-neutral. Each
-  `ai-models-*` crate owns its wire mapping, usage normalization, and typed
-  error translation.
+- Provider boundaries: `ai-interface` stays provider-neutral. Each provider
+  adapter crate owns its wire mapping, usage normalization, and typed error
+  translation. `ai-models-core` holds the shared provider-agnostic helpers,
+  and `ai-models-multi` holds fallback routing.
 - Credential-free checks: `cargo xtask check`, the smoke test, and tests
-  that are not ignored make no network calls and need no credentials.
+  that are not ignored send no request to a provider or another external
+  host, and need no credentials. Integration tests can use loopback servers.
 - Live workflows: forked and Dependabot pull requests get no secrets,
   retries stay bounded, and video submissions are never retried.
 

@@ -1,6 +1,8 @@
 # MiniMax M2.x Stream Snapshot Recovery
 
-Status: Completed. [PR #20](https://github.com/futex-ai/ai/pull/20) merged on 2026-09-21.
+Status: Completed. [PR #20](https://github.com/futex-ai/ai/pull/20) merged on
+2026-09-21. Open: no record shows that the post-push review ran. The
+`MiniMax catalog` job passed on PR #20.
 
 ## Summary
 

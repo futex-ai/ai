@@ -1,18 +1,14 @@
 # Plans
 
-Implementation plans for this workspace live here. Active plans describe work
-that has not landed yet; completed plans move to the completed section once all
-milestones are finished.
-
-## Active
-
-- [Model completion streaming](model-completion-streaming.md)
+The status paragraph below each plan title is the record of the plan status.
+This list is not updated for new plans.
 
 ## Completed
 
 - [MiniMax M2.x stream snapshot recovery](minimax-m2-stream-snapshot-recovery.md)
 - [Add TypeSafe judgment provider](add-typesafe-judgment-provider.md)
 - [Public model completion events](public-model-completion-events.md)
+- [Model completion streaming](model-completion-streaming.md)
 - [Add video generation support](add-video-generation-support.md)
 - [Add video input support](add-video-input-support.md)
 - [Credentialed image API CI](credentialed-image-api-ci.md)

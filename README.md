@@ -229,7 +229,9 @@ trusted same-repository pull requests, daily, and on manual dispatch. It uses
 `GOOGLE_API_KEY` and `OPENAI_API_KEY`. Video jobs are not automatically retried
 after submission because a transport failure can leave a billable job running.
 
-For an optional Codex review of the pushed branch against `origin/main`, run:
+For an optional extra Codex review of the local branch against `origin/main`,
+run the command below. It does not replace the post-push review in the shared
+`implementation-review` skill.
 
 ```sh
 cargo xtask review

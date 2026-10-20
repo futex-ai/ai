@@ -1,8 +1,5 @@
 # Model Completion Streaming Protocol
 
-Status: implemented on 2026-08-22 for JSON HTTP and every scoped completion
-provider; final workspace verification and review remain in progress.
-
 ## Purpose
 
 Define internal SSE streaming for model completions so long reasoning and

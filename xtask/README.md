@@ -19,7 +19,9 @@ file-length audits, or AI review.
 
 The crate exposes the `check`, `rust-file-length-lint`, `smoke-test`, and
 `review` commands. `check` runs formatting, Clippy, tests, the file-length lint,
-and the smoke test in the same order expected by CI.
+and the smoke test in the same order expected by CI. `review` asks the Codex CLI
+for an optional extra review of the local branch against `origin/main`. It does
+not replace the post-push review in the shared `implementation-review` skill.
 
 `smoke-test` constructs the Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
 OpenAI, QwenCloud, and xAI model adapters, the OpenAI transcriber, and the

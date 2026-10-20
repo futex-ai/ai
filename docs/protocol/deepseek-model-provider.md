@@ -283,10 +283,6 @@ explicit `LIVE_MODEL_API_KEY` is supplied. GitHub Actions runs that billable
 suite for eligible pull requests and from the scheduled/manual `Live model
 APIs` workflow.
 
-Full formatting, Rust file-length lint, Clippy, workspace tests, smoke tests,
-and `cargo xtask check` must pass before commit and push. The post-push
-implementation review runs after the complete branch is pushed.
-
 ## Official References
 
 - [DeepSeek models and pricing](https://api-docs.deepseek.com/quick_start/pricing)
