@@ -18,8 +18,8 @@ in-memory tool-calling runtime behavior.
 - Provider adapters for Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, Google and MiniMax inline video
-  input, OpenAI and Gemini image generation, OpenAI Sora and Google Veo video
-  generation, internally streamed completions and public incremental events for
+  input, OpenAI and Gemini image generation, OpenAI Sora video generation, a
+  Google Veo video adapter for caller-named models, internally streamed completions and public incremental events for
   every synchronous provider path (with xAI's deferred path remaining buffered
   and event-silent), structured output, usage normalization, catalog-aware
   thinking-level downgrades, and typed errors
@@ -103,7 +103,8 @@ boundary they need:
 - `ai-models-anthropic`: Anthropic model adapter
 - `ai-models-deepseek`: DeepSeek V4 Pro/Flash model adapter and known-model
   catalog
-- `ai-models-google`: Google Gemini chat/image and Veo video adapters
+- `ai-models-google`: Google Gemini chat/image adapters and a Veo video
+  adapter with no catalog model
 - `ai-models-kimi`: Kimi K3 model adapter
 - `ai-models-minimax`: MiniMax Chat Completions model adapter and known-model
   catalog
@@ -212,7 +213,7 @@ fails the job. The workflow may make up to three billable attempts per catalog
 model after transient failures.
 
 Credentialed video checks live in `xtask/tests/live_videos/mod.rs`. They select
-every Google and OpenAI catalog entry advertising `VideoGeneration`, construct
+every OpenAI catalog entry advertising `VideoGeneration`, construct
 the production adapter behind `DynVideoGenerator`, and request one four-second
 720p landscape MP4. Run the credential-free guards or one billable provider
 catalog with:
@@ -224,9 +225,9 @@ LIVE_VIDEO_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
   -- --ignored --exact --nocapture
 ```
 
-The `Live video APIs` workflow runs both provider catalogs sequentially for
-trusted same-repository pull requests, daily, and on manual dispatch. It uses
-`GOOGLE_API_KEY` and `OPENAI_API_KEY`. Video jobs are not automatically retried
+The `Live video APIs` workflow runs the OpenAI video catalog for trusted
+same-repository pull requests, daily, and on manual dispatch. It uses
+`OPENAI_API_KEY`. The Google catalog lists no video model. Video jobs are not automatically retried
 after submission because a transport failure can leave a billable job running.
 
 Run local AI review after checks pass and the branch has been pushed:
@@ -301,7 +302,7 @@ pull requests as well as its daily schedule and manual dispatch. The separate
 `Live image APIs` workflow exercises every Google and OpenAI image-capable
 catalog entry through `DynImageGenerator` with image-specific validation and
 sequential provider jobs. The `Live video APIs` workflow similarly exercises
-every Google and OpenAI video-capable entry through `DynVideoGenerator`, with
+every OpenAI video-capable entry through `DynVideoGenerator`, with
 MP4-specific validation and no asset persistence. The `Live judgment APIs`
 workflow exercises every TypeSafe Jev catalog entry through `DynJudgmentModel`
 with `TYPESAFE_API_KEY`, shared answer validation, and sequential retries once

@@ -14,8 +14,10 @@ not replace detailed request, polling, timeout, or error-mapping tests.
 
 ## Scope
 
-The initial providers are Google and OpenAI because they currently implement
-`VideoGenerator`. Each provider test loads `known_models()` and selects every
+OpenAI is the only live provider, because only its catalog lists a video
+model. Google keeps its `VideoGenerator` adapter, but its catalog lists no
+video model, because Google no longer serves its Veo preview model. Each
+provider test loads `known_models()` and selects every
 entry advertising `ModelFeature::VideoGeneration`, so catalog additions receive
 live coverage automatically. A credential-free guard fails when any
 video-capable catalog provider lacks a registered adapter or workflow entry.
@@ -78,7 +80,6 @@ uploaded, cached, or retained as artifacts.
 
 | Provider | Secret |
 | --- | --- |
-| Google | `GOOGLE_API_KEY` |
 | OpenAI | `OPENAI_API_KEY` |
 
 On an eligible event, a missing secret is a failing configuration error. Every

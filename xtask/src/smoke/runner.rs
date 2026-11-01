@@ -9,7 +9,7 @@ use ai_models_anthropic::{AnthropicModel, CLAUDE_SONNET_5};
 use ai_models_deepseek::DeepSeekModel;
 use ai_models_google::{
     GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, GoogleImageGenerator, GoogleModel,
-    GoogleVideoGenerator, VEO_3_1_GENERATE_PREVIEW,
+    GoogleVideoGenerator,
 };
 use ai_models_kimi::KimiModel;
 use ai_models_minimax::{MINIMAX_M3, MiniMaxModel};
@@ -38,8 +38,7 @@ pub(crate) fn run() -> Result<()> {
     let _google = GoogleModel::new(client.clone(), GEMINI_3_6_FLASH, "google-key");
     let _google_image =
         GoogleImageGenerator::new(client.clone(), GEMINI_3_1_FLASH_IMAGE, "google-key");
-    let _google_video =
-        GoogleVideoGenerator::new(client.clone(), VEO_3_1_GENERATE_PREVIEW, "google-key");
+    let _google_video = GoogleVideoGenerator::new(client.clone(), "smoke-veo-model", "google-key");
     let _kimi = KimiModel::new(client.clone(), "kimi-key");
     let _minimax = MiniMaxModel::new(client.clone(), MINIMAX_M3, "minimax-key");
     let _openai = OpenAiModel::new(client.clone(), GPT_5_6_SOL, "openai-key");

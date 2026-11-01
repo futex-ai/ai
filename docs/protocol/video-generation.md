@@ -92,10 +92,9 @@ without changing Google callers.
 
 ## Google Mapping
 
-The catalog model is `veo-3.1-generate-preview`
-(`VEO_3_1_GENERATE_PREVIEW`). It advertises
-`ModelFeature::VideoGeneration` and `Vision` and has a 1,024-token text input
-limit.
+The Google catalog lists no video model. Google no longer serves
+`veo-3.1-generate-preview`, and no successor model has passed a live check.
+Callers pass the provider model id to `GoogleVideoGenerator`.
 
 `GoogleVideoGenerator` uses injected JSON HTTP and auth collaborators:
 

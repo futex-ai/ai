@@ -67,7 +67,7 @@ catalog registration, adapter construction, retry classes, response
 validation, and workflow secret/event boundaries.
 
 `tests/live_videos/mod.rs` is the corresponding ignored video suite. It selects
-every Google and OpenAI catalog entry advertising `VideoGeneration`, constructs
+every OpenAI catalog entry advertising `VideoGeneration`, constructs
 the production adapter behind `DynVideoGenerator`, and submits one safe
 four-second landscape 720p request per entry sequentially. Successful responses
 must contain an MP4 signature, normalized metadata, and expected provider/model
