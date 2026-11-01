@@ -1,10 +1,10 @@
 # Truncated answers end the turn as completed
 
 - **Severity:** Medium. **Likelihood:** Common. **Effort:** Small. **Confidence:** High. **Harder later:** Yes.
-- **Kind:** Needs decision.
+- **Kind:** Fix after merge.
 - **Added:** 2026-11-01, from branch `calummoore/ai-repo-overview`, review item 4.
 - **Location:** `crates/ai-tool-calling/src/turn/active_turn.rs:202`
-- **Reason:** No requirement covers truncation in the tool loop, so the fix adds a requirement that the user must approve.
+- **Reason:** The user chose option B on 2026-11-01, and a later branch applies it.
 
 - **Terms:**
   - **Tool loop:** the agent runtime in `ai-tool-calling` that alternates model calls and tool calls until the model finishes.
@@ -21,4 +21,4 @@
 - **Previous examples:** None found.
 - **Related:** `plans/follow-ups/anthropic-output-cap-4096.md` makes truncation common on Anthropic.
 - **Recommendation:** B. A new variant makes every caller decide, and breaking changes are acceptable before production.
-- **Action:** ask the user, because no requirement covers truncation in the tool loop, so the fix adds one.
+- **Action:** fix after merge, apply B, because the user chose B on 2026-11-01.

@@ -1,10 +1,10 @@
 # Claude and Gemini drop replay data
 
 - **Severity:** High. **Likelihood:** Common. **Effort:** Medium. **Confidence:** Medium. **Harder later:** Yes.
-- **Kind:** Needs decision.
+- **Kind:** Fix after merge.
 - **Added:** 2026-11-01, from branch `calummoore/ai-repo-overview`, review item 1.
 - **Location:** `crates/ai-models-anthropic/src/anthropic/response.rs:44`, `crates/ai-models-google/src/google/request.rs:39`
-- **Reason:** The fix changes the stored conversation format, and its proof needs live provider credentials, so the user decides.
+- **Reason:** The user chose option A on 2026-11-01, and a later branch applies it.
 
 - **Terms:**
   - **Adapter:** the crate that maps the shared interface to one provider API, such as `ai-models-anthropic`.
@@ -24,4 +24,4 @@
 - **Previous examples:** The replay variants for OpenAI, DeepSeek, Kimi, Qwen, MiniMax, and xAI in `crates/ai-interface/src/messages/provider_context.rs`.
 - **Related:** `plans/follow-ups/anthropic-forced-tool-choice-thinking.md` has the same cause: no live test runs a tool round trip. Both items share the live-probe detection fix.
 - **Recommendation:** B. It fixes the bug in the current design and proves the fix against the real APIs. C best protects the codebase.
-- **Action:** ask the user, because the fix changes the stored conversation format, and the proof needs live credentials.
+- **Action:** fix after merge, apply A, because the user chose A on 2026-11-01.

@@ -1,10 +1,10 @@
 # Anthropic forces tool use while thinking is on
 
 - **Severity:** Medium. **Likelihood:** Common. **Effort:** Small. **Confidence:** Medium. **Harder later:** No.
-- **Kind:** Needs decision.
+- **Kind:** Fix after merge.
 - **Added:** 2026-11-01, from branch `calummoore/ai-repo-overview`, review item 3.
 - **Location:** `crates/ai-models-anthropic/src/anthropic/request.rs:150`
-- **Reason:** The protocol matrix in `docs/protocol/provider-call-controls.md` says "map all" for Anthropic with thinking, so a change needs the user's decision.
+- **Reason:** The user chose option A on 2026-11-01, and a later branch applies it.
 
 - **Terms:**
   - **Adapter:** the crate that maps the shared interface to one provider API, such as `ai-models-anthropic`.
@@ -24,4 +24,4 @@
 - **Previous examples:** The Qwen and DeepSeek thinking rows in `docs/protocol/provider-call-controls.md`.
 - **Related:** `plans/follow-ups/claude-gemini-drop-replay-data.md` has the same cause and shares the live-probe detection fix.
 - **Recommendation:** B. It follows the Qwen and DeepSeek pattern and proves the provider rule. C best protects the codebase.
-- **Action:** ask the user, because the protocol matrix says "map all" for Anthropic with thinking, and the fix changes that requirement.
+- **Action:** fix after merge, apply A, because the user chose A on 2026-11-01.

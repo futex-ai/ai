@@ -17,12 +17,14 @@ User decision, 2026-11-01: the user chose the redesign from the review
 conversation with the message "ok, create a plan around the new suggested
 design". The alternative was to fix the review findings one by one in the
 current design. The findings share causes that only a structural change
-removes. Plan approval: pending. Implementation starts after the user
-approves this plan. The approval covers the list under "Removed or replaced
-functionality".
+removes. The user answered every open decision of this plan on the same
+day, as the "Decisions" section records. Plan approval: pending.
+Implementation starts after the user approves this plan. The approval
+covers the list under "Removed or replaced functionality".
 
 Not covered: prompt caching, native structured-output modes, new providers,
-and changes inside Firna or Juno. They adopt the new API after the merge.
+changes to the live-test triggers, and changes inside Firna or Juno. Firna
+and Juno adopt the new API after the merge.
 
 Contract owners:
 
@@ -32,9 +34,8 @@ Contract owners:
   `docs/protocol/chat-completions-dialects.md`,
   `docs/protocol/provider-registry.md`, `docs/protocol/model-policies.md`,
   and `docs/protocol/agent-loop.md`.
-- [Provider call controls](../docs/protocol/provider-call-controls.md),
-  [tool output management](../docs/protocol/tool-output-management.md), and
-  [live model API tests](../docs/protocol/live-model-api-tests.md).
+- [Provider call controls](../docs/protocol/provider-call-controls.md) and
+  [tool output management](../docs/protocol/tool-output-management.md).
 - The [workspace README](../README.md) and each crate README that a
   milestone changes.
 
@@ -50,7 +51,7 @@ Contract owners:
 | Policies | `ai-models-policy` | Retry, fallback, concurrency, and pricing layers. |
 | Registry | `ai-models-registry` | Provider config, and one factory for every catalog entry. |
 | Agent loop | `ai-tool-calling` | Turns, parallel tools, outcomes, observers, and tool output windows. |
-| MCP | `ai-mcp`, `ai-mcp-oauth` | The MCP client and its OAuth flow, until Milestone 12 decides on `rmcp`. |
+| MCP | `ai-mcp`, `ai-mcp-oauth` | The MCP client and its OAuth flow, until Milestone 11 decides on `rmcp`. |
 | Test kit | `ai-testkit` | Scenarios, recordings, and the conformance runner. |
 
 - **Stream.** `Model::stream(&request)` returns a pull-based event stream.
@@ -82,19 +83,21 @@ Contract owners:
   methods build image, video, transcription, and judgment adapters. Every
   adapter honors the base URL.
 - **Policies.** Every modality error shares one core: kind, provider,
-  model, message, retry-after, and provider request id. Retry backs off
-  with jitter, honors retry-after, and covers rate limits. Fallback follows
-  decision 5 and reports every attempt.
+  model, message, retry-after, and provider request id. Each error kind
+  states whether another model can succeed. Retry backs off with jitter,
+  honors retry-after, and covers rate limits. A fallback needs an explicit
+  policy. Its presets are "any error" and "only when another model can
+  succeed". Fallback reports every attempt.
 - **Agent loop.** The caller owns the conversation and passes it to `run`.
   The loop streams agent events. It runs tool calls in parallel up to a
   limit and appends the results in call order. Observer errors go to
-  `tracing` and never fail a turn. Outcomes follow item 4. A final answer
-  can carry a schema. The loop offers `tool_output_read` only after a
-  windowed output exists. `TypedTool` derives the JSON schema of a tool
-  from its argument type.
+  `tracing` and never fail a turn. The outcomes are completed, truncated,
+  and capped. A final answer can carry a schema. The loop offers
+  `tool_output_read` only after a windowed output exists. `TypedTool`
+  derives the JSON schema of a tool from its argument type.
 - **Tests.** `ai-testkit` replays recorded provider streams through each
-  adapter and snapshots the results. Live checks follow decision 6. The
-  live schedule follows decision 7.
+  adapter and snapshots the results. The live tests keep their single-turn
+  probes and their current triggers.
 
 The review conversation used example crate names. They map as follows:
 `ai-core` is `ai-interface`, `ai-http` is `json-http`, `ai-provider-*` is
@@ -103,8 +106,8 @@ The review conversation used example crate names. They map as follows:
 
 ## Removed or replaced functionality
 
-The plan approval covers these removals. Each milestone keeps all behavior
-that this list does not name.
+The plan approval covers these removals and behavior changes. Each
+milestone keeps all behavior that this list does not name.
 
 - `Model::complete_with_events`, `ModelCompletionEvent`, and
   `ModelCompletionEventSink`: replaced by `Model::stream`.
@@ -126,97 +129,63 @@ that this list does not name.
 - The shared mutable conversation API of `ToolCallingRuntime`, such as
   `replace_conversation` and `push_user_message`: replaced by the
   caller-owned conversation.
+- The 4,096-token ceiling of Anthropic requests: replaced by the max output
+  of each catalog entry, as item 2 says.
+- Forced tool choice for Anthropic with thinking on: replaced by
+  `UnsupportedControl` and an automatic fallback, as item 3 says.
+- The `Completed` outcome for truncated answers: replaced by a `Truncated`
+  outcome, as item 4 says.
+- The fall-through-on-any-error default of fallback: replaced by a required
+  policy, as decision 5 says.
 - The `AGENTS.md` sections that describe Juno only: the Expo app, mockups,
   Diesel, and seed migrations.
 
-Decisions 5 and 7 and items 1 to 4 decide the fallback default, the live
-triggers, the Anthropic output cap, and the replay of Anthropic and Google
-state. The MCP crates change only after the MCP decision of Milestone 12.
+The MCP crates change only after the MCP decision of Milestone 11.
 
 ## Decisions
 
-Items 1 to 4 are open review findings, recorded as follow-up items. The
-milestones that depend on them name them.
+The user gave every answer on 2026-11-01. The user gave no reason for the
+answers that differ from the recommendation.
 
-- Item 1: [Claude and Gemini drop replay data](follow-ups/claude-gemini-drop-replay-data.md).
-- Item 2: [Anthropic output is capped at 4,096 tokens](follow-ups/anthropic-output-cap-4096.md).
-- Item 3: [Anthropic forces tool use while thinking is on](follow-ups/anthropic-forced-tool-choice-thinking.md).
-- Item 4: [Truncated answers end the turn as completed](follow-ups/tool-loop-hides-truncation.md).
-
-Decisions 5 to 7 are open.
-
-### 5. Fallback moves on after every error
-
-- **Severity:** Medium. **Effort:** Medium.
-- **Source:** Design.
-- **Category:** Docs or spec.
-- **Location:** `crates/ai-models-multi/src/lib.rs:43`, `docs/protocol/model-completion-streaming.md:147`
-- **Terms:**
-  - **Firna:** a downstream system that uses this workspace for model routing and benchmarks. It pins revisions of this repository.
-- **Background:** `MultiModel` tries models in order. Today it moves to the next model after any error and returns only the last error. `docs/protocol/model-completion-streaming.md` states this rule and warns that it can bill two providers. The redesign replaces `MultiModel` with a fallback layer that takes a policy and reports every attempt. Firna uses fallback lanes in its benchmarks.
-- **Problem:** The redesign must state which failures move a call to the next model. Today's rule treats a malformed request like an outage. Today's error classes also put failures that only one model has, such as an unsupported control or a rejected key, in the same class as malformed requests.
-- **Impact if no action:** A malformed request runs on every model in the chain. This costs time and can bill several providers.
-- **Root question:** Which failures should move a call to the next model?
-- **Options:**
-  - **A.** Keep "any error" as the default, and add the other policies as an opt-in. No caller changes behavior. Effort: Small.
-  - **B.** Make "only when unavailable" the default: rate limits, overload, transient errors, interruptions, and context-limit errors. Firna's lanes change behavior when Firna migrates, without a visible choice. Effort: Small.
-  - **C.** Require a policy when a caller builds a fallback, and ship the presets "any error" and "only when unavailable". Every caller states its choice in code. Effort: Small.
-  - **D.** Do C, and base the second preset on the scope of each failure. In the error core of Milestone 9, each error kind states whether another model can succeed. Split today's provider error into an invalid request, a rejected key, an unknown model, an input that the model does not take, and invalid model output. The preset moves on after a kind that belongs to one model or provider, and stops after an invalid request or an internal error. The error mapping of every adapter changes. Effort: Medium.
-  - **E.** Remove fallback from the library. Each caller owns its ordered attempts, its rule, and its reports. This deletes `MultiModel` and its restart events, which are functionality on `main`, and each caller must rebuild them. Effort: Medium.
-- **Left out:** A custom predicate with no presets is worse than C and D on every point, because both also accept a custom predicate. All options except E assume that fallback stays a library layer. The source is the design text, and the user decision of 2026-11-01 does not cover each sentence of it.
-- **Wider fix:** D. Each error kind states its scope in one exhaustive match, so a new kind cannot reach a preset without a scope.
-- **Previous examples:** `RetryingModel` already retries only transient errors. `docs/protocol/model-completion-streaming.md` records the double-billing warning.
-- **Related:** Item 1: the "any error" rule can hide its HTTP 400 failures behind a fallback.
-- **Recommendation:** D. It keeps the explicit choice of C and makes the "only when unavailable" preset correct, because today's classes stop a chain on failures that the next model can take. The first recommendation was C, and the options check changed it.
-- **Action:** ask the user, because the change replaces the fall-through rule that `docs/protocol/model-completion-streaming.md` states, and the design choice did not settle the default.
-
-### 6. No live test checks multi-step behavior
-
-- **Severity:** Medium. **Effort:** Medium.
-- **Source:** Design.
-- **Category:** Test.
-- **Location:** `xtask/tests/live_models/runner_tests.rs:198`
-- **Background:** The live tests call every chat catalog model with one text-only turn and tool choice "none". One MiniMax probe sends a tool and checks that the model calls it. No live test runs a tool round trip, a schema call, or a continuation with thinking on. The redesign changes how every adapter carries replay data. Milestone 2 defines conformance scenarios and records real streams, which tests replay without credentials.
-- **Problem:** No test checks multi-step behavior against the rules that the providers apply today. Providers change those rules without notice, and a recording does not show the change.
-- **Impact if no action:** Replay and tool-choice bugs reach callers, as items 1 and 3 suggest.
-- **Root question:** How do the tests prove multi-step behavior against the real providers?
-- **Options:**
-  - **A.** Add a two-turn tool probe and a schema probe for one thinking model per provider. This adds about 24 paid calls to each run. Effort: Medium.
-  - **B.** Add both probes for every chat catalog model. This gives the most coverage and makes each run about four times as expensive. Effort: Medium.
-  - **C.** Rely on the recordings only, and re-record them on a schedule. Tests need no credentials, but they miss a rule change until the next recording. Effort: Medium.
-  - **D.** Run the Milestone 2 conformance scenarios live, with one thinking model per provider, in place of separate probes. One scenario definition then serves the replay tests, the recordings, and the live check. Milestone 3 must wait for Milestone 2, and the live mode needs structural checks, because live text never matches a snapshot. Effort: Medium.
-  - **E.** Choose the live models from the specs: one model for each distinct replay need and forced-tool-choice rule. This costs more calls than A and far fewer than B. It starts with the models of A and switches when Milestone 6 adds the rule fields. Effort: Medium.
-- **Left out:** Changing nothing fails the goal, because a mock cannot show a provider rule. Watching provider changelogs fails the goal, because it does not run the requests that the adapters send. Error reports from Firna or Juno fail the goal, because callers meet the failure first. All options assume that live calls run in CI with repository secrets. The source is `docs/protocol/live-model-api-tests.md`. All options also assume that a prompt can make a thinking model call the tool, with one bounded retry for a miss.
-- **Wider fix:** E. It reads the rule fields of each spec, so a new model family with new rules gets a live check without a hand edit.
-- **Previous examples:** The MiniMax-M3 required-tool probe in `xtask/tests/live_models/tool_choice_tests.rs`. The MiniMax clean-EOF fix that a live run found, recorded in `plans/model-completion-streaming.md`.
-- **Related:** Items 1 and 3: their option B adds the Anthropic and Google probes that this decision covers for every provider. Decision 7 sets how often the live checks run.
-- **Recommendation:** D. It makes the same paid calls as A and removes a second definition of the same scenarios. The first recommendation was A, and the options check changed it. E best protects the codebase.
-- **Action:** ask the user, because the option adds assertions to a paid CI gate, and the always-on rules reserve new gates for the user.
-
-### 7. Every pull request pays for live suites
-
-- **Severity:** Medium. **Effort:** Small.
-- **Source:** Design.
-- **Category:** Process.
-- **Location:** `.github/workflows/live-models.yml:3`
-- **Background:** Four workflows make paid provider calls: chat models, images, videos, and judgments. Each runs daily, on manual dispatch, and on every same-repository pull request to `main`. The judgment workflow runs only when the repository variable `LIVE_JUDGMENT_API_TESTS_ENABLED` is `true`. No workflow has a path filter. On 2026-11-01, a docs-only pull request on branch `conductor/readme-plans-link-ai` ran all four suites. `docs/protocol/live-model-api-tests.md` and its image, video, and judgment siblings state these triggers.
-- **Problem:** A docs-only or plan-only pull request runs every paid suite in full. This plan opens about eight pull requests, and several of them change no provider code.
-- **Impact if no action:** Each push to such a pull request pays for full catalog runs and video generation.
-- **Root question:** How much paid live testing should each change and each day pay for? The options check widened the first question, "When should the paid live suites run?", because the cost also depends on how much of a suite runs.
-- **Options:**
-  - **A.** Keep today's triggers. Effort: Small.
-  - **B.** Run a suite on a pull request only when its provider, HTTP, or test code changes. Keep the daily runs for chat, images, and judgments. Run video weekly and on manual dispatch. Effort: Small.
-  - **C.** Run a suite on a pull request only when the pull request has a `live-tests` label. Keep the schedules. An author can forget the label. Effort: Small.
-  - **D.** Run the paid suites only on schedule and on manual dispatch. A provider break can merge and wait for the next scheduled run. Effort: Small.
-  - **F.** Run a small set on pull requests: the synchronous probe and one catalog model per provider. The daily run keeps the full catalog. A break in one catalog entry then shows only on the next day. Effort: Small.
-  - **G.** Run the paid suites once for each merged change, through a merge queue or a push to `main`. A merge queue needs a repository setting and makes the suites a required check, which is a new gate. Effort: Small.
-  - **E.** Derive the run set from the Cargo dependency graph. An xtask command maps the changed files to crates and runs a provider job when its crate or a crate that it depends on changed. A change to the test files of a suite runs the whole suite. This needs the command, its tests, and a selection job in four workflows. Effort: Medium.
-- **Left out:** None. All options assume that fork and Dependabot pull requests never get secrets. The source is the four workflow files. G weakens that assumption, because a merge queue runs queued fork changes with the repository secrets.
-- **Wider fix:** E. It reads the build graph, so it stays correct when this plan adds and deletes crates. B must list the paths of each suite by hand.
-- **Previous examples:** The judgment workflow gates on `LIVE_JUDGMENT_API_TESTS_ENABLED`. The video workflow skips automatic retries to limit cost.
-- **Related:** Decision 6 adds live checks whose cost this schedule controls.
-- **Recommendation:** B. It is the smallest option that stops the payment for docs-only and plan-only pull requests. Milestone 1 applies it, so the later pull requests of this plan pay only for what they change. E best protects the codebase.
-- **Action:** ask the user, because the options run a paid gate less often, and the live-test protocol docs state today's triggers.
+- Item 1, [Claude and Gemini drop replay data](follow-ups/claude-gemini-drop-replay-data.md):
+  option A. Add Anthropic thinking-block and Gemini thought-signature
+  variants to `ProviderConversationItem`, replay them, and add mock
+  regression tests. The alternatives were a live two-turn probe in
+  addition, or opaque provider state at once. The recommendation was the
+  live probe in addition.
+- Item 2, [Anthropic output is capped at 4,096 tokens](follow-ups/anthropic-output-cap-4096.md):
+  option B. Add a max output to each catalog entry, and use it as the
+  default and the ceiling. The alternatives were a larger constant, or no
+  ceiling. The recommendation was the larger constant.
+- Item 3, [Anthropic forces tool use while thinking is on](follow-ups/anthropic-forced-tool-choice-thinking.md):
+  option A. With thinking on, return `UnsupportedControl` for `Required`
+  and `Function`, and send `auto` for `RequiredOrAuto`. The alternatives
+  were a live probe in addition, or the rule in catalog data at once. The
+  recommendation was the live probe in addition.
+- Item 4, [Truncated answers end the turn as completed](follow-ups/tool-loop-hides-truncation.md):
+  option B. Add a `Truncated` variant to `StepOutcome` and `RunOutcome`.
+  The alternatives were a finish reason on `Completed`, or an automatic
+  continuation. B was the recommendation, because every caller must then
+  decide.
+- Decision 5, which failures move a call to the next model: option D. A
+  fallback needs an explicit policy, with the presets "any error" and
+  "only when another model can succeed". The provider error splits into an
+  invalid request, a rejected key, an unknown model, an input that the
+  model does not take, and invalid model output. Each kind states whether
+  another model can succeed. The alternatives were "any error" as the
+  default, "only when unavailable" as the default, a required policy with
+  presets on today's error classes, or no fallback in the library. D was
+  the recommendation. Benchmarks and products need different rules, and
+  today's classes stop a chain on failures that the next model can take.
+- Decision 6, live multi-step checks: dropped. The live tests keep their
+  single-turn probes. The alternatives were probes for one thinking model
+  per provider, probes for every catalog model, recordings only, the
+  conformance scenarios run live, or live models chosen from the specs.
+- Decision 7, how much paid live testing each change pays for: option A.
+  The live suites keep their current triggers. The alternatives were path
+  filters, a pull-request label, schedules only, a small pull-request set,
+  one run for each merged change, or a run set from the Cargo dependency
+  graph. The recommendation was path filters.
 
 ## Design calls
 
@@ -225,8 +194,8 @@ All calls are mine, made on 2026-11-01.
 - One plan for eight pull requests. Each diff stays reviewable.
 - Evolve the crates in place. Firna pins revisions and can migrate once,
   and the recordings give the regression safety.
-- Build the Chat Completions engine first, so the stream and parts
-  milestones touch four adapters instead of eight.
+- Build the Chat Completions engine before the interface changes, so the
+  stream and parts milestones touch four adapters instead of eight.
 - Keep the current crate names and the trait name `Model`. Renames add
   churn without a behavior gain.
 - The event stream is a boxed trait object with `async fn next(&mut self)`,
@@ -246,24 +215,33 @@ All calls are mine, made on 2026-11-01.
   use them.
 - The registry also builds image, video, transcription, and judgment
   adapters, so one factory covers every catalog entry.
-- The MCP crates change only after Milestone 12 compares `rmcp` with the
+- The MCP crates change only after Milestone 11 compares `rmcp` with the
   MCP protocol docs. A replacement deletes functionality on `main`.
 - Reviews follow `AGENTS.md`: report findings without fixing them
-  automatically, until Milestone 14 aligns `AGENTS.md` with the shared
+  automatically, until Milestone 13 aligns `AGENTS.md` with the shared
   skills.
+- Items 1 to 4 land in Milestone 3 on today's types. Their defects reach
+  callers now, so they do not wait for the redesign milestones. The later
+  milestones carry each fix into the new types.
+- Milestone 5 moves the Anthropic rule of item 3 into spec data with the
+  other control rules, because the chosen capability check holds every
+  control rule. The behavior stays as option A of item 3.
+- Milestone 7 moves the replay variants of item 1 into provider state.
+- The plan has about 520 lines, above the 300-line target, because it
+  covers eight pull requests. A split would scatter the shared decisions.
 
 ## Pull requests
 
 | Pull request | Milestones |
 | --- | --- |
 | 1. Requirements | 1 |
-| 2. Safety net and current fixes | 2, 3, 4 |
-| 3. Engine and specs | 5, 6 |
-| 4. Stream and parts | 7, 8 |
-| 5. HTTP, policies, and registry | 9, 10 |
-| 6. Agent loop | 11 |
-| 7. MCP | 12, 13 |
-| 8. Conformance, CI, rules, and close | 14, 15 |
+| 2. Safety net and current fixes | 2, 3 |
+| 3. Engine and specs | 4, 5 |
+| 4. Stream and parts | 6, 7 |
+| 5. HTTP, policies, and registry | 8, 9 |
+| 6. Agent loop | 10 |
+| 7. MCP | 11, 12 |
+| 8. Conformance, rules, and close | 13, 14 |
 
 Each milestone ends with `cargo xtask check`, a commit, and a push. Commit
 titles use Conventional Commits with 50 characters or fewer. The last
@@ -278,8 +256,7 @@ milestone of a pull request then runs the ship steps:
 Depends on: none
 
 Write the requirements and decisions of the target. New docs carry the
-status "Approved, not implemented". A TODO that names a decision or an item
-waits for its answer.
+status "Approved, not implemented".
 
 - [ ] Add `docs/architecture.md` with the target components, their
       responsibilities, and their boundaries.
@@ -289,22 +266,19 @@ waits for its answer.
       state, replay and skip rules, stored-format versions, the converter,
       and log redaction.
 - [ ] Add `docs/protocol/model-capabilities.md`: specs, text ids, custom
-      specs, effort, the capability check, and the control matrix. Apply
-      the answers to items 2 and 3.
+      specs, effort, the capability check, and the control matrix. Include
+      the max output of item 2 and the Anthropic rule of item 3.
 - [ ] Add `docs/protocol/chat-completions-dialects.md`. Link it from the
       DeepSeek, Kimi, Qwen, and MiniMax protocol docs.
 - [ ] Add `docs/protocol/provider-registry.md`: provider config, base URL,
       auth, headers, timeouts, and the adapters that a spec builds.
-- [ ] Add `docs/protocol/model-policies.md`: the error core, retry,
-      fallback, concurrency, and pricing. Apply decision 5.
+- [ ] Add `docs/protocol/model-policies.md`: the error core, the scope of
+      each error kind, retry, fallback, concurrency, and pricing. State the
+      fallback rule of decision 5.
 - [ ] Add `docs/protocol/agent-loop.md`: turns, steps, the caller-owned
       conversation, parallel tools, outcomes, observers, the final-answer
-      schema, and the output reader. Apply item 4. Align
-      `tool-output-management.md`.
-- [ ] Update `live-model-api-tests.md` and its image, video, and judgment
-      siblings for decisions 6 and 7.
-- [ ] Apply decision 7 to the four live workflows, so that the later pull
-      requests of this plan pay only for what they change.
+      schema, and the output reader. Include the `Truncated` outcome of
+      item 4. Align `tool-output-management.md`.
 - [ ] Update the protocol list of the workspace `README.md`.
 - [ ] Check every relative link in the changed Markdown.
 - [ ] Commit and push. Run the ship steps for pull request 1.
@@ -336,33 +310,34 @@ that they keep it.
       included.
 - [ ] Run `cargo xtask check`, then commit and push.
 
-## Milestone 3: Live multi-step checks
+## Milestone 3: Fixes in the current design
 
 Depends on: 2
 
-Prove multi-step behavior against the real providers, as decision 6 says.
+Apply the answers to items 1 to 4 on today's types.
 
-- [ ] Add the live checks that decision 6 chooses to
-      `xtask/tests/live_models/`.
-- [ ] Extend the credential-free guards to cover the new live checks.
-- [ ] Run `cargo xtask check`, then commit and push.
-
-## Milestone 4: Fixes in the current design
-
-Depends on: 2
-
-Apply the direct options that the user chooses for items 1 to 4. An item
-whose answer is its wider fix moves to the milestone that builds it.
-
-- [ ] Apply the chosen option of each answered item.
-- [ ] Delete the follow-up item of each applied option in the same commit.
+- [ ] Item 1, option A: add Anthropic thinking-block and Gemini
+      thought-signature variants to `ProviderConversationItem`. Replay them
+      in their adapters. Handle the new variants in every other adapter, in
+      the synthetic tool-call id hasher, and in the log redaction list. Add
+      mock regression tests.
+- [ ] Item 2, option B: add a max output to each catalog entry. Take each
+      value from the provider's model documentation. Use it as the default
+      and the ceiling in the Anthropic adapter. Update
+      `provider-call-controls.md`.
+- [ ] Item 3, option A: with thinking on, return `UnsupportedControl` for
+      `Required` and `Function`, and send `auto` for `RequiredOrAuto`.
+      Update the matrix in `provider-call-controls.md`.
+- [ ] Item 4, option B: add a `Truncated` variant to `StepOutcome` and
+      `RunOutcome`. Mark that requirement implemented in `agent-loop.md`.
+- [ ] Delete each follow-up item in the commit that applies it.
 - [ ] Re-record the affected scenarios, and update their snapshots.
 - [ ] Run `cargo xtask check`, then commit and push.
 - [ ] Run the ship steps for pull request 2.
 
-## Milestone 5: Chat Completions engine
+## Milestone 4: Chat Completions engine
 
-Depends on: 2
+Depends on: 3
 
 Replace five copies of one protocol with one engine and five dialects.
 
@@ -377,9 +352,9 @@ Replace five copies of one protocol with one engine and five dialects.
       the docs, `xtask`, and CI.
 - [ ] Run `cargo xtask check`, then commit and push.
 
-## Milestone 6: Model specs and capabilities
+## Milestone 5: Model specs and capabilities
 
-Depends on: 5
+Depends on: 4
 
 Put the facts of each model in one constant, and check requests against it.
 
@@ -390,16 +365,16 @@ Put the facts of each model in one constant, and check requests against it.
 - [ ] Add the `provider/model` lookup and `ModelSpec::custom`.
 - [ ] Add the request effort, lowered to the spec.
 - [ ] Add the capability check for the output limit, tool choice with
-      thinking on, and the other controls. Apply items 2 and 3 when their
-      answer is the wider fix.
+      thinking on, and the other controls. Carry the max output of item 2
+      into each spec. Move the Anthropic rule of item 3 into spec data.
 - [ ] Add `cargo xtask capability-matrix`, and regenerate the matrix in
       `model-capabilities.md`. Mark that doc implemented.
 - [ ] Run `cargo xtask check`, then commit and push.
 - [ ] Run the ship steps for pull request 3.
 
-## Milestone 7: One stream method
+## Milestone 6: One stream method
 
-Depends on: 6
+Depends on: 5
 
 Make streaming the single model entry point.
 
@@ -416,27 +391,26 @@ Make streaming the single model entry point.
       `model-completion-events.md` and `model-completion-streaming.md`.
 - [ ] Run `cargo xtask check`, then commit and push.
 
-## Milestone 8: Conversation parts and provider state
+## Milestone 7: Conversation parts and provider state
 
-Depends on: 7
+Depends on: 6
 
 Replace the closed replay enum with opaque provider state.
 
 - [ ] Replace the message content fields and `ProviderConversationItem`
       with ordered parts and provider state.
 - [ ] Move the replay payload of each provider into its adapter as a
-      private typed struct.
-- [ ] Add Anthropic thinking-block replay and Gemini thought-signature
-      replay, as item 1 decides.
+      private typed struct. This includes the Anthropic and Gemini variants
+      of item 1.
 - [ ] Add the converter for the old stored format.
 - [ ] Redact provider state in log copies.
 - [ ] Mark `conversation-parts.md` implemented.
 - [ ] Run `cargo xtask check`, then commit and push.
 - [ ] Run the ship steps for pull request 4.
 
-## Milestone 9: HTTP facts and policy layers
+## Milestone 8: HTTP facts and policy layers
 
-Depends on: 8
+Depends on: 7
 
 Give the policies the response facts that they need, and make retry and
 fallback explicit.
@@ -446,17 +420,20 @@ fallback explicit.
 - [ ] Parse `Retry-After` and the provider request id into typed fields.
 - [ ] Serialize typed request bodies straight to bytes.
 - [ ] Add the shared error core, and use it in every modality error.
+- [ ] Split the provider error into the kinds of decision 5. Make each kind
+      state whether another model can succeed.
 - [ ] Add `ai-models-policy`. Move the retry, concurrency, and pricing
       wrappers from `ai-models-core`. Merge `ai-models-multi` into it.
 - [ ] Make retry back off with jitter, honor retry-after, and cover rate
       limits.
-- [ ] Apply decision 5 to fallback, and report every attempt.
+- [ ] Make fallback require a policy, with the presets "any error" and
+      "only when another model can succeed". Report every attempt.
 - [ ] Mark `model-policies.md` implemented.
 - [ ] Run `cargo xtask check`, then commit and push.
 
-## Milestone 10: Provider registry
+## Milestone 9: Provider registry
 
-Depends on: 9
+Depends on: 8
 
 Build any catalog entry from one config shape.
 
@@ -472,9 +449,9 @@ Build any catalog entry from one config shape.
       and push.
 - [ ] Run the ship steps for pull request 5.
 
-## Milestone 11: Agent loop
+## Milestone 10: Agent loop
 
-Depends on: 10
+Depends on: 9
 
 Rebuild the tool loop on the stream and the caller-owned conversation.
 
@@ -483,7 +460,7 @@ Rebuild the tool loop on the stream and the caller-owned conversation.
 - [ ] Run tool calls in parallel up to a limit, and append the results in
       call order.
 - [ ] Send observer errors to `tracing`. Never fail a turn on them.
-- [ ] Add the outcomes that item 4 decides.
+- [ ] Keep the `Truncated` outcome of item 4 in the new loop.
 - [ ] Accept a schema for the final answer.
 - [ ] Offer `tool_output_read` only after a windowed output exists.
 - [ ] Add `TypedTool`. Add `schemars` with `cargo add`.
@@ -492,9 +469,9 @@ Rebuild the tool loop on the stream and the caller-owned conversation.
       and push.
 - [ ] Run the ship steps for pull request 6.
 
-## Milestone 12: MCP evaluation
+## Milestone 11: MCP evaluation
 
-Depends on: 9
+Depends on: 8
 
 Decide with evidence whether `rmcp` replaces the custom MCP client.
 
@@ -506,9 +483,9 @@ Decide with evidence whether `rmcp` replaces the custom MCP client.
 - [ ] Add the MCP decision to this plan, run the options check, and ask
       the user.
 
-## Milestone 13: MCP change
+## Milestone 12: MCP change
 
-Depends on: 12
+Depends on: 11
 
 Apply the MCP decision.
 
@@ -517,9 +494,9 @@ Apply the MCP decision.
 - [ ] Run `cargo xtask check`, then commit and push.
 - [ ] Run the ship steps for pull request 7.
 
-## Milestone 14: Conformance, CI, and repository rules
+## Milestone 13: Conformance and repository rules
 
-Depends on: 11, 13
+Depends on: 10, 12
 
 Finish the safety net and align the repository rules.
 
@@ -529,7 +506,7 @@ Finish the safety net and align the repository rules.
 - [ ] Update the workspace `README.md`.
 - [ ] Run `cargo xtask check`, then commit and push.
 
-## Milestone 15: Verification, review, and close
+## Milestone 14: Verification, review, and close
 
 Depends on: every other milestone
 

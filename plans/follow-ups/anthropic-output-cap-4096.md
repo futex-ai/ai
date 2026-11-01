@@ -1,10 +1,10 @@
 # Anthropic output is capped at 4,096 tokens
 
-- **Severity:** High. **Likelihood:** Common. **Effort:** Small. **Confidence:** High. **Harder later:** No.
-- **Kind:** Needs decision.
+- **Severity:** High. **Likelihood:** Common. **Effort:** Medium. **Confidence:** High. **Harder later:** No.
+- **Kind:** Fix after merge.
 - **Added:** 2026-11-01, from branch `calummoore/ai-repo-overview`, review item 2.
 - **Location:** `crates/ai-models-anthropic/src/anthropic/request.rs:11`
-- **Reason:** `docs/protocol/provider-call-controls.md` states the cap as a requirement, so a change needs the user's decision.
+- **Reason:** The user chose option B on 2026-11-01, and a later branch applies it.
 
 - **Terms:**
   - **Adapter:** the crate that maps the shared interface to one provider API, such as `ai-models-anthropic`.
@@ -23,4 +23,4 @@
 - **Previous examples:** None found.
 - **Related:** `plans/follow-ups/tool-loop-hides-truncation.md`: the tool loop hides truncation from the caller.
 - **Recommendation:** A. It is a one-line change that removes the common failure now. B best protects the codebase.
-- **Action:** ask the user, because `docs/protocol/provider-call-controls.md` states `min(4096, requested)` as a requirement.
+- **Action:** fix after merge, apply B, because the user chose B on 2026-11-01.
