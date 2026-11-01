@@ -280,4 +280,3 @@ tool dispatch live in `ai-tool-calling`.
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)
 - [`../../docs/protocol/qwen-model-provider.md`](../../docs/protocol/qwen-model-provider.md)
-- [`../../plans/README.md`](../../plans/README.md)

@@ -107,4 +107,3 @@ credentials or network access are required.
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
-- [`../../plans/add-kimi-model-provider.md`](../../plans/add-kimi-model-provider.md)

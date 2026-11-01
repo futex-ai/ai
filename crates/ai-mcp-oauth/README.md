@@ -273,5 +273,4 @@ plain-text response body and an oversized accepted body that is not consumed.
 
 - [`../../docs/protocol/mcp-oauth.md`](../../docs/protocol/mcp-oauth.md)
 - [`../../docs/protocol/ai-mcp.md`](../../docs/protocol/ai-mcp.md)
-- [`../../plans/ai-mcp-oauth.md`](../../plans/ai-mcp-oauth.md)
 - [`../ai-mcp/README.md`](../ai-mcp/README.md)

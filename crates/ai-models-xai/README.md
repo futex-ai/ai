@@ -116,4 +116,3 @@ cargo clippy -p ai-models-xai --all-targets --all-features -- -D warnings
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
-- [`../../plans/README.md`](../../plans/README.md)
