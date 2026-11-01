@@ -2,3 +2,4 @@
 /.conductor/
 .DS_Store
 *.log
+.context/
