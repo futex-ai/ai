@@ -19,7 +19,7 @@
   - **C.** Do B, and make each scheduled live workflow open a GitHub issue after two failed runs in a row. Effort: Small.
 - **Left out:** Pausing the OpenAI live jobs weakens a gate and hides OpenAI regressions. Mocked OpenAI checks fail the goal, because a mock cannot show a provider change.
 - **Wider fix:** C. A failing schedule then reaches a person within two days.
-- **Previous examples:** The live video workflow failed every scheduled run of the last 30. See `plans/follow-ups/veo-preview-model-retired.md`.
-- **Related:** `plans/follow-ups/veo-preview-model-retired.md` has the same class of unnoticed scheduled failures. `plans/follow-ups/openai-video-errors-drop-status.md`: after the key works, a re-run shows whether OpenAI's video API still exists.
+- **Previous examples:** The live video workflow failed every scheduled run of the last 30, because Google retired its Veo preview model. Pull request #22 removes that model.
+- **Related:** `plans/follow-ups/openai-video-errors-drop-status.md`: after the key works, a re-run shows whether OpenAI's video API still exists.
 - **Recommendation:** C. It caps the cost of the paid checks and makes the next silent failure visible. The user applied option A on 2026-11-01.
 - **Action:** ask the user, because options B and C need a new OpenAI project and a new workflow step that the user has not chosen.
