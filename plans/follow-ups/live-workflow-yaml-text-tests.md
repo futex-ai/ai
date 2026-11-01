@@ -3,7 +3,7 @@
 - **Severity:** Low. **Effort:** Medium. **Confidence:** High. **Harder later:** No.
 - **Kind:** Outside the scope.
 - **Added:** 2026-11-01, from branch `calummoore/ai-repo-overview`, found by the options check of a plan.
-- **Location:** `xtask/tests/live_models.rs:113`, `xtask/tests/live_images/workflow_tests.rs`, `xtask/tests/live_judgments/workflow_tests.rs`, `xtask/tests/live_videos/workflow_tests.rs`
+- **Location:** `xtask/tests/live_models.rs:113`, `xtask/tests/live_images/workflow_tests.rs`, `xtask/tests/live_judgments/workflow_tests.rs`
 - **Reason:** The tests exist on `main` outside the scope of the plan that found them, so their change waits for its own branch.
 
 - **Terms:**
@@ -14,7 +14,7 @@
 - **Root question:** How does the workspace keep its live workflows safe and correct without tests of YAML text?
 - **Options:**
   - **A.** Remove the YAML text tests, and rely on the workflow runs and on review. Effort: Small.
-  - **B.** Move the shared job conditions, including the fork and Dependabot rule, into one reusable workflow that all four live workflows call. Then remove the YAML text tests. Effort: Medium.
+  - **B.** Move the shared job conditions, including the fork and Dependabot rule, into one reusable workflow that all three live workflows call. Then remove the YAML text tests. Effort: Medium.
   - **C.** Keep the tests. Effort: Small.
 - **Left out:** None.
 - **Wider fix:** B. One reusable workflow holds the secret rule, so a new live workflow cannot drift from it.
