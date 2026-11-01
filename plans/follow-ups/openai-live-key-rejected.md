@@ -4,14 +4,14 @@
 - **Kind:** Outside the scope.
 - **Added:** 2026-11-01, from branch `calummoore/ai-repo-overview`, found while checking the live-test decisions of a plan.
 - **Location:** `.github/workflows/live-models.yml`, `.github/workflows/live-images.yml`, `.github/workflows/live-videos.yml`
-- **Reason:** The fix needs a new OpenAI credential that only the user can create and store as a repository secret.
+- **Reason:** The user replaced the key on 2026-11-01. The project and alert parts of options B and C still need the user's choice.
 
 - **Terms:**
   - **Live tests:** tests in `xtask/tests/` that call real provider APIs from CI workflows. Each call costs money.
   - **Repository secret:** an encrypted GitHub Actions value that a workflow reads, such as `OPENAI_API_KEY`.
-- **Background:** The live model, image, and video workflows read the repository secret `OPENAI_API_KEY`. Their scheduled runs on `main` call OpenAI through the production adapters. The live model workflow last passed on 2026-10-20. The live image workflow last passed on 2026-10-23.
-- **Problem:** OpenAI rejects the secret. The scheduled runs of 2026-11-01 fail with "HTTP 401: Incorrect API key provided" for `gpt-5.6-sol` and "Incorrect API key provided" for `gpt-image-2`. The live checks of the other seven chat providers pass.
-- **Impact if no action:** No live check covers OpenAI. Every scheduled run and every pull request shows failed live checks, so a real OpenAI break looks like the known failure.
+- **Background:** The live model, image, and video workflows read the repository secret `OPENAI_API_KEY`. Their scheduled runs on `main` call OpenAI through the production adapters. The live model workflow last passed on 2026-10-20. The live image workflow last passed on 2026-10-23. On 2026-11-01 at 23:15 UTC, the user's new key replaced the secret, after an OpenAI call with it returned HTTP 200.
+- **Problem:** Until the replacement, OpenAI rejected the secret. The scheduled runs of 2026-11-01 failed with "HTTP 401: Incorrect API key provided" for `gpt-5.6-sol` and "Incorrect API key provided" for `gpt-image-2`. No step told a person, so the failure lasted about 12 days.
+- **Impact if no action:** The next rejected key or retired model fails without notice for days again.
 - **Root question:** How do the OpenAI live checks get a working credential, and how does the next failure reach a person?
 - **Options:**
   - **A.** Create a new OpenAI API key, and replace the `OPENAI_API_KEY` repository secret. Effort: Small.
@@ -21,5 +21,5 @@
 - **Wider fix:** C. A failing schedule then reaches a person within two days.
 - **Previous examples:** The live video workflow failed every scheduled run of the last 30. See `plans/follow-ups/veo-preview-model-retired.md`.
 - **Related:** `plans/follow-ups/veo-preview-model-retired.md` has the same class of unnoticed scheduled failures. `plans/follow-ups/openai-video-errors-drop-status.md`: after the key works, a re-run shows whether OpenAI's video API still exists.
-- **Recommendation:** C. It restores the checks, caps their cost, and makes the next silent failure visible.
-- **Action:** ask the user, because the fix needs a credential that only the user can create.
+- **Recommendation:** C. It caps the cost of the paid checks and makes the next silent failure visible. The user applied option A on 2026-11-01.
+- **Action:** ask the user, because options B and C need a new OpenAI project and a new workflow step that the user has not chosen.
