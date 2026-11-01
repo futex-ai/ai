@@ -19,6 +19,6 @@
 - **Left out:** None.
 - **Wider fix:** C. A typed field cannot be left out of a message.
 - **Previous examples:** The chat path adds the status in `crates/ai-models-core/src/errors.rs`. The Google fallbacks are in `crates/ai-models-google/src/google/image_generation/error.rs` and `crates/ai-models-google/src/google/video_generation/error.rs`.
-- **Related:** `plans/follow-ups/openai-live-key-rejected.md`: after the key works, a re-run shows whether OpenAI's video API still exists.
+- **Related:** `plans/follow-ups/openai-video-api-gone.md`: OpenAI's video endpoint now returns HTTP 404 with an empty body, and some of its options delete this adapter.
 - **Recommendation:** B. Every message then carries the status, as on the chat path. C best protects the codebase.
 - **Action:** fix after merge, apply B, because the fix is outside the scope of the plan that found it.

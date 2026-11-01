@@ -301,8 +301,6 @@ that they keep it.
       stream cut after progress.
 - [ ] Add a manual workflow that records the success scenarios for each
       provider. The user runs it, because it needs the provider secrets.
-      The OpenAI recordings wait for
-      `plans/follow-ups/openai-live-key-rejected.md`.
 - [ ] Build the rate-limit and stream-cut scenarios from documented
       provider error bodies, because a live provider does not produce them
       on demand.
