@@ -287,7 +287,6 @@ cargo xtask review
 - `docs/protocol/minimax-model-provider.md`: normative MiniMax adapter contract
 - `docs/protocol/qwen-model-provider.md`: normative Qwen 3.7 provider contract
 - `docs/protocol/`: other normative contracts for shared runtime behavior
-- `plans/`: active and completed implementation plans.
 
 ## CI
 
@@ -311,8 +310,3 @@ checks. Forked and Dependabot pull requests skip all credentialed workflows
 because GitHub does not provide them repository Actions secrets. The ordinary
 credential-free suite still enforces the live model registry and
 completion-event coverage policy without making provider calls.
-
-## Plans
-
-See [plans/README.md](plans/README.md) for active and completed implementation
-plans.
