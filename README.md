@@ -18,8 +18,8 @@ in-memory tool-calling runtime behavior.
 - Provider adapters for Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, Google and MiniMax inline video
-  input, OpenAI and Gemini image generation, OpenAI Sora video generation, a
-  Google Veo video adapter for caller-named models, internally streamed completions and public incremental events for
+  input, OpenAI and Gemini image generation, a Google Veo video adapter for
+  caller-named models, internally streamed completions and public incremental events for
   every synchronous provider path (with xAI's deferred path remaining buffered
   and event-silent), structured output, usage normalization, catalog-aware
   thinking-level downgrades, and typed errors
@@ -53,14 +53,11 @@ in-memory tool-calling runtime behavior.
 - [Image generation](docs/protocol/image-generation.md) defines the shared
   one-image generation/editing boundary and the OpenAI and Google mappings.
 - [Video generation](docs/protocol/video-generation.md) defines the shared
-  one-video generation boundary, portable controls, and asynchronous OpenAI
-  and Google mappings.
+  one-video generation boundary, portable controls, and the asynchronous
+  Google mapping.
 - [Live image API tests](docs/protocol/live-image-api-tests.md) defines the
   implemented credentialed catalog coverage, low-cost probe, response
   validation, and CI secret boundary for image providers.
-- [Live video API tests](docs/protocol/live-video-api-tests.md) defines the
-  implemented credentialed video catalog coverage, shortest portable probe,
-  MP4 validation, and CI secret boundary.
 - [TypeSafe judgment provider](docs/protocol/typesafe-judgment-provider.md)
   defines the implemented provider-agnostic condition/choice/score judgment
   boundary and the TypeSafe Jev wire, validation, usage, and error mapping.
@@ -108,7 +105,7 @@ boundary they need:
 - `ai-models-kimi`: Kimi K3 model adapter
 - `ai-models-minimax`: MiniMax Chat Completions model adapter and known-model
   catalog
-- `ai-models-openai`: OpenAI model, transcription, image, and video adapters
+- `ai-models-openai`: OpenAI model, transcription, and image adapters
 - `ai-models-qwen`: Qwen 3.7 Max/Plus/Flash Chat Completions adapter and
   known-model catalog
 - `ai-models-typesafe`: TypeSafe Jev judgment adapter and known-model catalog
@@ -212,23 +209,8 @@ it only after provisioning `TYPESAFE_API_KEY`; once enabled, a missing secret
 fails the job. The workflow may make up to three billable attempts per catalog
 model after transient failures.
 
-Credentialed video checks live in `xtask/tests/live_videos/mod.rs`. They select
-every OpenAI catalog entry advertising `VideoGeneration`, construct
-the production adapter behind `DynVideoGenerator`, and request one four-second
-720p landscape MP4. Run the credential-free guards or one billable provider
-catalog with:
-
-```sh
-cargo test --locked -p xtask --test live_videos
-LIVE_VIDEO_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
-  --test live_videos catalog_tests::openai_video_catalog \
-  -- --ignored --exact --nocapture
-```
-
-The `Live video APIs` workflow runs the OpenAI video catalog for trusted
-same-repository pull requests, daily, and on manual dispatch. It uses
-`OPENAI_API_KEY`. The Google catalog lists no video model. Video jobs are not automatically retried
-after submission because a transport failure can leave a billable job running.
+No live suite covers video generation, because no catalog lists a video
+model.
 
 Run local AI review after checks pass and the branch has been pushed:
 
@@ -270,8 +252,6 @@ cargo xtask review
   catalog and CI verification contract
 - `docs/protocol/video-generation.md`: normative shared video generation and
   asynchronous provider mapping contract
-- `docs/protocol/live-video-api-tests.md`: implemented credentialed video-provider
-  catalog and CI verification contract
 - `docs/protocol/typesafe-judgment-provider.md`: normative shared judgment
   boundary and TypeSafe Jev provider contract
 - `docs/protocol/live-judgment-api-tests.md`: implemented credentialed judgment
@@ -301,9 +281,7 @@ chat-capable catalog entry through the generic tool-calling runtime on eligible
 pull requests as well as its daily schedule and manual dispatch. The separate
 `Live image APIs` workflow exercises every Google and OpenAI image-capable
 catalog entry through `DynImageGenerator` with image-specific validation and
-sequential provider jobs. The `Live video APIs` workflow similarly exercises
-every OpenAI video-capable entry through `DynVideoGenerator`, with
-MP4-specific validation and no asset persistence. The `Live judgment APIs`
+sequential provider jobs. The `Live judgment APIs`
 workflow exercises every TypeSafe Jev catalog entry through `DynJudgmentModel`
 with `TYPESAFE_API_KEY`, shared answer validation, and sequential retries once
 `LIVE_JUDGMENT_API_TESTS_ENABLED` opts the repository into those billable

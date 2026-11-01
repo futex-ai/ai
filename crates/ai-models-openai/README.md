@@ -2,7 +2,7 @@
 
 `ai-models-openai` is the OpenAI-specific `ai-interface` implementation crate
 for the workspace. Depend on it when you want to call OpenAI Responses
-generation models, image or video generation, image editing, or the audio
+generation models, image generation, image editing, or the audio
 transcription endpoint with explicit auth and shared runtime wrappers from
 neighboring crates.
 
@@ -12,14 +12,12 @@ neighboring crates.
 - Implement the OpenAI speech-to-text client behind
   `ai_interface::AudioTranscriber`
 - Implement the OpenAI image client behind `ai_interface::ImageGenerator`
-- Implement the OpenAI video client behind `ai_interface::VideoGenerator`
 - Export strongly typed known OpenAI model metadata for model routing
 - Map shared model/tool DTOs to the OpenAI Responses API
 - Consume OpenAI Responses SSE events, emit public text progress, and retain
   the complete terminal response
 - Map shared audio transcription DTOs to `v1/audio/transcriptions`
 - Map shared image DTOs to `v1/images/generations` and `v1/images/edits`
-- Map shared video DTOs to asynchronous `v1/videos` jobs and downloads
 - Parse OpenAI responses into shared response DTOs and typed model errors
 
 ## What This Crate Does
@@ -105,25 +103,17 @@ test. The adapter rejects empty decoded payloads, preserves any revised prompt,
 normalizes usage, and keeps content-policy refusals distinct from retryable
 provider failures.
 
-`OpenAiVideoGenerator` submits text-to-video JSON or first-frame multipart
-requests to `v1/videos`, polls queued jobs through `GET /v1/videos/{id}`, then
-downloads the completed MP4 through the authenticated binary transport path.
-`SORA_2` identifies the 720p video catalog entry. The adapter supports portable
-landscape/portrait and four/eight-second controls, enforces one ten-minute total
-deadline with an injected polling runtime, and keeps policy, timeout, rate
-limit, transient, and terminal failures typed. This upstream API is currently
-scheduled to shut down on September 24, 2026, so consumers should treat the
-adapter as a time-bounded compatibility integration.
+The crate has no video adapter, because OpenAI no longer serves its video API.
 
 ## Quick Start
 
 ```rust
 use std::sync::Arc;
 
-use ai_interface::{AudioTranscriber, ImageGenerator, Model, VideoGenerator};
+use ai_interface::{AudioTranscriber, ImageGenerator, Model};
 use ai_models_openai::{
-    GPT_5_6_SOL, GPT_IMAGE_2, SORA_2, OpenAiAudioTranscriber, OpenAiImageGenerator,
-    OpenAiModel, OpenAiVideoGenerator, known_models,
+    GPT_5_6_SOL, GPT_IMAGE_2, OpenAiAudioTranscriber, OpenAiImageGenerator, OpenAiModel,
+    known_models,
 };
 use json_http::ReqwestJsonHttpClient;
 
@@ -150,14 +140,6 @@ fn build_image_generator() -> OpenAiImageGenerator {
         "sk-demo",
     )
 }
-
-fn build_video_generator() -> OpenAiVideoGenerator {
-    OpenAiVideoGenerator::new(
-        Arc::new(ReqwestJsonHttpClient::new()),
-        SORA_2,
-        "sk-demo",
-    )
-}
 ```
 
 ## Development
@@ -180,8 +162,6 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
   suppression, and interruption coverage
 - `src/openai/transcription.rs` - OpenAI audio transcription implementation
 - `src/openai/image_generation/` - OpenAI image request, response, and error mapping
-- `src/openai/video_generation/` - OpenAI asynchronous video submission,
-  polling, download, request, response, and error mapping
 
 ### Related Docs
 
@@ -193,8 +173,6 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - [OpenAI Responses streaming reference](https://developers.openai.com/api/reference/typescript/resources/beta/subresources/responses/methods/create)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/live-image-api-tests.md`](../../docs/protocol/live-image-api-tests.md)
-- [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
-- [`../../docs/protocol/live-video-api-tests.md`](../../docs/protocol/live-video-api-tests.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

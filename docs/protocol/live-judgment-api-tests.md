@@ -23,9 +23,9 @@ provider has no registered live adapter or CI matrix entry.
 The chat live suite must treat `ProviderKind::TypeSafe` as judgment-only: its
 provider registry maps that kind to no chat adapter, its all-provider guard
 expects it to be absent from the chat registry, and its chat catalog filter
-also excludes entries advertising `ModelFeature::Judgment`. The image and
-video suites already select by their own features and only need the new
-provider kind in their non-matching lists.
+also excludes entries advertising `ModelFeature::Judgment`. The image suite
+already selects by its own feature and only needs the new provider kind in
+its non-matching list.
 
 ## Execution
 
@@ -115,6 +115,5 @@ this protocol's credential table in the same change.
 
 - [TypeSafe judgment provider](typesafe-judgment-provider.md) defines the
   shared boundary, wire mapping, and error contract.
-- [Live model API tests](live-model-api-tests.md), [live image API
-  tests](live-image-api-tests.md), and [live video API
-  tests](live-video-api-tests.md) define the sibling credentialed suites.
+- [Live model API tests](live-model-api-tests.md) and [live image API
+  tests](live-image-api-tests.md) define the sibling credentialed suites.
