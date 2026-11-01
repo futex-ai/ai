@@ -116,4 +116,3 @@ credential or network access is required.
 - [`../json-http/README.md`](../json-http/README.md)
 - [DeepSeek provider protocol](../../docs/protocol/deepseek-model-provider.md)
 - [Live model API test protocol](../../docs/protocol/live-model-api-tests.md)
-- [DeepSeek implementation plan](../../plans/add-deepseek-model-provider.md)

@@ -198,5 +198,3 @@ in-process OAuth and MCP server.
 
 - [`../../docs/protocol/ai-mcp.md`](../../docs/protocol/ai-mcp.md)
 - [`../../docs/protocol/mcp-oauth.md`](../../docs/protocol/mcp-oauth.md)
-- [`../../plans/ai-mcp-crate.md`](../../plans/ai-mcp-crate.md)
-- [`../../plans/README.md`](../../plans/README.md)
