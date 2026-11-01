@@ -1,8 +1,8 @@
 # AI library redesign
 
 Status: Active. On branch `calummoore/ai-repo-overview`, no pull request yet.
-The work spans eight pull requests. Each earlier pull request keeps this plan.
-The last one closes it, as the final milestone says.
+The work spans eight stacked pull requests. Each earlier pull request keeps
+this plan. The last one deletes it, as the final milestone says.
 
 The workspace puts nine AI providers behind one interface, with a
 tool-calling loop and an MCP client. A review on 2026-11-01 found these
@@ -18,9 +18,10 @@ conversation with the message "ok, create a plan around the new suggested
 design". The alternative was to fix the review findings one by one in the
 current design. The findings share causes that only a structural change
 removes. The user answered every open decision of this plan on the same
-day, as the "Decisions" section records. Plan approval: pending.
-Implementation starts after the user approves this plan. The approval
-covers the list under "Removed or replaced functionality".
+day, as the "Decisions" section records. The user approved this plan on
+2026-11-01 with the message "plan approved - impl all plan milestones and
+tasks, tick off as you go". The approval covers the list under "Removed or
+replaced functionality".
 
 Not covered: prompt caching, native structured-output modes, new providers,
 changes to the live-test triggers, and changes inside Firna or Juno. Firna
@@ -137,8 +138,6 @@ milestone keeps all behavior that this list does not name.
   outcome, as item 4 says.
 - The fall-through-on-any-error default of fallback: replaced by a required
   policy, as decision 5 says.
-- The `AGENTS.md` sections that describe Juno only: the Expo app, mockups,
-  Diesel, and seed migrations.
 
 The MCP crates change only after the MCP decision of Milestone 11.
 
@@ -217,9 +216,11 @@ All calls are mine, made on 2026-11-01.
   adapters, so one factory covers every catalog entry.
 - The MCP crates change only after Milestone 11 compares `rmcp` with the
   MCP protocol docs. A replacement deletes functionality on `main`.
-- Reviews follow `AGENTS.md`: report findings without fixing them
-  automatically, until Milestone 13 aligns `AGENTS.md` with the shared
-  skills.
+- The eight pull requests form a stack. Each one targets the branch of the
+  pull request before it, so that each shows only its own milestones.
+- Pull request #23 aligned `AGENTS.md` with the shared skills on
+  2026-11-01. Reviews therefore use the `implementation-review` skill and
+  its fix rule, and the last pull request deletes this plan.
 - Items 1 to 4 land in Milestone 3 on today's types. Their defects reach
   callers now, so they do not wait for the redesign milestones. The later
   milestones carry each fix into the new types.
@@ -241,15 +242,18 @@ All calls are mine, made on 2026-11-01.
 | 5. HTTP, policies, and registry | 8, 9 |
 | 6. Agent loop | 10 |
 | 7. MCP | 11, 12 |
-| 8. Conformance, rules, and close | 13, 14 |
+| 8. Conformance and close | 13, 14 |
 
 Each milestone ends with `cargo xtask check`, a commit, and a push. Commit
-titles use Conventional Commits with 50 characters or fewer. The last
-milestone of a pull request then runs the ship steps:
+and pull request titles use Conventional Commits. The last milestone of a
+pull request then runs the ship steps:
 
-1. Run `cargo xtask review` after the push.
-2. Report each finding with a recommendation.
-3. Open the pull request into `main`, and keep this plan.
+1. Review the complete diff of the pull request with the
+   `implementation-review` skill after the push.
+2. Apply the fix rule: fix the `fix now` findings, record follow-up items
+   under `plans/follow-ups/` for the rest, re-review once, and report.
+3. Open the pull request into the branch of the pull request before it,
+   or into `main` for the first one, and keep this plan.
 
 ## Milestone 1: Documentation and protocol
 
@@ -492,15 +496,14 @@ Apply the MCP decision.
 - [ ] Run `cargo xtask check`, then commit and push.
 - [ ] Run the ship steps for pull request 7.
 
-## Milestone 13: Conformance and repository rules
+## Milestone 13: Conformance
 
 Depends on: 10, 12
 
-Finish the safety net and align the repository rules.
+Finish the safety net. `AGENTS.md` already follows the shared skills since
+pull request #23.
 
 - [ ] Run every adapter through every conformance scenario.
-- [ ] Align `AGENTS.md` with the shared skills with the `agents-md`
-      skill. Remove the sections that describe Juno only.
 - [ ] Update the workspace `README.md`.
 - [ ] Run `cargo xtask check`, then commit and push.
 
@@ -510,10 +513,13 @@ Depends on: every other milestone
 
 - [ ] Run `cargo xtask check` and `cargo xtask smoke-test`.
 - [ ] Commit with Conventional Commits and push the branch.
-- [ ] Run `cargo xtask review` after the push. Report each finding with a
-      recommendation.
-- [ ] Close this plan as the plan rules of the repository say at that
-      time: move it to Completed in `plans/README.md`, or delete it.
+- [ ] Review the complete local diff against `origin/main` with the
+      `implementation-review` skill after the push. Report the findings,
+      then apply the fix rule: fix the `fix now` findings, record
+      follow-up items under `plans/follow-ups/` for the rest, re-review
+      once, and report.
+- [ ] Delete this plan when the `plans` skill says, under "Deleting the
+      plan".
 - [ ] Open pull request 8. Its description gives the decisions and the
       design calls of this plan with their dates, a permalink to this
       plan, and the follow-up items that the change adds.

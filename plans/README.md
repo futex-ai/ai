@@ -6,13 +6,7 @@ milestones are finished.
 
 ## Active
 
-- [AI library redesign](ai-library-redesign.md)
 - [Model completion streaming](model-completion-streaming.md)
-
-## Follow-up items
-
-Work that waits until after a merge lives under [follow-ups/](follow-ups/),
-one file for each open finding or post-merge task.
 
 ## Completed
 
