@@ -5,18 +5,22 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ai_interface::{ErrorKind, VideoGenerationError, VideoGenerationResult};
-use ai_models_core::{Clock, DynPollingRuntime, ErrorContext, SystemClock, TokioPollingRuntime};
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient, JsonHttpResponse, StaticHeaderAuth};
+use ai_interface::{ErrorKind, ModelSpec, VideoGenerationError, VideoGenerationResult};
+use ai_models_core::{
+    ApiKeyScheme, Clock, DynPollingRuntime, ErrorContext, ProviderConfig, SystemClock,
+    TokioPollingRuntime,
+};
+use json_http::{DynJsonHttpAuth, DynJsonHttpClient, JsonHttpResponse};
 
 use crate::openai::error_context;
+use crate::{CUSTOM_DEFAULTS, PROVIDER_ID};
 
 use super::{
     error::{classify_request_error, classify_status},
     request::OpenAiVideoApiRequest,
 };
 
-const OPENAI_VIDEOS_URL: &str = "https://api.openai.com/v1/videos";
+const OPENAI_BASE_URL: &str = "https://api.openai.com";
 const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(10);
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
@@ -25,30 +29,53 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 pub struct OpenAiVideoGenerator {
     http_client: DynJsonHttpClient,
     pub(super) model_id: String,
-    auth: DynJsonHttpAuth,
+    config: ProviderConfig,
     pub(super) runtime: DynPollingRuntime,
     pub(super) endpoint: String,
     pub(super) poll_interval: Duration,
     pub(super) timeout: Duration,
     clock: Arc<dyn Clock>,
-    initial_secrets: Vec<String>,
 }
 
 impl OpenAiVideoGenerator {
+    /// Builds an OpenAI video generator from shared provider settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self {
+            http_client,
+            model_id: spec.provider_model_id.into_owned(),
+            runtime: Arc::new(TokioPollingRuntime),
+            endpoint: config.endpoint(OPENAI_BASE_URL, "/v1/videos"),
+            poll_interval: config
+                .timeouts
+                .poll_interval
+                .unwrap_or(DEFAULT_POLL_INTERVAL),
+            timeout: config.timeouts.total_timeout.unwrap_or(DEFAULT_TIMEOUT),
+            config,
+            clock: Arc::new(SystemClock),
+        }
+    }
+
+    /// Uses an injected runtime for generation deadlines and polling.
+    pub fn with_runtime(mut self, runtime: DynPollingRuntime) -> Self {
+        self.runtime = runtime;
+        self
+    }
+
     /// Builds an OpenAI video generator from an injected client, model id, and API key.
     pub fn new(
         http_client: DynJsonHttpClient,
         model_id: impl Into<String>,
         api_key: impl Into<String>,
     ) -> Self {
-        let api_key = api_key.into();
-        let mut model = Self::with_auth(
+        Self::from_config(
             http_client,
-            model_id,
-            Arc::new(StaticHeaderAuth::bearer_token(api_key.clone())),
-        );
-        model.initial_secrets.push(api_key);
-        model
+            ModelSpec::custom(PROVIDER_ID, model_id.into(), &CUSTOM_DEFAULTS),
+            ProviderConfig::new(PROVIDER_ID, api_key),
+        )
     }
 
     /// Builds an OpenAI video generator from an injected client and auth hook.
@@ -57,7 +84,11 @@ impl OpenAiVideoGenerator {
         model_id: impl Into<String>,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        Self::with_auth_and_runtime(http_client, model_id, auth, Arc::new(TokioPollingRuntime))
+        Self::from_config(
+            http_client,
+            ModelSpec::custom(PROVIDER_ID, model_id.into(), &CUSTOM_DEFAULTS),
+            ProviderConfig::with_auth(PROVIDER_ID, auth),
+        )
     }
 
     /// Builds an OpenAI video generator with an explicit polling runtime.
@@ -67,17 +98,7 @@ impl OpenAiVideoGenerator {
         auth: DynJsonHttpAuth,
         runtime: DynPollingRuntime,
     ) -> Self {
-        Self {
-            http_client,
-            model_id: model_id.into(),
-            auth,
-            runtime,
-            endpoint: OPENAI_VIDEOS_URL.to_owned(),
-            poll_interval: DEFAULT_POLL_INTERVAL,
-            timeout: DEFAULT_TIMEOUT,
-            clock: Arc::new(SystemClock),
-            initial_secrets: Vec::new(),
-        }
+        Self::with_auth(http_client, model_id, auth).with_runtime(runtime)
     }
 
     /// Uses an injected wall clock for response retry dates.
@@ -88,12 +109,7 @@ impl OpenAiVideoGenerator {
 
     pub(super) fn context(&self) -> ErrorContext {
         let context = error_context::new(&self.model_id, self.clock.clone());
-        for secret in &self.initial_secrets {
-            context.add_secret(secret);
-            if let Some(token) = secret.split_whitespace().last() {
-                context.add_secret(token);
-            }
-        }
+        self.config.capture_secrets(&context);
         context
     }
 
@@ -116,11 +132,12 @@ impl OpenAiVideoGenerator {
         request: OpenAiVideoApiRequest,
         timeout: Duration,
     ) -> VideoGenerationResult<JsonHttpResponse<serde_json::Value>> {
-        let builder = self
-            .http_client
-            .post(&self.endpoint)
-            .auth(context.capture_auth(self.auth.clone()))
-            .timeout(timeout);
+        let builder = self.config.apply_headers(
+            self.http_client
+                .post(&self.endpoint)
+                .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
+                .timeout(timeout),
+        );
         let response = match request {
             OpenAiVideoApiRequest::Json(body) => match builder.json(body) {
                 Ok(request) => request.send_value().await,
@@ -143,10 +160,13 @@ impl OpenAiVideoGenerator {
         timeout: Duration,
     ) -> VideoGenerationResult<JsonHttpResponse<serde_json::Value>> {
         let response = self
-            .http_client
-            .get(&format!("{}/{job_id}", self.endpoint))
-            .auth(context.capture_auth(self.auth.clone()))
-            .timeout(timeout)
+            .config
+            .apply_headers(
+                self.http_client
+                    .get(&format!("{}/{job_id}", self.endpoint))
+                    .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
+                    .timeout(timeout),
+            )
             .send_value()
             .await;
         match response {
@@ -178,10 +198,13 @@ impl OpenAiVideoGenerator {
         timeout: Duration,
     ) -> VideoGenerationResult<Vec<u8>> {
         let response = self
-            .http_client
-            .get(&format!("{}/{job_id}/content", self.endpoint))
-            .auth(context.capture_auth(self.auth.clone()))
-            .timeout(timeout)
+            .config
+            .apply_headers(
+                self.http_client
+                    .get(&format!("{}/{job_id}/content", self.endpoint))
+                    .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
+                    .timeout(timeout),
+            )
             .send_bytes()
             .await;
         let response = match response {

@@ -1,45 +1,67 @@
-//! OpenAI transcription retains its direct reqwest transport and response facts.
+//! OpenAI transcription with injected transport and preserved response parsing.
 
 use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
-    AudioTranscriber, AudioTranscriptionRequest, AudioTranscriptionResponse, ErrorKind,
+    AudioTranscriber, AudioTranscriptionRequest, AudioTranscriptionResponse, ErrorKind, ModelSpec,
     TranscriptionError, TranscriptionResult,
 };
-use ai_models_core::{Clock, ErrorContext, SystemClock, json_http_error_core};
+use ai_models_core::{
+    ApiKeyScheme, Clock, ErrorContext, ProviderConfig, SystemClock, json_http_error_core,
+};
 use async_trait::async_trait;
-use json_http::JsonHttpHeaders;
-use reqwest::{Client, StatusCode, multipart};
+use json_http::{
+    DynJsonHttpClient, JsonHttpHeaders, JsonHttpMultipartField, ReqwestJsonHttpClient,
+};
+use reqwest::{StatusCode, multipart};
 use serde::Deserialize;
 use serde_json::Value;
 
+use crate::{CUSTOM_DEFAULTS, PROVIDER_ID};
+
 use super::error_context;
 
-const OPENAI_AUDIO_TRANSCRIPTIONS_URL: &str = "https://api.openai.com/v1/audio/transcriptions";
+const OPENAI_BASE_URL: &str = "https://api.openai.com";
 const DEFAULT_TRANSCRIPTION_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// OpenAI-backed `ai_interface::AudioTranscriber` implementation.
 #[derive(Clone)]
 pub struct OpenAiAudioTranscriber {
-    client: Client,
+    http_client: DynJsonHttpClient,
+    config: ProviderConfig,
     model_id: String,
-    api_key: String,
     endpoint: String,
     timeout: Duration,
     clock: Arc<dyn Clock>,
 }
 
 impl OpenAiAudioTranscriber {
-    /// Builds an OpenAI audio transcriber from an explicit API key.
-    pub fn new(model_id: impl Into<String>, api_key: impl Into<String>) -> Self {
+    /// Builds an OpenAI transcriber from shared provider settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
         Self {
-            client: Client::new(),
-            model_id: model_id.into(),
-            api_key: api_key.into(),
-            endpoint: OPENAI_AUDIO_TRANSCRIPTIONS_URL.to_owned(),
-            timeout: DEFAULT_TRANSCRIPTION_TIMEOUT,
+            http_client,
+            model_id: spec.provider_model_id.into_owned(),
+            endpoint: config.endpoint(OPENAI_BASE_URL, "/v1/audio/transcriptions"),
+            timeout: config
+                .timeouts
+                .total_timeout
+                .unwrap_or(DEFAULT_TRANSCRIPTION_TIMEOUT),
+            config,
             clock: Arc::new(SystemClock),
         }
+    }
+
+    /// Builds an OpenAI audio transcriber from an explicit API key.
+    pub fn new(model_id: impl Into<String>, api_key: impl Into<String>) -> Self {
+        Self::from_config(
+            Arc::new(ReqwestJsonHttpClient::new()),
+            ModelSpec::custom(PROVIDER_ID, model_id.into(), &CUSTOM_DEFAULTS),
+            ProviderConfig::new(PROVIDER_ID, api_key),
+        )
     }
 
     /// Uses an injected wall clock for response retry dates.
@@ -50,11 +72,7 @@ impl OpenAiAudioTranscriber {
 
     fn context(&self) -> ErrorContext {
         let context = error_context::new(&self.model_id, self.clock.clone());
-        context.add_secret(&self.api_key);
-        context.add_secret(format!("Bearer {}", self.api_key));
-        if let Some(token) = self.api_key.split_whitespace().last() {
-            context.add_secret(token);
-        }
+        self.config.capture_secrets(&context);
         context
     }
 
@@ -94,44 +112,77 @@ impl AudioTranscriber for OpenAiAudioTranscriber {
         request: &AudioTranscriptionRequest,
     ) -> TranscriptionResult<AudioTranscriptionResponse> {
         let context = self.context();
-        let file = match multipart::Part::bytes(request.audio.clone())
-            .file_name(request.filename.clone())
-            .mime_str(&request.content_type)
+        validate_media_type(&context, &request.content_type)?;
+        let response = match self
+            .config
+            .apply_headers(
+                self.http_client
+                    .post(&self.endpoint)
+                    .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
+                    .timeout(self.timeout),
+            )
+            .multipart(vec![
+                JsonHttpMultipartField::bytes("model", self.model_id.as_bytes().to_vec()),
+                JsonHttpMultipartField::bytes("response_format", b"json".to_vec()),
+                JsonHttpMultipartField::bytes("file", request.audio.clone())
+                    .filename(&request.filename)
+                    .content_type(&request.content_type),
+            ])
+            .send_bytes()
+            .await
         {
-            Ok(file) => file,
+            Ok(response) => response,
+            Err(source) => return Err(http_failure(&context, source)),
+        };
+        let mut buffered = match http::Response::builder()
+            .status(response.status)
+            .body(response.body)
+        {
+            Ok(buffered) => buffered,
             Err(source) => {
                 return Err(TranscriptionError::with_source(
-                    context.core(
-                        ErrorKind::UnsupportedInput,
-                        format!("unsupported media type `{}`", request.content_type),
-                    ),
+                    context.core(ErrorKind::Internal, "internal error"),
                     source,
                 ));
             }
         };
-        let form = multipart::Form::new()
-            .text("model", self.model_id.clone())
-            .text("response_format", "json")
-            .part("file", file);
-        let response = match self
-            .client
-            .post(&self.endpoint)
-            .bearer_auth(&self.api_key)
-            .multipart(form)
-            .timeout(self.timeout)
-            .send()
+        *buffered.headers_mut() = response.headers;
+        self.read_response(&context, reqwest::Response::from(buffered))
             .await
-        {
-            Ok(response) => response,
-            Err(source) => return Err(request_failure(&context, source)),
-        };
-        self.read_response(&context, response).await
     }
 }
 
 #[derive(Deserialize)]
 struct OpenAiTranscriptionResponse {
     text: String,
+}
+
+fn validate_media_type(context: &ErrorContext, content_type: &str) -> TranscriptionResult<()> {
+    match multipart::Part::bytes(Vec::new()).mime_str(content_type) {
+        Ok(_) => Ok(()),
+        Err(source) => Err(TranscriptionError::with_source(
+            context.core(
+                ErrorKind::UnsupportedInput,
+                format!("unsupported media type `{content_type}`"),
+            ),
+            source,
+        )),
+    }
+}
+
+fn http_failure(context: &ErrorContext, source: json_http::Error) -> TranscriptionError {
+    let context = match source.response_headers() {
+        Some(headers) => context.for_response(headers),
+        None => context.clone(),
+    };
+    match source.into_cause() {
+        json_http::Error::ReqwestTransport { source } => request_failure(&context, source),
+        source => {
+            let mut core = context.request_error(&source);
+            context.apply(&mut core);
+            TranscriptionError::with_source(core, source)
+        }
+    }
 }
 
 fn classify_status(

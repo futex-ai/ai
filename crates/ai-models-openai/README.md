@@ -26,8 +26,16 @@ neighboring crates.
 
 ## What This Crate Does
 
-`OpenAiModel` accepts a `json-http` client, a `ModelSpec`, and explicit auth
-input. Each call runs the shared capability check of `ai-models-core`
+Every adapter has `from_config(http, spec, config)`. It accepts an injected
+`json-http` client, a `ModelSpec`, and an `ai_models_core::ProviderConfig`.
+The config sets the base URL, auth, extra headers, and supported timeout
+overrides. Each endpoint keeps the path prefix of the base URL.
+An API key uses Bearer auth. An auth hook runs for each request, including
+video polling and downloads. Adapter and auth headers take precedence over
+extra headers without regard to case. The existing constructors remain
+available and use the same config path.
+
+`OpenAiModel` runs the shared capability check of `ai-models-core`
 against the spec before transport. The adapter handles:
 
 - OpenAI Responses request serialization with `"stream": true`
@@ -138,10 +146,12 @@ Malformed generated output uses `InvalidOutput`; invalid caller schemas use `Inv
 
 `OpenAiAudioTranscriber` submits completed audio recordings to the OpenAI
 transcription endpoint using `gpt-4o-mini-transcribe` or another caller-chosen
-transcription model. It expects the caller to provide the API key and the
+transcription model. It expects the caller to provide auth and the
 uploaded audio media type. It applies a 60-second request timeout and surfaces
-retryable OpenAI transcription statuses as transient errors. Its direct reqwest
-client, multipart request, and redirect behavior stay unchanged.
+retryable OpenAI transcription statuses as transient errors. `from_config`
+uses the injected HTTP client for multipart requests. `new(model_id, key)`
+builds the default HTTP client. Both keep the same response parser and error
+kinds. Invalid multipart MIME types fail before transport.
 
 `OpenAiImageGenerator` accepts an injected `json-http` client and explicit
 model id. The `GPT_IMAGE_2` spec identifies the current image catalog model,
@@ -175,13 +185,14 @@ use ai_models_openai::{
     CUSTOM_DEFAULTS, GPT_5_6_SOL, GPT_IMAGE_2, PROVIDER_ID, SORA_2, OpenAiAudioTranscriber,
     OpenAiImageGenerator, OpenAiModel, OpenAiVideoGenerator, known_models,
 };
+use ai_models_core::ProviderConfig;
 use json_http::ReqwestJsonHttpClient;
 
 fn build_model() -> OpenAiModel {
-    OpenAiModel::new(
+    OpenAiModel::from_config(
         Arc::new(ReqwestJsonHttpClient::new()),
         GPT_5_6_SOL,
-        "sk-demo",
+        ProviderConfig::new(PROVIDER_ID, "sk-demo"),
     )
 }
 
@@ -228,6 +239,9 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 ### Key Code
 
 - `src/openai/mod.rs` - `Model::stream` implementation and request dispatch
+- `OpenAiModel::from_config`, `OpenAiImageGenerator::from_config`,
+  `OpenAiVideoGenerator::from_config`, and `OpenAiAudioTranscriber::from_config`
+  build each adapter from one spec and shared provider settings
 - `src/catalog.rs` - OpenAI provider id, model spec constants, `CATALOG`, and
   custom defaults
 - `src/openai/request.rs` - maps the resolved controls and the effort to the
@@ -249,6 +263,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [`../../docs/protocol/provider-registry.md`](../../docs/protocol/provider-registry.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)

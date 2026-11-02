@@ -10,6 +10,7 @@ ai-interface.workspace = true
 ai-models-core.workspace = true
 async-trait = "0.1.89"
 base64 = "0.23.1"
+http = "=1.4.2"
 json-http.workspace = true
 reqwest = { version = "0.13.3", default-features = false, features = ["json", "rustls", "multipart"] }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -19,7 +20,6 @@ thiserror = "2.0.20"
 [dev-dependencies]
 ai-interface = { workspace = true, features = ["test-support"] }
 ai-models-core = { workspace = true, features = ["test-support"] }
-http = "=1.4.2"
 json-http = { workspace = true, features = ["test-support"] }
 tokio = { version = "1.52.1", features = ["macros", "rt"] }
 unimock = "0.6.8"

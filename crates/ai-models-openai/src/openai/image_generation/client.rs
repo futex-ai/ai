@@ -4,14 +4,14 @@ use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
     ImageGenerationRequest, ImageGenerationResponse, ImageGenerationResult, ImageGenerator,
+    ModelSpec,
 };
-use ai_models_core::{Clock, ErrorContext, SystemClock};
+use ai_models_core::{ApiKeyScheme, Clock, ErrorContext, ProviderConfig, SystemClock};
 use async_trait::async_trait;
-use json_http::{
-    DynJsonHttpAuth, DynJsonHttpClient, JsonHttpMultipartField, JsonHttpResponse, StaticHeaderAuth,
-};
+use json_http::{DynJsonHttpAuth, DynJsonHttpClient, JsonHttpMultipartField, JsonHttpResponse};
 
 use crate::openai::error_context;
+use crate::{CUSTOM_DEFAULTS, PROVIDER_ID};
 
 use super::{
     error::{classify_request_error, classify_status},
@@ -22,8 +22,7 @@ use super::{
     response::parse_response,
 };
 
-const OPENAI_IMAGE_GENERATIONS_URL: &str = "https://api.openai.com/v1/images/generations";
-const OPENAI_IMAGE_EDITS_URL: &str = "https://api.openai.com/v1/images/edits";
+const OPENAI_BASE_URL: &str = "https://api.openai.com";
 const DEFAULT_IMAGE_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// OpenAI-backed `ai_interface::ImageGenerator` implementation.
@@ -31,29 +30,45 @@ const DEFAULT_IMAGE_TIMEOUT: Duration = Duration::from_secs(120);
 pub struct OpenAiImageGenerator {
     http_client: DynJsonHttpClient,
     model_id: String,
-    auth: DynJsonHttpAuth,
+    config: ProviderConfig,
     pub(super) generation_endpoint: String,
     pub(super) edit_endpoint: String,
     pub(super) timeout: Duration,
     clock: Arc<dyn Clock>,
-    initial_secrets: Vec<String>,
 }
 
 impl OpenAiImageGenerator {
+    /// Builds an OpenAI image generator from shared provider settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self {
+            http_client,
+            model_id: spec.provider_model_id.into_owned(),
+            generation_endpoint: config.endpoint(OPENAI_BASE_URL, "/v1/images/generations"),
+            edit_endpoint: config.endpoint(OPENAI_BASE_URL, "/v1/images/edits"),
+            timeout: config
+                .timeouts
+                .total_timeout
+                .unwrap_or(DEFAULT_IMAGE_TIMEOUT),
+            config,
+            clock: Arc::new(SystemClock),
+        }
+    }
+
     /// Builds an OpenAI image generator from an injected client, model id, and API key.
     pub fn new(
         http_client: DynJsonHttpClient,
         model_id: impl Into<String>,
         api_key: impl Into<String>,
     ) -> Self {
-        let api_key = api_key.into();
-        let mut model = Self::with_auth(
+        Self::from_config(
             http_client,
-            model_id,
-            Arc::new(StaticHeaderAuth::bearer_token(api_key.clone())),
-        );
-        model.initial_secrets.push(api_key);
-        model
+            ModelSpec::custom(PROVIDER_ID, model_id.into(), &CUSTOM_DEFAULTS),
+            ProviderConfig::new(PROVIDER_ID, api_key),
+        )
     }
 
     /// Builds an OpenAI image generator from an injected client and auth hook.
@@ -62,16 +77,11 @@ impl OpenAiImageGenerator {
         model_id: impl Into<String>,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        Self {
+        Self::from_config(
             http_client,
-            model_id: model_id.into(),
-            auth,
-            generation_endpoint: OPENAI_IMAGE_GENERATIONS_URL.to_owned(),
-            edit_endpoint: OPENAI_IMAGE_EDITS_URL.to_owned(),
-            timeout: DEFAULT_IMAGE_TIMEOUT,
-            clock: Arc::new(SystemClock),
-            initial_secrets: Vec::new(),
-        }
+            ModelSpec::custom(PROVIDER_ID, model_id.into(), &CUSTOM_DEFAULTS),
+            ProviderConfig::with_auth(PROVIDER_ID, auth),
+        )
     }
 
     /// Uses an injected wall clock for response retry dates.
@@ -103,10 +113,13 @@ impl OpenAiImageGenerator {
         body: OpenAiGenerationRequest,
     ) -> ImageGenerationResult<JsonHttpResponse<serde_json::Value>> {
         let request = match self
-            .http_client
-            .post(&self.generation_endpoint)
-            .auth(context.capture_auth(self.auth.clone()))
-            .timeout(self.timeout)
+            .config
+            .apply_headers(
+                self.http_client
+                    .post(&self.generation_endpoint)
+                    .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
+                    .timeout(self.timeout),
+            )
             .json(body)
         {
             Ok(request) => request,
@@ -124,10 +137,13 @@ impl OpenAiImageGenerator {
         body: OpenAiEditRequest,
     ) -> ImageGenerationResult<JsonHttpResponse<serde_json::Value>> {
         match self
-            .http_client
-            .post(&self.edit_endpoint)
-            .auth(context.capture_auth(self.auth.clone()))
-            .timeout(self.timeout)
+            .config
+            .apply_headers(
+                self.http_client
+                    .post(&self.edit_endpoint)
+                    .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
+                    .timeout(self.timeout),
+            )
             .multipart(edit_fields(body))
             .send_value()
             .await
@@ -162,12 +178,7 @@ impl ImageGenerator for OpenAiImageGenerator {
         request: &ImageGenerationRequest,
     ) -> ImageGenerationResult<ImageGenerationResponse> {
         let context = error_context::new(&self.model_id, self.clock.clone());
-        for secret in &self.initial_secrets {
-            context.add_secret(secret);
-            if let Some(token) = secret.split_whitespace().last() {
-                context.add_secret(token);
-            }
-        }
+        self.config.capture_secrets(&context);
         let response = match build_request(&context, &self.model_id, request)? {
             OpenAiImageApiRequest::Generation(body) => self.send_generation(&context, body).await?,
             OpenAiImageApiRequest::Edit(body) => self.send_edit(&context, body).await?,

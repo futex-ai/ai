@@ -18,16 +18,21 @@ use std::{sync::Arc, time::Duration};
 use ai_interface::{
     DynModelEventStream, ErrorKind, Model, ModelError, ModelRequest, ModelResult, ModelSpec,
 };
-use ai_models_core::{Clock, SystemClock, classify_json_http_stream_error, resolve_controls};
+use ai_models_core::{
+    ApiKeyScheme, Clock, ProviderConfig, SystemClock, classify_json_http_stream_error,
+    resolve_controls,
+};
 use async_trait::async_trait;
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
+
+use crate::PROVIDER_ID;
 
 pub use image_generation::OpenAiImageGenerator;
 pub use legacy::OpenAiLegacyConverter;
 pub use transcription::OpenAiAudioTranscriber;
 pub use video_generation::OpenAiVideoGenerator;
 
-const OPENAI_RESPONSES_URL: &str = "https://api.openai.com/v1/responses";
+const OPENAI_BASE_URL: &str = "https://api.openai.com";
 const COMPLETION_TIMEOUT: Duration = Duration::from_secs(3_600);
 const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -36,27 +41,34 @@ const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 pub struct OpenAiModel {
     http_client: DynJsonHttpClient,
     spec: ModelSpec,
-    auth: DynJsonHttpAuth,
+    config: ProviderConfig,
     endpoint: String,
     clock: Arc<dyn Clock>,
-    initial_secrets: Vec<String>,
 }
 
 impl OpenAiModel {
+    /// Builds an OpenAI model from shared provider settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self {
+            http_client,
+            spec,
+            endpoint: config.endpoint(OPENAI_BASE_URL, "/v1/responses"),
+            config,
+            clock: Arc::new(SystemClock),
+        }
+    }
+
     /// Builds an OpenAI model from an explicit API key.
     pub fn new(
         http_client: DynJsonHttpClient,
         spec: ModelSpec,
         api_key: impl Into<String>,
     ) -> Self {
-        let api_key = api_key.into();
-        let mut model = Self::with_auth(
-            http_client,
-            spec,
-            Arc::new(StaticHeaderAuth::bearer_token(api_key.clone())),
-        );
-        model.initial_secrets.push(api_key);
-        model
+        Self::from_config(http_client, spec, ProviderConfig::new(PROVIDER_ID, api_key))
     }
 
     /// Builds an OpenAI model from an explicit auth hook.
@@ -74,14 +86,11 @@ impl OpenAiModel {
         spec: ModelSpec,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        Self {
+        Self::from_config(
             http_client,
             spec,
-            auth,
-            endpoint: OPENAI_RESPONSES_URL.to_owned(),
-            clock: Arc::new(SystemClock),
-            initial_secrets: Vec::new(),
-        }
+            ProviderConfig::with_auth(PROVIDER_ID, auth),
+        )
     }
 
     /// Uses an injected wall clock for response retry dates.
@@ -95,23 +104,29 @@ impl OpenAiModel {
 impl Model for OpenAiModel {
     async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
         let context = error_context::new(&self.spec.provider_model_id, self.clock.clone());
-        for secret in &self.initial_secrets {
-            context.add_secret(secret);
-            if let Some(token) = secret.split_whitespace().last() {
-                context.add_secret(token);
-            }
-        }
+        self.config.capture_secrets(&context);
         let controls = match resolve_controls(request, &self.spec) {
             Ok(controls) => controls,
             Err(error) => return Err(context.apply_model_error(error)),
         };
         let response_schema = request.response_schema.as_ref();
-        let builder = self
-            .http_client
-            .post(&self.endpoint)
-            .auth(context.capture_auth(self.auth.clone()))
-            .timeout(controls.total_timeout.unwrap_or(COMPLETION_TIMEOUT))
-            .idle_timeout(STREAM_IDLE_TIMEOUT);
+        let builder = self.config.apply_headers(
+            self.http_client
+                .post(&self.endpoint)
+                .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
+                .timeout(
+                    controls
+                        .total_timeout
+                        .or(self.config.timeouts.total_timeout)
+                        .unwrap_or(COMPLETION_TIMEOUT),
+                )
+                .idle_timeout(
+                    self.config
+                        .timeouts
+                        .idle_timeout
+                        .unwrap_or(STREAM_IDLE_TIMEOUT),
+                ),
+        );
         let builder = match builder.json(request::build_request(
             &context,
             &self.spec.provider_model_id,
@@ -213,3 +228,7 @@ mod error_context_tests;
 #[cfg(test)]
 #[path = "_tests_/auth_context_tests.rs"]
 mod auth_context_tests;
+
+#[cfg(test)]
+#[path = "_tests_/config/mod.rs"]
+mod config_tests;
