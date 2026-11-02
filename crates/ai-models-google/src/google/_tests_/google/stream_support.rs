@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ai_interface::ModelSpec;
+use ai_interface::{Effort, FinishReason, ModelResponse, ModelSpec, ModelUsage};
 use json_http::{
     DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpSseEvent, JsonHttpSseStreamMock,
     JsonHttpTransportMock, TransportBackedJsonHttpClient,
@@ -73,4 +73,24 @@ fn mock_stream(items: Vec<StreamItem>) -> DynJsonHttpSseStream {
                     .unwrap_or(Ok(None))
             })),
     ))
+}
+
+pub(super) fn expected_response(
+    assistant_message: &str,
+    finish_reason: FinishReason,
+    usage: ModelUsage,
+) -> ModelResponse {
+    ModelResponse {
+        provider: "google".to_owned(),
+        model_id: "gemini-3.6-flash".to_owned(),
+        catalog_model_id: Some("google/gemini-3.6-flash".to_owned()),
+        thinking_level: Some(Effort::Disabled),
+        assistant_message: assistant_message.to_owned(),
+        tool_calls: Vec::new(),
+        finish_reason,
+        structured_output: None,
+        provider_context: Vec::new(),
+        usage,
+        attempts: Vec::new(),
+    }
 }

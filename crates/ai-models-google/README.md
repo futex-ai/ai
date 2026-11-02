@@ -13,11 +13,12 @@ neighboring crates.
 - Export the Google `PROVIDER_ID`, one `ModelSpec` constant for each known
   model, the `CATALOG` slice, and the `CUSTOM_DEFAULTS` of unlisted models
 - Map shared model/tool DTOs to the Google `generateContent` API
-- Consume Gemini `streamGenerateContent` SSE response fragments
-- Emit public assistant and thought text deltas in provider order
+- Map Gemini `streamGenerateContent` SSE chunks to model events in provider
+  order: text, thought text, function calls, usage, and finish
 - Map shared image generation and edit DTOs to the Google `generateContent` API
 - Map shared video DTOs to the Google long-running prediction API
-- Parse Google responses into shared response DTOs and typed model errors
+- Map Gemini finish reasons, usage, and failures to finish events, usage
+  events, and typed model errors
 
 ## What This Crate Does
 
@@ -26,8 +27,14 @@ input. Each call runs the shared capability check of `ai-models-core`
 against the spec before transport. The adapter handles:
 
 - Gemini request serialization through `streamGenerateContent?alt=sse`
-- opt-in `complete_with_events` delivery for candidate text and thought parts,
-  including normalized newlines between retained assistant parts
+- `Model::stream`: candidate-zero text parts as text deltas, thought parts as
+  reasoning deltas, and each function-call part as one tool-call start, one
+  argument delta, and one end event, in provider order. The first text part
+  of a chunk continues the last text part of the previous chunk when both
+  are thoughts or both are not. Separate text parts of one chunk are
+  separate blocks, a block that holds only whitespace adds no text, and each
+  later block starts with a newline. One usage event and one finish event
+  follow the end of the stream. `Model::complete` folds these events.
 - 3,600-second default overall completion deadline, 120-second stream idle
   deadline, and explicit per-call total-timeout overrides
 - portable generation controls, including required-with-automatic-fallback
@@ -42,21 +49,22 @@ against the spec before transport. The adapter handles:
   dispatch needs a synthetic id. Unsigned calls keep their runtime id on both
   the call and its result. Signed parts, including empty text and signature-only
   parts, stay separate in replay data. Signatures do not change answer text or
-  public deltas. Text continues across chunks, and separate text parts in one chunk
-  keep their newline. The tool runtime removes this private context from log
-  copies.
+  text deltas. The finish event carries this item in its `provider_context`,
+  and the folded response keeps it. The tool runtime removes this private
+  context from log copies.
 - inline `inlineData` parts for shared base64 image and video user content
 - Gemini `finishReason` normalization into `ai_interface::FinishReason`,
   including deriving normal tool-call completion from parsed `functionCall`
   parts and preserving prompt-level safety blocks as filtered responses even
   when Gemini returns no candidates
-- terminal Gemini finish reasons suppress parsed tool calls unless the
-  normalized finish reason is `ToolCalls`
+- the folded response keeps parsed tool calls only when the normalized
+  finish reason is `ToolCalls`
 - Gemini function-call parsing that treats omitted `args` as `{}` for no-arg
   tools
 - Gemini function-call parsing assigns deterministic request-scoped local ids
   and operation ids when Gemini omits `functionCall.id`, preventing distinct
-  no-id calls from sharing runtime idempotency keys
+  no-id calls from sharing runtime idempotency keys. The tool-call start
+  event carries both ids.
 - Gemini `generationConfig.responseJsonSchema` mapping for structured outputs
 - Gemini 3 `generationConfig.thinkingConfig.thinkingLevel` mapping from the
   resolved request effort, while retaining Gemini 2.5 `thinkingBudget`
@@ -65,9 +73,8 @@ against the spec before transport. The adapter handles:
   request, with the resolved effort and the text id retained in responses
 - provider response usage extraction into normalized input, output, cached
   input, and thinking token counts
-- ordered accumulation of cross-chunk text, complete function-call parts,
-  thinking parts, final finish reason, and final usage metadata before the
-  existing buffered response parser runs
+- the last finish reason and the last usage metadata of the stream as those
+  of the call. The stream must end after a finish reason or a prompt block
 - typed classification of failures before stream progress as retryable or
   provider errors and failures after progress as `ModelError::Interrupted`
 - status, transport, and structured-output validation failure mapping onto
@@ -93,9 +100,10 @@ and `GEMINI_2_5_FLASH_LITE` provider model ids with
 `ModelSpec::custom(PROVIDER_ID, GEMINI_2_5_PRO, &CUSTOM_DEFAULTS)`. The
 request mapper keeps fixed `thinkingBudget` compatibility for those models.
 A custom spec starts with the disabled effort as its default. Response parts marked
-as provider thoughts are not surfaced as assistant text, but event-observing
-callers receive them as reasoning deltas. Schema-constrained calls suppress all
-public deltas in version one.
+as provider thoughts are not surfaced as assistant text, but stream consumers
+receive them as reasoning deltas. A call with a response schema emits text
+deltas like any other call, and its finish event carries the validated
+structured output.
 
 `GoogleImageGenerator` uses the current `v1` compatibility endpoint with an
 injected `json-http` client and explicit API key or auth hook. It maps text and
@@ -178,14 +186,14 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 ### Key Code
 
-- `src/google/mod.rs` - `Model` implementation and request dispatch
+- `src/google/mod.rs` - `Model::stream` implementation and request dispatch
 - `src/catalog.rs` - Google provider id, model spec constants, `CATALOG`,
   custom defaults, and the retained Gemini 2.5 provider model ids
 - `src/google/request.rs` - Google request and continuation mapping
 - `src/google/request_types.rs` - typed Gemini request bodies
-- `src/google/response.rs` - Google response parsing
-- `src/google/stream/` - public fragment emission, terminal accumulation, and
-  stream failure mapping
+- `src/google/response.rs` - typed terminal metadata and output checks
+- `src/google/stream/` - typed Gemini chunks, model event mapping, replay
+  parts, and stream failure mapping
 - `src/google/image_generation/` - Google image request, response, and error mapping
 - `src/google/video_generation/` - Google long-running video submission,
   polling, download, request, response, and error mapping
@@ -194,8 +202,7 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
-- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
-- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
+- [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [Latest Gemini models](https://ai.google.dev/gemini-api/docs/latest-model)
 - [Gemini thought signatures](https://ai.google.dev/gemini-api/docs/generate-content/thought-signatures)

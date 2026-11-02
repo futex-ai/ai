@@ -3,14 +3,12 @@
 use std::time::Duration;
 
 use ai_interface::{
-    Effort, FinishReason, Model, ModelCallControls, ModelExecutionControls, StructuredOutputSchema,
+    FinishReason, Model, ModelCallControls, ModelExecutionControls, ModelUsage,
+    StructuredOutputSchema, ToolCall,
 };
-use ai_models_core::synthetic_tool_call_scope;
 use serde_json::{Value, json};
 
-use crate::google::response::parse_response;
-
-use super::stream_support::custom_spec;
+use super::stream_support::{custom_spec, expected_response};
 use super::{GoogleModel, simple_request, stream_support};
 
 #[tokio::test]
@@ -95,15 +93,24 @@ async fn merged_fragments_match_rich_buffered_response() {
         .complete(&request)
         .await
         .expect("streamed response should parse");
-    let buffered = parse_response(
-        "google/gemini-3.6-flash",
-        "gemini-3.6-flash",
-        Effort::Disabled,
-        &synthetic_tool_call_scope(&request),
-        buffered_body,
-        None,
-    )
-    .expect("buffered response should parse");
+    let mut buffered = expected_response(
+        "Done",
+        FinishReason::ToolCalls,
+        ModelUsage {
+            input_tokens: 80,
+            output_tokens: 32,
+            cached_input_tokens: 40,
+            reasoning_tokens: 12,
+            total_tokens: 152,
+            ..Default::default()
+        },
+    );
+    buffered.tool_calls = vec![ToolCall {
+        id: "google_function_call:2bb0037dd4a68f16".to_owned(),
+        name: "memory_read".to_owned(),
+        input: json!({"path": "root"}),
+        operation_id: Some("google_function_call:2bb0037dd4a68f16".to_owned()),
+    }];
 
     assert_eq!(streamed, buffered);
     assert_eq!(streamed.finish_reason, FinishReason::ToolCalls);
@@ -145,15 +152,17 @@ async fn structured_fragments_match_buffered_response() {
         .complete(&request)
         .await
         .expect("structured stream should parse");
-    let buffered = parse_response(
-        "google/gemini-3.6-flash",
-        "gemini-3.6-flash",
-        Effort::Disabled,
-        &synthetic_tool_call_scope(&request),
-        buffered_body,
-        Some(&schema),
-    )
-    .expect("buffered response should parse");
+    let mut buffered = expected_response(
+        "{\"summary\":\"Done\"}",
+        FinishReason::Stop,
+        ModelUsage {
+            input_tokens: 4,
+            output_tokens: 3,
+            total_tokens: 7,
+            ..Default::default()
+        },
+    );
+    buffered.structured_output = Some(json!({"summary": "Done"}));
 
     assert_eq!(streamed, buffered);
 }
@@ -173,15 +182,15 @@ async fn prompt_block_stream_matches_buffered_response() {
         .complete(&request)
         .await
         .expect("prompt block should remain a filtered response");
-    let buffered = parse_response(
-        "google/gemini-3.6-flash",
-        "gemini-3.6-flash",
-        Effort::Disabled,
-        &synthetic_tool_call_scope(&request),
-        body,
-        None,
-    )
-    .expect("buffered prompt block should parse");
+    let buffered = expected_response(
+        "",
+        FinishReason::Filtered,
+        ModelUsage {
+            input_tokens: 4,
+            total_tokens: 4,
+            ..Default::default()
+        },
+    );
 
     assert_eq!(streamed, buffered);
 }
@@ -203,15 +212,7 @@ async fn same_chunk_text_parts_preserve_buffered_boundaries() {
         .complete(&request)
         .await
         .expect("streamed text parts should parse");
-    let buffered = parse_response(
-        "google/gemini-3.6-flash",
-        "gemini-3.6-flash",
-        Effort::Disabled,
-        &synthetic_tool_call_scope(&request),
-        body,
-        None,
-    )
-    .expect("buffered text parts should parse");
+    let buffered = expected_response("First\nSecond", FinishReason::Stop, ModelUsage::default());
 
     assert_eq!(streamed, buffered);
     assert_eq!(streamed.assistant_message, "First\nSecond");

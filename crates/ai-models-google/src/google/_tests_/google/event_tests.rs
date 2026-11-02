@@ -1,12 +1,8 @@
 //! Public completion-event tests for Google generate-content streams.
 
-use std::sync::{Arc, Mutex};
-
-use ai_interface::{
-    Model, ModelCompletionEvent, ModelCompletionEventSinkMock, ModelError, StructuredOutputSchema,
-};
-use serde_json::json;
-use unimock::{MockFn, Unimock, matching};
+use ai_interface::{ModelError, StructuredOutputSchema};
+use ai_models_core::test_support::collect_model_events;
+use serde_json::{Value, json};
 
 use super::stream_support::custom_spec;
 use super::{GoogleModel, simple_request, stream_support};
@@ -32,30 +28,26 @@ async fn emits_thought_and_assistant_fragments_with_part_boundary_parity() {
     let stream = chunks.into_iter().map(stream_support::event).collect();
     let (http_client, _) = stream_support::recording_streaming_client(vec![stream]);
     let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
-    let recorded = Arc::new(Mutex::new(Vec::new()));
-    let sink = recording_sink(recorded.clone());
-
-    let response = model
-        .complete_with_events(&simple_request(), &sink)
-        .await
-        .expect("event-observing completion should succeed");
-    let events = recorded_events(&recorded);
+    let (response, events) = collect_model_events(&model, &simple_request()).await;
+    let response = response.expect("stream completion should succeed");
 
     assert_eq!(
         events,
         vec![
-            reasoning_delta("hidden "),
-            reasoning_delta("reasoning"),
-            assistant_delta("First"),
-            assistant_delta("Second"),
-            assistant_delta("\nThird"),
+            reasoning_delta(0, "hidden "),
+            reasoning_delta(0, "reasoning"),
+            assistant_delta(1, "First"),
+            assistant_delta(1, "Second"),
+            assistant_delta(2, "\nThird"),
+            usage_event(4, 3, 7),
+            finish_event(None),
         ]
     );
     assert_eq!(assistant_text(&events), response.assistant_message);
 }
 
 #[tokio::test]
-async fn structured_completion_suppresses_candidate_text() {
+async fn structured_completion_emits_candidate_text_and_validated_finish() {
     let chunks = vec![
         json!({"candidates": [{"content": {"parts": [
             {"text": "{\"summary\":"}
@@ -70,16 +62,22 @@ async fn structured_completion_suppresses_candidate_text() {
     let stream = chunks.into_iter().map(stream_support::event).collect();
     let (http_client, _) = stream_support::recording_streaming_client(vec![stream]);
     let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
-    let sink = Unimock::new(());
     let mut request = simple_request();
     request.response_schema = Some(summary_schema());
 
-    let response = model
-        .complete_with_events(&request, &sink)
-        .await
-        .expect("structured completion should succeed silently");
+    let (response, events) = collect_model_events(&model, &request).await;
+    let response = response.expect("structured completion should succeed");
 
     assert_eq!(response.structured_output, Some(json!({"summary": "Done"})));
+    assert_eq!(
+        events,
+        vec![
+            assistant_delta(0, "{\"summary\":"),
+            assistant_delta(0, "\"Done\"}"),
+            usage_event(0, 0, 0),
+            finish_event(Some(json!({"summary": "Done"}))),
+        ]
+    );
 }
 
 #[tokio::test]
@@ -92,58 +90,41 @@ async fn emits_partial_candidate_text_before_an_interruption() {
     ];
     let (http_client, _) = stream_support::recording_streaming_client(vec![stream]);
     let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
-    let recorded = Arc::new(Mutex::new(Vec::new()));
-    let sink = recording_sink(recorded.clone());
-
-    let error = model
-        .complete_with_events(&simple_request(), &sink)
-        .await
-        .expect_err("interrupted completion should fail");
+    let (result, events) = collect_model_events(&model, &simple_request()).await;
+    let error = result.expect_err("interrupted completion should fail");
 
     assert!(matches!(error, ModelError::Interrupted { .. }));
-    assert_eq!(recorded_events(&recorded), vec![assistant_delta("partial")]);
+    assert_eq!(events, vec![assistant_delta(0, "partial")]);
 }
 
-fn recording_sink(events: Arc<Mutex<Vec<ModelCompletionEvent>>>) -> Unimock {
-    Unimock::new(
-        ModelCompletionEventSinkMock::emit
-            .each_call(matching!(_))
-            .answers_arc(Arc::new(move |_, event| {
-                events
-                    .lock()
-                    .expect("event lock should not be poisoned")
-                    .push(event);
-            })),
-    )
-}
-
-fn recorded_events(events: &Mutex<Vec<ModelCompletionEvent>>) -> Vec<ModelCompletionEvent> {
-    events
-        .lock()
-        .expect("event lock should not be poisoned")
-        .clone()
-}
-
-fn assistant_text(events: &[ModelCompletionEvent]) -> String {
+fn assistant_text(events: &[Value]) -> String {
     events
         .iter()
-        .filter_map(|event| match event {
-            ModelCompletionEvent::AssistantTextDelta { delta } => Some(delta.as_str()),
-            _ => None,
-        })
+        .filter_map(|event| event.get("TextDelta")?.get("delta")?.as_str())
         .collect()
 }
 
-fn assistant_delta(delta: &str) -> ModelCompletionEvent {
-    ModelCompletionEvent::AssistantTextDelta {
-        delta: delta.to_owned(),
-    }
+fn assistant_delta(part_index: usize, delta: &str) -> Value {
+    json!({"TextDelta": {"part_index": part_index, "delta": delta}})
 }
 
-fn reasoning_delta(delta: &str) -> ModelCompletionEvent {
-    ModelCompletionEvent::ReasoningTextDelta {
-        delta: delta.to_owned(),
+fn reasoning_delta(part_index: usize, delta: &str) -> Value {
+    json!({"ReasoningDelta": {"part_index": part_index, "delta": delta}})
+}
+
+fn usage_event(input: u64, output: u64, total: u64) -> Value {
+    json!({"Usage": {"usage": {"input_tokens": input, "output_tokens": output,
+        "cached_input_tokens": 0, "reasoning_tokens": 0, "total_tokens": total,
+        "estimated_cost_microusd": 0}}})
+}
+
+fn finish_event(structured: Option<Value>) -> Value {
+    let mut finish = json!({"finish_reason": "Stop", "provider": "google", "model_id": "gemini-3.6-flash",
+        "catalog_model_id": "google/gemini-3.6-flash", "effort": "disabled"});
+    if let Some(structured) = structured {
+        finish["structured_output"] = structured;
     }
+    json!({"Finish": finish})
 }
 
 fn summary_schema() -> StructuredOutputSchema {

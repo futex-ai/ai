@@ -14,10 +14,7 @@ pub use video_generation::GoogleVideoGenerator;
 
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-use ai_interface::{
-    Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse, ModelSpec,
-    NoopModelCompletionEventSink,
-};
+use ai_interface::{DynModelEventStream, Model, ModelError, ModelRequest, ModelResult, ModelSpec};
 use ai_models_core::{
     classify_json_http_stream_error, resolve_controls, synthetic_tool_call_scope,
 };
@@ -85,12 +82,9 @@ impl GoogleModel {
     }
 }
 
-impl GoogleModel {
-    async fn complete_with_sink(
-        &self,
-        request: &ModelRequest,
-        event_sink: &dyn ModelCompletionEventSink,
-    ) -> std::result::Result<ModelResponse, ModelError> {
+#[async_trait]
+impl Model for GoogleModel {
+    async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
         let controls = resolve_controls(request, &self.spec)?;
         let response_schema = request.response_schema.as_ref();
         let synthetic_tool_call_scope = synthetic_tool_call_scope(request);
@@ -119,40 +113,14 @@ impl GoogleModel {
                 ));
             }
         };
-        stream::complete(
+        Ok(stream::open(
             stream,
-            &self.spec.text_id(),
-            &self.spec.provider_model_id,
+            self.spec.text_id(),
+            self.spec.provider_model_id.to_string(),
             controls.effort,
-            &synthetic_tool_call_scope,
-            response_schema,
-            event_sink,
-        )
-        .await
-    }
-}
-
-#[async_trait]
-impl Model for GoogleModel {
-    async fn complete(
-        &self,
-        request: &ModelRequest,
-    ) -> std::result::Result<ModelResponse, ModelError> {
-        self.complete_with_sink(request, &NoopModelCompletionEventSink)
-            .await
-    }
-
-    async fn complete_with_events(
-        &self,
-        request: &ModelRequest,
-        event_sink: &dyn ModelCompletionEventSink,
-    ) -> std::result::Result<ModelResponse, ModelError> {
-        if request.response_schema.is_some() {
-            return self
-                .complete_with_sink(request, &NoopModelCompletionEventSink)
-                .await;
-        }
-        self.complete_with_sink(request, event_sink).await
+            synthetic_tool_call_scope,
+            response_schema.cloned(),
+        ))
     }
 }
 

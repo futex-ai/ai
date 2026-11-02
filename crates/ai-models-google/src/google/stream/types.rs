@@ -1,6 +1,6 @@
 //! Typed Google generate-content stream chunks and failures.
 
-use ai_interface::GoogleAssistantPart;
+use ai_interface::{GoogleAssistantPart, ModelEvent, ProviderConversationItem};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use thiserror::Error;
@@ -37,18 +37,18 @@ pub(super) struct GooglePromptFeedback {
     pub(super) block_reason: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub(super) struct GoogleUsageMetadata {
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(in crate::google) struct GoogleUsageMetadata {
     #[serde(default, rename = "promptTokenCount")]
-    pub(super) prompt_token_count: u32,
+    pub(in crate::google) prompt_token_count: u32,
     #[serde(default, rename = "candidatesTokenCount")]
-    pub(super) candidates_token_count: u32,
+    pub(in crate::google) candidates_token_count: u32,
     #[serde(default, rename = "totalTokenCount")]
-    pub(super) total_token_count: Option<u32>,
+    pub(in crate::google) total_token_count: Option<u32>,
     #[serde(default, rename = "cachedContentTokenCount")]
-    pub(super) cached_content_token_count: u32,
+    pub(in crate::google) cached_content_token_count: u32,
     #[serde(default, rename = "thoughtsTokenCount")]
-    pub(super) thoughts_token_count: u32,
+    pub(in crate::google) thoughts_token_count: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -73,8 +73,18 @@ impl GoogleProviderError {
 
 #[derive(Debug)]
 pub(super) enum GoogleStreamUpdate {
-    Continue { deltas: Vec<GoogleStreamDelta> },
+    Continue { events: Vec<ModelEvent> },
     ProviderError(GoogleProviderError),
+}
+
+#[derive(Debug)]
+pub(in crate::google) struct GoogleCompletion {
+    pub(in crate::google) candidate_seen: bool,
+    pub(in crate::google) assistant_message: String,
+    pub(in crate::google) tool_call_count: usize,
+    pub(in crate::google) finish_reason: Option<String>,
+    pub(in crate::google) usage: GoogleUsageMetadata,
+    pub(in crate::google) provider_context: Vec<ProviderConversationItem>,
 }
 
 #[derive(Debug)]

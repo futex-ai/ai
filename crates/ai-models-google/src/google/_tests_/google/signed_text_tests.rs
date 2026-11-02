@@ -1,12 +1,8 @@
 //! Signed replay parts do not change visible text or structured output.
 
-use std::sync::{Arc, Mutex};
-
-use ai_interface::{
-    Model, ModelCompletionEvent, ModelCompletionEventSinkMock, StructuredOutputSchema,
-};
+use ai_interface::StructuredOutputSchema;
+use ai_models_core::test_support::collect_model_events;
 use serde_json::{Value, json};
-use unimock::{MockFn, Unimock, matching};
 
 use super::stream_support::custom_spec;
 use super::{GoogleModel, simple_request, stream_support};
@@ -18,7 +14,7 @@ async fn signed_chunk_continues_previous_text_in_events_and_answer() {
             json!([{"text": "Do"}]),
             json!([{"text": "ne", "thoughtSignature": "signed-tail"}]),
         ],
-        &["Do", "ne"],
+        &[(0, "Do"), (0, "ne")],
         "Done",
         json!([
             {"text": "Do"},
@@ -36,7 +32,7 @@ async fn text_after_signature_only_part_continues_in_events_and_answer() {
             json!([{"thoughtSignature": "signature-only"}]),
             json!([{"text": " world"}]),
         ],
-        &["Hello", " world"],
+        &[(0, "Hello"), (0, " world")],
         "Hello world",
         json!([
             {"text": "Hello"},
@@ -57,7 +53,7 @@ async fn text_after_signed_first_chunk_continues_and_keeps_same_chunk_newline() 
                 {"text": "Next line", "thoughtSignature": "signed-line"}
             ]),
         ],
-        &["The", " answer is 42.", "\nNext line"],
+        &[(0, "The"), (0, " answer is 42."), (1, "\nNext line")],
         "The answer is 42.\nNext line",
         json!([
             {"text": "The", "thoughtSignature": "signed-start"},
@@ -69,7 +65,7 @@ async fn text_after_signed_first_chunk_continues_and_keeps_same_chunk_newline() 
 }
 
 #[tokio::test]
-async fn schema_boolean_split_at_signed_boundary_parses_without_events() {
+async fn schema_boolean_split_at_signed_boundary_emits_text_and_parses() {
     let chunks = vec![
         json!([{"text": "{\"ok\":tr"}]),
         json!([{"text": "ue}", "thoughtSignature": "signed-json-tail"}]),
@@ -86,47 +82,38 @@ async fn schema_boolean_split_at_signed_boundary_parses_without_events() {
         }),
     });
 
-    let result = model
-        .complete_with_events(&request, &Unimock::new(()))
-        .await;
+    let (result, events) = collect_model_events(&model, &request).await;
 
     assert!(result.is_ok(), "signed JSON must parse: {result:?}");
     let response = result.unwrap();
     assert_eq!(response.structured_output, Some(json!({"ok": true})));
     assert_eq!(response.assistant_message, "{\"ok\":true}");
+    assert_eq!(
+        text_events(events),
+        vec![
+            json!({"TextDelta": {"part_index": 0, "delta": "{\"ok\":tr"}}),
+            json!({"TextDelta": {"part_index": 0, "delta": "ue}"}}),
+        ]
+    );
 }
 
 async fn assert_signed_text(
     chunks: Vec<Value>,
-    expected_deltas: &[&str],
+    expected_deltas: &[(usize, &str)],
     expected_answer: &str,
     replay_parts: Value,
 ) {
     let (client, _) = stream_support::recording_streaming_client(vec![text_stream(chunks)]);
     let model = GoogleModel::new(client, custom_spec("gemini-3.6-flash"), "key");
-    let events = Arc::new(Mutex::new(Vec::new()));
-    let sink = Unimock::new(
-        ModelCompletionEventSinkMock::emit
-            .each_call(matching!(_))
-            .answers_arc({
-                let events = events.clone();
-                Arc::new(move |_, event| events.lock().unwrap().push(event))
-            }),
-    );
-
-    let response = model
-        .complete_with_events(&simple_request(), &sink)
-        .await
-        .unwrap();
+    let (response, events) = collect_model_events(&model, &simple_request()).await;
+    let response = response.expect("signed stream should fold");
     let expected_events = expected_deltas
         .iter()
-        .map(|delta| ModelCompletionEvent::AssistantTextDelta {
-            delta: (*delta).to_owned(),
-        })
+        .map(|(part_index, delta)| json!({"TextDelta": {"part_index": part_index, "delta": delta}}))
         .collect::<Vec<_>>();
 
     assert_eq!(
-        (events.lock().unwrap().clone(), response.assistant_message),
+        (text_events(events), response.assistant_message),
         (expected_events, expected_answer.to_owned())
     );
     assert_eq!(
@@ -144,4 +131,11 @@ fn text_stream(chunks: Vec<Value>) -> Vec<stream_support::StreamItem> {
         json!({"candidates": [{"finishReason": "STOP"}]}),
     ));
     stream
+}
+
+fn text_events(events: Vec<Value>) -> Vec<Value> {
+    events
+        .into_iter()
+        .filter(|event| event.get("TextDelta").is_some())
+        .collect()
 }
