@@ -1,7 +1,8 @@
 //! Typed state for one indexed Anthropic content block.
 
-use ai_interface::AnthropicAssistantBlock;
 use serde_json::Value;
+
+use crate::anthropic::replay::AnthropicAssistantBlock;
 
 use super::types::{
     AnthropicContentBlockDelta, AnthropicContentBlockStart, AnthropicStreamError, BlockEvent,
@@ -159,7 +160,11 @@ impl ContentBlockState {
                     }
                 };
             }
-            events.push(BlockEvent::ToolEnd);
+            if let Some(block) = self.replay() {
+                events.push(BlockEvent::ToolEnd { block });
+            }
+        } else if let Some(block) = self.replay() {
+            events.push(BlockEvent::Replay { block });
         }
         self.stopped = true;
         Ok(events)

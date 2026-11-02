@@ -5,7 +5,7 @@ use serde_json::json;
 
 use crate::CLAUDE_SONNET_4_6;
 use crate::anthropic::stream_support::{
-    event, events_from_buffered_body, recording_streaming_client,
+    event, events_from_buffered_body, expected_state, recording_streaming_client,
 };
 
 use super::AnthropicModel;
@@ -53,10 +53,15 @@ async fn emits_indexed_tool_lifecycle_before_usage_and_finish() {
     assert_eq!(
         actual,
         vec![
-            json!({"ToolCallStart": {"part_index": 0, "id": "call_1", "name": "lookup"}}),
-            json!({"ToolCallArgumentsDelta": {"part_index": 0, "delta": "{\"key\":"}}),
-            json!({"ToolCallArgumentsDelta": {"part_index": 0, "delta": "\"root\"}"}}),
-            json!({"ToolCallEnd": {"part_index": 0}}),
+            json!({"TextDelta": {"part_index": 0, "delta": "", "provider_state": expected_state(
+                "claude-sonnet-4-6", json!({"type": "text", "text": "  "})
+            )}}),
+            json!({"ToolCallStart": {"part_index": 1, "id": "call_1", "name": "lookup"}}),
+            json!({"ToolCallArgumentsDelta": {"part_index": 1, "delta": "{\"key\":"}}),
+            json!({"ToolCallArgumentsDelta": {"part_index": 1, "delta": "\"root\"}"}}),
+            json!({"ToolCallEnd": {"part_index": 1, "provider_state": expected_state(
+                "claude-sonnet-4-6", json!({"type": "tool_use", "id": "call_1", "name": "lookup", "input": {"key": "root"}})
+            )}}),
             json!({"Usage": {"usage": {
                 "input_tokens": 2, "output_tokens": 1, "cached_input_tokens": 0,
                 "reasoning_tokens": 0, "total_tokens": 3, "estimated_cost_microusd": 0
@@ -109,7 +114,9 @@ async fn emits_start_input_when_tool_arguments_have_no_fragments() {
         &[
             json!({"ToolCallStart": {"part_index": 0, "id": "call_2", "name": "status"}}),
             json!({"ToolCallArgumentsDelta": {"part_index": 0, "delta": "{\"ready\":true}"}}),
-            json!({"ToolCallEnd": {"part_index": 0}}),
+            json!({"ToolCallEnd": {"part_index": 0, "provider_state": expected_state(
+                "claude-sonnet-4-6", json!({"type": "tool_use", "id": "call_2", "name": "status", "input": {"ready": true}})
+            )}}),
         ]
     );
 }
@@ -146,6 +153,13 @@ async fn validates_terminal_output_before_usage_and_closes_after_failure() {
     assert_eq!(
         serde_json::to_value(first).expect("event should serialize"),
         json!({"TextDelta": {"part_index": 0, "delta": "{}"}})
+    );
+    let state = stream.next().await.expect("text state should arrive");
+    assert_eq!(
+        serde_json::to_value(state).expect("event should serialize"),
+        json!({"TextDelta": {"part_index": 0, "delta": "", "provider_state": expected_state(
+            "claude-sonnet-4-6", json!({"type": "text", "text": "{}"})
+        )}})
     );
     let invalid_schema = stream
         .next()

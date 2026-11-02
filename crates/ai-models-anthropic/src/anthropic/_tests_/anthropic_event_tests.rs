@@ -41,24 +41,28 @@ async fn emits_ordered_reasoning_and_assistant_deltas_with_terminal_parity() {
         events,
         vec![
             json!({"ReasoningDelta": {"part_index": 0, "delta": "private thought"}}),
+            state_delta(
+                "ReasoningDelta",
+                0,
+                json!({
+                    "type": "thinking", "thinking": "private thought", "signature": "signed"
+                })
+            ),
             json!({"TextDelta": {"part_index": 1, "delta": "First"}}),
+            state_delta("TextDelta", 1, json!({"type": "text", "text": "First"})),
             json!({"TextDelta": {"part_index": 2, "delta": "\nSecond"}}),
+            state_delta("TextDelta", 2, json!({"type": "text", "text": "Second"})),
             usage_event(),
             json!({"Finish": {
                 "finish_reason": "Stop",
                 "provider": "anthropic",
                 "model_id": "claude-sonnet-4-6",
                 "catalog_model_id": "anthropic/claude-sonnet-4-6",
-                "effort": "disabled",
-                "provider_context": [{"type": "anthropic_assistant_message", "blocks": [
-                    {"type": "thinking", "thinking": "private thought", "signature": "signed"},
-                    {"type": "text", "text": "First"},
-                    {"type": "text", "text": "Second"}
-                ]}]
+                "effort": "disabled"
             }}),
         ]
     );
-    assert_eq!(assistant_text(&events), response.assistant_message);
+    assert_eq!(assistant_text(&events), response.text());
     assert!(
         stream
             .next()
@@ -93,6 +97,11 @@ async fn structured_completion_emits_text_and_validated_finish() {
         events,
         vec![
             json!({"TextDelta": {"part_index": 0, "delta": "{\"summary\":\"Done\"}"}}),
+            state_delta(
+                "TextDelta",
+                0,
+                json!({"type": "text", "text": "{\"summary\":\"Done\"}"})
+            ),
             usage_event(),
             json!({"Finish": {
                 "finish_reason": "Stop", "provider": "anthropic", "model_id": "claude-sonnet-4-6",
@@ -101,6 +110,17 @@ async fn structured_completion_emits_text_and_validated_finish() {
             }}),
         ]
     );
+}
+
+fn state_delta(kind: &str, part_index: usize, block: Value) -> Value {
+    let mut payload = json!({"blocks": [block]});
+    if kind == "TextDelta" {
+        payload["mode"] = json!("normalized_text");
+    }
+    json!({kind: {"part_index": part_index, "delta": "", "provider_state": {
+        "provider": "anthropic", "model": "claude-sonnet-4-6", "version": 1,
+        "payload": payload
+    }}})
 }
 
 #[tokio::test]

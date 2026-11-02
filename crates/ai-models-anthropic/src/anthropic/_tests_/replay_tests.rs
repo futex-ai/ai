@@ -3,7 +3,7 @@
 use ai_interface::{ConversationMessage, Effort, Model, ModelRequest};
 use serde_json::json;
 
-use crate::{AnthropicModel, CLAUDE_OPUS_5};
+use crate::{AnthropicModel, CLAUDE_OPUS_5, CLAUDE_SONNET_4_6};
 
 use super::stream_support::client_for_buffered_bodies;
 
@@ -12,6 +12,7 @@ async fn signed_anthropic_blocks_replay_in_full_original_order() {
     for blocks in [
         json!([
             {"type": "thinking", "thinking": "", "signature": "omitted-signature"},
+            {"type": "text", "text": "  \n  "},
             {"type": "text", "text": "  before  "},
             {"type": "thinking", "thinking": "private thought", "signature": "signature"},
             {"type": "redacted_thinking", "data": "encrypted-data"},
@@ -27,7 +28,7 @@ async fn signed_anthropic_blocks_replay_in_full_original_order() {
             json!({"content": blocks, "stop_reason": "tool_use"}),
             json!({"content": [{"type": "text", "text": "Done"}], "stop_reason": "end_turn"}),
         ]);
-        let model = AnthropicModel::new(client, CLAUDE_OPUS_5, "key");
+        let model = AnthropicModel::new(client.clone(), CLAUDE_OPUS_5, "key");
         let mut request = ModelRequest {
             system_prompt: String::new(),
             messages: vec![ConversationMessage::user("look up 7")],
@@ -38,17 +39,20 @@ async fn signed_anthropic_blocks_replay_in_full_original_order() {
         request.controls.generation.effort = Some(Effort::Max);
         let response = model.complete(&request).await.unwrap();
         assert_eq!(
-            serde_json::to_value(&response.provider_context).unwrap(),
-            json!([
-                {"type": "anthropic_assistant_message", "blocks": blocks}
-            ])
+            response
+                .parts
+                .iter()
+                .flat_map(|part| {
+                    part.provider_state().unwrap().payload["blocks"]
+                        .as_array()
+                        .unwrap()
+                        .clone()
+                })
+                .collect::<Vec<_>>(),
+            blocks.as_array().unwrap().clone()
         );
-        assert!(!response.assistant_message.contains("private thought"));
-        let assistant = ConversationMessage::assistant_with_provider_context(
-            "normalized fallback",
-            Vec::new(),
-            response.provider_context,
-        );
+        assert!(!response.text().contains("private thought"));
+        let assistant = response.to_assistant_message();
         let stored = serde_json::from_value(serde_json::to_value(assistant).unwrap()).unwrap();
         request.messages.push(stored);
         request
@@ -57,7 +61,10 @@ async fn signed_anthropic_blocks_replay_in_full_original_order() {
         request
             .messages
             .push(ConversationMessage::tool("7", "lookup", "call-1"));
-        model.complete(&request).await.unwrap();
+        AnthropicModel::new(client, CLAUDE_SONNET_4_6, "key")
+            .complete(&request)
+            .await
+            .unwrap();
         let requests = requests.lock().unwrap();
         assert_eq!(
             requests[1].body.as_ref().unwrap()["messages"][1]["content"],

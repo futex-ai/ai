@@ -1,9 +1,11 @@
 //! Typed Anthropic stream events and accumulator failures.
 
-use ai_interface::{AnthropicAssistantBlock, ModelEvent};
+use ai_interface::ModelEvent;
 use serde::Deserialize;
 use serde_json::Value;
 use thiserror::Error;
+
+use crate::anthropic::replay::AnthropicAssistantBlock;
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -167,11 +169,14 @@ pub(super) enum BlockEvent {
     Reasoning { delta: String },
     ToolStart { id: String, name: String },
     ToolArguments { delta: String },
-    ToolEnd,
+    ToolEnd { block: AnthropicAssistantBlock },
+    Replay { block: AnthropicAssistantBlock },
 }
 
 #[derive(Debug, Error)]
 pub(super) enum AnthropicStreamError {
+    #[error("[ai_models_anthropic/stream] cannot serialize provider state: {source}")]
+    SerializeState { source: serde_json::Error },
     #[error("[ai_models_anthropic/stream] invalid event JSON: {source}")]
     DeserializeEvent { source: serde_json::Error },
     #[error("[ai_models_anthropic/stream] received an event after message_stop")]

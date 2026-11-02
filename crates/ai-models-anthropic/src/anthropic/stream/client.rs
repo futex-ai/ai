@@ -28,7 +28,7 @@ pub(in crate::anthropic) fn open(
 ) -> DynModelEventStream {
     Box::new(AnthropicEventStream {
         stream: Some(stream),
-        accumulator: AnthropicStreamAccumulator::default(),
+        accumulator: AnthropicStreamAccumulator::new(provider_model_id.clone()),
         pending: VecDeque::new(),
         events_received: 0,
         catalog_model_id,

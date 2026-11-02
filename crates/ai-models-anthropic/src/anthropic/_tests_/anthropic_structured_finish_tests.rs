@@ -25,7 +25,7 @@ async fn structured_output_refusal_preserves_filtered_finish_reason() {
 
     assert_eq!(response.finish_reason, FinishReason::Filtered);
     assert_eq!(response.structured_output, None);
-    assert_eq!(response.assistant_message, "I cannot provide that.");
+    assert_eq!(response.text(), "I cannot provide that.");
 }
 
 #[tokio::test]
@@ -44,7 +44,7 @@ async fn structured_output_truncation_preserves_truncated_finish_reason() {
 
     assert_eq!(response.finish_reason, FinishReason::Truncated);
     assert_eq!(response.structured_output, None);
-    assert_eq!(response.assistant_message, "{\"summary\":");
+    assert_eq!(response.text(), "{\"summary\":");
 }
 
 #[tokio::test]
@@ -69,7 +69,7 @@ async fn terminal_response_with_tool_use_suppresses_tool_calls() {
     .expect("terminal Anthropic response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::Truncated);
-    assert!(response.tool_calls.is_empty());
+    assert!(response.tool_calls().is_empty());
 }
 
 fn status_schema() -> StructuredOutputSchema {

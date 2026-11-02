@@ -57,8 +57,8 @@ async fn builds_anthropic_thinking_variant_requests_and_ignores_hidden_blocks() 
     );
     assert_eq!(response.effort().map(Effort::as_str), Some("max"));
     assert_eq!(response.model_id, "claude-opus-4-7");
-    assert_eq!(response.assistant_message, "Done");
-    assert!(!response.assistant_message.contains("hidden provider trace"));
+    assert_eq!(response.text(), "Done");
+    assert!(!response.text().contains("hidden provider trace"));
 }
 
 #[tokio::test]

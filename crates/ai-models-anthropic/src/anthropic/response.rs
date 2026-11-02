@@ -1,12 +1,11 @@
 //! Anthropic typed terminal metadata and validation.
 
 use ai_interface::{
-    AnthropicAssistantBlock, Effort, FinishReason, ModelError, ModelEvent, ModelResult, ModelUsage,
-    ProviderConversationItem, StructuredOutputSchema,
+    Effort, FinishReason, ModelError, ModelEvent, ModelResult, ModelUsage, StructuredOutputSchema,
 };
 use ai_models_core::parse_structured_output;
 
-use super::stream::types::AnthropicCompletion;
+use super::{replay::AnthropicAssistantBlock, stream::types::AnthropicCompletion};
 
 const PROVIDER: &str = "anthropic";
 
@@ -47,19 +46,6 @@ pub(super) fn terminal_events(
         ),
         _ => None,
     };
-    let provider_context = if completion.blocks.iter().any(|block| {
-        matches!(
-            block,
-            AnthropicAssistantBlock::Thinking { .. }
-                | AnthropicAssistantBlock::RedactedThinking { .. }
-        )
-    }) {
-        vec![ProviderConversationItem::AnthropicAssistantMessage {
-            blocks: completion.blocks,
-        }]
-    } else {
-        Vec::new()
-    };
     let input_tokens = u64::from(completion.usage.input_tokens)
         .saturating_add(u64::from(completion.usage.cache_creation_input_tokens));
     let output_tokens = u64::from(completion.usage.output_tokens);
@@ -85,7 +71,6 @@ pub(super) fn terminal_events(
             catalog_model_id: Some(catalog_model_id.to_owned()),
             thinking_level: Some(thinking_level),
             structured_output,
-            provider_context,
         },
     ])
 }

@@ -1,6 +1,8 @@
 //! Anthropic messages model client.
 
+pub(crate) mod replay;
 mod request;
+mod request_messages;
 mod request_types;
 mod response;
 mod stream;
@@ -165,6 +167,14 @@ mod replay_tests;
 #[cfg(test)]
 #[path = "_tests_/request_effort_tests.rs"]
 mod request_effort_tests;
+
+#[cfg(test)]
+#[path = "_tests_/part_replay_tests.rs"]
+mod part_replay_tests;
+
+#[cfg(test)]
+#[path = "_tests_/legacy_replay_tests.rs"]
+mod legacy_replay_tests;
 
 #[cfg(test)]
 #[path = "_tests_/anthropic_lifecycle_tests.rs"]

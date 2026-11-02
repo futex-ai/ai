@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ai_interface::ModelSpec;
+use ai_interface::{ModelSpec, ProviderState};
 use json_http::{
     DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpSseEvent, JsonHttpSseStreamMock,
     JsonHttpTransportMock, TransportBackedJsonHttpClient,
@@ -20,6 +20,17 @@ pub(super) type StreamItem = json_http::Result<Option<JsonHttpSseEvent>>;
 
 pub(super) fn custom_spec(model_id: &'static str) -> ModelSpec {
     ModelSpec::custom(PROVIDER_ID, model_id, &CUSTOM_DEFAULTS)
+}
+
+pub(super) fn expected_state(model_id: &str, block: Value) -> ProviderState {
+    let mut payload = json!({"blocks": [block]});
+    if block["type"] == "text" {
+        payload["mode"] = json!("normalized_text");
+    }
+    serde_json::from_value(json!({
+        "provider": "anthropic", "model": model_id, "version": 1, "payload": payload
+    }))
+    .unwrap()
 }
 
 pub(super) fn recording_streaming_client(

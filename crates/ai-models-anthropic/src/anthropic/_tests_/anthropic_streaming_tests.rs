@@ -3,15 +3,15 @@
 use std::time::Duration;
 
 use ai_interface::{
-    AnthropicAssistantBlock, ConversationMessage, Effort, FinishReason, Model, ModelRequest,
-    ModelResponse, ModelUsage, ProviderConversationItem, ToolCall,
+    ConversationMessage, ConversationPart, Effort, FinishReason, Model, ModelRequest,
+    ModelResponse, ModelUsage, ToolCall,
 };
 use json_http::StaticHeaderAuth;
 use serde_json::json;
 
 use crate::CLAUDE_SONNET_4_6;
 use crate::anthropic::stream_support::{
-    client_for_buffered_bodies, event, recording_streaming_client,
+    client_for_buffered_bodies, event, expected_state, recording_streaming_client,
 };
 
 use super::{AnthropicModel, stream_support::custom_spec};
@@ -229,31 +229,25 @@ async fn streamed_deltas_preserve_complete_response_fields() {
         model_id: "claude-opus-streaming".to_owned(),
         catalog_model_id: Some("anthropic/claude-opus-streaming".to_owned()),
         thinking_level: Some(Effort::Disabled),
-        assistant_message: "Done".to_owned(),
-        tool_calls: vec![ToolCall {
+        parts: vec![
+            ConversationPart::reasoning("private thought").with_provider_state(expected_state(
+                "claude-opus-streaming",
+                json!({"type": "thinking", "thinking": "private thought", "signature": "signed"}),
+            )),
+            ConversationPart::text("Done").with_provider_state(expected_state(
+                "claude-opus-streaming", json!({"type": "text", "text": "Done"}),
+            )),
+            ConversationPart::from_tool_call(ToolCall {
             id: "call_1".to_owned(),
             name: "memory_read".to_owned(),
             input: json!({"path": "root"}),
             operation_id: None,
-        }],
+            }).with_provider_state(expected_state("claude-opus-streaming", json!({
+                "type": "tool_use", "id": "call_1", "name": "memory_read", "input": {"path": "root"}
+            }))),
+        ],
         finish_reason: FinishReason::ToolCalls,
         structured_output: None,
-        provider_context: vec![ProviderConversationItem::AnthropicAssistantMessage {
-            blocks: vec![
-                AnthropicAssistantBlock::Thinking {
-                    thinking: "private thought".to_owned(),
-                    signature: "signed".to_owned(),
-                },
-                AnthropicAssistantBlock::Text {
-                    text: "Done".to_owned(),
-                },
-                AnthropicAssistantBlock::ToolUse {
-                    id: "call_1".to_owned(),
-                    name: "memory_read".to_owned(),
-                    input: json!({"path": "root"}),
-                },
-            ],
-        }],
         usage: ModelUsage {
             input_tokens: 130,
             output_tokens: 32,

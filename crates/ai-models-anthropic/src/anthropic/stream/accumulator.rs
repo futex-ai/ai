@@ -2,7 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use ai_interface::ModelEvent;
+use ai_interface::{ModelEvent, ProviderState};
+
+use crate::anthropic::replay::{AnthropicAssistantBlock, ReplayMode};
 
 use super::{
     block::ContentBlockState,
@@ -14,6 +16,7 @@ use super::{
 
 #[derive(Debug, Default)]
 pub(super) struct AnthropicStreamAccumulator {
+    model_id: String,
     message_started: bool,
     message_stopped: bool,
     blocks: BTreeMap<u64, ContentBlockState>,
@@ -24,6 +27,13 @@ pub(super) struct AnthropicStreamAccumulator {
 }
 
 impl AnthropicStreamAccumulator {
+    pub(super) fn new(model_id: String) -> Self {
+        Self {
+            model_id,
+            ..Self::default()
+        }
+    }
+
     pub(super) fn push_data(
         &mut self,
         data: &str,
@@ -144,9 +154,17 @@ impl AnthropicStreamAccumulator {
                         self.assistant_blocks_emitted =
                             self.assistant_blocks_emitted.saturating_add(1);
                     }
-                    ModelEvent::TextDelta { part_index, delta }
+                    ModelEvent::TextDelta {
+                        part_index,
+                        delta,
+                        provider_state: None,
+                    }
                 }
-                BlockEvent::Reasoning { delta } => ModelEvent::ReasoningDelta { part_index, delta },
+                BlockEvent::Reasoning { delta } => ModelEvent::ReasoningDelta {
+                    part_index,
+                    delta,
+                    provider_state: None,
+                },
                 BlockEvent::ToolStart { id, name } => ModelEvent::ToolCallStart {
                     part_index,
                     id,
@@ -156,7 +174,25 @@ impl AnthropicStreamAccumulator {
                 BlockEvent::ToolArguments { delta } => {
                     ModelEvent::ToolCallArgumentsDelta { part_index, delta }
                 }
-                BlockEvent::ToolEnd => ModelEvent::ToolCallEnd { part_index },
+                BlockEvent::ToolEnd { block } => ModelEvent::ToolCallEnd {
+                    part_index,
+                    provider_state: Some(provider_state(&block, &self.model_id)?),
+                },
+                BlockEvent::Replay { block } => {
+                    let provider_state = Some(provider_state(&block, &self.model_id)?);
+                    match block {
+                        AnthropicAssistantBlock::Text { .. } => ModelEvent::TextDelta {
+                            part_index,
+                            delta: String::new(),
+                            provider_state,
+                        },
+                        _ => ModelEvent::ReasoningDelta {
+                            part_index,
+                            delta: String::new(),
+                            provider_state,
+                        },
+                    }
+                }
             });
         }
         Ok(result)
@@ -168,6 +204,20 @@ impl AnthropicStreamAccumulator {
         } else {
             Err(AnthropicStreamError::EventBeforeMessageStart { event })
         }
+    }
+}
+
+fn provider_state(
+    block: &AnthropicAssistantBlock,
+    model_id: &str,
+) -> Result<ProviderState, AnthropicStreamError> {
+    let mode = match block {
+        AnthropicAssistantBlock::Text { .. } => ReplayMode::NormalizedText,
+        _ => ReplayMode::Original,
+    };
+    match block.provider_state(model_id, mode) {
+        Ok(state) => Ok(state),
+        Err(source) => Err(AnthropicStreamError::SerializeState { source }),
     }
 }
 
