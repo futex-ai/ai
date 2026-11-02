@@ -510,26 +510,26 @@ Depends on: 7
 Give the policies the response facts that they need, and make retry and
 fallback explicit.
 
-- [ ] Expose response headers on buffered responses, streams, and status
+- [x] Expose response headers on buffered responses, streams, and status
       errors in `json-http`.
-- [ ] Parse `Retry-After` and the provider request id into typed fields.
-- [ ] Serialize typed request bodies straight to bytes.
-- [ ] Add the shared error core, and use it in every modality error.
-- [ ] Split the provider error into the kinds of decision 5. Make each kind
+- [x] Parse `Retry-After` and the provider request id into typed fields.
+- [x] Serialize typed request bodies straight to bytes.
+- [x] Add the shared error core, and use it in every modality error.
+- [x] Split the provider error into the kinds of decision 5. Make each kind
       state whether another model can succeed.
-- [ ] Add `ai-models-policy`. Move the retry, concurrency, and pricing
+- [x] Add `ai-models-policy`. Move the retry, concurrency, and pricing
       wrappers from `ai-models-core`. Merge `ai-models-multi` into it.
-- [ ] Make retry back off with jitter, honor retry-after, and cover rate
+- [x] Make retry back off with jitter, honor retry-after, and cover rate
       limits.
-- [ ] Make fallback require a policy, with the presets "any error" and
+- [x] Make fallback require a policy, with the presets "any error" and
       "only when another model can succeed". Report every attempt.
-- [ ] Keep the provider message of every rate-limit error in the error
+- [x] Keep the provider message of every rate-limit error in the error
       core. The MiniMax and xAI adapters lose it today, as their
       `rate_limit` snapshots show.
-- [ ] Apply `plans/follow-ups/xai-deferred-poll-transport-error.md`, so
+- [x] Apply `plans/follow-ups/xai-deferred-poll-transport-error.md`, so
       that deferred polling continues after a network failure of the
       production transport.
-- [ ] Mark `model-policies.md` implemented.
+- [x] Mark `model-policies.md` implemented.
 - [ ] Run `cargo xtask check`, then commit and push.
 
 ## Milestone 9: Provider registry
