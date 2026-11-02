@@ -26,7 +26,7 @@ async fn replays_own_state_from_another_google_model_and_skips_foreign_reasoning
     let own = state(
         "google",
         1,
-        json!({"parts": [{"text": "saved thought", "thought": true}]}),
+        json!({"scope": "part", "parts": [{"text": "saved thought", "thought": true}]}),
     );
     let foreign = state("anthropic", 99, json!({"unreadable": true}));
     let mut request = simple_request();
@@ -77,6 +77,21 @@ async fn rejects_unknown_or_invalid_own_state_and_invalid_roles_before_transport
                 json!({"parts": "invalid"}),
             ))],
             "Google provider state has an invalid payload",
+        ),
+        (
+            vec![
+                ConversationPart::reasoning("").with_provider_state(state(
+                    "google",
+                    1,
+                    json!({"parts": []}),
+                )),
+                ConversationPart::text("x").with_provider_state(state(
+                    "google",
+                    2,
+                    json!({"scope": "part", "parts": []}),
+                )),
+            ],
+            "Google provider state has unsupported version 2",
         ),
     ] {
         let model = no_call_model();

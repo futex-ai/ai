@@ -23,7 +23,7 @@ pub(super) fn custom_spec(model_id: &'static str) -> ModelSpec {
 }
 
 pub(super) fn expected_state(model_id: &str, block: Value) -> ProviderState {
-    let mut payload = json!({"blocks": [block]});
+    let mut payload = json!({"blocks": [block], "scope": "part"});
     if block["type"] == "text" {
         payload["mode"] = json!("normalized_text");
     }

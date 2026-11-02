@@ -39,6 +39,7 @@ async fn emits_complete_function_call_before_last_usage_and_finish() {
             json!({"ToolCallEnd": {"part_index": 0, "provider_state": {
                 "provider": "google", "model": "gemini-3.6-flash", "version": 1,
                 "payload": {
+                    "scope": "part",
                     "parts": [{"text": "  "}, {"functionCall": {"id": "call_1", "name": "status"}}],
                     "unsigned_call": {"id": "call_1", "name": "status", "args": {}}
                 }

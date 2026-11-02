@@ -56,6 +56,15 @@ async fn foreign_state_replays_portable_parts_and_skips_foreign_or_absent_reason
     let message = ConversationMessage::new(
         ConversationRole::Assistant,
         vec![
+            ConversationPart::reasoning("own reasoning").with_provider_state(
+                serde_json::from_value(json!({
+                    "provider": "anthropic", "model": "another-model", "version": 1,
+                    "payload": {"scope": "part", "blocks": [
+                        {"type": "thinking", "thinking": "own reasoning", "signature": "signed"}
+                    ]}
+                }))
+                .unwrap(),
+            ),
             ConversationPart::reasoning("private").with_provider_state(state.clone()),
             ConversationPart::reasoning("also private"),
             ConversationPart::text("Visible").with_provider_state(state.clone()),
@@ -72,6 +81,7 @@ async fn foreign_state_replays_portable_parts_and_skips_foreign_or_absent_reason
     assert_eq!(
         requests.lock().unwrap()[0].body.as_ref().unwrap()["messages"],
         json!([{"role": "assistant", "content": [
+            {"type": "thinking", "thinking": "own reasoning", "signature": "signed"},
             {"type": "text", "text": "Visible"},
             {"type": "tool_use", "id": "call", "name": "lookup", "input": {"id": 7}}
         ]}])
@@ -89,6 +99,7 @@ async fn invalid_own_state_and_roles_fail_before_transport() {
             ConversationMessage::new(
                 ConversationRole::Assistant,
                 vec![
+                    legacy_message_part(),
                     ConversationPart::reasoning("").with_provider_state(
                         serde_json::from_value(json!({
                             "provider": "anthropic", "model": "any", "version": 2, "payload": {}
@@ -103,6 +114,7 @@ async fn invalid_own_state_and_roles_fail_before_transport() {
             ConversationMessage::new(
                 ConversationRole::Assistant,
                 vec![
+                    legacy_message_part(),
                     ConversationPart::text("visible").with_provider_state(
                         serde_json::from_value(json!({
                             "provider": "anthropic", "model": "", "version": 1, "payload": {}
@@ -161,6 +173,16 @@ async fn invalid_own_state_and_roles_fail_before_transport() {
         assert_eq!(model_id, "claude-sonnet-4-6");
         assert_eq!(message, expected_message);
     }
+}
+
+fn legacy_message_part() -> ConversationPart {
+    ConversationPart::reasoning("").with_provider_state(
+        serde_json::from_value(json!({
+            "provider": "anthropic", "model": "", "version": 1,
+            "payload": {"blocks": [{"type": "thinking", "thinking": "", "signature": "valid"}]}
+        }))
+        .unwrap(),
+    )
 }
 
 fn request(messages: Vec<ConversationMessage>) -> ModelRequest {

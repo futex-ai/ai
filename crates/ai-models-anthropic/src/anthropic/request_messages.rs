@@ -5,7 +5,7 @@ use ai_interface::{
 };
 
 use super::{
-    replay::{AnthropicAssistantBlock, AnthropicReplay, ReplayMode},
+    replay::{AnthropicAssistantBlock, AnthropicReplay, ReplayMode, ReplayScope},
     request_types::{AnthropicBlock, AnthropicImageSource, AnthropicMessage},
 };
 
@@ -26,6 +26,23 @@ pub(super) fn anthropic_messages(
                 None => Ok(None),
             })
             .collect::<ModelResult<Vec<_>>>()?;
+        if message.role == ConversationRole::Assistant
+            && let Some(original) = replay
+                .iter()
+                .flatten()
+                .find(|state| state.scope == ReplayScope::Message)
+        {
+            output.push(AnthropicMessage {
+                role: "assistant".to_owned(),
+                content: original
+                    .blocks
+                    .iter()
+                    .cloned()
+                    .map(AnthropicBlock::from)
+                    .collect(),
+            });
+            continue;
+        }
         let has_signed_blocks = message.parts.iter().zip(&replay).any(|(part, state)| {
             state.as_ref().is_some_and(|state| {
                 matches!(part, ConversationPart::Reasoning { .. })

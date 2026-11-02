@@ -30,8 +30,30 @@ pub(crate) enum AnthropicAssistantBlock {
 #[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct AnthropicReplay {
     pub(crate) blocks: Vec<AnthropicAssistantBlock>,
+    #[serde(default)]
+    pub(crate) scope: ReplayScope,
     #[serde(default, skip_serializing_if = "ReplayMode::is_original")]
     pub(crate) mode: ReplayMode,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ReplayScope {
+    /// An unmarked version one wrapper replaces the complete assistant content.
+    #[default]
+    Message,
+    /// Provider-created state applies only to the part that carries it.
+    Part,
+}
+
+impl From<ReplayScope> for Value {
+    fn from(scope: ReplayScope) -> Self {
+        let value = match scope {
+            ReplayScope::Message => "message",
+            ReplayScope::Part => "part",
+        };
+        Self::String(value.to_owned())
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -83,10 +105,13 @@ impl AnthropicAssistantBlock {
         model_id: &str,
         mode: ReplayMode,
     ) -> Result<ProviderState, serde_json::Error> {
-        let mut payload = Map::from_iter([(
-            "blocks".to_owned(),
-            Value::Array(vec![serde_json::to_value(self)?]),
-        )]);
+        let mut payload = Map::from_iter([
+            (
+                "blocks".to_owned(),
+                Value::Array(vec![serde_json::to_value(self)?]),
+            ),
+            ("scope".to_owned(), Value::from(ReplayScope::Part)),
+        ]);
         if mode == ReplayMode::NormalizedText {
             payload.insert("mode".to_owned(), serde_json::to_value(mode)?);
         }

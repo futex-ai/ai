@@ -120,6 +120,7 @@ async fn merged_fragments_match_rich_buffered_response() {
         serde_json::from_value(json!({
             "provider": "google", "model": "gemini-3.6-flash", "version": 1,
             "payload": {
+                "scope": "part",
                 "parts": [{"functionCall": {"name": "memory_read", "args": {"path": "root"}}}],
                 "unsigned_call": {
                     "id": "google_function_call:2bb0037dd4a68f16", "name": "memory_read",

@@ -490,17 +490,17 @@ Depends on: 6
 
 Replace the closed replay enum with opaque provider state.
 
-- [ ] Replace the message content fields and `ProviderConversationItem`
+- [x] Replace the message content fields and `ProviderConversationItem`
       with ordered parts and provider state.
-- [ ] Move the replay payload of each provider into its adapter as a
+- [x] Move the replay payload of each provider into its adapter as a
       private typed struct. This includes the Anthropic and Gemini variants
       of item 1.
-- [ ] Add each provider crate's conversion of its version 1 items.
-- [ ] Redact provider state in log copies.
-- [ ] Replace the interim `provider_context` field of the finish event
+- [x] Add each provider crate's conversion of its version 1 items.
+- [x] Redact provider state in log copies.
+- [x] Replace the interim `provider_context` field of the finish event
       with per-part provider state.
-- [ ] Mark `conversation-parts.md` and `model-stream.md` implemented.
-- [ ] Run `cargo xtask check`, then commit and push.
+- [x] Mark `conversation-parts.md` and `model-stream.md` implemented.
+- [x] Run `cargo xtask check`, then commit and push.
 - [ ] Run the ship steps for pull request 4.
 
 ## Milestone 8: HTTP facts and policy layers

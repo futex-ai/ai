@@ -113,7 +113,7 @@ async fn structured_completion_emits_text_and_validated_finish() {
 }
 
 fn state_delta(kind: &str, part_index: usize, block: Value) -> Value {
-    let mut payload = json!({"blocks": [block]});
+    let mut payload = json!({"blocks": [block], "scope": "part"});
     if kind == "TextDelta" {
         payload["mode"] = json!("normalized_text");
     }

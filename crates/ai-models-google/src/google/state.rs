@@ -30,14 +30,25 @@ pub(super) struct GoogleFunctionCallContext {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct GooglePartState {
+    #[serde(default)]
+    pub(super) scope: GoogleStateScope,
     pub(super) parts: Vec<GoogleAssistantPart>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) unsigned_call: Option<GoogleFunctionCallContext>,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum GoogleStateScope {
+    #[default]
+    Message,
+    Part,
+}
+
 impl GooglePartState {
     pub(super) fn new(parts: Vec<GoogleAssistantPart>) -> Self {
         Self {
+            scope: GoogleStateScope::Part,
             parts,
             unsigned_call: None,
         }

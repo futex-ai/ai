@@ -32,6 +32,7 @@ async fn converted_google_content_preserves_order_signatures_and_missing_call_fi
         (converted.role, converted.name.as_deref()),
         (ConversationRole::Assistant, Some("helper"))
     );
+    assert_eq!(converted.text(), "normalized fallback");
     assert_eq!(
         converted.tool_calls(),
         vec![ToolCall {
@@ -74,13 +75,98 @@ async fn converted_google_content_preserves_order_signatures_and_missing_call_fi
 
     model.complete(&request).await.unwrap();
 
-    let requests = requests.lock().unwrap();
-    let contents = &requests[0].body.as_ref().unwrap()["contents"];
-    assert_eq!(contents[1]["parts"], original);
-    assert_eq!(
-        contents[2]["parts"],
-        json!([
-            {"functionResponse": {"name": "status", "response": {"result": "ready"}}}
-        ])
-    );
+    {
+        let requests = requests.lock().unwrap();
+        let contents = &requests[0].body.as_ref().unwrap()["contents"];
+        assert_eq!(contents[1]["parts"], original);
+        assert_eq!(
+            contents[2]["parts"],
+            json!([
+                {"functionResponse": {"name": "status", "response": {"result": "ready"}}}
+            ])
+        );
+    }
+    assert_portable_conversion_cases().await;
+}
+
+async fn assert_portable_conversion_cases() {
+    let cases = [
+        ("empty wrapper", "", json!([]), Vec::new(), "empty-result"),
+        (
+            "unmatched portable call",
+            "portable extra",
+            json!([{"text": "native only", "thoughtSignature": "signed-text"}]),
+            vec![ToolCall {
+                id: "runtime-extra".to_owned(),
+                name: "status".to_owned(),
+                input: json!({"portable": true}),
+                operation_id: Some("operation-extra".to_owned()),
+            }],
+            "runtime-extra",
+        ),
+        (
+            "raw call without portable call",
+            "portable orphan",
+            json!([{"functionCall": {"name": "status"}, "thoughtSignature": "signed-call"}]),
+            Vec::new(),
+            "orphan-result",
+        ),
+        (
+            "empty wrapper with portable content",
+            "portable empty",
+            json!([]),
+            vec![ToolCall {
+                id: "runtime-empty".to_owned(),
+                name: "status".to_owned(),
+                input: json!({}),
+                operation_id: Some("operation-empty".to_owned()),
+            }],
+            "runtime-empty",
+        ),
+    ];
+    let mut actual = Vec::new();
+    let mut expected = Vec::new();
+    for (case, text, original, calls, result_id) in cases {
+        let converted = read_stored_message(
+            json!({
+                "role": "assistant", "content": text, "tool_calls": calls,
+                "provider_context": [{"type": "google_assistant_message", "parts": original}]
+            }),
+            &[&GoogleLegacyProviderConverter],
+        )
+        .unwrap();
+        let portable = json!({"text": converted.text(), "calls": converted.tool_calls()});
+        let (client, requests) =
+            stream_support::recording_streaming_client(vec![vec![stream_support::event(
+                json!({"candidates": [{"finishReason": "STOP"}]}),
+            )]]);
+        let model = GoogleModel::new(
+            client,
+            stream_support::custom_spec("gemini-3.6-flash"),
+            "key",
+        );
+        let mut request = simple_request();
+        request.messages.push(converted);
+        request
+            .messages
+            .push(ConversationMessage::tool("ready", "status", result_id));
+
+        model.complete(&request).await.unwrap();
+
+        actual.push(json!({
+            "case": case, "portable": portable,
+            "contents": requests.lock().unwrap()[0].body.as_ref().unwrap()["contents"]
+        }));
+        expected.push(json!({
+            "case": case, "portable": {"text": text, "calls": calls},
+            "contents": [
+                {"role": "user", "parts": [{"text": "hello"}]},
+                {"role": "model", "parts": original},
+                {"role": "user", "parts": [{"functionResponse": {
+                    "id": result_id, "name": "status", "response": {"result": "ready"}
+                }}]}
+            ]
+        }));
+    }
+    assert_eq!(actual, expected);
 }

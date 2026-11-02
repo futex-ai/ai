@@ -94,6 +94,15 @@ impl LegacyProviderConverter for GoogleLegacyProviderConverter {
                 part.with_provider_state(GooglePartState::new(vec![original]).encode("").ok()?),
             );
         }
+        preserve_portable_text(&message.content, &mut parts);
+        parts.extend(
+            calls.cloned().map(|call| {
+                ConversationPart::from_tool_call(call).with_provider_state(empty_state())
+            }),
+        );
+        if parts.is_empty() {
+            parts.push(ConversationPart::text("").with_provider_state(empty_state()));
+        }
         Some(parts)
     }
 }
@@ -102,22 +111,42 @@ fn portable_part(
     original: &GoogleAssistantPart,
     calls: &mut std::slice::Iter<'_, ToolCall>,
 ) -> ConversationPart {
-    if let Some(call) = &original.function_call {
-        let call = calls.next().cloned().unwrap_or_else(|| ToolCall {
-            id: call.id.clone().unwrap_or_default(),
-            name: call.name.clone(),
-            input: call
-                .args
-                .clone()
-                .unwrap_or_else(|| Value::Object(Map::new())),
-            operation_id: None,
-        });
-        return ConversationPart::from_tool_call(call);
+    if original.function_call.is_some() {
+        return match calls.next() {
+            Some(call) => ConversationPart::from_tool_call(call.clone()),
+            None => ConversationPart::reasoning(""),
+        };
     }
     let text = original.text.clone().unwrap_or_default();
     if original.thought == Some(true) || original.text.is_none() {
         ConversationPart::reasoning(text)
     } else {
         ConversationPart::text(text)
+    }
+}
+
+fn preserve_portable_text(content: &str, parts: &mut Vec<ConversationPart>) {
+    let mut remaining = Some(content.to_owned());
+    for part in parts.iter_mut() {
+        if let ConversationPart::Text { text, .. } = part {
+            *text = remaining.take().unwrap_or_default();
+        }
+    }
+    if let Some(text) = remaining
+        && !text.is_empty()
+    {
+        parts.push(ConversationPart::text(text).with_provider_state(empty_state()));
+    }
+}
+
+fn empty_state() -> ProviderState {
+    ProviderState {
+        provider: PROVIDER_ID,
+        model: String::new(),
+        version: 1,
+        payload: Map::from_iter([
+            ("scope".to_owned(), Value::String("part".to_owned())),
+            ("parts".to_owned(), Value::Array(Vec::new())),
+        ]),
     }
 }

@@ -1,6 +1,8 @@
 //! Stored version one Anthropic blocks keep their exact continuation request.
 
-use ai_interface::{ConversationRole, Model, ModelRequest, read_stored_message};
+use ai_interface::{
+    ConversationMessage, ConversationRole, Model, ModelRequest, read_stored_message,
+};
 use serde_json::json;
 
 use crate::{AnthropicLegacyConverter, AnthropicModel, CLAUDE_SONNET_4_6};
@@ -88,6 +90,59 @@ async fn legacy_raw_blocks_override_portable_text_and_keep_empty_message_boundar
         assert_eq!(
             requests.lock().unwrap()[0].body.as_ref().unwrap()["messages"],
             json!([{"role": "assistant", "content": blocks}])
+        );
+    }
+}
+
+#[tokio::test]
+async fn unconverted_v1_full_message_replays_once_after_v2_round_trip() {
+    for blocks in [
+        json!([
+            {"type": "thinking", "thinking": "", "signature": "signed"},
+            {"type": "text", "text": "  "},
+            {"type": "text", "text": " before "},
+            {"type": "redacted_thinking", "data": "encrypted"},
+            {"type": "tool_use", "id": "call", "name": "lookup", "input": {"id": 7}},
+            {"type": "text", "text": "after"}
+        ]),
+        json!([{"type": "thinking", "thinking": "", "signature": "one-block"}]),
+        json!([]),
+    ] {
+        let converted = read_stored_message(json!({
+            "role": "assistant", "content": " before \nafter", "name": "participant",
+            "tool_calls": [{"id": "call", "name": "lookup", "input": {"id": 7}}],
+            "provider_context": [
+                {"type": "anthropic_assistant_message", "blocks": blocks},
+                {"type": "anthropic_assistant_message", "blocks": [{"type": "text", "text": "ignored later wrapper"}]}
+            ]
+        }), &[]).unwrap();
+        let stored = serde_json::to_value(converted).unwrap();
+        assert_eq!(stored["format_version"], 2);
+        let restored = read_stored_message(stored, &[]).unwrap();
+        let (client, requests) = client_for_buffered_bodies(vec![json!({
+            "stop_reason": "end_turn", "content": [{"type": "text", "text": "Done"}]
+        })]);
+        AnthropicModel::new(client, CLAUDE_SONNET_4_6, "key")
+            .complete(&ModelRequest {
+                system_prompt: String::new(),
+                messages: vec![
+                    ConversationMessage::user("look up 7"),
+                    restored,
+                    ConversationMessage::tool("7", "lookup", "call"),
+                ],
+                tools: Vec::new(),
+                response_schema: None,
+                controls: Default::default(),
+            })
+            .await
+            .unwrap();
+        assert_eq!(
+            requests.lock().unwrap()[0].body.as_ref().unwrap()["messages"],
+            json!([
+                {"role": "user", "content": [{"type": "text", "text": "look up 7"}]},
+                {"role": "assistant", "content": blocks},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "call", "content": "7"}]}
+            ])
         );
     }
 }

@@ -8,7 +8,7 @@ use serde_json::{Map, Value};
 
 use crate::{
     PROVIDER_ID,
-    anthropic::replay::{AnthropicAssistantBlock, AnthropicReplay, ReplayMode},
+    anthropic::replay::{AnthropicAssistantBlock, AnthropicReplay, ReplayMode, ReplayScope},
 };
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -154,7 +154,10 @@ fn empty_state() -> ProviderState {
         provider: PROVIDER_ID,
         model: String::new(),
         version: 1,
-        payload: Map::from_iter([("blocks".to_owned(), Value::Array(Vec::new()))]),
+        payload: Map::from_iter([
+            ("blocks".to_owned(), Value::Array(Vec::new())),
+            ("scope".to_owned(), Value::from(ReplayScope::Part)),
+        ]),
     }
 }
 

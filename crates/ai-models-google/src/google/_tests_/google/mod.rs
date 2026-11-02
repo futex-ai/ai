@@ -11,6 +11,7 @@ use super::GoogleModel;
 mod controls_tests;
 mod event_tests;
 mod finish_reason_tests;
+mod legacy_scope_tests;
 mod legacy_tests;
 mod lifecycle_tests;
 mod multimodal_tests;
