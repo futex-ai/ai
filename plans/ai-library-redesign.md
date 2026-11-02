@@ -458,23 +458,26 @@ Depends on: 5
 
 Make streaming the single model entry point.
 
-- [ ] Replace `complete` and `complete_with_events` on `Model` with
+- [x] Replace `complete` and `complete_with_events` on `Model` with
       `stream` and a provided `complete` fold.
-- [ ] Add the event types and the fold to `ai-interface`, beside `Model`,
+- [x] Add the event types and the fold to `ai-interface`, beside `Model`,
       so that `complete` and the agent loop share one fold.
-- [ ] Emit events directly in the Anthropic, OpenAI, and Google adapters
+- [x] Emit events directly in the Anthropic, OpenAI, and Google adapters
       and in the engine. Remove the JSON round trip.
-- [ ] Move the retry, concurrency, pricing, and fallback wrappers to
+- [x] Move the retry, concurrency, pricing, and fallback wrappers to
       stream semantics.
-- [ ] Re-run the recordings, and migrate the snapshots to events.
-- [ ] Retire `model-completion-events.md` and
+- [x] Re-run the recordings, and migrate the snapshots to events.
+- [x] Retire `model-completion-events.md` and
       `model-completion-streaming.md`.
-- [ ] Keep the current retry and fallback rules in force until Milestone 8.
+- [x] Keep the current retry and fallback rules in force until Milestone 8.
       Move them from the retired docs into `model-policies.md` as the rules
       in force, next to the target rules.
-- [ ] Update `live-model-api-tests.md`: deferred and schema calls now emit
+- [x] Update `live-model-api-tests.md`: deferred and schema calls now emit
       model events, so the live checks expect events for them.
-- [ ] Run `cargo xtask check`, then commit and push.
+- [x] Run `cargo xtask check`, then commit. Do not push for this task.
+
+Verification evidence: `.context/milestone-6/parity.md`,
+`.context/milestone-6/snapshot-review-root.md`, and `.context/milestone-6/gate.log`.
 
 ## Milestone 7: Conversation parts and provider state
 
