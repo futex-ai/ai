@@ -442,7 +442,7 @@ Put the facts of each model in one constant, and check requests against it.
       into each spec. Move the Anthropic rule of item 3 into spec data.
 - [x] Add `cargo xtask capability-matrix`, and regenerate the matrix in
       `model-capabilities.md`. Mark that doc implemented.
-- [x] Run `cargo xtask check`, then commit. Do not push in this task.
+- [x] Run `cargo xtask check`, then commit and push.
 - [ ] Run the ship steps for pull request 3.
 
 ## Milestone 6: One stream method
@@ -594,6 +594,8 @@ Finish the safety net. `AGENTS.md` already follows the shared skills since
 pull request #23.
 
 - [ ] Run every adapter through every conformance scenario.
+- [ ] Check replay for each spec that has the replay need, as
+      `model-capabilities.md` requires.
 - [ ] Update the workspace `README.md`.
 - [ ] Run `cargo xtask check`, then commit and push.
 
