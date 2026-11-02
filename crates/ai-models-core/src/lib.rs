@@ -2,6 +2,7 @@
 
 #![warn(unreachable_pub)]
 
+mod capabilities;
 mod catalog;
 mod concurrency;
 mod errors;
@@ -15,6 +16,7 @@ mod tool_call_identity;
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
 
+pub use capabilities::{ResolvedModelControls, ResolvedToolChoice, resolve_controls};
 pub use catalog::{
     CostTier, IntelligenceScore, KnownModelCatalog, KnownModelSpec, ModelFeature, ProviderKind,
     SpeedTier, ThinkingLevel, known_mock_models, resolve_catalog_thinking_level,
