@@ -1,0 +1,37 @@
+# Flash-Lite falsely advertises disabled reasoning
+
+- **Severity:** Medium. **Likelihood:** Common. **Effort:** Medium. **Confidence:** High. **Harder later:** No.
+- **Kind:** Needs decision.
+- **Added:** 2026-11-02, from branch `calummoore/redesign-3-engine-specs`, item 26 (review finding 26).
+- **Location:** `crates/ai-models-google/src/catalog.rs:82`, `crates/ai-models-google/src/google/thinking.rs:34`, `docs/protocol/model-capabilities.md` (the generated control matrix)
+- **Reason:** Every option makes a disabled request on Flash-Lite fail, and it changes the documented default effort of the model, so the user decides.
+
+- **Terms:**
+  - **Effort:** the portable reasoning level of a request: disabled, low, medium, high, extra high, or max. `docs/protocol/model-capabilities.md` says that thinking is on when the resolved effort is not disabled.
+  - **Model spec:** a `ModelSpec` constant that lists the efforts that one model supports, with one default effort.
+- **Background:**
+  - The `GEMINI_3_5_FLASH_LITE` spec lists only the disabled effort, as its default. For disabled, the Google adapter sends no `thinkingConfig`, and the response reports the effort as disabled.
+  - Google documents that Gemini 3 Flash and Flash-Lite do not support full thinking-off, that Flash-Lite defaults to the `minimal` level, and that `minimal` does not guarantee that thinking is off. Flash-Lite also supports `low`, `medium`, and `high`.
+  - Before the redesign, the same catalog entry said `ThinkingLevel::Disabled`, which then meant "send no thinking control". The README said that Flash-Lite leaves the thinking control unset, so the provider uses its minimal default. The redesign turned that preset into the portable disabled effort, which means "thinking off".
+  - A probe on 2026-11-02 sent requests with no effort, disabled, low, high, and max to Flash-Lite. Each request had no `thinkingConfig`, and each response reported disabled. The adapter still reports the provider's thought tokens as reasoning tokens.
+- **Problem:** Flash-Lite claims an off setting that it cannot apply. A caller can see reasoning tokens next to the effort disabled. A low, medium, or high request is lowered to disabled, although Google supports those levels.
+- **Impact if no action:** Callers who turn reasoning off on Flash-Lite still pay for reasoning and latency, and the response misreports the effort.
+- **Root question:** How should callers control effort on a model that cannot disable reasoning?
+- **Options:**
+  - **A.** List low, medium, and high, with low as the default, and send the native `low` level for low. This raises the default from the provider's `minimal`. Effort: Small.
+  - **B.** Add a portable `Minimal` effort, use it as the Flash-Lite default, and reject disabled. This keeps the provider minimum, but it expands the public contract. Effort: Medium.
+  - **C.** Define one Google effort mapping table that gives both the supported efforts and the wire values. Flash-Lite maps low to native `minimal`, medium to `medium`, and high to `high`, with low as the default, and rejects disabled. The table has no entry that leaves the field out, so a disabled entry needs a real off value. Add request regressions for the disabled rejection and each level, and regenerate the matrix. Effort: Medium.
+  - **D.** Separate "send no thinking control" from disabled in the contracts, as `plans/follow-ups/disabled-effort-means-off.md` describes. Flash-Lite then keeps the provider default and rejects disabled. Effort: Large.
+  - **E.** Apply the result of C as a direct fix: list low, medium, and high with low as the default, reject disabled, and add one Flash-Lite branch in the Gemini 3 mapping that sends `minimal` for low. It puts one more model fact into request code. Effort: Small.
+- **Left out:**
+  - Change nothing. It keeps the false off claim.
+  - Send `minimal` for disabled. The model can still reason, so the claim stays false.
+  - Remove the model. It breaks the rule that the redesign keeps every model.
+  - Keep disabled listed but report no effort. The check and the matrix still claim an off setting.
+- **Wider fix:** D. It removes the false off claim for every provider and for custom specs, not only for Google catalog specs.
+- **Previous examples:** `plans/follow-ups/claude-5-disabled-thinking.md` describes the same false-off result from a left-out thinking field.
+- **Related:**
+  - `plans/follow-ups/constructor-default-effort.md`, the same cause and options that interact: its option A sets disabled on migrated calls, which fails on Flash-Lite after any option here. Answer both together.
+  - `plans/follow-ups/disabled-effort-means-off.md`, the shared wider fix.
+- **Recommendation:** C. It fixes the claim without a contract change and keeps the provider minimum as the default behaviour. D best protects the codebase, but it is Large and changes the default-effort rule.
+- **Action:** ask the user, because every option rejects disabled on Flash-Lite and changes its documented default effort.
