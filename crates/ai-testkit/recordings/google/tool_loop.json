@@ -70,7 +70,7 @@
         "events": [
           {
             "event": null,
-            "data": "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Use lookup.\",\"thought\":true},{\"functionCall\":{\"args\":{\"id\":7},\"id\":\"call-lookup-7\",\"name\":\"lookup\"},\"thoughtSignature\":\"synthetic-thought-signature\"}],\"role\":\"model\"}}]}"
+            "data": "{\"candidates\":[{\"content\":{\"parts\":[{\"functionCall\":{\"args\":{\"id\":7},\"id\":\"call-lookup-7\",\"name\":\"lookup\"},\"thoughtSignature\":\"synthetic-thought-signature\"}],\"role\":\"model\"}}]}"
           },
           {
             "event": null,
@@ -103,10 +103,6 @@
               },
               {
                 "parts": [
-                  {
-                    "text": "Use lookup.",
-                    "thought": true
-                  },
                   {
                     "functionCall": {
                       "args": {

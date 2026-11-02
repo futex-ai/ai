@@ -66,7 +66,7 @@
           },
           {
             "event": "response.completed",
-            "data": "{\"response\":{\"output\":[{\"encrypted_content\":\"synthetic-encrypted-reasoning\",\"id\":\"rs_1\",\"summary\":[{\"text\":\"Use lookup.\",\"type\":\"summary_text\"}],\"type\":\"reasoning\"},{\"content\":[{\"text\":\"Checking now\",\"type\":\"output_text\"}],\"phase\":\"commentary\",\"type\":\"message\"},{\"arguments\":\"{\\\"id\\\":7}\",\"call_id\":\"call_1\",\"id\":\"fc_1\",\"name\":\"lookup\",\"type\":\"function_call\"}],\"status\":\"completed\",\"usage\":{\"input_tokens\":20,\"input_tokens_details\":{\"cached_tokens\":5},\"output_tokens\":9,\"output_tokens_details\":{\"reasoning_tokens\":4},\"total_tokens\":29}},\"type\":\"response.completed\"}"
+            "data": "{\"response\":{\"output\":[{\"encrypted_content\":\"synthetic-encrypted-reasoning\",\"id\":\"rs_1\",\"summary\":[],\"type\":\"reasoning\"},{\"content\":[{\"text\":\"Checking now\",\"type\":\"output_text\"}],\"phase\":\"commentary\",\"type\":\"message\"},{\"arguments\":\"{\\\"id\\\":7}\",\"call_id\":\"call_1\",\"id\":\"fc_1\",\"name\":\"lookup\",\"type\":\"function_call\"}],\"status\":\"completed\",\"usage\":{\"input_tokens\":20,\"input_tokens_details\":{\"cached_tokens\":5},\"output_tokens\":9,\"output_tokens_details\":{\"reasoning_tokens\":4},\"total_tokens\":29}},\"type\":\"response.completed\"}"
           }
         ],
         "end": {
@@ -95,12 +95,7 @@
               {
                 "encrypted_content": "synthetic-encrypted-reasoning",
                 "id": "rs_1",
-                "summary": [
-                  {
-                    "text": "Use lookup.",
-                    "type": "summary_text"
-                  }
-                ],
+                "summary": [],
                 "type": "reasoning"
               },
               {

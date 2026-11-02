@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's openai adapter result for tool_loop using gpt-5.6-sol synthetic recordings."
 expression: outcome
 ---
@@ -27,12 +28,6 @@ expression: outcome
           {
             "type": "openai_reasoning",
             "id": "rs_1",
-            "summary": [
-              {
-                "type": "summary_text",
-                "text": "Use lookup."
-              }
-            ],
             "encrypted_content": "synthetic-encrypted-reasoning"
           },
           {

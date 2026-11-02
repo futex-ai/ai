@@ -73,11 +73,7 @@
           },
           {
             "event": "content_block_delta",
-            "data": "{\"delta\":{\"thinking\":\"Use l\",\"type\":\"thinking_delta\"},\"index\":0,\"type\":\"content_block_delta\"}"
-          },
-          {
-            "event": "content_block_delta",
-            "data": "{\"delta\":{\"thinking\":\"ookup.\",\"type\":\"thinking_delta\"},\"index\":0,\"type\":\"content_block_delta\"}"
+            "data": "{\"delta\":{\"thinking\":\"\",\"type\":\"thinking_delta\"},\"index\":0,\"type\":\"content_block_delta\"}"
           },
           {
             "event": "content_block_delta",
@@ -143,7 +139,7 @@
                 "content": [
                   {
                     "signature": "synthetic-signature",
-                    "thinking": "Use lookup.",
+                    "thinking": "",
                     "type": "thinking"
                   },
                   {

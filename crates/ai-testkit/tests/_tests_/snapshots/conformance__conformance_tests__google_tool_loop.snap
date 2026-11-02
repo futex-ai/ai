@@ -29,10 +29,6 @@ expression: outcome
             "type": "google_assistant_message",
             "parts": [
               {
-                "text": "Use lookup.",
-                "thought": true
-              },
-              {
                 "functionCall": {
                   "id": "call-lookup-7",
                   "name": "lookup",

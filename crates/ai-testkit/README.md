@@ -45,8 +45,8 @@ Recordings live at `recordings/<provider>/<scenario>.json`.
 Each JSON file has `source`, `catalog_model_id`, and `exchanges` fields.
 `source` is `synthetic` for hand-built fixtures and `recorded` for live runs.
 The initial set contains 48 synthetic files.
-The SSE payloads follow the existing provider streaming tests, including
-fragmented text, tool arguments, reasoning, signatures, and usage.
+Each synthetic success payload follows the provider's documented response
+to the adapter's real request.
 DeepSeek and the first Qwen model reject image input before transport.
 Their image recordings therefore contain no HTTP exchanges.
 
