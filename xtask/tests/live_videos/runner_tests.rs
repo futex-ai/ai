@@ -33,11 +33,11 @@ pub(super) async fn run_catalog(provider: LiveVideoProvider) {
     );
     let mut failures = Vec::new();
     for spec in catalog {
-        println!("checking {}/{}", spec.provider, spec.id);
+        println!("checking {}", spec.text_id());
         let generator: DynVideoGenerator = provider.build(client.clone(), auth.clone(), &spec);
         match generator.generate(&probe_request()).await {
             Ok(response) => failures.extend(validation_failures(&spec, &response)),
-            Err(error) => failures.push(format!("{}: request failed: {error}", spec.id)),
+            Err(error) => failures.push(format!("{}: request failed: {error}", spec.text_id())),
         }
     }
     assert!(

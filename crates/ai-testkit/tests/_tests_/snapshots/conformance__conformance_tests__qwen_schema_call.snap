@@ -1,6 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
-description: "Today's qwen adapter result for schema_call using qwen3.7-max synthetic recordings."
+description: "Today's qwen adapter result for schema_call using qwen/qwen3.7-max synthetic recordings."
 expression: outcome
 ---
 {
@@ -10,8 +10,8 @@ expression: outcome
       "response": {
         "provider": "qwen",
         "model_id": "qwen3.7-max",
-        "catalog_model_id": "qwen3.7-max",
-        "thinking_level": "high",
+        "catalog_model_id": "qwen/qwen3.7-max",
+        "effort": "high",
         "assistant_message": "{\"ok\":true}",
         "tool_calls": [],
         "finish_reason": "Stop",

@@ -72,7 +72,7 @@ fn maps_all_finish_reasons_and_selected_model_metadata() {
             response.catalog_model_id.as_deref(),
             Some("host-kimi-routing")
         );
-        assert_eq!(response.thinking_level.as_deref(), Some("high"));
+        assert_eq!(response.effort().map(Effort::as_str), Some("high"));
     }
 }
 

@@ -1,16 +1,16 @@
 //! Provider catalogs, authentication, and production adapter construction.
 
 use std::collections::BTreeMap;
+use std::iter;
 use std::sync::Arc;
 
-use ai_interface::{DynModel, ProviderKind};
+use ai_interface::{DynModel, Effort, ModelFeature, ModelSpec, ProviderId};
 use ai_models_anthropic::AnthropicModel;
 use ai_models_compat::deepseek::DeepSeekModel;
 use ai_models_compat::kimi::KimiModel;
 use ai_models_compat::minimax::MiniMaxModel;
 use ai_models_compat::qwen::QwenModel;
 use ai_models_compat::xai::XaiModel;
-use ai_models_core::{KnownModelSpec, ModelFeature};
 use ai_models_google::GoogleModel;
 use ai_models_openai::OpenAiModel;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
@@ -33,6 +33,15 @@ pub(super) enum CompletionEventExpectation {
     Silent,
 }
 
+#[derive(Clone, Debug)]
+/// One paid catalog probe with an explicit request effort.
+pub(super) struct LiveProbe {
+    /// Provider model facts used to build the adapter.
+    pub(super) spec: ModelSpec,
+    /// Existing catalog effort selected for this probe.
+    pub(super) effort: Effort,
+}
+
 impl LiveProvider {
     pub(super) const ALL: [Self; 8] = [
         Self::Anthropic,
@@ -45,30 +54,22 @@ impl LiveProvider {
         Self::Xai,
     ];
 
-    pub(super) fn from_kind(provider: ProviderKind) -> Option<Self> {
-        match provider {
-            ProviderKind::Mock | ProviderKind::TypeSafe => None,
-            ProviderKind::Anthropic => Some(Self::Anthropic),
-            ProviderKind::DeepSeek => Some(Self::DeepSeek),
-            ProviderKind::Google => Some(Self::Google),
-            ProviderKind::Kimi => Some(Self::Kimi),
-            ProviderKind::MiniMax => Some(Self::MiniMax),
-            ProviderKind::OpenAi => Some(Self::OpenAi),
-            ProviderKind::Qwen => Some(Self::Qwen),
-            ProviderKind::Xai => Some(Self::Xai),
-        }
+    pub(super) fn from_id(provider: ProviderId) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|candidate| candidate.provider_id() == provider)
     }
 
-    pub(super) fn kind(self) -> ProviderKind {
+    pub(super) fn provider_id(self) -> ProviderId {
         match self {
-            Self::Anthropic => ProviderKind::Anthropic,
-            Self::DeepSeek => ProviderKind::DeepSeek,
-            Self::Google => ProviderKind::Google,
-            Self::Kimi => ProviderKind::Kimi,
-            Self::MiniMax => ProviderKind::MiniMax,
-            Self::OpenAi => ProviderKind::OpenAi,
-            Self::Qwen => ProviderKind::Qwen,
-            Self::Xai => ProviderKind::Xai,
+            Self::Anthropic => ai_models_anthropic::PROVIDER_ID,
+            Self::DeepSeek => ai_models_compat::deepseek::PROVIDER_ID,
+            Self::Google => ai_models_google::PROVIDER_ID,
+            Self::Kimi => ai_models_compat::kimi::PROVIDER_ID,
+            Self::MiniMax => ai_models_compat::minimax::PROVIDER_ID,
+            Self::OpenAi => ai_models_openai::PROVIDER_ID,
+            Self::Qwen => ai_models_compat::qwen::PROVIDER_ID,
+            Self::Xai => ai_models_compat::xai::PROVIDER_ID,
         }
     }
 
@@ -124,26 +125,46 @@ impl LiveProvider {
         }
     }
 
-    pub(super) fn catalog(self) -> Vec<KnownModelSpec> {
+    pub(super) fn catalog(self) -> Vec<ModelSpec> {
         match self {
-            Self::Anthropic => ai_models_anthropic::known_models(),
-            Self::DeepSeek => ai_models_compat::deepseek::known_models(),
-            Self::Google => ai_models_google::known_models(),
-            Self::Kimi => ai_models_compat::kimi::known_models(),
-            Self::MiniMax => ai_models_compat::minimax::known_models(),
-            Self::OpenAi => ai_models_openai::known_models(),
-            Self::Qwen => ai_models_compat::qwen::known_models(),
-            Self::Xai => ai_models_compat::xai::known_models(),
+            Self::Anthropic => ai_models_anthropic::CATALOG.to_vec(),
+            Self::DeepSeek => ai_models_compat::deepseek::CATALOG.to_vec(),
+            Self::Google => ai_models_google::CATALOG.to_vec(),
+            Self::Kimi => ai_models_compat::kimi::CATALOG.to_vec(),
+            Self::MiniMax => ai_models_compat::minimax::CATALOG.to_vec(),
+            Self::OpenAi => ai_models_openai::CATALOG.to_vec(),
+            Self::Qwen => ai_models_compat::qwen::CATALOG.to_vec(),
+            Self::Xai => ai_models_compat::xai::CATALOG.to_vec(),
         }
     }
 
-    pub(super) fn chat_catalog(self) -> Vec<KnownModelSpec> {
+    pub(super) fn chat_catalog(self) -> Vec<ModelSpec> {
         self.catalog()
             .into_iter()
             .filter(|model| {
                 !model.has_feature(ModelFeature::ImageGeneration)
                     && !model.has_feature(ModelFeature::Judgment)
                     && !model.has_feature(ModelFeature::VideoGeneration)
+            })
+            .collect()
+    }
+
+    /// Expands each chat spec with its default effort first.
+    pub(super) fn chat_probes(self) -> Vec<LiveProbe> {
+        self.chat_catalog()
+            .into_iter()
+            .flat_map(|spec| {
+                let default_effort = spec.default_effort;
+                iter::once(default_effort)
+                    .chain(
+                        spec.efforts
+                            .iter()
+                            .filter(move |effort| *effort != default_effort),
+                    )
+                    .map(move |effort| LiveProbe {
+                        spec: spec.clone(),
+                        effort,
+                    })
             })
             .collect()
     }
@@ -165,74 +186,33 @@ impl LiveProvider {
         self,
         client: DynJsonHttpClient,
         auth: DynJsonHttpAuth,
-        spec: &KnownModelSpec,
+        spec: &ModelSpec,
     ) -> DynModel {
         match self {
             Self::Anthropic => Arc::new(AnthropicModel::with_catalog_auth(
                 client,
-                spec.id,
-                spec.provider_model_id,
-                spec.thinking_level,
+                spec.clone(),
                 auth,
             )),
-            Self::DeepSeek => Arc::new(
-                DeepSeekModel::with_catalog_auth(
-                    client,
-                    spec.id,
-                    spec.provider_model_id,
-                    spec.thinking_level,
-                    auth,
-                )
-                .expect("DeepSeek catalog entry should be constructible"),
-            ),
-            Self::Google => Arc::new(GoogleModel::with_catalog_auth(
-                client,
-                spec.id,
-                spec.provider_model_id,
-                spec.thinking_level,
-                auth,
-            )),
-            Self::Kimi => Arc::new(
-                KimiModel::with_catalog_auth(
-                    client,
-                    spec.id,
-                    spec.provider_model_id,
-                    spec.thinking_level,
-                    auth,
-                )
-                .expect("Kimi catalog entry should be constructible"),
-            ),
-            Self::MiniMax => Arc::new(MiniMaxModel::with_catalog_auth(
-                client,
-                spec.id,
-                spec.provider_model_id,
-                spec.thinking_level,
-                auth,
-            )),
-            Self::OpenAi => Arc::new(OpenAiModel::with_catalog_auth(
-                client,
-                spec.id,
-                spec.provider_model_id,
-                spec.thinking_level,
-                auth,
-            )),
-            Self::Qwen => Arc::new(
-                QwenModel::with_catalog_auth(
-                    client,
-                    spec.id,
-                    spec.provider_model_id,
-                    spec.thinking_level,
-                    auth,
-                )
-                .expect("Qwen catalog entry should be constructible"),
-            ),
-            Self::Xai => Arc::new(XaiModel::with_catalog_auth(
-                client,
-                spec.id,
-                spec.provider_model_id,
-                spec.thinking_level,
-                auth,
-            )),
+            Self::DeepSeek => {
+                Arc::new(DeepSeekModel::with_catalog_auth(client, spec.clone(), auth))
+            }
+            Self::Google => Arc::new(GoogleModel::with_catalog_auth(client, spec.clone(), auth)),
+            Self::Kimi => Arc::new(KimiModel::with_catalog_auth(client, spec.clone(), auth)),
+            Self::MiniMax => Arc::new(MiniMaxModel::with_catalog_auth(client, spec.clone(), auth)),
+            Self::OpenAi => Arc::new(OpenAiModel::with_catalog_auth(client, spec.clone(), auth)),
+            Self::Qwen => Arc::new(QwenModel::with_catalog_auth(client, spec.clone(), auth)),
+            Self::Xai => Arc::new(XaiModel::with_catalog_auth(client, spec.clone(), auth)),
         }
     }
+}
+
+#[test]
+fn live_probe_efforts_keep_the_default_first_without_duplicate_pairs() {
+    let probes = LiveProvider::Kimi.chat_probes();
+
+    assert_eq!(
+        probes.iter().map(|probe| probe.effort).collect::<Vec<_>>(),
+        vec![Effort::Max, Effort::Low, Effort::High]
+    );
 }

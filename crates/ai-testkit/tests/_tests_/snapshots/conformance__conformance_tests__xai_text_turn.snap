@@ -1,6 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
-description: "Today's xai adapter result for text_turn using grok-4.5 synthetic recordings."
+description: "Today's xai adapter result for text_turn using xai/grok-4.5 synthetic recordings."
 expression: outcome
 ---
 {
@@ -10,8 +10,8 @@ expression: outcome
       "response": {
         "provider": "xai",
         "model_id": "grok-4.5",
-        "catalog_model_id": "grok-4.5",
-        "thinking_level": "high",
+        "catalog_model_id": "xai/grok-4.5",
+        "effort": "high",
         "assistant_message": "Done",
         "tool_calls": [],
         "finish_reason": "Stop",

@@ -25,11 +25,11 @@ async fn request_effort_overrides_default_for_each_call() {
     request.controls.generation.effort = Some(Effort::Max);
 
     let explicit = model.complete(&request).await.unwrap();
-    assert_eq!(explicit.thinking_level.as_deref(), Some("max"));
+    assert_eq!(explicit.effort().map(Effort::as_str), Some("max"));
 
     request.controls.generation.effort = None;
     let default = model.complete(&request).await.unwrap();
-    assert_eq!(default.thinking_level.as_deref(), Some("disabled"));
+    assert_eq!(default.effort().map(Effort::as_str), Some("disabled"));
 
     let requests = requests.lock().unwrap();
     assert_eq!(

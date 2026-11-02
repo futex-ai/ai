@@ -36,17 +36,35 @@ pub(crate) fn run() -> Result<()> {
     let _anthropic = AnthropicModel::new(client.clone(), CLAUDE_SONNET_5, "anthropic-key");
     let _deepseek = DeepSeekModel::new(client.clone(), "deepseek-key");
     let _google = GoogleModel::new(client.clone(), GEMINI_3_6_FLASH, "google-key");
-    let _google_image =
-        GoogleImageGenerator::new(client.clone(), GEMINI_3_1_FLASH_IMAGE, "google-key");
-    let _google_video =
-        GoogleVideoGenerator::new(client.clone(), VEO_3_1_GENERATE_PREVIEW, "google-key");
+    let _google_image = GoogleImageGenerator::new(
+        client.clone(),
+        GEMINI_3_1_FLASH_IMAGE.provider_model_id.as_ref(),
+        "google-key",
+    );
+    let _google_video = GoogleVideoGenerator::new(
+        client.clone(),
+        VEO_3_1_GENERATE_PREVIEW.provider_model_id.as_ref(),
+        "google-key",
+    );
     let _kimi = KimiModel::new(client.clone(), "kimi-key");
     let _minimax = MiniMaxModel::new(client.clone(), MINIMAX_M3, "minimax-key");
     let _openai = OpenAiModel::new(client.clone(), GPT_5_6_SOL, "openai-key");
-    let _openai_image = OpenAiImageGenerator::new(client.clone(), GPT_IMAGE_2, "openai-key");
-    let _openai_video = OpenAiVideoGenerator::new(client.clone(), SORA_2, "openai-key");
+    let _openai_image = OpenAiImageGenerator::new(
+        client.clone(),
+        GPT_IMAGE_2.provider_model_id.as_ref(),
+        "openai-key",
+    );
+    let _openai_video = OpenAiVideoGenerator::new(
+        client.clone(),
+        SORA_2.provider_model_id.as_ref(),
+        "openai-key",
+    );
     let _qwen = QwenModel::new(client.clone(), "qwen-key");
-    let _typesafe = TypeSafeJudgmentModel::new(client.clone(), JEV_LATEST, "typesafe-key");
+    let _typesafe = TypeSafeJudgmentModel::new(
+        client.clone(),
+        JEV_LATEST.provider_model_id.as_ref(),
+        "typesafe-key",
+    );
     let _xai = XaiModel::new(client, GROK_4_5, "xai-key");
     let _transcriber = OpenAiAudioTranscriber::new("gpt-4o-mini-transcribe", "openai-key");
 

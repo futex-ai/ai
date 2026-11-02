@@ -26,7 +26,7 @@ fn maps_stopped_text_and_selected_model_metadata() {
         response.catalog_model_id.as_deref(),
         Some("host-deepseek-routing")
     );
-    assert_eq!(response.thinking_level.as_deref(), Some("disabled"));
+    assert_eq!(response.effort().map(Effort::as_str), Some("disabled"));
     assert_eq!(response.assistant_message, "Done");
     assert_eq!(response.finish_reason, FinishReason::Stop);
     assert!(response.tool_calls.is_empty());

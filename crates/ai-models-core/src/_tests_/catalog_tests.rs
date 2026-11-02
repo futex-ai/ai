@@ -1,23 +1,28 @@
-use ai_interface::{ModelFeature, ProviderKind};
+//! Catalog identity, routing facts, and per-request effort resolution.
 
-use crate::{
-    IntelligenceScore, KnownModelCatalog, KnownModelSpec, ThinkingLevel, known_mock_models,
-    resolve_catalog_thinking_level,
+use ai_interface::{
+    Effort, EffortSet, MOCK_CUSTOM_DEFAULTS, ModelCatalog, ModelControl, ModelError, ModelFeature,
+    ModelRequest, ModelSpec, ProviderId,
 };
+
+use crate::{CostTier, IntelligenceScore, SpeedTier, known_mock_models, resolve_controls};
 
 #[test]
 fn mock_catalog_contains_valid_development_model() {
-    let catalog = KnownModelCatalog::new().with_models(known_mock_models());
-
+    let catalog = ModelCatalog::new().with_models(known_mock_models());
     let model = catalog
-        .find(ProviderKind::Mock, "mock")
+        .find("mock/mock")
         .expect("mock model should be present");
+    let routing = model.routing.expect("mock model should have routing tiers");
 
-    assert_eq!(model.intelligence_score.value(), 5);
+    assert_eq!(routing.intelligence.value(), 5);
     assert_eq!(model.provider_model_id, "mock");
-    assert_eq!(model.thinking_level, ThinkingLevel::Disabled);
+    assert_eq!(model.default_effort, Effort::Disabled);
     assert!(model.context_window_tokens > 0);
     assert!(model.has_feature(ModelFeature::ToolCalling));
+    assert_eq!(model.max_output_tokens, 128_000);
+    assert_eq!(routing.speed, SpeedTier::VeryFast);
+    assert_eq!(routing.cost, CostTier::Low);
 }
 
 #[test]
@@ -27,140 +32,83 @@ fn intelligence_scores_are_strongly_typed_one_to_ten() {
 }
 
 #[test]
-fn catalog_allows_distinct_variants_for_one_provider_model() {
-    let catalog = KnownModelCatalog::new().with_models([
-        KnownModelSpec {
-            provider: ProviderKind::OpenAi,
-            id: "gpt-5.5-thinking-low",
-            provider_model_id: "gpt-5.5",
-            context_window_tokens: 400_000,
-            max_output_tokens: 128_000,
-            intelligence_score: IntelligenceScore::Ten,
-            speed: crate::SpeedTier::Medium,
-            cost: crate::CostTier::Premium,
-            thinking_level: ThinkingLevel::Low,
-            features: &[ModelFeature::Reasoning],
-        },
-        KnownModelSpec {
-            provider: ProviderKind::OpenAi,
-            id: "gpt-5.5-thinking-extra-high",
-            provider_model_id: "gpt-5.5",
-            context_window_tokens: 400_000,
-            max_output_tokens: 128_000,
-            intelligence_score: IntelligenceScore::Ten,
-            speed: crate::SpeedTier::Slow,
-            cost: crate::CostTier::Premium,
-            thinking_level: ThinkingLevel::ExtraHigh,
-            features: &[ModelFeature::Reasoning],
-        },
+fn one_catalog_model_supports_distinct_request_efforts() {
+    let spec = model(
+        "model",
+        EffortSet::new(Effort::Low).with(Effort::ExtraHigh),
+        Effort::Low,
+    );
+    let catalog = ModelCatalog::new().with_models([spec]);
+    let spec = catalog.find("provider-a/model").expect("model exists");
+    let low = resolved_effort(spec, Effort::Low);
+    let extra_high = resolved_effort(spec, Effort::ExtraHigh);
+
+    assert_eq!(spec.provider_model_id, "model");
+    assert_eq!(catalog.all().len(), 1);
+    assert_ne!(low, extra_high);
+    assert_eq!(low, Ok(Effort::Low));
+    assert_eq!(extra_high, Ok(Effort::ExtraHigh));
+}
+
+#[test]
+fn efforts_have_stable_log_values() {
+    assert_eq!(Effort::Disabled.as_str(), "disabled");
+    assert_eq!(Effort::Low.as_str(), "low");
+    assert_eq!(Effort::Medium.as_str(), "medium");
+    assert_eq!(Effort::High.as_str(), "high");
+    assert_eq!(Effort::ExtraHigh.as_str(), "extra_high");
+    assert_eq!(Effort::Max.as_str(), "max");
+}
+
+#[test]
+fn resolves_to_the_highest_supported_effort_not_above_the_request() {
+    let catalog = ModelCatalog::new().with_models([
+        model(
+            "model-a",
+            EffortSet::new(Effort::Low)
+                .with(Effort::High)
+                .with(Effort::ExtraHigh),
+            Effort::High,
+        ),
+        model("model-b", EffortSet::new(Effort::High), Effort::High),
     ]);
+    let spec = catalog.find("provider-a/model-a").expect("model exists");
 
-    let low = catalog
-        .find(ProviderKind::OpenAi, "gpt-5.5-thinking-low")
-        .expect("low thinking variant should exist");
-    let extra_high = catalog
-        .find(ProviderKind::OpenAi, "gpt-5.5-thinking-extra-high")
-        .expect("extra-high thinking variant should exist");
-
-    assert_eq!(low.provider_model_id, extra_high.provider_model_id);
-    assert_ne!(low.id, extra_high.id);
-    assert_ne!(low.thinking_level, extra_high.thinking_level);
+    assert_eq!(resolved_effort(spec, Effort::Max), Ok(Effort::ExtraHigh));
+    assert_eq!(resolved_effort(spec, Effort::High), Ok(Effort::High));
+    assert_eq!(resolved_effort(spec, Effort::Medium), Ok(Effort::Low));
+    assert_eq!(
+        resolved_effort(spec, Effort::Disabled),
+        Err(ModelControl::Effort)
+    );
+    assert_eq!(catalog.find("provider-a/unknown"), None);
+    assert_eq!(catalog.find("provider-b/model-a"), None);
 }
 
-#[test]
-fn thinking_levels_have_stable_log_values() {
-    assert_eq!(ThinkingLevel::Disabled.as_str(), "disabled");
-    assert_eq!(ThinkingLevel::Low.as_str(), "low");
-    assert_eq!(ThinkingLevel::Medium.as_str(), "medium");
-    assert_eq!(ThinkingLevel::High.as_str(), "high");
-    assert_eq!(ThinkingLevel::ExtraHigh.as_str(), "extra_high");
-    assert_eq!(ThinkingLevel::Max.as_str(), "max");
+fn model(model_id: &'static str, efforts: EffortSet, default_effort: Effort) -> ModelSpec {
+    let mut spec = ModelSpec::custom(
+        ProviderId::new("provider-a"),
+        model_id,
+        &MOCK_CUSTOM_DEFAULTS,
+    );
+    spec.efforts = efforts;
+    spec.default_effort = default_effort;
+    spec
 }
 
-#[test]
-fn resolves_to_the_highest_catalog_thinking_level_not_above_the_request() {
-    let models = [
-        known_model("provider-a-low", "provider-a", ThinkingLevel::Low),
-        known_model("provider-a-high", "provider-a", ThinkingLevel::High),
-        known_model(
-            "provider-a-extra-high",
-            "provider-a",
-            ThinkingLevel::ExtraHigh,
-        ),
-        known_model("provider-b-high", "provider-b", ThinkingLevel::High),
-    ];
-
-    assert_eq!(
-        resolve_catalog_thinking_level(
-            &models,
-            ProviderKind::OpenAi,
-            "provider-a",
-            ThinkingLevel::Max,
-        ),
-        Some(ThinkingLevel::ExtraHigh)
-    );
-    assert_eq!(
-        resolve_catalog_thinking_level(
-            &models,
-            ProviderKind::OpenAi,
-            "provider-a",
-            ThinkingLevel::High,
-        ),
-        Some(ThinkingLevel::High)
-    );
-    assert_eq!(
-        resolve_catalog_thinking_level(
-            &models,
-            ProviderKind::OpenAi,
-            "provider-a",
-            ThinkingLevel::Medium,
-        ),
-        Some(ThinkingLevel::Low)
-    );
-    assert_eq!(
-        resolve_catalog_thinking_level(
-            &models,
-            ProviderKind::OpenAi,
-            "provider-a",
-            ThinkingLevel::Disabled,
-        ),
-        None
-    );
-    assert_eq!(
-        resolve_catalog_thinking_level(
-            &models,
-            ProviderKind::OpenAi,
-            "unknown",
-            ThinkingLevel::Max,
-        ),
-        None
-    );
-    assert_eq!(
-        resolve_catalog_thinking_level(
-            &models,
-            ProviderKind::Anthropic,
-            "provider-a",
-            ThinkingLevel::Max,
-        ),
-        None
-    );
-}
-
-fn known_model(
-    id: &'static str,
-    provider_model_id: &'static str,
-    thinking_level: ThinkingLevel,
-) -> KnownModelSpec {
-    KnownModelSpec {
-        provider: ProviderKind::OpenAi,
-        id,
-        provider_model_id,
-        context_window_tokens: 128_000,
-        max_output_tokens: 128_000,
-        intelligence_score: IntelligenceScore::Five,
-        speed: crate::SpeedTier::Medium,
-        cost: crate::CostTier::Medium,
-        thinking_level,
-        features: &[ModelFeature::Reasoning],
-    }
+fn resolved_effort(spec: &ModelSpec, effort: Effort) -> Result<Effort, ModelControl> {
+    let mut request = ModelRequest {
+        system_prompt: String::new(),
+        messages: Vec::new(),
+        tools: Vec::new(),
+        response_schema: None,
+        controls: Default::default(),
+    };
+    request.controls.generation.effort = Some(effort);
+    resolve_controls(&request, spec)
+        .map(|controls| controls.effort)
+        .map_err(|error| match error {
+            ModelError::UnsupportedControl { control, .. } => control,
+            other => panic!("expected unsupported effort, received {other:?}"),
+        })
 }

@@ -5,8 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use ai_interface::{DynVideoGenerator, ProviderKind};
-use ai_models_core::{KnownModelSpec, ModelFeature};
+use ai_interface::{DynVideoGenerator, ModelFeature, ModelSpec, ProviderId};
 use ai_models_google::GoogleVideoGenerator;
 use ai_models_openai::OpenAiVideoGenerator;
 use json_http::{
@@ -22,25 +21,16 @@ pub(super) enum LiveVideoProvider {
 impl LiveVideoProvider {
     pub(super) const ALL: [Self; 2] = [Self::Google, Self::OpenAi];
 
-    pub(super) fn from_kind(provider: ProviderKind) -> Option<Self> {
-        match provider {
-            ProviderKind::Google => Some(Self::Google),
-            ProviderKind::OpenAi => Some(Self::OpenAi),
-            ProviderKind::Mock
-            | ProviderKind::Anthropic
-            | ProviderKind::DeepSeek
-            | ProviderKind::Kimi
-            | ProviderKind::MiniMax
-            | ProviderKind::Qwen
-            | ProviderKind::TypeSafe
-            | ProviderKind::Xai => None,
-        }
+    pub(super) fn from_id(provider: ProviderId) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|candidate| candidate.provider_id() == provider)
     }
 
-    pub(super) fn kind(self) -> ProviderKind {
+    pub(super) fn provider_id(self) -> ProviderId {
         match self {
-            Self::Google => ProviderKind::Google,
-            Self::OpenAi => ProviderKind::OpenAi,
+            Self::Google => ai_models_google::PROVIDER_ID,
+            Self::OpenAi => ai_models_openai::PROVIDER_ID,
         }
     }
 
@@ -58,10 +48,10 @@ impl LiveVideoProvider {
         }
     }
 
-    pub(super) fn catalog(self) -> Vec<KnownModelSpec> {
+    pub(super) fn catalog(self) -> Vec<ModelSpec> {
         let catalog = match self {
-            Self::Google => ai_models_google::known_models(),
-            Self::OpenAi => ai_models_openai::known_models(),
+            Self::Google => ai_models_google::CATALOG.to_vec(),
+            Self::OpenAi => ai_models_openai::CATALOG.to_vec(),
         };
         catalog
             .into_iter()
@@ -83,17 +73,17 @@ impl LiveVideoProvider {
         self,
         client: DynJsonHttpClient,
         auth: DynJsonHttpAuth,
-        spec: &KnownModelSpec,
+        spec: &ModelSpec,
     ) -> DynVideoGenerator {
         match self {
             Self::Google => Arc::new(GoogleVideoGenerator::with_auth(
                 client,
-                spec.provider_model_id,
+                spec.provider_model_id.as_ref(),
                 auth,
             )),
             Self::OpenAi => Arc::new(OpenAiVideoGenerator::with_auth(
                 client,
-                spec.provider_model_id,
+                spec.provider_model_id.as_ref(),
                 auth,
             )),
         }
@@ -109,7 +99,7 @@ fn registry_covers_every_video_capable_provider() {
         .collect::<BTreeSet<_>>();
     let actual = LiveVideoProvider::ALL
         .iter()
-        .map(|provider| provider.kind())
+        .map(|provider| provider.provider_id())
         .collect::<BTreeSet<_>>();
 
     assert_eq!(actual, expected);
@@ -120,13 +110,13 @@ fn registered_catalogs_are_non_empty_and_constructible() {
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
     for provider in LiveVideoProvider::ALL {
         assert_eq!(
-            LiveVideoProvider::from_kind(provider.kind()),
+            LiveVideoProvider::from_id(provider.provider_id()),
             Some(provider)
         );
         let catalog = provider.catalog();
         assert!(!catalog.is_empty(), "{provider:?} video catalog is empty");
         assert!(catalog.iter().all(|model| {
-            model.provider == provider.kind()
+            model.provider == provider.provider_id()
                 && model.has_feature(ModelFeature::VideoGeneration)
                 && !model.has_feature(ModelFeature::ImageGeneration)
         }));
@@ -137,29 +127,29 @@ fn registered_catalogs_are_non_empty_and_constructible() {
     }
 
     for provider in [
-        ProviderKind::Mock,
-        ProviderKind::Anthropic,
-        ProviderKind::DeepSeek,
-        ProviderKind::Kimi,
-        ProviderKind::MiniMax,
-        ProviderKind::Qwen,
-        ProviderKind::TypeSafe,
-        ProviderKind::Xai,
+        ai_interface::MOCK_PROVIDER,
+        ai_models_anthropic::PROVIDER_ID,
+        ai_models_compat::deepseek::PROVIDER_ID,
+        ai_models_compat::kimi::PROVIDER_ID,
+        ai_models_compat::minimax::PROVIDER_ID,
+        ai_models_compat::qwen::PROVIDER_ID,
+        ai_models_typesafe::PROVIDER_ID,
+        ai_models_compat::xai::PROVIDER_ID,
     ] {
-        assert_eq!(LiveVideoProvider::from_kind(provider), None);
+        assert_eq!(LiveVideoProvider::from_id(provider), None);
     }
 }
 
-fn all_known_models() -> Vec<KnownModelSpec> {
+fn all_known_models() -> Vec<ModelSpec> {
     [
-        ai_models_anthropic::known_models(),
-        ai_models_compat::deepseek::known_models(),
-        ai_models_google::known_models(),
-        ai_models_compat::kimi::known_models(),
-        ai_models_compat::minimax::known_models(),
-        ai_models_openai::known_models(),
-        ai_models_compat::qwen::known_models(),
-        ai_models_compat::xai::known_models(),
+        ai_models_anthropic::CATALOG.to_vec(),
+        ai_models_compat::deepseek::CATALOG.to_vec(),
+        ai_models_google::CATALOG.to_vec(),
+        ai_models_compat::kimi::CATALOG.to_vec(),
+        ai_models_compat::minimax::CATALOG.to_vec(),
+        ai_models_openai::CATALOG.to_vec(),
+        ai_models_compat::qwen::CATALOG.to_vec(),
+        ai_models_compat::xai::CATALOG.to_vec(),
     ]
     .into_iter()
     .flatten()

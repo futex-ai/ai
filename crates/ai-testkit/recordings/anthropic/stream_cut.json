@@ -1,6 +1,7 @@
 {
   "source": "synthetic",
-  "catalog_model_id": "claude-sonnet-5",
+  "catalog_model_id": "anthropic/claude-sonnet-5",
+  "effort": "high",
   "exchanges": [
     {
       "request": {

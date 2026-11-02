@@ -142,7 +142,7 @@ fn assert_thinking_response(
     thinking_level: &str,
     model_id: &str,
 ) {
-    assert_eq!(response.thinking_level.as_deref(), Some(thinking_level));
+    assert_eq!(response.effort().map(Effort::as_str), Some(thinking_level));
     assert_eq!(response.model_id, model_id);
     assert_eq!(response.assistant_message, "Done");
     assert!(

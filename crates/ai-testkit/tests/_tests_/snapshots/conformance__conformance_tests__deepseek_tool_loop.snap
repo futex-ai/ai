@@ -1,6 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
-description: "Today's deepseek adapter result for tool_loop using deepseek-v4-pro synthetic recordings."
+description: "Today's deepseek adapter result for tool_loop using deepseek/deepseek-v4-pro synthetic recordings."
 expression: outcome
 ---
 {
@@ -10,8 +10,8 @@ expression: outcome
       "response": {
         "provider": "deepseek",
         "model_id": "deepseek-v4-pro",
-        "catalog_model_id": "deepseek-v4-pro",
-        "thinking_level": "high",
+        "catalog_model_id": "deepseek/deepseek-v4-pro",
+        "effort": "high",
         "assistant_message": "Checking now",
         "tool_calls": [
           {
@@ -52,8 +52,8 @@ expression: outcome
       "response": {
         "provider": "deepseek",
         "model_id": "deepseek-v4-pro",
-        "catalog_model_id": "deepseek-v4-pro",
-        "thinking_level": "high",
+        "catalog_model_id": "deepseek/deepseek-v4-pro",
+        "effort": "high",
         "assistant_message": "Done",
         "tool_calls": [],
         "finish_reason": "Stop",

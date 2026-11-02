@@ -5,8 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use ai_interface::{DynImageGenerator, ProviderKind};
-use ai_models_core::{KnownModelSpec, ModelFeature};
+use ai_interface::{DynImageGenerator, ModelFeature, ModelSpec, ProviderId};
 use ai_models_google::GoogleImageGenerator;
 use ai_models_openai::OpenAiImageGenerator;
 use json_http::{
@@ -22,25 +21,16 @@ pub(super) enum LiveImageProvider {
 impl LiveImageProvider {
     pub(super) const ALL: [Self; 2] = [Self::Google, Self::OpenAi];
 
-    pub(super) fn from_kind(provider: ProviderKind) -> Option<Self> {
-        match provider {
-            ProviderKind::Google => Some(Self::Google),
-            ProviderKind::OpenAi => Some(Self::OpenAi),
-            ProviderKind::Mock
-            | ProviderKind::Anthropic
-            | ProviderKind::DeepSeek
-            | ProviderKind::Kimi
-            | ProviderKind::MiniMax
-            | ProviderKind::Qwen
-            | ProviderKind::TypeSafe
-            | ProviderKind::Xai => None,
-        }
+    pub(super) fn from_id(provider: ProviderId) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|candidate| candidate.provider_id() == provider)
     }
 
-    pub(super) fn kind(self) -> ProviderKind {
+    pub(super) fn provider_id(self) -> ProviderId {
         match self {
-            Self::Google => ProviderKind::Google,
-            Self::OpenAi => ProviderKind::OpenAi,
+            Self::Google => ai_models_google::PROVIDER_ID,
+            Self::OpenAi => ai_models_openai::PROVIDER_ID,
         }
     }
 
@@ -58,14 +48,14 @@ impl LiveImageProvider {
         }
     }
 
-    pub(super) fn catalog(self) -> Vec<KnownModelSpec> {
+    pub(super) fn catalog(self) -> Vec<ModelSpec> {
         match self {
-            Self::Google => ai_models_google::known_models(),
-            Self::OpenAi => ai_models_openai::known_models(),
+            Self::Google => ai_models_google::CATALOG.to_vec(),
+            Self::OpenAi => ai_models_openai::CATALOG.to_vec(),
         }
     }
 
-    pub(super) fn image_catalog(self) -> Vec<KnownModelSpec> {
+    pub(super) fn image_catalog(self) -> Vec<ModelSpec> {
         filter_image_catalog(self.catalog())
     }
 
@@ -83,24 +73,24 @@ impl LiveImageProvider {
         self,
         client: DynJsonHttpClient,
         auth: DynJsonHttpAuth,
-        spec: &KnownModelSpec,
+        spec: &ModelSpec,
     ) -> DynImageGenerator {
         match self {
             Self::Google => Arc::new(GoogleImageGenerator::with_auth(
                 client,
-                spec.provider_model_id,
+                spec.provider_model_id.as_ref(),
                 auth,
             )),
             Self::OpenAi => Arc::new(OpenAiImageGenerator::with_auth(
                 client,
-                spec.provider_model_id,
+                spec.provider_model_id.as_ref(),
                 auth,
             )),
         }
     }
 }
 
-fn filter_image_catalog(catalog: Vec<KnownModelSpec>) -> Vec<KnownModelSpec> {
+fn filter_image_catalog(catalog: Vec<ModelSpec>) -> Vec<ModelSpec> {
     catalog
         .into_iter()
         .filter(|model| model.has_feature(ModelFeature::ImageGeneration))
@@ -116,7 +106,7 @@ fn registry_covers_every_image_capable_provider() {
         .collect::<BTreeSet<_>>();
     let actual = LiveImageProvider::ALL
         .iter()
-        .map(|provider| provider.kind())
+        .map(|provider| provider.provider_id())
         .collect::<BTreeSet<_>>();
 
     assert_eq!(actual, expected);
@@ -138,7 +128,7 @@ fn every_registered_provider_has_only_its_image_entries() {
         );
         assert!(
             image_catalog.iter().all(|model| {
-                model.provider == provider.kind()
+                model.provider == provider.provider_id()
                     && model.has_feature(ModelFeature::ImageGeneration)
             }),
             "{provider:?} image catalog contained an invalid entry"
@@ -184,7 +174,7 @@ fn registry_constructs_every_dynamic_image_adapter_without_network_access() {
 
     for provider in LiveImageProvider::ALL {
         assert_eq!(
-            LiveImageProvider::from_kind(provider.kind()),
+            LiveImageProvider::from_id(provider.provider_id()),
             Some(provider)
         );
         let auth = provider.auth("credential-free-construction-key".to_owned());
@@ -194,35 +184,35 @@ fn registry_constructs_every_dynamic_image_adapter_without_network_access() {
     }
 
     for provider in non_image_provider_kinds() {
-        assert_eq!(LiveImageProvider::from_kind(provider), None);
+        assert_eq!(LiveImageProvider::from_id(provider), None);
     }
 }
 
-fn all_known_models() -> Vec<ai_models_core::KnownModelSpec> {
+fn all_known_models() -> Vec<ai_interface::ModelSpec> {
     [
-        ai_models_anthropic::known_models(),
-        ai_models_compat::deepseek::known_models(),
-        ai_models_google::known_models(),
-        ai_models_compat::kimi::known_models(),
-        ai_models_compat::minimax::known_models(),
-        ai_models_openai::known_models(),
-        ai_models_compat::qwen::known_models(),
-        ai_models_compat::xai::known_models(),
+        ai_models_anthropic::CATALOG.to_vec(),
+        ai_models_compat::deepseek::CATALOG.to_vec(),
+        ai_models_google::CATALOG.to_vec(),
+        ai_models_compat::kimi::CATALOG.to_vec(),
+        ai_models_compat::minimax::CATALOG.to_vec(),
+        ai_models_openai::CATALOG.to_vec(),
+        ai_models_compat::qwen::CATALOG.to_vec(),
+        ai_models_compat::xai::CATALOG.to_vec(),
     ]
     .into_iter()
     .flatten()
     .collect()
 }
 
-fn non_image_provider_kinds() -> [ProviderKind; 8] {
+fn non_image_provider_kinds() -> [ProviderId; 8] {
     [
-        ProviderKind::Mock,
-        ProviderKind::Anthropic,
-        ProviderKind::DeepSeek,
-        ProviderKind::Kimi,
-        ProviderKind::MiniMax,
-        ProviderKind::Qwen,
-        ProviderKind::TypeSafe,
-        ProviderKind::Xai,
+        ai_interface::MOCK_PROVIDER,
+        ai_models_anthropic::PROVIDER_ID,
+        ai_models_compat::deepseek::PROVIDER_ID,
+        ai_models_compat::kimi::PROVIDER_ID,
+        ai_models_compat::minimax::PROVIDER_ID,
+        ai_models_compat::qwen::PROVIDER_ID,
+        ai_models_typesafe::PROVIDER_ID,
+        ai_models_compat::xai::PROVIDER_ID,
     ]
 }

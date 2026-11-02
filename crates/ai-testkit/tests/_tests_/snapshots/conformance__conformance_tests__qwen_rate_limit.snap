@@ -1,6 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
-description: "Today's qwen adapter result for rate_limit using qwen3.7-max synthetic recordings."
+description: "Today's qwen adapter result for rate_limit using qwen/qwen3.7-max synthetic recordings."
 expression: outcome
 ---
 {

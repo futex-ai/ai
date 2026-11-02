@@ -18,7 +18,8 @@ fn round_trips_recordings_and_reports_absent_scenarios() {
     );
     let recording = ScenarioRecording {
         source: RecordingSource::Recorded,
-        catalog_model_id: "catalog-id".to_owned(),
+        catalog_model_id: "openai/catalog-id".to_owned(),
+        effort: None,
         exchanges: vec![],
     };
     storage

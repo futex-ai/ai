@@ -3,7 +3,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use ai_interface::{
-    ConversationMessage, ConversationRole, FinishReason, Model, ModelRequest, ModelUsage,
+    ConversationMessage, ConversationRole, Effort, FinishReason, Model, ModelRequest, ModelUsage,
 };
 use json_http::{JsonHttpResponse, StaticHeaderAuth};
 use serde_json::json;
@@ -90,7 +90,7 @@ async fn builds_text_request_and_parses_stopped_response() {
         response.catalog_model_id,
         Some("minimax/MiniMax-M3".to_owned())
     );
-    assert_eq!(response.thinking_level, Some("medium".to_owned()));
+    assert_eq!(response.effort().map(Effort::as_str), Some("medium"));
     assert_eq!(response.assistant_message, "Done");
     assert_eq!(response.finish_reason, FinishReason::Stop);
     assert!(response.tool_calls.is_empty());

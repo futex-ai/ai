@@ -55,7 +55,7 @@ async fn builds_anthropic_thinking_variant_requests_and_ignores_hidden_blocks() 
         response.catalog_model_id.as_deref(),
         Some("anthropic/claude-opus-4-7")
     );
-    assert_eq!(response.thinking_level.as_deref(), Some("max"));
+    assert_eq!(response.effort().map(Effort::as_str), Some("max"));
     assert_eq!(response.model_id, "claude-opus-4-7");
     assert_eq!(response.assistant_message, "Done");
     assert!(!response.assistant_message.contains("hidden provider trace"));
@@ -89,7 +89,7 @@ async fn downgrades_max_to_sonnet_high() {
         .expect("requests lock should not be poisoned");
     let body = requests[0].body.as_ref().expect("body present");
     assert_eq!(body["output_config"]["effort"], "high");
-    assert_eq!(response.thinking_level.as_deref(), Some("high"));
+    assert_eq!(response.effort().map(Effort::as_str), Some("high"));
 }
 
 fn recording_http_client(

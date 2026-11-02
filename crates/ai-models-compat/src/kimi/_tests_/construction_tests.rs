@@ -68,7 +68,10 @@ async fn downgrades_unsupported_request_efforts() {
             .complete(&request)
             .await
             .expect("Kimi response should parse");
-        assert_eq!(response.thinking_level.as_deref(), Some(effective.as_str()));
+        assert_eq!(
+            response.effort().map(Effort::as_str),
+            Some(effective.as_str())
+        );
     }
 }
 

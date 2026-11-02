@@ -1,11 +1,20 @@
 //! xAI catalog metadata and supported-effort tests.
 
-use ai_interface::{Effort, ModelFeature};
+use ai_interface::{Effort, ModelFeature, ProviderId};
+use serde_json::json;
 
 use super::{CATALOG, PROVIDER_ID, known_models};
 
 #[test]
 fn grok_4_5_is_the_first_catalog_model() {
+    assert_eq!(PROVIDER_ID.as_str(), "xai");
+    assert_eq!(PROVIDER_ID.to_string(), "xai");
+    assert_eq!(serde_json::to_value(PROVIDER_ID).unwrap(), json!("xai"));
+    assert_eq!(
+        serde_json::from_value::<ProviderId>(json!("xai")).unwrap(),
+        PROVIDER_ID
+    );
+
     let models = known_models();
     assert_eq!(models, CATALOG);
     assert_eq!(

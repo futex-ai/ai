@@ -29,7 +29,7 @@ pub(super) async fn run_minimax_m3_required_tool_call() {
     let spec = provider
         .chat_catalog()
         .into_iter()
-        .find(|spec| spec.id == MINIMAX_M3)
+        .find(|spec| spec.provider_model_id == MINIMAX_M3.provider_model_id)
         .expect("MiniMax-M3 must remain in the live catalog");
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
     let model = RetryingModel::with_standard_transient_retry(provider.build(
@@ -62,6 +62,7 @@ pub(super) async fn run_minimax_m3_required_tool_call() {
             response_schema: None,
             controls: ModelCallControls {
                 generation: ModelGenerationControls {
+                    effort: Some(spec.default_effort),
                     tool_choice: Some(ModelToolChoice::Required),
                     ..Default::default()
                 },

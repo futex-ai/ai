@@ -1,11 +1,26 @@
 //! TypeSafe catalog contract tests.
 
-use ai_interface::{CostTier, Effort, IntelligenceScore, ModelFeature, SpeedTier};
+use ai_interface::{CostTier, Effort, IntelligenceScore, ModelFeature, ProviderId, SpeedTier};
+use serde_json::json;
 
 use super::{JEV_1_13_0, JEV_LATEST, PROVIDER_ID, known_models};
 
 #[test]
 fn catalog_exposes_exact_jev_models() {
+    assert_eq!(PROVIDER_ID.as_str(), "typesafe");
+    assert_eq!(PROVIDER_ID.to_string(), "typesafe");
+    assert_eq!(
+        serde_json::to_value(PROVIDER_ID).unwrap(),
+        json!("typesafe")
+    );
+    assert_eq!(
+        serde_json::from_value::<ProviderId>(json!("typesafe")).unwrap(),
+        PROVIDER_ID
+    );
+    let alias = serde_json::from_value::<ProviderId>(json!("type_safe")).unwrap();
+    assert_ne!(alias, PROVIDER_ID);
+    assert_eq!(alias.as_str(), "type_safe");
+
     let models = known_models();
 
     assert_eq!(

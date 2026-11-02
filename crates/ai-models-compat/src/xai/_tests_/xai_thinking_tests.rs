@@ -40,7 +40,7 @@ async fn builds_xai_thinking_variant_requests() {
     assert_eq!(body["model"], "grok-4.5");
     assert_eq!(body["reasoning_effort"], "high");
     assert_eq!(response.catalog_model_id.as_deref(), Some("xai/grok-4.5"));
-    assert_eq!(response.thinking_level.as_deref(), Some("high"));
+    assert_eq!(response.effort().map(Effort::as_str), Some("high"));
     assert_eq!(response.model_id, "grok-4.5");
 }
 
@@ -73,7 +73,7 @@ async fn downgrades_max_to_grok_high() {
         .expect("requests lock should not be poisoned");
     let body = requests[0].body.as_ref().expect("body present");
     assert_eq!(body["reasoning_effort"], "high");
-    assert_eq!(response.thinking_level.as_deref(), Some("high"));
+    assert_eq!(response.effort().map(Effort::as_str), Some("high"));
 }
 
 #[tokio::test]

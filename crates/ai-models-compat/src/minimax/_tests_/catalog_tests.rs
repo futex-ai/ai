@@ -1,11 +1,25 @@
 //! MiniMax catalog contract tests.
 
-use ai_interface::{CostTier, Effort, IntelligenceScore, ModelFeature, ModelSpec, SpeedTier};
+use ai_interface::{
+    CostTier, Effort, IntelligenceScore, ModelFeature, ModelSpec, ProviderId, SpeedTier,
+};
+use serde_json::json;
 
 use super::{PROVIDER_ID, known_models};
 
 #[test]
 fn catalog_matches_supported_minimax_models() {
+    assert_eq!(PROVIDER_ID.as_str(), "minimax");
+    assert_eq!(PROVIDER_ID.to_string(), "minimax");
+    assert_eq!(serde_json::to_value(PROVIDER_ID).unwrap(), json!("minimax"));
+    assert_eq!(
+        serde_json::from_value::<ProviderId>(json!("minimax")).unwrap(),
+        PROVIDER_ID
+    );
+    let alias = serde_json::from_value::<ProviderId>(json!("mini_max")).unwrap();
+    assert_ne!(alias, PROVIDER_ID);
+    assert_eq!(alias.as_str(), "mini_max");
+
     let models = known_models();
 
     assert_eq!(models.len(), 3);

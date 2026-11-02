@@ -9,6 +9,7 @@ mod judgment;
 mod logger;
 mod messages;
 mod mock_audio_transcriber;
+mod mock_catalog;
 mod mock_image_generator;
 mod mock_judgment_model;
 mod mock_model;
@@ -56,6 +57,7 @@ pub use messages::{
     MiniMaxReasoningDetail, OpenAiReasoningSummary, ProviderConversationItem, QwenToolCallContext,
 };
 pub use mock_audio_transcriber::MockAudioTranscriber;
+pub use mock_catalog::{MOCK_CATALOG, MOCK_CUSTOM_DEFAULTS, MOCK_MODEL};
 pub use mock_image_generator::MockImageGenerator;
 pub use mock_judgment_model::MockJudgmentModel;
 pub use mock_model::MockModel;
@@ -83,7 +85,7 @@ pub use output::{
 pub use provider_id::{MOCK_PROVIDER, ProviderId};
 pub use router::{
     DynModelRouter, ModelFeature, ModelPreference, ModelRequirement, ModelRouteRequest,
-    ModelRouteRequestBuilder, ModelRouter, ProviderKind,
+    ModelRouteRequestBuilder, ModelRouter,
 };
 pub use router_error::{ModelRouterError, ModelRouterResult};
 pub use routing_tiers::{CostTier, IntelligenceScore, RoutingTiers, SpeedTier};

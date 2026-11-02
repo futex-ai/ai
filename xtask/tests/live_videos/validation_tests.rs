@@ -1,39 +1,44 @@
 //! Normalized live-video response validation tests.
 
-use ai_interface::{GeneratedVideo, ModelUsage, ProviderKind, VideoGenerationResponse};
-use ai_models_core::{
-    CostTier, IntelligenceScore, KnownModelSpec, ModelFeature, SpeedTier, ThinkingLevel,
-};
+use std::borrow::Cow;
+
+use ai_interface::{GeneratedVideo, ModelFeature, ModelSpec, ModelUsage, VideoGenerationResponse};
 
 const VIDEO_FEATURES: &[ModelFeature] = &[ModelFeature::VideoGeneration];
 
 pub(super) fn validation_failures(
-    spec: &KnownModelSpec,
+    spec: &ModelSpec,
     response: &VideoGenerationResponse,
 ) -> Vec<String> {
     let mut failures = Vec::new();
     if response.provider != spec.provider.as_str() {
-        failures.push(format!("{}: provider identity mismatch", spec.id));
+        failures.push(format!("{}: provider identity mismatch", spec.text_id()));
     }
     if response.model_id != spec.provider_model_id {
-        failures.push(format!("{}: provider model identity mismatch", spec.id));
+        failures.push(format!(
+            "{}: provider model identity mismatch",
+            spec.text_id()
+        ));
     }
     if response.video.data.is_empty() {
-        failures.push(format!("{}: video bytes were empty", spec.id));
+        failures.push(format!("{}: video bytes were empty", spec.text_id()));
         return failures;
     }
     if response.video.mime_type != "video/mp4" {
-        failures.push(format!("{}: video MIME was not video/mp4", spec.id));
+        failures.push(format!("{}: video MIME was not video/mp4", spec.text_id()));
     }
     if response.video.data.len() < 8 || &response.video.data[4..8] != b"ftyp" {
-        failures.push(format!("{}: video did not have an MP4 signature", spec.id));
+        failures.push(format!(
+            "{}: video did not have an MP4 signature",
+            spec.text_id()
+        ));
     }
     if response.video.duration_seconds != 4
         || (response.video.width, response.video.height) != (1280, 720)
     {
         failures.push(format!(
             "{}: normalized video metadata was incorrect",
-            spec.id
+            spec.text_id()
         ));
     }
     failures
@@ -72,18 +77,10 @@ fn rejects_empty_video_bytes() {
     assert!(failures[0].contains("empty"));
 }
 
-fn video_spec() -> KnownModelSpec {
-    KnownModelSpec {
-        provider: ProviderKind::OpenAi,
-        id: "video-catalog-id",
-        provider_model_id: "sora-2",
-        context_window_tokens: 0,
-        max_output_tokens: 0,
-        intelligence_score: IntelligenceScore::Ten,
-        speed: SpeedTier::Slow,
-        cost: CostTier::Premium,
-        thinking_level: ThinkingLevel::Disabled,
-        features: VIDEO_FEATURES,
+fn video_spec() -> ModelSpec {
+    ModelSpec {
+        features: Cow::Borrowed(VIDEO_FEATURES),
+        ..ai_models_openai::SORA_2
     }
 }
 

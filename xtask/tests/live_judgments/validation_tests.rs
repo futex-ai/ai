@@ -1,19 +1,18 @@
 //! Normalized live-judgment response validation tests.
 
+use std::borrow::Cow;
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use ai_interface::{
     JudgmentAnswer, JudgmentContent, JudgmentModel, JudgmentQuestion, JudgmentRequest,
-    JudgmentResponse, MockJudgmentModel, ProviderKind,
-};
-use ai_models_core::{
-    CostTier, IntelligenceScore, KnownModelSpec, ModelFeature, SpeedTier, ThinkingLevel,
+    JudgmentResponse, MockJudgmentModel, ModelFeature, ModelSpec,
 };
 
 const JUDGMENT_FEATURES: &[ModelFeature] = &[ModelFeature::Judgment];
 
 pub(super) fn validation_failures(
-    spec: &KnownModelSpec,
+    spec: &ModelSpec,
     request: &JudgmentRequest,
     response: &JudgmentResponse,
 ) -> Vec<String> {
@@ -22,17 +21,23 @@ pub(super) fn validation_failures(
     if response.provider != "typesafe" {
         failures.push(format!(
             "{}: provider was `{}`, expected `typesafe`",
-            spec.id, response.provider
+            spec.text_id(),
+            response.provider
         ));
     }
     if response.model_id != spec.provider_model_id {
         failures.push(format!(
             "{}: provider model was `{}`, expected `{}`",
-            spec.id, response.model_id, spec.provider_model_id
+            spec.text_id(),
+            response.model_id,
+            spec.provider_model_id
         ));
     }
     if response.resolved_model_id.trim().is_empty() {
-        failures.push(format!("{}: resolved provider model was empty", spec.id));
+        failures.push(format!(
+            "{}: resolved provider model was empty",
+            spec.text_id()
+        ));
     }
 
     let expected_ids = request.questions.keys().cloned().collect::<BTreeSet<_>>();
@@ -40,15 +45,15 @@ pub(super) fn validation_failures(
     if actual_ids != expected_ids {
         failures.push(format!(
             "{}: answer ids were {actual_ids:?}, expected {expected_ids:?}",
-            spec.id
+            spec.text_id()
         ));
     }
 
     if let Err(error) = response.validate_against(request) {
-        failures.push(format!("{}: {error}", spec.id));
+        failures.push(format!("{}: {error}", spec.text_id()));
     }
     if response.usage.input_tokens == 0 {
-        failures.push(format!("{}: input token usage was zero", spec.id));
+        failures.push(format!("{}: input token usage was zero", spec.text_id()));
     }
 
     failures
@@ -158,17 +163,9 @@ async fn valid_response(request: &JudgmentRequest) -> JudgmentResponse {
     response
 }
 
-fn spec() -> KnownModelSpec {
-    KnownModelSpec {
-        provider: ProviderKind::TypeSafe,
-        id: "jev-latest",
-        provider_model_id: "jev-latest",
-        context_window_tokens: 64_000,
-        max_output_tokens: 0,
-        intelligence_score: IntelligenceScore::Five,
-        speed: SpeedTier::VeryFast,
-        cost: CostTier::Low,
-        thinking_level: ThinkingLevel::Disabled,
-        features: JUDGMENT_FEATURES,
+fn spec() -> ModelSpec {
+    ModelSpec {
+        features: Cow::Borrowed(JUDGMENT_FEATURES),
+        ..ai_models_typesafe::JEV_LATEST
     }
 }

@@ -8,9 +8,8 @@ use std::{
 
 use ai_interface::{
     DynJudgmentModel, JudgmentContent, JudgmentError, JudgmentModel, JudgmentModelMock,
-    JudgmentQuestion, JudgmentRequest, MockJudgmentModel, ProviderKind,
+    JudgmentQuestion, JudgmentRequest, MockJudgmentModel, ModelSpec,
 };
-use ai_models_core::KnownModelSpec;
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -34,7 +33,7 @@ enum ApiKeyError {
 }
 
 struct ProbeTarget {
-    spec: KnownModelSpec,
+    spec: ModelSpec,
     model: DynJudgmentModel,
 }
 
@@ -122,12 +121,12 @@ async fn run_targets(targets: Vec<ProbeTarget>) -> Vec<String> {
     failures
 }
 
-fn check_message(spec: &KnownModelSpec) -> String {
-    format!("checking {}/{}", spec.provider, spec.id)
+fn check_message(spec: &ModelSpec) -> String {
+    format!("checking {}", spec.text_id())
 }
 
-fn request_failure_message(spec: &KnownModelSpec, error: &JudgmentError) -> String {
-    format!("{}: request failed: {error}", spec.id)
+fn request_failure_message(spec: &ModelSpec, error: &JudgmentError) -> String {
+    format!("{}: request failed: {error}", spec.text_id())
 }
 
 #[test]
@@ -219,15 +218,15 @@ async fn runner_accepts_a_provider_neutral_dynamic_model() {
 
 #[test]
 fn log_messages_contain_identifiers_but_not_sensitive_values() {
-    let spec = judgment_spec(ProviderKind::TypeSafe, "catalog-id", "jev-latest");
+    let spec = judgment_spec(ai_models_typesafe::PROVIDER_ID, "jev-latest");
     let check = check_message(&spec);
     let failure = request_failure_message(
         &spec,
         &JudgmentError::provider("typesafe", "jev-latest", "rejected"),
     );
 
-    assert_eq!(check, "checking typesafe/catalog-id");
-    assert!(failure.contains("catalog-id"));
+    assert_eq!(check, "checking typesafe/jev-latest");
+    assert!(failure.contains("typesafe/jev-latest"));
     assert!(failure.contains("jev-latest"));
     assert!(!check.contains("secret-key"));
     assert!(!failure.contains("secret-key"));
@@ -271,7 +270,7 @@ async fn mock_model_with_non_zero_usage() -> DynJudgmentModel {
 
 fn target(id: &'static str, model: DynJudgmentModel) -> ProbeTarget {
     ProbeTarget {
-        spec: judgment_spec(ProviderKind::TypeSafe, id, id),
+        spec: judgment_spec(ai_models_typesafe::PROVIDER_ID, id),
         model,
     }
 }

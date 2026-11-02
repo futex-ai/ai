@@ -62,7 +62,10 @@ async fn downgrades_unsupported_request_efforts() {
             .expect("JSON request body");
 
         assert_eq!(body["enable_thinking"], enabled);
-        assert_eq!(response.thinking_level.as_deref(), Some(effective.as_str()));
+        assert_eq!(
+            response.effort().map(Effort::as_str),
+            Some(effective.as_str())
+        );
     }
 }
 
@@ -109,7 +112,7 @@ async fn default_uses_plus_high_thinking_endpoint_and_injected_auth() {
 
     assert_eq!(response.provider, "qwen");
     assert_eq!(response.model_id, "qwen3.7-plus");
-    assert_eq!(response.thinking_level.as_deref(), Some("high"));
+    assert_eq!(response.effort().map(Effort::as_str), Some("high"));
     assert_eq!(body["model"], "qwen3.7-plus");
     assert_eq!(body["enable_thinking"], true);
     assert_eq!(body["preserve_thinking"], true);

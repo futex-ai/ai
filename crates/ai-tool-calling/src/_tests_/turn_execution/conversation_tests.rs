@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationRole, FinishReason, KimiToolCallContext, Logger, LoggerMock, Model, ModelMock,
-    ModelRequest, ModelResponse, ModelUsage, OpenAiReasoningSummary, ProviderConversationItem,
-    ToolActivityLogEntry, ToolActivityPhase, ToolCall, ToolCallLogEntry, ToolCallLogResult,
+    ConversationRole, Effort, FinishReason, KimiToolCallContext, Logger, LoggerMock, Model,
+    ModelMock, ModelRequest, ModelResponse, ModelUsage, OpenAiReasoningSummary,
+    ProviderConversationItem, ToolActivityLogEntry, ToolActivityPhase, ToolCall, ToolCallLogEntry,
+    ToolCallLogResult,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
@@ -83,7 +84,7 @@ async fn provider_context_is_retained_with_assistant_tool_calls() {
                 provider: "openai".to_owned(),
                 model_id: "gpt-5.5".to_owned(),
                 catalog_model_id: None,
-                thinking_level: Some("extra_high".to_owned()),
+                thinking_level: Some(Effort::ExtraHigh),
                 assistant_message: "calling tool".to_owned(),
                 tool_calls: vec![ToolCall {
                     id: "call-1".to_owned(),
@@ -130,7 +131,7 @@ async fn kimi_reasoning_is_retained_without_becoming_visible_output() {
                 provider: "kimi".to_owned(),
                 model_id: "kimi-k3".to_owned(),
                 catalog_model_id: Some("kimi-k3".to_owned()),
-                thinking_level: Some("max".to_owned()),
+                thinking_level: Some(Effort::Max),
                 assistant_message: "calling echo".to_owned(),
                 tool_calls: vec![ToolCall {
                     id: "call-1".to_owned(),

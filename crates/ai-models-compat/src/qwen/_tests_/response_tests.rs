@@ -30,7 +30,7 @@ fn maps_text_metadata_finish_and_provider_replay() {
     assert_eq!(response.provider, "qwen");
     assert_eq!(response.model_id, QWEN_3_7_PLUS.provider_model_id.as_ref());
     assert_eq!(response.catalog_model_id.as_deref(), Some("catalog-plus"));
-    assert_eq!(response.thinking_level.as_deref(), Some("high"));
+    assert_eq!(response.effort().map(Effort::as_str), Some("high"));
     assert_eq!(response.assistant_message, "Done");
     assert_eq!(response.finish_reason, FinishReason::Stop);
     assert!(response.tool_calls.is_empty());

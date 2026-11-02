@@ -1,6 +1,7 @@
 //! Google catalog tests.
 
-use ai_interface::{Effort, ModelFeature};
+use ai_interface::{Effort, ModelFeature, ProviderId};
+use serde_json::json;
 
 use super::{
     GEMINI_3_1_FLASH_IMAGE, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH, PROVIDER_ID,
@@ -9,6 +10,14 @@ use super::{
 
 #[test]
 fn gemini_3_6_flash_is_the_first_catalog_model() {
+    assert_eq!(PROVIDER_ID.as_str(), "google");
+    assert_eq!(PROVIDER_ID.to_string(), "google");
+    assert_eq!(serde_json::to_value(PROVIDER_ID).unwrap(), json!("google"));
+    assert_eq!(
+        serde_json::from_value::<ProviderId>(json!("google")).unwrap(),
+        PROVIDER_ID
+    );
+
     let models = known_models();
 
     assert_eq!(models.first(), Some(&GEMINI_3_6_FLASH));

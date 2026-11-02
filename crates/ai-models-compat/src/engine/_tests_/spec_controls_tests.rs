@@ -34,7 +34,7 @@ async fn request_effort_and_custom_output_ceiling_reach_transport() {
     for effort in [Effort::Disabled, Effort::Max] {
         request.controls.generation.effort = Some(effort);
         let response = model.complete(&request).await.expect("completion");
-        assert_eq!(response.thinking_level.as_deref(), Some(effort.as_str()));
+        assert_eq!(response.effort().map(Effort::as_str), Some(effort.as_str()));
     }
     let requests = requests.lock().expect("requests lock");
     assert_eq!(requests.len(), 2);

@@ -1,6 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
-description: "Today's google adapter result for rate_limit using gemini-3.6-flash synthetic recordings."
+description: "Today's google adapter result for rate_limit using google/gemini-3.6-flash synthetic recordings."
 expression: outcome
 ---
 {

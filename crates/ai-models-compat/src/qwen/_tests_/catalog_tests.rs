@@ -1,11 +1,23 @@
 //! Qwen catalog metadata and supported-effort tests.
 
-use ai_interface::{CostTier, Effort, IntelligenceScore, ModelFeature, SpeedTier};
+use ai_interface::{CostTier, Effort, IntelligenceScore, ModelFeature, ProviderId, SpeedTier};
+use serde_json::json;
 
 use super::{CATALOG, PROVIDER_ID, known_models};
 
 #[test]
 fn catalog_exposes_each_stable_qwen_model_once_with_all_efforts() {
+    assert_eq!(PROVIDER_ID.as_str(), "qwen");
+    assert_eq!(PROVIDER_ID.to_string(), "qwen");
+    assert_eq!(serde_json::to_value(PROVIDER_ID).unwrap(), json!("qwen"));
+    assert_eq!(
+        serde_json::from_value::<ProviderId>(json!("qwen")).unwrap(),
+        PROVIDER_ID
+    );
+    let alias = serde_json::from_value::<ProviderId>(json!("qwencloud")).unwrap();
+    assert_ne!(alias, PROVIDER_ID);
+    assert_eq!(alias.as_str(), "qwencloud");
+
     let models = known_models();
     assert_eq!(models, CATALOG);
     assert_eq!(

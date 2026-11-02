@@ -87,7 +87,7 @@ pub(super) fn parse_response(
         provider: PROVIDER.to_owned(),
         model_id: provider_model_id.to_owned(),
         catalog_model_id: Some(catalog_model_id.to_owned()),
-        thinking_level: Some(thinking_level.as_str().to_owned()),
+        thinking_level: Some(thinking_level),
         assistant_message,
         tool_calls,
         finish_reason,

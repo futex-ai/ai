@@ -46,7 +46,7 @@ async fn builds_openai_thinking_variant_requests() {
     assert_eq!(body["tool_choice"], "auto");
     assert!(body.get("reasoning_effort").is_none());
     assert_eq!(response.catalog_model_id.as_deref(), Some("openai/gpt-5.5"));
-    assert_eq!(response.thinking_level.as_deref(), Some("extra_high"));
+    assert_eq!(response.effort().map(Effort::as_str), Some("extra_high"));
     assert_eq!(response.model_id, "gpt-5.5");
 }
 
@@ -83,7 +83,7 @@ async fn maps_openai_max_thinking_to_max_effort() {
         response.catalog_model_id.as_deref(),
         Some("openai/gpt-5.6-sol")
     );
-    assert_eq!(response.thinking_level.as_deref(), Some("max"));
+    assert_eq!(response.effort().map(Effort::as_str), Some("max"));
 }
 
 #[tokio::test]
@@ -114,7 +114,7 @@ async fn downgrades_max_to_gpt_5_5_extra_high() {
         .expect("requests lock should not be poisoned");
     let body = requests[0].body.as_ref().expect("body present");
     assert_eq!(body["reasoning"]["effort"], "xhigh");
-    assert_eq!(response.thinking_level.as_deref(), Some("extra_high"));
+    assert_eq!(response.effort().map(Effort::as_str), Some("extra_high"));
 }
 
 fn simple_request() -> ModelRequest {

@@ -45,7 +45,10 @@ async fn maps_disabled_and_enabled_thinking_controls() {
 
         assert_eq!(body["thinking"]["type"], expected_control);
         assert_eq!(body["reasoning_split"], true);
-        assert_eq!(response.thinking_level.as_deref(), Some(effective.as_str()));
+        assert_eq!(
+            response.effort().map(Effort::as_str),
+            Some(effective.as_str())
+        );
     }
 }
 

@@ -87,16 +87,23 @@ impl StreamRecorder for ProviderStreamRecorder {
             let client = Arc::new(TransportBackedJsonHttpClient::new(
                 self.transports.create(log.clone()),
             ));
-            let model =
-                self.models
-                    .build(provider, spec.id, client, provider.auth(key.to_owned()))?;
-            let result = self.runner.execute(model, scenario, &redactor).await;
+            let model = self.models.build(
+                provider,
+                &spec.text_id(),
+                client,
+                provider.auth(key.to_owned()),
+            )?;
+            let result = self
+                .runner
+                .execute(model, scenario, Some(spec.default_effort), &redactor)
+                .await;
             self.storage.write(
                 provider,
                 scenario,
                 &ScenarioRecording {
                     source: RecordingSource::Recorded,
-                    catalog_model_id: spec.id.to_owned(),
+                    catalog_model_id: spec.text_id(),
+                    effort: Some(spec.default_effort),
                     exchanges: log.snapshot(),
                 },
             )?;

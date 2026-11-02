@@ -1,6 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
-description: "Today's minimax adapter result for schema_call using MiniMax-M3 synthetic recordings."
+description: "Today's minimax adapter result for schema_call using minimax/MiniMax-M3 synthetic recordings."
 expression: outcome
 ---
 {
@@ -10,8 +10,8 @@ expression: outcome
       "response": {
         "provider": "minimax",
         "model_id": "MiniMax-M3",
-        "catalog_model_id": "MiniMax-M3",
-        "thinking_level": "medium",
+        "catalog_model_id": "minimax/MiniMax-M3",
+        "effort": "medium",
         "assistant_message": "{\"ok\":true}",
         "tool_calls": [],
         "finish_reason": "Stop",

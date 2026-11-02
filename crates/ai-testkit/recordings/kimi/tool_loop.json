@@ -1,6 +1,7 @@
 {
   "source": "synthetic",
-  "catalog_model_id": "kimi-k3",
+  "catalog_model_id": "kimi/kimi-k3",
+  "effort": "max",
   "exchanges": [
     {
       "request": {

@@ -22,7 +22,7 @@ async fn default_constructor_selects_pro_with_high_thinking() {
         response.catalog_model_id.as_deref(),
         Some("deepseek/deepseek-v4-pro")
     );
-    assert_eq!(response.thinking_level.as_deref(), Some("high"));
+    assert_eq!(response.effort().map(Effort::as_str), Some("high"));
 }
 
 #[tokio::test]
@@ -46,7 +46,7 @@ async fn accepts_every_supported_provider_and_request_effort_combination() {
                 response.catalog_model_id.as_deref(),
                 Some(spec.text_id().as_str())
             );
-            assert_eq!(response.thinking_level.as_deref(), Some(effort.as_str()));
+            assert_eq!(response.effort().map(Effort::as_str), Some(effort.as_str()));
             assert_eq!(
                 requests.lock().expect("requests lock")[0]
                     .body
@@ -101,6 +101,9 @@ async fn downgrades_unsupported_request_efforts() {
             .complete(&request)
             .await
             .expect("DeepSeek response should parse");
-        assert_eq!(response.thinking_level.as_deref(), Some(effective.as_str()));
+        assert_eq!(
+            response.effort().map(Effort::as_str),
+            Some(effective.as_str())
+        );
     }
 }

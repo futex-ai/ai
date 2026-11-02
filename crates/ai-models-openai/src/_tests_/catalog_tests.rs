@@ -1,6 +1,7 @@
 //! OpenAI catalog tests.
 
-use ai_interface::{Effort, ModelFeature};
+use ai_interface::{Effort, ModelFeature, ProviderId};
+use serde_json::json;
 
 use super::{
     GPT_5_4_MINI, GPT_5_4_NANO, GPT_5_5, GPT_5_6_LUNA, GPT_5_6_SOL, GPT_5_6_TERRA, GPT_IMAGE_2,
@@ -9,6 +10,17 @@ use super::{
 
 #[test]
 fn gpt_5_6_sol_is_the_first_catalog_model() {
+    assert_eq!(PROVIDER_ID.as_str(), "openai");
+    assert_eq!(PROVIDER_ID.to_string(), "openai");
+    assert_eq!(serde_json::to_value(PROVIDER_ID).unwrap(), json!("openai"));
+    assert_eq!(
+        serde_json::from_value::<ProviderId>(json!("openai")).unwrap(),
+        PROVIDER_ID
+    );
+    let alias = serde_json::from_value::<ProviderId>(json!("open_ai")).unwrap();
+    assert_ne!(alias, PROVIDER_ID);
+    assert_eq!(alias.as_str(), "open_ai");
+
     let models = known_models();
 
     assert_eq!(models.first(), Some(&GPT_5_6_SOL));

@@ -1,16 +1,14 @@
 //! Catalog iteration, credential handling, and probe request tests.
 
 use std::{
+    borrow::Cow,
     env,
     sync::{Arc, Mutex},
 };
 
 use ai_interface::{
     DynImageGenerator, ImageGenerationAspect, ImageGenerationError, ImageGenerationQuality,
-    ImageGenerationRequest, ImageGeneratorMock, MockImageGenerator, ProviderKind,
-};
-use ai_models_core::{
-    CostTier, IntelligenceScore, KnownModelSpec, ModelFeature, SpeedTier, ThinkingLevel,
+    ImageGenerationRequest, ImageGeneratorMock, MockImageGenerator, ModelFeature, ModelSpec,
 };
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use thiserror::Error;
@@ -33,7 +31,7 @@ enum ApiKeyError {
 }
 
 struct ProbeTarget {
-    spec: KnownModelSpec,
+    spec: ModelSpec,
     generator: DynImageGenerator,
 }
 
@@ -99,12 +97,12 @@ async fn run_targets(targets: Vec<ProbeTarget>) -> Vec<String> {
     failures
 }
 
-fn check_message(spec: &KnownModelSpec) -> String {
-    format!("checking {}/{}", spec.provider, spec.id)
+fn check_message(spec: &ModelSpec) -> String {
+    format!("checking {}", spec.text_id())
 }
 
-fn request_failure_message(spec: &KnownModelSpec, error: &ImageGenerationError) -> String {
-    format!("{}: request failed: {error}", spec.id)
+fn request_failure_message(spec: &ModelSpec, error: &ImageGenerationError) -> String {
+    format!("{}: request failed: {error}", spec.text_id())
 }
 
 #[test]
@@ -168,15 +166,15 @@ async fn runner_accepts_a_provider_neutral_dynamic_generator() {
 
 #[test]
 fn log_messages_contain_identifiers_but_not_sensitive_values() {
-    let spec = image_spec("catalog-id", "gpt-image-2");
+    let spec = image_spec("gpt-image-2");
     let check = check_message(&spec);
     let failure = request_failure_message(
         &spec,
         &ImageGenerationError::provider("openai", "gpt-image-2", "rejected"),
     );
 
-    assert_eq!(check, "checking openai/catalog-id");
-    assert!(failure.contains("catalog-id"));
+    assert_eq!(check, "checking openai/gpt-image-2");
+    assert!(failure.contains("openai/gpt-image-2"));
     assert!(!check.contains("secret-key"));
     assert!(!failure.contains("[137, 80, 78, 71"));
 }
@@ -204,37 +202,29 @@ fn recording_failure_generator(
 
 fn target(id: &'static str, generator: DynImageGenerator) -> ProbeTarget {
     ProbeTarget {
-        spec: image_spec(id, id),
+        spec: image_spec(id),
         generator,
     }
 }
 
-fn image_spec(id: &'static str, provider_model_id: &'static str) -> KnownModelSpec {
-    KnownModelSpec {
-        provider: ProviderKind::OpenAi,
-        id,
-        provider_model_id,
-        context_window_tokens: 0,
-        max_output_tokens: 0,
-        intelligence_score: IntelligenceScore::Ten,
-        speed: SpeedTier::Medium,
-        cost: CostTier::Premium,
-        thinking_level: ThinkingLevel::Disabled,
-        features: IMAGE_FEATURES,
+fn image_spec(provider_model_id: &'static str) -> ModelSpec {
+    ModelSpec {
+        features: Cow::Borrowed(IMAGE_FEATURES),
+        ..ModelSpec::custom(
+            ai_models_openai::PROVIDER_ID,
+            provider_model_id,
+            &ai_models_openai::CUSTOM_DEFAULTS,
+        )
     }
 }
 
-fn mock_spec() -> KnownModelSpec {
-    KnownModelSpec {
-        provider: ProviderKind::Mock,
-        id: "mock-image",
-        provider_model_id: "mock-image",
-        context_window_tokens: 0,
-        max_output_tokens: 0,
-        intelligence_score: IntelligenceScore::Five,
-        speed: SpeedTier::VeryFast,
-        cost: CostTier::Low,
-        thinking_level: ThinkingLevel::Disabled,
-        features: IMAGE_FEATURES,
+fn mock_spec() -> ModelSpec {
+    ModelSpec {
+        features: Cow::Borrowed(IMAGE_FEATURES),
+        ..ModelSpec::custom(
+            ai_interface::MOCK_PROVIDER,
+            "mock-image",
+            &ai_interface::MOCK_CUSTOM_DEFAULTS,
+        )
     }
 }
