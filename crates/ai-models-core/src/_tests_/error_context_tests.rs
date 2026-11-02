@@ -203,20 +203,23 @@ fn auth_diagnostics_and_provider_controlled_judgment_fields_are_safe() {
         let error = context.apply_judgment_error(JudgmentError::invalid_answer(
             "local",
             "validation",
-            "question",
+            "token",
             problem,
         ));
         assert_eq!(error.core().provider, "provider");
         assert_eq!(error.core().model_id, "model");
         assert!(!format!("{error:?}").contains("token"));
-        let JudgmentError::InvalidAnswer { problem, .. } = error else {
+        assert!(!error.to_string().contains("token"));
+        let JudgmentError::InvalidAnswer { id, problem, .. } = error else {
             panic!("typed problem lost");
         };
-        match problem {
+        assert_eq!(id, "[redacted]");
+        let label = match problem {
             JudgmentAnswerProblem::UnknownOption { label }
-            | JudgmentAnswerProblem::MissingOption { label } => assert_eq!(label, "[redacted]"),
+            | JudgmentAnswerProblem::MissingOption { label } => label,
             _ => panic!("problem kind changed"),
-        }
+        };
+        assert_eq!(label, "[redacted]");
     }
 }
 

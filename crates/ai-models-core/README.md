@@ -43,7 +43,8 @@ Each new HTTP phase starts from the response-free context.
 Late stream, provider, and output failures use the clone for that stream.
 `request_error` uses only the headers of the actual failed request.
 `apply` and `apply_model_error` keep the kind and source while sanitizing
-messages and request ids. `apply_judgment_error` also sanitizes provider-controlled answer labels.
+messages and request ids. `apply_judgment_error` also sanitizes question ids
+and provider-controlled answer labels.
 Auth-hook failures use a fixed diagnostic. They do not copy unknown hook text.
 
 The Chat Completions engine and its accumulator live in

@@ -137,8 +137,13 @@ impl ErrorContext {
         error.with_attempts(attempts)
     }
 
-    /// Finalizes judgment diagnostics and its provider-controlled typed labels.
+    /// Finalizes judgment diagnostics, question ids, and provider-controlled labels.
     pub fn apply_judgment_error(&self, mut error: JudgmentError) -> JudgmentError {
+        if let JudgmentError::InvalidQuestion { id, .. } | JudgmentError::InvalidAnswer { id, .. } =
+            &mut error
+        {
+            *id = self.redact(id);
+        }
         if let JudgmentError::InvalidAnswer {
             problem:
                 JudgmentAnswerProblem::UnknownOption { label }
