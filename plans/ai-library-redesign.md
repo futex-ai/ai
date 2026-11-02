@@ -431,18 +431,18 @@ Depends on: 4
 
 Put the facts of each model in one constant, and check requests against it.
 
-- [ ] Add `ModelSpec`, `ProviderId`, `Effort`, and the capability types to
+- [x] Add `ModelSpec`, `ProviderId`, `Effort`, and the capability types to
       `ai-interface`.
-- [ ] Convert every catalog to `ModelSpec` constants and a `CATALOG`
+- [x] Convert every catalog to `ModelSpec` constants and a `CATALOG`
       slice. Remove the thinking-variant entries.
-- [ ] Add the `provider/model` lookup and `ModelSpec::custom`.
-- [ ] Add the request effort, lowered to the spec.
-- [ ] Add the capability check for the output limit, tool choice with
+- [x] Add the `provider/model` lookup and `ModelSpec::custom`.
+- [x] Add the request effort, lowered to the spec.
+- [x] Add the capability check for the output limit, tool choice with
       thinking on, and the other controls. Carry the max output of item 2
       into each spec. Move the Anthropic rule of item 3 into spec data.
-- [ ] Add `cargo xtask capability-matrix`, and regenerate the matrix in
+- [x] Add `cargo xtask capability-matrix`, and regenerate the matrix in
       `model-capabilities.md`. Mark that doc implemented.
-- [ ] Run `cargo xtask check`, then commit and push.
+- [x] Run `cargo xtask check`, then commit. Do not push in this task.
 - [ ] Run the ship steps for pull request 3.
 
 ## Milestone 6: One stream method
