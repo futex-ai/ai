@@ -65,8 +65,7 @@ fn response_contract_failures_are_not_retryable() {
 #[test]
 fn non_parity_event_failures_are_not_retryable() {
     for event_failure in [
-        "model: synchronous completion emitted no assistant text events",
-        "model: deferred completion must not emit completion events",
+        "model: completion emitted no nonempty text delta",
         "model: emitted an empty assistant delta",
         "model: emitted an empty reasoning delta",
         "model: direct provider probe unexpectedly restarted",

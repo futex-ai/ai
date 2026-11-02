@@ -103,7 +103,9 @@ pub(super) fn completion_event_failures(
                 delta,
                 provider_state,
             } => {
-                assistant_event_count += 1;
+                if !delta.is_empty() {
+                    assistant_event_count += 1;
+                }
                 if delta.is_empty() && provider_state.is_none() {
                     failures.push(format!("{model_id}: emitted an empty assistant delta"));
                 }
@@ -130,7 +132,7 @@ pub(super) fn completion_event_failures(
     let assistant_text = assistant_parts.into_values().collect::<String>();
     if assistant_event_count == 0 {
         failures.push(format!(
-            "{model_id}: synchronous completion emitted no assistant text events"
+            "{model_id}: completion emitted no nonempty text delta"
         ));
     } else if assistant_text != assistant_message {
         failures.push(format!(

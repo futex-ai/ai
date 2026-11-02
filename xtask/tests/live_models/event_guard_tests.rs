@@ -103,11 +103,24 @@ fn assistant_event_validation_accepts_state_only_deltas() {
             ModelEventSnapshot::ReasoningDelta {
                 part_index: 1,
                 delta: String::new(),
-                provider_state: Some(state),
+                provider_state: Some(state.clone()),
             },
         ]),
     );
     assert_eq!(failures, Vec::<String>::new());
+    let state_only = validate(
+        "state-only",
+        "",
+        with_terminal(vec![ModelEventSnapshot::TextDelta {
+            part_index: 0,
+            delta: String::new(),
+            provider_state: Some(state),
+        }]),
+    );
+    assert_eq!(
+        state_only,
+        vec!["state-only: completion emitted no nonempty text delta"]
+    );
 }
 
 #[test]
@@ -120,7 +133,7 @@ fn assistant_event_validation_rejects_missing_or_mismatched_text() {
     );
     assert_eq!(
         missing,
-        vec!["missing: synchronous completion emitted no assistant text events"]
+        vec!["missing: completion emitted no nonempty text delta"]
     );
     assert_eq!(
         mismatched,
@@ -155,6 +168,7 @@ fn assistant_event_validation_rejects_empty_deltas_and_restarts() {
             "invalid-events: emitted an empty assistant delta",
             "invalid-events: emitted an empty reasoning delta",
             "invalid-events: direct provider probe unexpectedly restarted",
+            "invalid-events: completion emitted no nonempty text delta",
         ]
     );
 }
