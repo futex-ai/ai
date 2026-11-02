@@ -13,6 +13,8 @@ use unimock::{MockFn, Unimock, matching};
 
 use crate::{RetryingModel, SleeperMock};
 
+use super::retry_fixtures::{config, full_random};
+
 use super::wrapper_fixtures::{request, scripted_model, stream, success, text};
 
 #[tokio::test]
@@ -36,7 +38,8 @@ async fn retry_reopens_before_first_event_and_shares_the_delay_budget() {
                     recorded.lock().unwrap().push(delay);
                 })),
         )),
-        vec![Duration::from_millis(7), Duration::from_millis(11)],
+        full_random(),
+        config(vec![Duration::from_millis(7), Duration::from_millis(11)]),
     );
 
     let result = model.complete(&request()).await;
@@ -68,7 +71,8 @@ async fn retry_does_not_replay_interruptions_or_errors_after_a_visible_event() {
         let model = RetryingModel::new(
             scripted_model(vec![Ok(stream(items))], calls.clone()),
             Arc::new(Unimock::new(())),
-            vec![Duration::ZERO],
+            Arc::new(Unimock::new(())),
+            config(vec![Duration::ZERO]),
         );
 
         let result = model.complete(&request()).await;
@@ -96,7 +100,8 @@ async fn retry_exhaustion_returns_the_last_read_error_and_stays_terminal() {
         Arc::new(Unimock::new(
             SleeperMock::sleep.some_call(matching!(_)).returns(()),
         )),
-        vec![Duration::ZERO],
+        full_random(),
+        config(vec![Duration::ZERO]),
     );
     let mut stream = model.stream(&request()).await.unwrap();
 

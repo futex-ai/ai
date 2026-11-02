@@ -10,10 +10,11 @@ use std::{
 };
 
 use ai_interface::{
-    DynImageGenerator, GeneratedImage, ImageGenerationError, ImageGenerationRequest,
-    ImageGenerationResponse, ImageGenerator, ImageGeneratorMock, ModelUsage,
+    DynImageGenerator, ErrorCore, ErrorKind, GeneratedImage, ImageGenerationError,
+    ImageGenerationRequest, ImageGenerationResponse, ImageGenerator, ImageGeneratorMock,
+    ModelUsage,
 };
-use ai_models_core::{DynSleeper, STANDARD_TRANSIENT_RETRY_DELAYS, TokioSleeper};
+use ai_models_policy::{DynSleeper, STANDARD_TRANSIENT_RETRY_DELAYS, SleeperMock, TokioSleeper};
 use async_trait::async_trait;
 use unimock::{MockFn, Unimock, matching};
 
@@ -60,10 +61,12 @@ impl ImageGenerator for RetryingImageGenerator {
 
         loop {
             match self.inner.generate(request).await {
-                Err(
-                    ImageGenerationError::RateLimited { .. }
-                    | ImageGenerationError::TransientProvider { .. },
-                ) if retry_index < self.retry_delays.len() => {
+                Err(error)
+                    if matches!(
+                        error.core().kind,
+                        ErrorKind::RateLimited | ErrorKind::Transient
+                    ) && retry_index < self.retry_delays.len() =>
+                {
                     let delay = self.retry_delays[retry_index];
                     retry_index += 1;
                     self.sleeper.sleep(delay).await;
@@ -80,21 +83,27 @@ async fn retries_only_rate_limits_and_transient_provider_failures() {
     let retrying = RetryingImageGenerator::new(
         scripted_generator(
             vec![
-                Err(ImageGenerationError::rate_limited(
+                Err(ImageGenerationError::new(ErrorCore::new(
+                    ErrorKind::RateLimited,
                     "openai",
                     "gpt-image-2",
                     "retry one",
-                )),
-                Err(ImageGenerationError::transient_provider(
+                ))),
+                Err(ImageGenerationError::new(ErrorCore::new(
+                    ErrorKind::Transient,
                     "openai",
                     "gpt-image-2",
                     "retry two",
-                )),
+                ))),
                 Ok(success_response()),
             ],
             calls.clone(),
         ),
-        Arc::new(TokioSleeper),
+        Arc::new(Unimock::new(
+            SleeperMock::sleep
+                .each_call(matching!(&Duration::ZERO))
+                .returns(()),
+        )),
         vec![Duration::ZERO, Duration::ZERO],
     );
 
@@ -114,7 +123,11 @@ async fn returns_the_last_retryable_error_after_three_attempts() {
             vec![transient("one"), transient("two"), transient("three")],
             calls.clone(),
         ),
-        Arc::new(TokioSleeper),
+        Arc::new(Unimock::new(
+            SleeperMock::sleep
+                .each_call(matching!(&Duration::ZERO))
+                .returns(()),
+        )),
         vec![Duration::ZERO, Duration::ZERO],
     );
 
@@ -123,29 +136,31 @@ async fn returns_the_last_retryable_error_after_three_attempts() {
         .await
         .expect_err("third transient failure should be returned");
 
-    assert!(matches!(
-        error,
-        ImageGenerationError::TransientProvider { .. }
-    ));
+    assert_eq!(error.core().kind, ErrorKind::Transient);
     assert_eq!(calls.load(Ordering::SeqCst), 3);
 }
 
 #[tokio::test]
 async fn terminal_error_classes_stop_after_one_attempt() {
     let errors = vec![
-        ImageGenerationError::EmptyPrompt,
-        ImageGenerationError::unsupported_media_type("image/gif"),
+        ImageGenerationError::empty_prompt("openai", "gpt-image-2"),
+        ImageGenerationError::unsupported_media_type("openai", "gpt-image-2", "image/gif"),
         ImageGenerationError::content_policy("openai", "gpt-image-2", "blocked"),
         ImageGenerationError::no_image("openai", "gpt-image-2"),
-        ImageGenerationError::provider("openai", "gpt-image-2", "rejected"),
-        ImageGenerationError::internal(std::io::Error::other("internal")),
+        ImageGenerationError::new(ErrorCore::new(
+            ErrorKind::InvalidRequest,
+            "openai",
+            "gpt-image-2",
+            "rejected",
+        )),
+        ImageGenerationError::internal("openai", "gpt-image-2", std::io::Error::other("internal")),
     ];
 
     for error in errors {
         let calls = Arc::new(AtomicUsize::new(0));
         let retrying = RetryingImageGenerator::new(
             scripted_generator(vec![Err(error)], calls.clone()),
-            Arc::new(TokioSleeper),
+            Arc::new(Unimock::new(())),
             vec![Duration::ZERO, Duration::ZERO],
         );
 
@@ -188,11 +203,12 @@ fn scripted_generator(
 }
 
 fn transient(message: &str) -> Result<ImageGenerationResponse, ImageGenerationError> {
-    Err(ImageGenerationError::transient_provider(
+    Err(ImageGenerationError::new(ErrorCore::new(
+        ErrorKind::Transient,
         "openai",
         "gpt-image-2",
         message,
-    ))
+    )))
 }
 
 fn probe_request() -> ImageGenerationRequest {

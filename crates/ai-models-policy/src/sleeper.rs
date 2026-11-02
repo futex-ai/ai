@@ -7,7 +7,7 @@ use async_trait::async_trait;
 /// Shared dynamic sleeper alias.
 pub type DynSleeper = Arc<dyn Sleeper>;
 
-#[cfg_attr(any(test, doctest), unimock::unimock(api = SleeperMock))]
+#[cfg_attr(any(test, feature = "test-support"), unimock::unimock(api = SleeperMock))]
 #[async_trait]
 /// Async sleep boundary used by retrying wrappers.
 pub trait Sleeper: Send + Sync {

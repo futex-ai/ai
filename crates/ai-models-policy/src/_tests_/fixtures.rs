@@ -30,7 +30,10 @@ pub(super) fn observe(event: &ModelEvent) -> Observed {
         ModelEvent::ReasoningDelta {
             part_index, delta, ..
         } => Observed::Reasoning(*part_index, delta.clone()),
-        ModelEvent::Fallback { error } => Observed::Fallback(ModelAttempt::from(error)),
+        ModelEvent::Fallback {
+            error,
+            emitted_events,
+        } => Observed::Fallback(error.attempt(*emitted_events)),
         ModelEvent::Usage { usage } => Observed::Usage(usage.clone()),
         ModelEvent::Finish {
             finish_reason,

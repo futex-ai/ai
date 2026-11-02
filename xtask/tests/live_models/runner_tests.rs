@@ -7,7 +7,7 @@ use ai_interface::{
     ModelExecutionControls, ModelGenerationControls, ModelResponse, ModelSpec, ModelToolChoice,
     NoopLogger,
 };
-use ai_models_core::RetryingModel;
+use ai_models_policy::RetryingModel;
 use ai_testkit::event_snapshot::ModelEventSnapshot;
 use ai_tool_calling::{
     InMemoryToolOutputStore, ModelResponseCheckpoint, NoopTurnCheckpoint, StepOutcome,
@@ -47,9 +47,11 @@ async fn run_catalog(provider: LiveProvider) {
     for probe in &catalog {
         let spec = &probe.spec;
         println!("checking {} at {}", spec.text_id(), probe.effort.as_str());
-        let model: DynModel = Arc::new(RetryingModel::with_standard_transient_retry(
-            provider.build(client.clone(), auth.clone(), spec),
-        ));
+        let model: DynModel = Arc::new(RetryingModel::with_standard_retry(provider.build(
+            client.clone(),
+            auth.clone(),
+            spec,
+        )));
         failures.extend(
             run_probe_with_marker_retry(
                 provider,
@@ -80,9 +82,11 @@ async fn run_synchronous_stream_probe(provider: LiveProvider) {
         .expect("live provider chat catalog must not be empty");
     let spec = &probe.spec;
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
-    let model: DynModel = Arc::new(RetryingModel::with_standard_transient_retry(
-        provider.build(client, provider.auth(api_key), spec),
-    ));
+    let model: DynModel = Arc::new(RetryingModel::with_standard_retry(provider.build(
+        client,
+        provider.auth(api_key),
+        spec,
+    )));
     let failures = run_probe_with_marker_retry(
         provider,
         spec,

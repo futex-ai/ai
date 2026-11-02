@@ -58,7 +58,7 @@ impl ModelEventStream for EventObservingStream {
                     Ok(snapshot) => snapshot,
                     Err(source) => {
                         self.inner = None;
-                        return Err(ModelError::internal(source));
+                        return Err(ModelError::internal("local", "live-event-observer", source));
                     }
                 };
                 self.events

@@ -38,6 +38,8 @@ impl SmokePaginationModel {
             .any(|definition| definition.name == "tool_output_read")
         {
             return Err(ai_interface::ModelError::internal(
+                "smoke",
+                "smoke-model",
                 SmokeModelError::MissingReaderDefinition,
             ));
         }
@@ -51,6 +53,8 @@ impl SmokePaginationModel {
             1 | 2 => self.next_read_response(request, step),
             3 => self.stop_after_final_window(request),
             _ => Err(ai_interface::ModelError::internal(
+                "smoke",
+                "smoke-model",
                 SmokeModelError::UnexpectedModelStep { step },
             )),
         }
@@ -66,11 +70,15 @@ impl SmokePaginationModel {
         let window = last_tool_window(request)?;
         let Some(output_id) = window.output_id().cloned() else {
             return Err(ai_interface::ModelError::internal(
+                "smoke",
+                "smoke-model",
                 SmokeModelError::MissingWindowOutputId,
             ));
         };
         let Some(next_offset) = window.next_offset() else {
             return Err(ai_interface::ModelError::internal(
+                "smoke",
+                "smoke-model",
                 SmokeModelError::MissingNextOffset { step },
             ));
         };
@@ -91,6 +99,8 @@ impl SmokePaginationModel {
         let window = last_tool_window(request)?;
         if window.truncated() {
             return Err(ai_interface::ModelError::internal(
+                "smoke",
+                "smoke-model",
                 SmokeModelError::UnexpectedTruncatedFinalWindow,
             ));
         }
@@ -150,6 +160,8 @@ fn last_tool_window(request: &ModelRequest) -> ModelResult<ai_interface::ToolOut
         .find(|message| message.role == ConversationRole::Tool)
     else {
         return Err(ai_interface::ModelError::internal(
+            "smoke",
+            "smoke-model",
             SmokeModelError::MissingToolWindow,
         ));
     };
@@ -157,6 +169,8 @@ fn last_tool_window(request: &ModelRequest) -> ModelResult<ai_interface::ToolOut
         Ok(envelope) => envelope,
         Err(source) => {
             return Err(ai_interface::ModelError::internal(
+                "smoke",
+                "smoke-model",
                 SmokeModelError::InvalidEnvelope { source },
             ));
         }
@@ -164,6 +178,8 @@ fn last_tool_window(request: &ModelRequest) -> ModelResult<ai_interface::ToolOut
     match envelope {
         ToolOutputEnvelope::Window(window) => Ok(window),
         ToolOutputEnvelope::Inline(_) => Err(ai_interface::ModelError::internal(
+            "smoke",
+            "smoke-model",
             SmokeModelError::UnexpectedInlineEnvelope,
         )),
     }

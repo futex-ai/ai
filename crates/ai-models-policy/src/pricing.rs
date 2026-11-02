@@ -162,11 +162,3 @@ fn cost_usd_micros(quantity: u64, price_usd_micros_per_million: u64) -> u64 {
     let rounded = (product + 500_000) / 1_000_000;
     rounded.try_into().unwrap_or(u64::MAX)
 }
-
-#[cfg(test)]
-#[path = "_tests_/pricing_tests.rs"]
-mod pricing_tests;
-
-#[cfg(test)]
-#[path = "_tests_/pricing_event_tests.rs"]
-mod pricing_event_tests;

@@ -15,6 +15,8 @@ use unimock::{MockFn, Unimock, matching};
 
 use crate::{RetryingModel, Sleeper, SleeperMock};
 
+use super::retry_fixtures::{config, full_random};
+
 #[tokio::test]
 async fn retries_transient_failures_using_the_configured_schedule() {
     let sleeps = Arc::new(Mutex::new(Vec::new()));
@@ -25,7 +27,8 @@ async fn retries_transient_failures_using_the_configured_schedule() {
             Ok(success_response()),
         ]),
         recording_sleeper(sleeps.clone()),
-        vec![Duration::from_millis(100), Duration::from_millis(250)],
+        full_random(),
+        config(vec![Duration::from_millis(100), Duration::from_millis(250)]),
     );
 
     let response = retrying
@@ -49,7 +52,8 @@ async fn returns_the_last_transient_error_after_exhausting_retries() {
             Err(ModelError::transient("openai", "gpt-5.5", "retry 3")),
         ]),
         recording_sleeper(Arc::new(Mutex::new(Vec::new()))),
-        vec![Duration::from_millis(100), Duration::from_millis(250)],
+        full_random(),
+        config(vec![Duration::from_millis(100), Duration::from_millis(250)]),
     );
 
     let error = retrying
@@ -69,7 +73,8 @@ async fn does_not_retry_an_interrupted_generation() {
             "stream ended after output",
         ))]),
         Arc::new(Unimock::new(())),
-        vec![Duration::from_millis(100), Duration::from_millis(250)],
+        Arc::new(Unimock::new(())),
+        config(vec![Duration::from_millis(100), Duration::from_millis(250)]),
     );
 
     let error = retrying
@@ -93,7 +98,12 @@ async fn forwards_call_controls_unchanged() {
                 Ok(model_response_stream(success_response()))
             }),
     ));
-    let retrying = RetryingModel::new(model, Arc::new(Unimock::new(())), Vec::new());
+    let retrying = RetryingModel::new(
+        model,
+        Arc::new(Unimock::new(())),
+        Arc::new(Unimock::new(())),
+        config(Vec::new()),
+    );
     let mut request = empty_request();
     request.controls.generation = ModelGenerationControls {
         tool_choice: Some(ModelToolChoice::RequiredOrAuto),

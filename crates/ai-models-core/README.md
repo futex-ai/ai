@@ -1,13 +1,12 @@
 # ai-models-core
 
-`ai-models-core` contains reusable runtime wrappers and provider-agnostic helpers for `ai-interface` model implementations. Depend on it when you are building model providers or composing model execution policy without pulling in application-specific config or credential logic.
+`ai-models-core` contains provider-agnostic helpers for `ai-interface`
+model implementations. Depend on it when you build a provider adapter.
+Composition roots use [`ai-models-policy`](../ai-models-policy/README.md)
+for retry, fallback, concurrency, and usage pricing.
 
 ## Responsibilities
 
-- Provide reusable wrappers around `Arc<dyn ai_interface::Model>`
-- Keep the event order of the model stream through the retry, concurrency,
-  and usage-pricing wrappers
-- Keep retry, sleeping, and concurrency policy out of vendor crates
 - Provide an injectable monotonic clock and async sleep boundary for provider
   operations that must poll within a total deadline
 - Offer a boundary-neutral HTTP failure classifier and provider-agnostic
@@ -15,13 +14,9 @@
 - Classify stream failures by provider-event progress
 - Resolve every portable request control against its `ModelSpec` before
   transport, with one capability check that every chat adapter shares
-- Provide provider-agnostic model usage pricing wrappers and integer cost
-  calculation
 
 ## What This Crate Does
 
-`ai-models-core` exposes wrappers such as `RetryingModel` and
-`ConcurrencyLimitedModel` for composition around provider clients.
 `classify_http_status` returns the precise shared `ErrorKind` for a failed
 HTTP status, and `None` below 400. `json_http_error_core` adds the HTTP 400
 context-limit override and response metadata for every modality.
@@ -91,26 +86,6 @@ with its part position and its opaque payload, and every part in order when
 a message does not have the old layout. Retained provider conversations
 therefore remain distinct during deterministic id generation.
 
-Each wrapper is a `Model` whose stream forwards the events of the inner
-stream in order. `UsagePricingModel` wraps any `ai_interface::Model` and
-applies a deployment provided `ModelPricing` snapshot to the normalized usage
-categories of the `Usage` event. It writes `ModelUsageCostLine` values and
-sums known line costs in micro-USD; provider crates keep parsing usage
-quantities but do not own mutable price tables. It forwards every other
-event unchanged, so `complete` returns the priced usage.
-
-The default retry schedule preserved by this crate is `100ms` then `250ms` for
-transient model failures. `RetryingModel` retries only
-`ErrorKind::Transient`. It opens the inner stream again when the
-open fails with that error, or when the stream fails with it before the
-stream returned its first event. After the first event it passes every
-error on, so a consumer never sees an event of a retried attempt.
-`RetryingModel` never retries `ErrorKind::Interrupted`, because a repeated
-generation can duplicate provider work and billing.
-
-`ConcurrencyLimitedModel` holds its permit from the call of `stream` until
-its stream returns `None`, returns an error, or is dropped.
-
 Long-running provider adapters can use `PollingRuntime` to couple monotonic
 deadline measurement with async sleeping behind one testable trait. Production
 code uses `TokioPollingRuntime`; deterministic provider tests enable the
@@ -119,22 +94,10 @@ code uses `TokioPollingRuntime`; deterministic provider tests enable the
 ## Quick Start
 
 ```rust
-use std::sync::Arc;
-
 use ai_interface::{
-    ConversationMessage, DynModel, Effort, MOCK_MODEL, MockModel, ModelRequest, ModelResult,
+    ConversationMessage, Effort, MOCK_MODEL, ModelRequest, ModelResult,
 };
-use ai_models_core::{
-    ConcurrencyLimitedModel, ModelPricing, ResolvedModelControls, RetryingModel,
-    UsagePricingModel, resolve_controls,
-};
-
-fn wrap_model() -> DynModel {
-    let base: DynModel = Arc::new(MockModel::new("mock"));
-    let retried: DynModel = Arc::new(RetryingModel::with_standard_transient_retry(base));
-    let limited: DynModel = Arc::new(ConcurrencyLimitedModel::new(retried, "mock", 1));
-    Arc::new(UsagePricingModel::new(limited, ModelPricing::free("mock")))
-}
+use ai_models_core::{ResolvedModelControls, resolve_controls};
 
 fn resolve_mock_controls() -> ModelResult<ResolvedModelControls> {
     let mut request = ModelRequest {
@@ -166,11 +129,6 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
   `ResolvedToolChoice`: the shared capability check before transport
 - `src/catalog.rs` - `known_mock_models()`, which copies the mock catalog of
   `ai-interface`
-- `src/retrying.rs` - transient retry wrapper on the stream and its retry
-  schedule
-- `src/concurrency.rs` - per-model concurrency limiter that holds a permit for
-  the life of a stream
-- `src/pricing.rs` - usage-event pricing wrapper and integer cost calculator
 - `src/http_status.rs` - boundary-neutral HTTP failure classification
 - `src/errors.rs` - provider-agnostic HTTP and provider-stream failure mapping
 - `src/error_context.rs` and `src/capturing_auth.rs` - per-call error
@@ -181,7 +139,6 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - `src/tool_call_identity/` - deterministic synthetic tool-call ids, and
   hashing of the portable message projection, ordered parts, and opaque
   provider state
-- `src/sleeper.rs` - abstract sleeper boundary for retry testing
 - `src/test_support.rs` - behind `test-support`: in-memory Chat Completions
   SSE fixtures, and `collect_model_events`, which records the events of a
   model stream as JSON and folds them, keeping the events before a failure
@@ -191,6 +148,7 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 ### Related Docs
 
 - [`../ai-interface/README.md`](../ai-interface/README.md)
+- [`../ai-models-policy/README.md`](../ai-models-policy/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../../docs/architecture.md`](../../docs/architecture.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)

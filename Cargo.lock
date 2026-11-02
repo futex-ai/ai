@@ -147,17 +147,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-models-multi"
-version = "0.3.0"
-dependencies = [
- "ai-interface",
- "async-trait",
- "thiserror",
- "tokio",
- "unimock",
-]
-
-[[package]]
 name = "ai-models-openai"
 version = "0.3.0"
 dependencies = [
@@ -169,6 +158,19 @@ dependencies = [
  "json-http",
  "reqwest",
  "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "unimock",
+]
+
+[[package]]
+name = "ai-models-policy"
+version = "0.3.0"
+dependencies = [
+ "ai-interface",
+ "async-trait",
+ "rand",
  "serde_json",
  "thiserror",
  "tokio",
@@ -2779,6 +2781,7 @@ dependencies = [
  "ai-models-core",
  "ai-models-google",
  "ai-models-openai",
+ "ai-models-policy",
  "ai-models-typesafe",
  "ai-testkit",
  "ai-tool-calling",

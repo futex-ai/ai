@@ -7,7 +7,7 @@ use ai_interface::{
     ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
 };
 use ai_models_compat::minimax::MINIMAX_M3;
-use ai_models_core::RetryingModel;
+use ai_models_policy::RetryingModel;
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use serde_json::json;
 
@@ -32,11 +32,8 @@ pub(super) async fn run_minimax_m3_required_tool_call() {
         .find(|spec| spec.provider_model_id == MINIMAX_M3.provider_model_id)
         .expect("MiniMax-M3 must remain in the live catalog");
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
-    let model = RetryingModel::with_standard_transient_retry(provider.build(
-        client,
-        provider.auth(api_key),
-        &spec,
-    ));
+    let model =
+        RetryingModel::with_standard_retry(provider.build(client, provider.auth(api_key), &spec));
     let response = model
         .complete(&ModelRequest {
             system_prompt: "Use the provided tool for this connectivity check.".to_owned(),

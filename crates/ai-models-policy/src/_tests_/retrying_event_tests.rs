@@ -12,7 +12,9 @@ use ai_interface::{ErrorKind, ModelError, ModelRequest};
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
-use crate::{RetryingModel, SleeperMock, test_support::collect_model_events};
+use crate::{RetryingModel, SleeperMock, tests::event_collector::collect_model_events};
+
+use super::retry_fixtures::{config, full_random};
 
 use super::wrapper_fixtures::{scripted_model, stream, success, text};
 
@@ -30,7 +32,8 @@ async fn transient_retry_emits_only_the_successful_attempt_events() {
         Arc::new(Unimock::new(
             SleeperMock::sleep.next_call(matching!(_)).returns(()),
         )),
-        vec![Duration::ZERO],
+        full_random(),
+        config(vec![Duration::ZERO]),
     );
     let (response, events) = collect_model_events(&model, &empty_request()).await;
     let response = response.expect("second attempt should succeed");
@@ -52,7 +55,8 @@ async fn interrupted_event_attempt_is_not_retried() {
             calls.clone(),
         ),
         Arc::new(Unimock::new(())),
-        Vec::new(),
+        Arc::new(Unimock::new(())),
+        config(Vec::new()),
     );
     let (result, events) = collect_model_events(&model, &empty_request()).await;
     let error = result.expect_err("interruption should be returned immediately");

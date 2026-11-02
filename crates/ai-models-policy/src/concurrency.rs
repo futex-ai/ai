@@ -11,7 +11,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 #[derive(Debug, Error)]
 enum Error {
-    #[error("[ai_models_core/concurrency] concurrency limiter closed for model `{model_id}`")]
+    #[error("[ai_models_policy/concurrency] concurrency limiter closed for model `{model_id}`")]
     ConcurrencyLimiterClosed { model_id: String },
 }
 
@@ -80,7 +80,3 @@ impl ModelEventStream for ConcurrencyStream {
         result
     }
 }
-
-#[cfg(test)]
-#[path = "_tests_/concurrency_event_tests.rs"]
-mod concurrency_event_tests;

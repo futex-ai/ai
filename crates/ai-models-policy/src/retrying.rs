@@ -1,6 +1,6 @@
-//! Transient retry wrapper for model implementations.
+//! Retry of eligible failures before the first model event.
 
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use ai_interface::{
     DynModelEventStream, ErrorKind, Model, ModelError, ModelEvent, ModelEventStream, ModelRequest,
@@ -8,36 +8,41 @@ use ai_interface::{
 };
 use async_trait::async_trait;
 
-use crate::{DynSleeper, TokioSleeper};
-
-/// Default transient retry schedule: `100ms`, then `250ms`.
-pub const STANDARD_TRANSIENT_RETRY_DELAYS: [Duration; 2] =
-    [Duration::from_millis(100), Duration::from_millis(250)];
+use crate::{DynRetryRandom, DynSleeper, RetryConfig, SystemRetryRandom, TokioSleeper};
 
 #[derive(Clone)]
-/// Wrapper that retries transient model failures before returning the last error.
+/// Retries rate limits and transient failures before any model event.
+/// Never repeats a composed model after earlier interruption or emitted events.
 pub struct RetryingModel {
     inner: Arc<dyn Model>,
     sleeper: DynSleeper,
-    retry_delays: Vec<Duration>,
+    config: RetryConfig,
+    random: DynRetryRandom,
 }
 
 impl RetryingModel {
-    /// Builds a retrying wrapper with the provided sleeper and delay schedule.
-    pub fn new(inner: Arc<dyn Model>, sleeper: DynSleeper, retry_delays: Vec<Duration>) -> Self {
+    /// Builds a retry layer with injected sleeping, randomness, and bounds.
+    pub fn new(
+        inner: Arc<dyn Model>,
+        sleeper: DynSleeper,
+        random: DynRetryRandom,
+        config: RetryConfig,
+    ) -> Self {
         Self {
             inner,
             sleeper,
-            retry_delays,
+            config,
+            random,
         }
     }
 
-    /// Builds a retrying wrapper that preserves the standard transient schedule.
-    pub fn with_standard_transient_retry(inner: Arc<dyn Model>) -> Self {
+    /// Uses standard retry bounds, Tokio sleeping, and system randomness.
+    pub fn with_standard_retry(inner: Arc<dyn Model>) -> Self {
         Self::new(
             inner,
             Arc::new(TokioSleeper),
-            STANDARD_TRANSIENT_RETRY_DELAYS.to_vec(),
+            Arc::new(SystemRetryRandom),
+            RetryConfig::default(),
         )
     }
 }
@@ -48,7 +53,8 @@ impl Model for RetryingModel {
         let mut stream = RetryStream {
             inner: self.inner.clone(),
             sleeper: self.sleeper.clone(),
-            retry_delays: self.retry_delays.clone(),
+            config: self.config.clone(),
+            random: self.random.clone(),
             retry_index: 0,
             request: request.clone(),
             stream: None,
@@ -63,7 +69,8 @@ impl Model for RetryingModel {
 struct RetryStream {
     inner: Arc<dyn Model>,
     sleeper: DynSleeper,
-    retry_delays: Vec<Duration>,
+    config: RetryConfig,
+    random: DynRetryRandom,
     retry_index: usize,
     request: ModelRequest,
     stream: Option<DynModelEventStream>,
@@ -88,15 +95,29 @@ impl RetryStream {
         }
     }
 
+    /// Earlier leaves can report progress before the composite opens its stream.
     async fn wait_for_retry(&mut self, error: &ModelError) -> bool {
-        if self.emitted_event || error.core().kind != ErrorKind::Transient {
+        let core = error.core();
+        if self.emitted_event
+            || error
+                .attempts()
+                .iter()
+                .any(|attempt| attempt.kind == ErrorKind::Interrupted || attempt.emitted_events)
+            || !matches!(core.kind, ErrorKind::RateLimited | ErrorKind::Transient)
+            || self.retry_index >= self.config.max_attempts.get() - 1
+            || core
+                .retry_after
+                .is_some_and(|wait| wait > self.config.max_wait)
+        {
             return false;
         }
-        let Some(delay) = self.retry_delays.get(self.retry_index).copied() else {
+        let Some(base) = self.config.base_delays.get(self.retry_index).copied() else {
             return false;
         };
+        let random_wait = self.random.between(base / 2, base);
+        let wait = random_wait.max(core.retry_after.unwrap_or_default());
         self.retry_index += 1;
-        self.sleeper.sleep(delay).await;
+        self.sleeper.sleep(wait).await;
         true
     }
 
