@@ -49,13 +49,15 @@ const GEMINI_FEATURES: &[ModelFeature] = &[
 const IMAGE_FEATURES: &[ModelFeature] = &[ModelFeature::ImageGeneration, ModelFeature::Vision];
 const VIDEO_FEATURES: &[ModelFeature] = &[ModelFeature::VideoGeneration, ModelFeature::Vision];
 
-/// Balanced Gemini model with medium and high thinking.
+/// Balanced Gemini model with low, medium, and high thinking.
 pub const GEMINI_3_6_FLASH: ModelSpec = ModelSpec {
     provider: PROVIDER_ID,
     provider_model_id: Cow::Borrowed("gemini-3.6-flash"),
     context_window_tokens: 1_048_576,
     max_output_tokens: 65_536,
-    efforts: EffortSet::new(Effort::Medium).with(Effort::High),
+    efforts: EffortSet::new(Effort::Low)
+        .with(Effort::Medium)
+        .with(Effort::High),
     default_effort: Effort::Medium,
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,

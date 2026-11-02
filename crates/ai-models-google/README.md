@@ -79,7 +79,8 @@ model: `GEMINI_3_6_FLASH`, `GEMINI_3_5_FLASH_LITE`,
 `GEMINI_3_1_FLASH_IMAGE`, and `VEO_3_1_GENERATE_PREVIEW`. `CATALOG` lists
 them in that order, and `known_models()` returns a copy of it.
 `GEMINI_3_6_FLASH` is the first catalog spec and the default used by
-workspace examples. Its default effort is medium. A request with the high
+workspace examples. It lists low, medium, and high efforts. Its default
+effort is medium. A request with the high
 effort sends provider model id `gemini-3.6-flash` with
 `thinkingLevel: "high"`. Gemini 3.5 Flash-Lite lists only the disabled
 effort and leaves the thinking control unset so the provider uses its

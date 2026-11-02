@@ -81,7 +81,8 @@ model: `GPT_5_6_SOL`, `GPT_5_6_TERRA`, `GPT_5_6_LUNA`, `GPT_5_5`,
 them in that order, and `known_models()` returns a copy of it.
 `GPT_5_6_SOL` is the first catalog spec and the default used by workspace
 examples. Its default effort is medium, and it also lists low, high, extra
-high, and max. Every effort sends provider model id `gpt-5.6-sol`. The
+high, and max. Every effort sends provider model id `gpt-5.6-sol`.
+Terra and Luna list low and medium efforts, with medium as their default. The
 GPT-5.5 spec remains available for pinned deployments. Cost-optimized routing
 uses GPT-5.4 Mini and Nano because OpenAI does not expose GPT-5.5 Mini or
 Nano aliases. The

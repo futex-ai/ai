@@ -57,7 +57,9 @@ pub const CLAUDE_SONNET_5: ModelSpec = claude_spec(
     "claude-sonnet-5",
     1_000_000,
     128_000,
-    EffortSet::new(Effort::High),
+    EffortSet::new(Effort::Low)
+        .with(Effort::Medium)
+        .with(Effort::High),
     Effort::High,
     RoutingTiers {
         intelligence: IntelligenceScore::Nine,
@@ -67,12 +69,15 @@ pub const CLAUDE_SONNET_5: ModelSpec = claude_spec(
     REASONING_FEATURES,
 );
 
-/// Claude Opus 5 with high and maximum adaptive thinking.
+/// Claude Opus 5 with low through high and maximum adaptive thinking.
 pub const CLAUDE_OPUS_5: ModelSpec = claude_spec(
     "claude-opus-5",
     1_000_000,
     128_000,
-    EffortSet::new(Effort::High).with(Effort::Max),
+    EffortSet::new(Effort::Low)
+        .with(Effort::Medium)
+        .with(Effort::High)
+        .with(Effort::Max),
     Effort::High,
     RoutingTiers {
         intelligence: IntelligenceScore::Ten,
@@ -87,7 +92,9 @@ pub const CLAUDE_FABLE_5: ModelSpec = claude_spec(
     "claude-fable-5",
     1_000_000,
     128_000,
-    EffortSet::new(Effort::High),
+    EffortSet::new(Effort::Low)
+        .with(Effort::Medium)
+        .with(Effort::High),
     Effort::High,
     RoutingTiers {
         intelligence: IntelligenceScore::Ten,

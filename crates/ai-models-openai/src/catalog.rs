@@ -65,7 +65,7 @@ pub const GPT_5_6_SOL: ModelSpec = gpt_spec(
 pub const GPT_5_6_TERRA: ModelSpec = gpt_spec(
     "gpt-5.6-terra",
     1_050_000,
-    EffortSet::new(Effort::Medium),
+    EffortSet::new(Effort::Low).with(Effort::Medium),
     Effort::Medium,
     RoutingTiers {
         intelligence: IntelligenceScore::Nine,
@@ -78,7 +78,7 @@ pub const GPT_5_6_TERRA: ModelSpec = gpt_spec(
 pub const GPT_5_6_LUNA: ModelSpec = gpt_spec(
     "gpt-5.6-luna",
     1_050_000,
-    EffortSet::new(Effort::Medium),
+    EffortSet::new(Effort::Low).with(Effort::Medium),
     Effort::Medium,
     RoutingTiers {
         intelligence: IntelligenceScore::Eight,

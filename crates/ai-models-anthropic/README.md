@@ -61,7 +61,8 @@ model: `CLAUDE_SONNET_5`, `CLAUDE_OPUS_5`, `CLAUDE_FABLE_5`,
 `CLAUDE_SONNET_4_6`, `CLAUDE_OPUS_4_7`, and `CLAUDE_HAIKU_4_5`. `CATALOG`
 lists them in that order, and `known_models()` returns a copy of it.
 `CLAUDE_SONNET_5` is the first catalog spec and the balanced default used by
-workspace examples. The Claude 5 specs default to the high effort. The
+workspace examples. The Claude 5 specs list low, medium, and high efforts.
+Opus 5 also lists max. The Claude 5 specs default to the high effort. The
 Sonnet 4.6, Opus 4.7, and Haiku 4.5 specs default to disabled thinking and
 remain available for pinned deployments. The
 [control matrix](../../docs/protocol/model-capabilities.md#control-matrix)

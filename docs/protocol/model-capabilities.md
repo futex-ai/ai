@@ -194,9 +194,9 @@ Bold effort marks the default effort. `default` marks an output limit sent when 
 
 | Text id | Efforts | Max output | Context | Sampling | Stops | Forced tools | Deferred | Replay efforts |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `anthropic/claude-sonnet-5` | **high** | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | high |
-| `anthropic/claude-opus-5` | **high**, max | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | high, max |
-| `anthropic/claude-fable-5` | **high** | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | high |
+| `anthropic/claude-sonnet-5` | low, medium, **high** | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | low, medium, high |
+| `anthropic/claude-opus-5` | low, medium, **high**, max | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | low, medium, high, max |
+| `anthropic/claude-fable-5` | low, medium, **high** | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | low, medium, high |
 | `anthropic/claude-sonnet-4-6` | **disabled** | 128000 default | 200000 | fixed while thinking | yes | only without thinking | no | none |
 | `anthropic/claude-opus-4-7` | **disabled**, max | 128000 default | 200000 | fixed while thinking | yes | only without thinking | no | max |
 | `anthropic/claude-haiku-4-5` | **disabled** | 64000 default | 200000 | fixed while thinking | yes | only without thinking | no | none |
@@ -204,7 +204,7 @@ Bold effort marks the default effort. `default` marks an output limit sent when 
 | `deepseek/deepseek-v4-pro` | disabled, **high**, max | 393216 | 1000000 | fixed while thinking | yes | only without thinking | no | high, max |
 | `deepseek/deepseek-v4-flash` | disabled, **high**, max | 393216 | 1000000 | fixed while thinking | yes | only without thinking | no | high, max |
 | `deepseek/custom` | disabled, **high**, max | 393216 | 0 | fixed while thinking | yes | only without thinking | no | high, max |
-| `google/gemini-3.6-flash` | **medium**, high | 65536 | 1048576 | adjustable | yes | always | no | medium, high |
+| `google/gemini-3.6-flash` | low, **medium**, high | 65536 | 1048576 | adjustable | yes | always | no | low, medium, high |
 | `google/gemini-3.5-flash-lite` | **disabled** | 65536 | 1048576 | adjustable | yes | always | no | disabled |
 | `google/gemini-3.1-flash-image` | **disabled** | 0 | 131072 | adjustable | yes | always | no | none |
 | `google/veo-3.1-generate-preview` | **disabled** | 0 | 1024 | adjustable | yes | always | no | none |
@@ -218,8 +218,8 @@ Bold effort marks the default effort. `default` marks an output limit sent when 
 | `mock/mock` | **disabled** | 128000 | 128000 | adjustable | yes | always | no | none |
 | `mock/custom` | **disabled** | 128000 | 128000 | adjustable | yes | always | no | none |
 | `openai/gpt-5.6-sol` | low, **medium**, high, extra_high, max | 128000 | 1050000 | fixed while thinking | no | always | no | low, medium, high, extra_high, max |
-| `openai/gpt-5.6-terra` | **medium** | 128000 | 1050000 | fixed while thinking | no | always | no | medium |
-| `openai/gpt-5.6-luna` | **medium** | 128000 | 1050000 | fixed while thinking | no | always | no | medium |
+| `openai/gpt-5.6-terra` | low, **medium** | 128000 | 1050000 | fixed while thinking | no | always | no | low, medium |
+| `openai/gpt-5.6-luna` | low, **medium** | 128000 | 1050000 | fixed while thinking | no | always | no | low, medium |
 | `openai/gpt-5.5` | low, **medium**, high, extra_high | 128000 | 400000 | fixed while thinking | no | always | no | low, medium, high, extra_high |
 | `openai/gpt-5.4-mini` | **disabled** | 128000 | 400000 | fixed while thinking | no | always | no | disabled |
 | `openai/gpt-5.4-nano` | **disabled** | 128000 | 400000 | fixed while thinking | no | always | no | disabled |
