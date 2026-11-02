@@ -1,22 +1,13 @@
-//! DeepSeek model construction tests.
+//! DeepSeek spec construction and per-request effort tests.
 
 use std::sync::Arc;
 
-use ai_interface::Model;
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, Model, ModelSpec};
 use json_http::StaticHeaderAuth;
 
-use crate::deepseek::{
-    DEEPSEEK_V4_FLASH, DEEPSEEK_V4_FLASH_THINKING_DISABLED, DEEPSEEK_V4_FLASH_THINKING_MAX,
-    DEEPSEEK_V4_PRO, DEEPSEEK_V4_PRO_THINKING_DISABLED, DEEPSEEK_V4_PRO_THINKING_MAX,
-    DeepSeekConfigurationError,
-};
-
 use super::{
-    DeepSeekModel,
-    test_support::{
-        recording_http_client, simple_request, successful_response, unused_http_client,
-    },
+    CUSTOM_DEFAULTS, DEEPSEEK_V4_FLASH, DEEPSEEK_V4_PRO, DeepSeekModel, PROVIDER_ID,
+    test_support::{recording_http_client, simple_request, successful_response},
 };
 
 #[tokio::test]
@@ -26,111 +17,90 @@ async fn default_constructor_selects_pro_with_high_thinking() {
         .complete(&simple_request())
         .await
         .expect("DeepSeek response should parse");
-
-    assert_eq!(response.model_id, DEEPSEEK_V4_PRO);
-    assert_eq!(response.catalog_model_id.as_deref(), Some(DEEPSEEK_V4_PRO));
+    assert_eq!(response.model_id, "deepseek-v4-pro");
+    assert_eq!(
+        response.catalog_model_id.as_deref(),
+        Some("deepseek/deepseek-v4-pro")
+    );
     assert_eq!(response.thinking_level.as_deref(), Some("high"));
 }
 
 #[tokio::test]
-async fn accepts_every_supported_provider_and_thinking_combination() {
-    let cases = [
-        (DEEPSEEK_V4_PRO, DEEPSEEK_V4_PRO, ThinkingLevel::High),
-        (
-            DEEPSEEK_V4_PRO_THINKING_MAX,
-            DEEPSEEK_V4_PRO,
-            ThinkingLevel::Max,
-        ),
-        (
-            DEEPSEEK_V4_PRO_THINKING_DISABLED,
-            DEEPSEEK_V4_PRO,
-            ThinkingLevel::Disabled,
-        ),
-        (DEEPSEEK_V4_FLASH, DEEPSEEK_V4_FLASH, ThinkingLevel::High),
-        (
-            DEEPSEEK_V4_FLASH_THINKING_MAX,
-            DEEPSEEK_V4_FLASH,
-            ThinkingLevel::Max,
-        ),
-        (
-            DEEPSEEK_V4_FLASH_THINKING_DISABLED,
-            DEEPSEEK_V4_FLASH,
-            ThinkingLevel::Disabled,
-        ),
-    ];
-
-    for (catalog_id, provider_id, thinking_level) in cases {
-        let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
-        let model = DeepSeekModel::with_catalog_auth(
-            http_client,
-            catalog_id,
-            provider_id,
-            thinking_level,
-            Arc::new(StaticHeaderAuth::default()),
-        )
-        .expect("supported configuration should build");
-        let response = model
-            .complete(&simple_request())
-            .await
-            .expect("DeepSeek response should parse");
-
-        assert_eq!(response.model_id, provider_id);
-        assert_eq!(response.catalog_model_id.as_deref(), Some(catalog_id));
-        assert_eq!(
-            response.thinking_level.as_deref(),
-            Some(thinking_level.as_str())
-        );
-        assert_eq!(
-            requests
-                .lock()
-                .expect("requests lock should not be poisoned")[0]
-                .body
-                .as_ref()
-                .expect("request body")["model"],
-            provider_id
-        );
+async fn accepts_every_supported_provider_and_request_effort_combination() {
+    for spec in [DEEPSEEK_V4_PRO, DEEPSEEK_V4_FLASH] {
+        for effort in [Effort::High, Effort::Max, Effort::Disabled] {
+            let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
+            let model = DeepSeekModel::with_catalog_auth(
+                http_client,
+                spec.clone(),
+                Arc::new(StaticHeaderAuth::default()),
+            );
+            let mut request = simple_request();
+            request.controls.generation.effort = Some(effort);
+            let response = model
+                .complete(&request)
+                .await
+                .expect("DeepSeek response should parse");
+            assert_eq!(response.model_id, spec.provider_model_id);
+            assert_eq!(
+                response.catalog_model_id.as_deref(),
+                Some(spec.text_id().as_str())
+            );
+            assert_eq!(response.thinking_level.as_deref(), Some(effort.as_str()));
+            assert_eq!(
+                requests.lock().expect("requests lock")[0]
+                    .body
+                    .as_ref()
+                    .expect("body")["model"],
+                spec.provider_model_id.as_ref()
+            );
+        }
     }
 }
 
-#[test]
-fn rejects_unknown_provider_model_ids() {
-    let result = DeepSeekModel::with_catalog_auth(
-        unused_http_client(),
-        "retired",
-        "deepseek-chat",
-        ThinkingLevel::High,
-        Arc::new(StaticHeaderAuth::default()),
+#[tokio::test]
+async fn custom_provider_model_reaches_transport_without_catalog_validation() {
+    let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
+    let spec = ModelSpec::custom(PROVIDER_ID, "deepseek-custom", &CUSTOM_DEFAULTS);
+    let model =
+        DeepSeekModel::with_catalog_auth(http_client, spec, Arc::new(StaticHeaderAuth::default()));
+    let response = model
+        .complete(&simple_request())
+        .await
+        .expect("custom response");
+    assert_eq!(response.model_id, "deepseek-custom");
+    assert_eq!(
+        response.catalog_model_id.as_deref(),
+        Some("deepseek/deepseek-custom")
     );
-
-    assert!(matches!(
-        result,
-        Err(DeepSeekConfigurationError::UnsupportedProviderModel {
-            provider_model_id
-        }) if provider_model_id == "deepseek-chat"
-    ));
+    assert_eq!(
+        requests.lock().expect("requests lock")[0]
+            .body
+            .as_ref()
+            .expect("body")["model"],
+        "deepseek-custom"
+    );
 }
 
 #[tokio::test]
-async fn downgrades_unsupported_thinking_levels() {
+async fn downgrades_unsupported_request_efforts() {
     for (requested, effective) in [
-        (ThinkingLevel::Low, ThinkingLevel::Disabled),
-        (ThinkingLevel::Medium, ThinkingLevel::Disabled),
-        (ThinkingLevel::ExtraHigh, ThinkingLevel::High),
+        (Effort::Low, Effort::Disabled),
+        (Effort::Medium, Effort::Disabled),
+        (Effort::ExtraHigh, Effort::High),
     ] {
         let (http_client, _) = recording_http_client(successful_response(Some("Done")));
         let model = DeepSeekModel::with_catalog_auth(
             http_client,
             DEEPSEEK_V4_PRO,
-            DEEPSEEK_V4_PRO,
-            requested,
             Arc::new(StaticHeaderAuth::default()),
-        )
-        .expect("unsupported thinking level should downgrade");
+        );
+        let mut request = simple_request();
+        request.controls.generation.effort = Some(requested);
         let response = model
-            .complete(&simple_request())
+            .complete(&request)
             .await
             .expect("DeepSeek response should parse");
-
         assert_eq!(response.thinking_level.as_deref(), Some(effective.as_str()));
     }
 }

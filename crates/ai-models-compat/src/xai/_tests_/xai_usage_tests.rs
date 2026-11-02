@@ -4,6 +4,7 @@ use ai_interface::{ConversationMessage, Model, ModelRequest};
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use super::test_support::custom_spec;
 use super::{XaiModel, test_support::recording_http_client};
 
 #[tokio::test]
@@ -24,7 +25,7 @@ async fn missing_xai_total_tokens_falls_back_to_normalized_usage_sum() {
             }
         }),
     });
-    let model = XaiModel::new(http_client, "grok-4", "xai-key");
+    let model = XaiModel::new(http_client, custom_spec("grok-4"), "xai-key");
 
     let response = model
         .complete(&simple_request())
@@ -60,7 +61,7 @@ async fn xai_usage_separates_cached_and_reasoning_tokens() {
             }
         }),
     });
-    let model = XaiModel::new(http_client, "grok-4", "xai-key");
+    let model = XaiModel::new(http_client, custom_spec("grok-4"), "xai-key");
 
     let response = model
         .complete(&simple_request())

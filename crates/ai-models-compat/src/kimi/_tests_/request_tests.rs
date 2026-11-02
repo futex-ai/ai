@@ -2,13 +2,13 @@
 
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, DeepSeekToolCallContext,
-    ModelError, ModelRequest, OpenAiReasoningSummary, ProviderConversationItem, ToolCall,
+    Effort, ModelError, ModelRequest, OpenAiReasoningSummary, ProviderConversationItem, ToolCall,
 };
 use serde_json::{Value, json};
 
 use crate::kimi::KIMI_K3;
 
-use super::{client::KimiReasoningEffort, request::build_request, test_support::simple_request};
+use super::{request::build_request, test_support::simple_request};
 
 #[test]
 fn serializes_leading_system_and_every_shared_role() {
@@ -23,7 +23,7 @@ fn serializes_leading_system_and_every_shared_role() {
         response_schema: None,
         controls: Default::default(),
     };
-    let body = request_json(&request, KimiReasoningEffort::Max);
+    let body = request_json(&request, Effort::Max);
     let messages = body["messages"].as_array().expect("messages array");
 
     assert_eq!(
@@ -54,7 +54,7 @@ fn serializes_empty_user_and_tool_content_as_strings() {
         response_schema: None,
         controls: Default::default(),
     };
-    let body = request_json(&request, KimiReasoningEffort::Max);
+    let body = request_json(&request, Effort::Max);
     let messages = body["messages"].as_array().expect("messages array");
 
     assert_eq!(messages[1]["role"], "user");
@@ -80,7 +80,7 @@ fn rejects_video_content_parts_with_typed_provider_error() {
         controls: Default::default(),
     };
 
-    let error = build_request(KIMI_K3, KimiReasoningEffort::Max, &request)
+    let error = build_request(KIMI_K3.provider_model_id.as_ref(), Effort::Max, &request)
         .expect_err("video parts must be rejected");
 
     match error {
@@ -90,7 +90,7 @@ fn rejects_video_content_parts_with_typed_provider_error() {
             message,
         } => {
             assert_eq!(provider, "kimi");
-            assert_eq!(model_id, KIMI_K3);
+            assert_eq!(model_id, KIMI_K3.provider_model_id.as_ref());
             assert_eq!(message, "Kimi accepts text and image content parts only");
         }
         other => panic!("unexpected error: {other:?}"),
@@ -117,7 +117,7 @@ fn serializes_text_and_image_content_parts_as_data_urls() {
         response_schema: None,
         controls: Default::default(),
     };
-    let body = request_json(&request, KimiReasoningEffort::Max);
+    let body = request_json(&request, Effort::Max);
 
     assert_eq!(body["messages"][1]["content"][0]["type"], "text");
     assert_eq!(body["messages"][1]["content"][0]["text"], "What is shown?");
@@ -173,7 +173,7 @@ fn ignores_foreign_provider_context_and_uses_normalized_assistant_fields() {
         response_schema: None,
         controls: Default::default(),
     };
-    let body = request_json(&request, KimiReasoningEffort::Max);
+    let body = request_json(&request, Effort::Max);
     let assistant = &body["messages"][1];
 
     assert_eq!(assistant["content"], "normalized");
@@ -190,9 +190,9 @@ fn ignores_foreign_provider_context_and_uses_normalized_assistant_fields() {
 fn maps_exact_reasoning_effort_and_omits_unsupported_fields() {
     let request = simple_request();
     for (effort, expected) in [
-        (KimiReasoningEffort::Low, "low"),
-        (KimiReasoningEffort::High, "high"),
-        (KimiReasoningEffort::Max, "max"),
+        (Effort::Low, "low"),
+        (Effort::High, "high"),
+        (Effort::Max, "max"),
     ] {
         let body = request_json(&request, effort);
         let object = body.as_object().expect("request object");
@@ -230,7 +230,8 @@ fn named_message(role: ConversationRole, content: &str, name: &str) -> Conversat
     }
 }
 
-fn request_json(request: &ModelRequest, effort: KimiReasoningEffort) -> Value {
-    let body = build_request(KIMI_K3, effort, request).expect("Kimi request should build");
+fn request_json(request: &ModelRequest, effort: Effort) -> Value {
+    let body = build_request(KIMI_K3.provider_model_id.as_ref(), effort, request)
+        .expect("Kimi request should build");
     serde_json::to_value(body).expect("Kimi request should serialize")
 }

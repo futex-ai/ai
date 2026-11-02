@@ -3,10 +3,10 @@
 use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
-    ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl, ModelError,
-    ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
+    ConversationMessage, Effort, Model, ModelCallControls, ModelCompletionMode, ModelControl,
+    ModelError, ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
+    ToolDefinition,
 };
-use ai_models_core::ThinkingLevel;
 use json_http::StaticHeaderAuth;
 use serde_json::json;
 
@@ -22,15 +22,14 @@ async fn maps_disabled_thinking_controls_to_the_final_request() {
     let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
     let model = DeepSeekModel::with_catalog_auth(
         http_client,
-        "deepseek-v4-pro-thinking-disabled",
         DEEPSEEK_V4_PRO,
-        ThinkingLevel::Disabled,
         Arc::new(StaticHeaderAuth::bearer_token("key")),
-    )
-    .expect("configuration should be supported");
+    );
 
+    let mut request = controlled_request(ModelToolChoice::Required);
+    request.controls.generation.effort = Some(Effort::Disabled);
     model
-        .complete(&controlled_request(ModelToolChoice::Required))
+        .complete(&request)
         .await
         .expect("controlled response should parse");
 
@@ -89,15 +88,14 @@ async fn disabled_thinking_required_or_auto_still_forces_tool_use() {
     let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
     let model = DeepSeekModel::with_catalog_auth(
         http_client,
-        "deepseek-v4-pro-thinking-disabled",
         DEEPSEEK_V4_PRO,
-        ThinkingLevel::Disabled,
         Arc::new(StaticHeaderAuth::bearer_token("key")),
-    )
-    .expect("configuration should be supported");
+    );
 
+    let mut request = controlled_request(ModelToolChoice::RequiredOrAuto);
+    request.controls.generation.effort = Some(Effort::Disabled);
     model
-        .complete(&controlled_request(ModelToolChoice::RequiredOrAuto))
+        .complete(&request)
         .await
         .expect("non-thinking fallback should retain required semantics");
 

@@ -1,10 +1,9 @@
 //! DeepSeek normalized text-response tests.
 
-use ai_interface::{FinishReason, ModelError, ModelUsage};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, FinishReason, ModelError, ModelUsage};
 use serde_json::json;
 
-use crate::deepseek::{DEEPSEEK_V4_FLASH, DEEPSEEK_V4_FLASH_THINKING_DISABLED};
+use crate::deepseek::DEEPSEEK_V4_FLASH;
 
 use super::response;
 
@@ -19,10 +18,13 @@ fn maps_stopped_text_and_selected_model_metadata() {
     .expect("stopped response should parse");
 
     assert_eq!(response.provider, "deepseek");
-    assert_eq!(response.model_id, DEEPSEEK_V4_FLASH);
+    assert_eq!(
+        response.model_id,
+        DEEPSEEK_V4_FLASH.provider_model_id.as_ref()
+    );
     assert_eq!(
         response.catalog_model_id.as_deref(),
-        Some(DEEPSEEK_V4_FLASH_THINKING_DISABLED)
+        Some("host-deepseek-routing")
     );
     assert_eq!(response.thinking_level.as_deref(), Some("disabled"));
     assert_eq!(response.assistant_message, "Done");
@@ -63,9 +65,9 @@ fn complete(
     body: serde_json::Value,
 ) -> std::result::Result<ai_interface::ModelResponse, ModelError> {
     response::parse_response(
-        DEEPSEEK_V4_FLASH_THINKING_DISABLED,
-        DEEPSEEK_V4_FLASH,
-        ThinkingLevel::Disabled,
+        "host-deepseek-routing",
+        DEEPSEEK_V4_FLASH.provider_model_id.as_ref(),
+        Effort::Disabled,
         body,
         None,
     )

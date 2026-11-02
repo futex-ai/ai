@@ -1,10 +1,11 @@
 //! xAI endpoint, compatible wire forms, and deferred defaults.
 
-use crate::engine::dialect::{
-    Dialect, InputParts, OutputLimit, ReplayRule, Sampling, StructuredOutput, ThinkingFormat,
-    ToolChoiceRule, UsageFields,
-};
 use std::time::Duration;
+
+use crate::engine::dialect::{
+    Dialect, InputParts, OutputLimit, ReplayRule, StructuredOutput, ThinkingFormat, ToolChoiceWire,
+    UsageFields,
+};
 
 pub(super) static DIALECT: Dialect = Dialect {
     provider: "xai",
@@ -17,8 +18,7 @@ pub(super) static DIALECT: Dialect = Dialect {
     },
     output_limit: OutputLimit::MaxTokens,
     structured_output: StructuredOutput::JsonSchema,
-    sampling: Sampling::Any,
-    tool_choice: ToolChoiceRule::Standard,
+    tool_choice: ToolChoiceWire::AutoWhenTools,
     input: InputParts::TextImage,
     names: true,
     required_reasoning: false,

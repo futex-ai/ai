@@ -31,7 +31,7 @@ pub(super) struct MiniMaxNormalizer {
 
 impl MiniMaxNormalizer {
     pub(super) fn new(provider_model_id: &str) -> Self {
-        let content_mode = if provider_model_id == MINIMAX_M3 {
+        let content_mode = if provider_model_id == MINIMAX_M3.provider_model_id.as_ref() {
             ContentMode::Incremental
         } else {
             ContentMode::Inferred

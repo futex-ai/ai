@@ -1,10 +1,9 @@
 //! Kimi normalized response tests.
 
-use ai_interface::{FinishReason, ModelError, ProviderConversationItem};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, FinishReason, ModelError, ProviderConversationItem};
 use serde_json::{Value, json};
 
-use crate::kimi::{KIMI_K3, KIMI_K3_THINKING_HIGH};
+use crate::kimi::KIMI_K3;
 
 use super::response::parse_response;
 
@@ -68,10 +67,10 @@ fn maps_all_finish_reasons_and_selected_model_metadata() {
 
         assert_eq!(response.finish_reason, expected);
         assert_eq!(response.provider, "kimi");
-        assert_eq!(response.model_id, KIMI_K3);
+        assert_eq!(response.model_id, KIMI_K3.provider_model_id.as_ref());
         assert_eq!(
             response.catalog_model_id.as_deref(),
-            Some(KIMI_K3_THINKING_HIGH)
+            Some("host-kimi-routing")
         );
         assert_eq!(response.thinking_level.as_deref(), Some("high"));
     }
@@ -79,9 +78,9 @@ fn maps_all_finish_reasons_and_selected_model_metadata() {
 
 fn parse(body: Value) -> Result<ai_interface::ModelResponse, ModelError> {
     parse_response(
-        KIMI_K3_THINKING_HIGH,
-        KIMI_K3,
-        ThinkingLevel::High,
+        "host-kimi-routing",
+        KIMI_K3.provider_model_id.as_ref(),
+        Effort::High,
         body,
         None,
     )

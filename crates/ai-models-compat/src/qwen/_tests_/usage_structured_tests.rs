@@ -1,7 +1,6 @@
 //! Qwen usage and structured-output response tests.
 
-use ai_interface::{ModelError, ModelUsage, StructuredOutputSchema};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, ModelError, ModelUsage, StructuredOutputSchema};
 use serde_json::{Value, json};
 
 use crate::qwen::QWEN_3_7_PLUS;
@@ -107,8 +106,8 @@ fn parse(
 ) -> Result<ai_interface::ModelResponse, ModelError> {
     parse_response(
         "catalog-plus",
-        QWEN_3_7_PLUS,
-        ThinkingLevel::Disabled,
+        QWEN_3_7_PLUS.provider_model_id.as_ref(),
+        Effort::Disabled,
         body,
         schema,
     )

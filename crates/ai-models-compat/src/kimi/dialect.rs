@@ -1,8 +1,8 @@
 //! Kimi endpoint and wire settings.
 
 use crate::engine::dialect::{
-    Dialect, InputParts, OutputLimit, ReplayRule, Sampling, StructuredOutput, ThinkingFormat,
-    ToolChoiceRule, UsageFields,
+    Dialect, InputParts, OutputLimit, ReplayRule, StructuredOutput, ThinkingFormat, ToolChoiceWire,
+    UsageFields,
 };
 
 pub(super) static DIALECT: Dialect = Dialect {
@@ -14,8 +14,7 @@ pub(super) static DIALECT: Dialect = Dialect {
     thinking: ThinkingFormat::Effort,
     output_limit: OutputLimit::MaxCompletionTokens,
     structured_output: StructuredOutput::JsonSchema,
-    sampling: Sampling::Fixed,
-    tool_choice: ToolChoiceRule::Standard,
+    tool_choice: ToolChoiceWire::AutoWhenTools,
     input: InputParts::TextImage,
     deferred_timeout: None,
     clean_eof: false,

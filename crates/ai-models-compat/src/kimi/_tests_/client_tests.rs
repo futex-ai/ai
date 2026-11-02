@@ -36,7 +36,10 @@ async fn sends_bearer_auth_to_exact_moonshot_endpoint() {
         requests[0].headers.get("Authorization").map(String::as_str),
         Some("Bearer moonshot-secret")
     );
-    assert_eq!(requests[0].body.as_ref().expect("body")["model"], KIMI_K3);
+    assert_eq!(
+        requests[0].body.as_ref().expect("body")["model"],
+        KIMI_K3.provider_model_id.as_ref()
+    );
 }
 
 #[tokio::test]
@@ -100,17 +103,26 @@ async fn auth_hook_failures_are_transient() {
 
 #[test]
 fn classifies_auth_transport_and_local_codec_failures() {
-    let auth = request_error(json_http::Error::auth("auth hook rejected"), KIMI_K3);
-    let transport = request_error(json_http::Error::transport("offline"), KIMI_K3);
+    let auth = request_error(
+        json_http::Error::auth("auth hook rejected"),
+        KIMI_K3.provider_model_id.as_ref(),
+    );
+    let transport = request_error(
+        json_http::Error::transport("offline"),
+        KIMI_K3.provider_model_id.as_ref(),
+    );
     let source = serde_json::from_str::<Value>("{").expect_err("invalid JSON");
-    let serialization = request_error(json_http::Error::SerializeRequest { source }, KIMI_K3);
+    let serialization = request_error(
+        json_http::Error::SerializeRequest { source },
+        KIMI_K3.provider_model_id.as_ref(),
+    );
     let source = serde_json::from_str::<Value>("{").expect_err("invalid JSON");
     let deserialization = request_error(
         json_http::Error::DeserializeResponse {
             body: Value::Null,
             source,
         },
-        KIMI_K3,
+        KIMI_K3.provider_model_id.as_ref(),
     );
 
     assert!(matches!(auth, ModelError::TransientProvider { .. }));

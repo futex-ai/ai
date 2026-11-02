@@ -4,6 +4,8 @@ use ai_interface::{ConversationContentPart, ConversationMessage, Model, ModelReq
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use crate::minimax::MINIMAX_M3;
+
 use super::{MiniMaxModel, support::recording_http_client};
 
 #[tokio::test]
@@ -17,7 +19,7 @@ async fn serializes_ordered_text_and_image_parts_as_data_urls() {
             }]
         }),
     }]);
-    MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key")
+    MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
             messages: vec![ConversationMessage::user_with_parts(
@@ -76,7 +78,7 @@ async fn serializes_video_parts_as_video_url_data_urls() {
             }]
         }),
     }]);
-    MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key")
+    MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
             messages: vec![ConversationMessage::user_with_parts(

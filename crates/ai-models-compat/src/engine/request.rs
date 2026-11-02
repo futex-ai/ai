@@ -1,11 +1,11 @@
 //! Shared request mapping and structured-output instructions.
 
-use ai_interface::{ModelCompletionMode, ModelRequest, ModelResult, ModelToolChoice};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, ModelRequest, ModelResult};
+use ai_models_core::{ResolvedModelControls, ResolvedToolChoice};
 
 use super::{
-    controls::{tool_choice, validate_controls},
-    dialect::{Dialect, OutputLimit, Sampling, StructuredOutput, ThinkingFormat, ToolChoiceRule},
+    controls::tool_choice,
+    dialect::{Dialect, OutputLimit, StructuredOutput, ThinkingFormat, ToolChoiceWire},
     messages::{conversation_messages, system_message, validate_content_parts},
     request_types::{
         ChatCompletionsJsonSchema, ChatCompletionsRequest, ChatCompletionsResponseFormat,
@@ -18,44 +18,38 @@ use super::{
 pub(crate) fn build_request(
     dialect: &Dialect,
     model_id: &str,
-    thinking_level: ThinkingLevel,
     request: &ModelRequest,
+    controls: &ResolvedModelControls,
 ) -> ModelResult<ChatCompletionsRequest> {
     validate_content_parts(dialect, model_id, request)?;
-    let (thinking, reasoning_effort) = thinking_fields(dialect, model_id, thinking_level)?;
-    validate_controls(dialect, model_id, thinking_level, request)?;
+    let effort = controls.effort;
+    let (thinking, reasoning_effort) = thinking_fields(dialect, model_id, effort);
     let mut messages = Vec::new();
     let system_prompt = system_prompt(dialect, request);
     if !system_prompt.trim().is_empty() {
         messages.push(system_message(system_prompt));
     }
     messages.extend(conversation_messages(dialect, model_id, &request.messages)?);
-    let omit_tools = matches!(dialect.tool_choice, ToolChoiceRule::OmitWhileThinking)
-        && thinking_level.is_enabled()
-        && request.controls.generation.tool_choice == Some(ModelToolChoice::None);
+    let omit_tools = matches!(dialect.tool_choice, ToolChoiceWire::OmitWhileThinking)
+        && effort.is_enabled()
+        && controls.tool_choice == Some(ResolvedToolChoice::None);
     let tools = if omit_tools {
         Vec::new()
     } else {
         request.tools.iter().map(tool).collect()
     };
-    let sampling = match dialect.sampling {
-        Sampling::WithoutThinking => !thinking_level.is_enabled(),
-        Sampling::Fixed => false,
-        Sampling::Any => true,
-    };
-    let max_output = request.controls.generation.max_output_tokens;
-    let deferred = dialect.deferred_timeout.is_some()
-        && request.controls.execution.completion_mode != ModelCompletionMode::Synchronous;
+    let max_output = controls.max_output_tokens;
+    let deferred = controls.deferred;
     Ok(ChatCompletionsRequest {
         model: model_id.to_owned(),
         messages,
         tools,
-        tool_choice: tool_choice(dialect, model_id, thinking_level, request),
+        tool_choice: tool_choice(dialect, !request.tools.is_empty(), controls),
         parallel_tool_calls: (dialect.parallel_tools && !request.tools.is_empty()).then_some(true),
         enable_thinking: matches!(dialect.thinking, ThinkingFormat::Flags)
-            .then_some(thinking_level.is_enabled()),
+            .then_some(effort.is_enabled()),
         preserve_thinking: matches!(dialect.thinking, ThinkingFormat::Flags)
-            .then_some(thinking_level.is_enabled()),
+            .then_some(effort.is_enabled()),
         stream: !deferred,
         deferred,
         stream_options: (!deferred).then_some(ChatCompletionsStreamOptions {
@@ -64,20 +58,16 @@ pub(crate) fn build_request(
         reasoning_split: matches!(dialect.thinking, ThinkingFormat::Adaptive).then_some(true),
         thinking,
         reasoning_effort,
-        response_format: response_format(dialect, model_id, thinking_level, request),
-        temperature: sampling
-            .then_some(request.controls.generation.temperature)
-            .flatten(),
-        top_p: sampling
-            .then_some(request.controls.generation.top_p)
-            .flatten(),
+        response_format: response_format(dialect, model_id, effort, request),
+        temperature: controls.temperature,
+        top_p: controls.top_p,
         max_tokens: matches!(dialect.output_limit, OutputLimit::MaxTokens)
             .then_some(max_output)
             .flatten(),
         max_completion_tokens: matches!(dialect.output_limit, OutputLimit::MaxCompletionTokens)
             .then_some(max_output)
             .flatten(),
-        stop: request.controls.generation.stop_sequences.clone(),
+        stop: controls.stop_sequences.clone(),
     })
 }
 
@@ -108,7 +98,7 @@ The response must be a JSON object matching schema `{}`.\nJSON Schema:\n{}",
 fn response_format(
     dialect: &Dialect,
     model_id: &str,
-    thinking: ThinkingLevel,
+    thinking: Effort,
     request: &ModelRequest,
 ) -> Option<ChatCompletionsResponseFormat> {
     let schema = request.response_schema.as_ref()?;

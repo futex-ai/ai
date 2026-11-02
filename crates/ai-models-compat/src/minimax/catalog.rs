@@ -1,96 +1,127 @@
-//! Known MiniMax model metadata.
+//! Model specs and custom defaults owned by the minimax dialect.
 
-use ai_models_core::{
-    CostTier, IntelligenceScore, KnownModelSpec, ModelFeature, ProviderKind, SpeedTier,
-    ThinkingLevel,
+use std::borrow::Cow;
+
+use ai_interface::{
+    CostTier, CustomModelDefaults, Effort, EffortSet, ForcedToolChoice, IntelligenceScore,
+    ModelFeature, ModelSpec, ProviderId, RoutingTiers, Sampling, SpeedTier,
 };
 
-/// MiniMax M3 catalog and provider model id.
-pub const MINIMAX_M3: &str = "MiniMax-M3";
+/// Stable provider identity for configuration and replay state.
+pub const PROVIDER_ID: ProviderId = ProviderId::new("minimax");
 
-/// MiniMax M3 catalog variant with thinking disabled.
-pub const MINIMAX_M3_THINKING_DISABLED: &str = "MiniMax-M3-thinking-disabled";
+/// Defaults for an unlisted model, without routing features or scores.
+pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
+    context_window_tokens: 0,
+    max_output_tokens: u32::MAX,
+    efforts: EffortSet::new(Effort::Disabled)
+        .with(Effort::Low)
+        .with(Effort::Medium)
+        .with(Effort::High)
+        .with(Effort::ExtraHigh)
+        .with(Effort::Max),
+    default_effort: Effort::Medium,
+    forced_tool_choice: ForcedToolChoice::Never,
+    sampling: Sampling::Adjustable,
+    supports_stop_sequences: false,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: &[
+        Effort::Low,
+        Effort::Medium,
+        Effort::High,
+        Effort::ExtraHigh,
+        Effort::Max,
+    ],
+};
 
-/// MiniMax M2.7 catalog and provider model id.
-pub const MINIMAX_M2_7: &str = "MiniMax-M2.7";
+/// MiniMax-M3 model facts at its default medium effort.
+pub const MINIMAX_M3: ModelSpec = ModelSpec {
+    provider: PROVIDER_ID,
+    provider_model_id: Cow::Borrowed("MiniMax-M3"),
+    context_window_tokens: 1_000_000,
+    max_output_tokens: 512_000,
+    efforts: EffortSet::new(Effort::Disabled).with(Effort::Medium),
+    default_effort: Effort::Medium,
+    forced_tool_choice: ForcedToolChoice::RequiredOnly,
+    sampling: Sampling::Adjustable,
+    supports_stop_sequences: false,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: Cow::Borrowed(&[Effort::Medium]),
+    features: Cow::Borrowed(&[
+        ModelFeature::ToolCalling,
+        ModelFeature::StructuredOutput,
+        ModelFeature::Vision,
+        ModelFeature::VideoInput,
+        ModelFeature::LongContext,
+        ModelFeature::Reasoning,
+    ]),
+    routing: Some(RoutingTiers {
+        intelligence: IntelligenceScore::Nine,
+        speed: SpeedTier::Medium,
+        cost: CostTier::Low,
+    }),
+};
 
-/// MiniMax M2.7 high-speed catalog and provider model id.
-pub const MINIMAX_M2_7_HIGHSPEED: &str = "MiniMax-M2.7-highspeed";
+/// MiniMax-M2.7 model facts at its default medium effort.
+pub const MINIMAX_M2_7: ModelSpec = ModelSpec {
+    provider: PROVIDER_ID,
+    provider_model_id: Cow::Borrowed("MiniMax-M2.7"),
+    context_window_tokens: 204_800,
+    max_output_tokens: 131_072,
+    efforts: EffortSet::new(Effort::Medium),
+    default_effort: Effort::Medium,
+    forced_tool_choice: ForcedToolChoice::Never,
+    sampling: Sampling::Adjustable,
+    supports_stop_sequences: false,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: Cow::Borrowed(&[Effort::Medium]),
+    features: Cow::Borrowed(&[
+        ModelFeature::ToolCalling,
+        ModelFeature::StructuredOutput,
+        ModelFeature::LongContext,
+        ModelFeature::Reasoning,
+    ]),
+    routing: Some(RoutingTiers {
+        intelligence: IntelligenceScore::Eight,
+        speed: SpeedTier::Medium,
+        cost: CostTier::Low,
+    }),
+};
 
-const M3_FEATURES: &[ModelFeature] = &[
-    ModelFeature::ToolCalling,
-    ModelFeature::StructuredOutput,
-    ModelFeature::Vision,
-    ModelFeature::VideoInput,
-    ModelFeature::LongContext,
-    ModelFeature::Reasoning,
-];
+/// MiniMax-M2.7-highspeed model facts at its default medium effort.
+pub const MINIMAX_M2_7_HIGHSPEED: ModelSpec = ModelSpec {
+    provider: PROVIDER_ID,
+    provider_model_id: Cow::Borrowed("MiniMax-M2.7-highspeed"),
+    context_window_tokens: 204_800,
+    max_output_tokens: 131_072,
+    efforts: EffortSet::new(Effort::Medium),
+    default_effort: Effort::Medium,
+    forced_tool_choice: ForcedToolChoice::Never,
+    sampling: Sampling::Adjustable,
+    supports_stop_sequences: false,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: Cow::Borrowed(&[Effort::Medium]),
+    features: Cow::Borrowed(&[
+        ModelFeature::ToolCalling,
+        ModelFeature::StructuredOutput,
+        ModelFeature::LongContext,
+        ModelFeature::Reasoning,
+    ]),
+    routing: Some(RoutingTiers {
+        intelligence: IntelligenceScore::Eight,
+        speed: SpeedTier::Fast,
+        cost: CostTier::Medium,
+    }),
+};
 
-const M3_DISABLED_FEATURES: &[ModelFeature] = &[
-    ModelFeature::ToolCalling,
-    ModelFeature::StructuredOutput,
-    ModelFeature::Vision,
-    ModelFeature::VideoInput,
-    ModelFeature::LongContext,
-];
+/// One model spec for each provider model id.
+pub const CATALOG: &[ModelSpec] = &[MINIMAX_M3, MINIMAX_M2_7, MINIMAX_M2_7_HIGHSPEED];
 
-const M2_7_FEATURES: &[ModelFeature] = &[
-    ModelFeature::ToolCalling,
-    ModelFeature::StructuredOutput,
-    ModelFeature::LongContext,
-    ModelFeature::Reasoning,
-];
-
-/// Returns current non-legacy MiniMax models known to this provider crate.
-pub fn known_models() -> Vec<KnownModelSpec> {
-    vec![
-        KnownModelSpec {
-            provider: ProviderKind::MiniMax,
-            id: MINIMAX_M3,
-            provider_model_id: MINIMAX_M3,
-            context_window_tokens: 1_000_000,
-            max_output_tokens: 512_000,
-            intelligence_score: IntelligenceScore::Nine,
-            speed: SpeedTier::Medium,
-            cost: CostTier::Low,
-            thinking_level: ThinkingLevel::Medium,
-            features: M3_FEATURES,
-        },
-        KnownModelSpec {
-            provider: ProviderKind::MiniMax,
-            id: MINIMAX_M3_THINKING_DISABLED,
-            provider_model_id: MINIMAX_M3,
-            context_window_tokens: 1_000_000,
-            max_output_tokens: 512_000,
-            intelligence_score: IntelligenceScore::Nine,
-            speed: SpeedTier::Fast,
-            cost: CostTier::Low,
-            thinking_level: ThinkingLevel::Disabled,
-            features: M3_DISABLED_FEATURES,
-        },
-        KnownModelSpec {
-            provider: ProviderKind::MiniMax,
-            id: MINIMAX_M2_7,
-            provider_model_id: MINIMAX_M2_7,
-            context_window_tokens: 204_800,
-            max_output_tokens: 131_072,
-            intelligence_score: IntelligenceScore::Eight,
-            speed: SpeedTier::Medium,
-            cost: CostTier::Low,
-            thinking_level: ThinkingLevel::Medium,
-            features: M2_7_FEATURES,
-        },
-        KnownModelSpec {
-            provider: ProviderKind::MiniMax,
-            id: MINIMAX_M2_7_HIGHSPEED,
-            provider_model_id: MINIMAX_M2_7_HIGHSPEED,
-            context_window_tokens: 204_800,
-            max_output_tokens: 131_072,
-            intelligence_score: IntelligenceScore::Eight,
-            speed: SpeedTier::Fast,
-            cost: CostTier::Medium,
-            thinking_level: ThinkingLevel::Medium,
-            features: M2_7_FEATURES,
-        },
-    ]
+/// Returns the model specs known to this dialect.
+pub fn known_models() -> Vec<ModelSpec> {
+    CATALOG.to_vec()
 }

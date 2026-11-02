@@ -1,7 +1,6 @@
 //! MiniMax response-shape edge-case tests.
 
-use ai_interface::{ModelError, ModelUsage};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, ModelError, ModelUsage};
 use serde_json::json;
 
 use crate::minimax::MINIMAX_M3;
@@ -40,5 +39,11 @@ fn accepts_null_or_empty_content_and_absent_usage() {
 }
 
 fn parse(body: serde_json::Value) -> std::result::Result<ai_interface::ModelResponse, ModelError> {
-    response::parse_response(MINIMAX_M3, MINIMAX_M3, ThinkingLevel::Medium, body, None)
+    response::parse_response(
+        MINIMAX_M3.provider_model_id.as_ref(),
+        MINIMAX_M3.provider_model_id.as_ref(),
+        Effort::Medium,
+        body,
+        None,
+    )
 }

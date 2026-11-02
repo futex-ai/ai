@@ -11,12 +11,15 @@ use json_http::{JsonHttpClient, JsonHttpResponse, TransportBackedJsonHttpClient}
 use serde_json::{Value, json};
 use unimock::Unimock;
 
+use crate::minimax::MINIMAX_M2_7;
+use crate::minimax::MINIMAX_M3;
+
 use super::{MiniMaxModel, support::recording_http_client};
 
 #[tokio::test]
 async fn maps_supported_controls_and_blank_system_to_the_final_request() {
     let (http_client, requests) = recording_http_client([successful_response()]);
-    let model = MiniMaxModel::new(http_client, "MiniMax-M3", "key");
+    let model = MiniMaxModel::new(http_client, MINIMAX_M3, "key");
 
     model
         .complete(&controlled_request())
@@ -36,7 +39,7 @@ async fn maps_supported_controls_and_blank_system_to_the_final_request() {
 
 #[tokio::test]
 async fn rejects_unsupported_controls_before_transport() {
-    let model = MiniMaxModel::new(unused_http_client(), "MiniMax-M3", "key");
+    let model = MiniMaxModel::new(unused_http_client(), MINIMAX_M3, "key");
     let mut stop_request = base_request();
     stop_request.controls.generation.stop_sequences = vec!["stop".to_owned()];
     let stop_error = model
@@ -85,7 +88,7 @@ async fn rejects_unsupported_controls_before_transport() {
 async fn minimax_m3_serializes_strict_and_fallback_required_as_required() {
     let (http_client, requests) =
         recording_http_client([successful_response(), successful_response()]);
-    let model = MiniMaxModel::new(http_client, "MiniMax-M3", "key");
+    let model = MiniMaxModel::new(http_client, MINIMAX_M3, "key");
 
     for choice in [ModelToolChoice::Required, ModelToolChoice::RequiredOrAuto] {
         let mut request = base_request();
@@ -109,7 +112,7 @@ async fn minimax_m3_serializes_strict_and_fallback_required_as_required() {
 #[tokio::test]
 async fn fallback_uses_auto_for_minimax_models_without_verified_required_support() {
     let (http_client, requests) = recording_http_client([successful_response()]);
-    let model = MiniMaxModel::new(http_client, "MiniMax-M2.7", "key");
+    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
     let mut request = base_request();
     request.tools = vec![lookup_tool()];
     request.controls.generation.tool_choice = Some(ModelToolChoice::RequiredOrAuto);
@@ -127,7 +130,7 @@ async fn fallback_uses_auto_for_minimax_models_without_verified_required_support
 
 #[tokio::test]
 async fn strict_required_remains_unsupported_for_other_minimax_models() {
-    let model = MiniMaxModel::new(unused_http_client(), "MiniMax-M2.7", "key");
+    let model = MiniMaxModel::new(unused_http_client(), MINIMAX_M2_7, "key");
     let mut request = base_request();
     request.controls.generation.tool_choice = Some(ModelToolChoice::Required);
 
@@ -149,7 +152,7 @@ async fn strict_required_remains_unsupported_for_other_minimax_models() {
 async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
     for (system_prompt, expected) in [("", None), ("   ", None), ("normal", Some("normal"))] {
         let (http_client, requests) = recording_http_client([successful_response()]);
-        let model = MiniMaxModel::new(http_client, "MiniMax-M3", "key");
+        let model = MiniMaxModel::new(http_client, MINIMAX_M3, "key");
         let mut request = base_request();
         request.system_prompt = system_prompt.to_owned();
 

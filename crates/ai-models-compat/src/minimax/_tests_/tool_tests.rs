@@ -7,12 +7,14 @@ use ai_interface::{
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use crate::minimax::MINIMAX_M3;
+
 use super::{MiniMaxModel, support::recording_http_client};
 
 #[tokio::test]
 async fn serializes_modern_tool_definitions_and_continuation_messages() {
     let (http_client, requests) = recording_http_client([tool_response()]);
-    let model = MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key");
+    let model = MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key");
     let response = model
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
@@ -128,7 +130,7 @@ async fn serializes_modern_tool_definitions_and_continuation_messages() {
 #[tokio::test]
 async fn omits_unavailable_assistant_content() {
     let (http_client, requests) = recording_http_client([tool_response()]);
-    MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key")
+    MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
             messages: vec![ConversationMessage::assistant(
@@ -162,7 +164,7 @@ async fn omits_unavailable_assistant_content() {
 #[tokio::test]
 async fn preserves_empty_tool_result_content() {
     let (http_client, requests) = recording_http_client([tool_response()]);
-    MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key")
+    MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
             messages: vec![ConversationMessage::tool("", "memory_read", "call_empty")],
@@ -212,7 +214,7 @@ async fn rejects_malformed_tool_arguments() {
             }]
         }),
     }]);
-    let error = MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key")
+    let error = MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
         .complete(&simple_request())
         .await
         .expect_err("malformed tool arguments should fail");

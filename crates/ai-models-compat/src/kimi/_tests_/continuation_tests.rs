@@ -1,13 +1,14 @@
 //! Kimi raw assistant continuation replay tests.
 
 use ai_interface::{
-    ConversationMessage, KimiToolCallContext, ModelRequest, ProviderConversationItem, ToolCall,
+    ConversationMessage, Effort, KimiToolCallContext, ModelRequest, ProviderConversationItem,
+    ToolCall,
 };
 use serde_json::{Value, json};
 
 use crate::kimi::KIMI_K3;
 
-use super::{client::KimiReasoningEffort, request::build_request};
+use super::request::build_request;
 
 #[test]
 fn replays_exact_kimi_assistant_before_matching_tool_results() {
@@ -102,7 +103,7 @@ fn kimi_context_takes_precedence_over_normalized_assistant_fields() {
 }
 
 fn request_json(request: &ModelRequest) -> Value {
-    let body = build_request(KIMI_K3, KimiReasoningEffort::Max, request)
+    let body = build_request(KIMI_K3.provider_model_id.as_ref(), Effort::Max, request)
         .expect("Kimi continuation should build");
     serde_json::to_value(body).expect("Kimi continuation should serialize")
 }

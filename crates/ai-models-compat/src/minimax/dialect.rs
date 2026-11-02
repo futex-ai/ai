@@ -1,14 +1,16 @@
 //! MiniMax endpoint, wire settings, and provider status codes.
 
-use super::{MINIMAX_M3, stream_quirks::normalizer};
+use ai_interface::ModelError;
+
 use crate::engine::{
     dialect::{
-        Dialect, InputParts, OutputLimit, ReplayRule, Sampling, StructuredOutput, ThinkingFormat,
-        ToolChoiceRule, UsageFields,
+        Dialect, InputParts, OutputLimit, ReplayRule, StructuredOutput, ThinkingFormat,
+        ToolChoiceWire, UsageFields,
     },
     response::BaseResponse,
 };
-use ai_interface::ModelError;
+
+use super::stream_quirks::normalizer;
 
 pub(super) static DIALECT: Dialect = Dialect {
     provider: "minimax",
@@ -19,8 +21,7 @@ pub(super) static DIALECT: Dialect = Dialect {
     thinking: ThinkingFormat::Adaptive,
     output_limit: OutputLimit::MaxCompletionTokens,
     structured_output: StructuredOutput::Prompt,
-    sampling: Sampling::Any,
-    tool_choice: ToolChoiceRule::RequiredFor(MINIMAX_M3),
+    tool_choice: ToolChoiceWire::AutoWhenTools,
     input: InputParts::TextImageVideo,
     names: true,
     required_reasoning: false,

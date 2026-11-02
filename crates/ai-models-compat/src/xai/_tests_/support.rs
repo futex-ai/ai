@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use ai_interface::ModelSpec;
 use ai_models_core::test_support::{
     RecordedRequests, fixtures_for_buffered_responses, recording_streaming_client,
 };
@@ -25,4 +26,9 @@ pub(super) fn unused_http_client() -> Arc<dyn JsonHttpClient> {
     Arc::new(TransportBackedJsonHttpClient::new(Arc::new(Unimock::new(
         (),
     ))))
+}
+
+/// Gives an unlisted legacy test model the provider's explicit custom defaults.
+pub(super) fn custom_spec(model_id: &'static str) -> ModelSpec {
+    ModelSpec::custom(super::PROVIDER_ID, model_id, &super::CUSTOM_DEFAULTS)
 }

@@ -12,10 +12,10 @@ mod request;
 mod response;
 
 pub use catalog::{
-    QWEN_3_7_FLASH, QWEN_3_7_FLASH_THINKING_DISABLED, QWEN_3_7_MAX, QWEN_3_7_MAX_THINKING_DISABLED,
-    QWEN_3_7_PLUS, QWEN_3_7_PLUS_THINKING_DISABLED, known_models,
+    CATALOG, CUSTOM_DEFAULTS, PROVIDER_ID, QWEN_3_7_FLASH, QWEN_3_7_MAX, QWEN_3_7_PLUS,
+    known_models,
 };
-pub use client::{QwenConfigurationError, QwenConfigurationResult, QwenModel};
+pub use client::QwenModel;
 
 #[cfg(test)]
 #[path = "_tests_/support.rs"]

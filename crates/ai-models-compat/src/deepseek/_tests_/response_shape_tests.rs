@@ -1,7 +1,7 @@
 //! DeepSeek typed response-shape edge-case tests.
 
+use ai_interface::Effort;
 use ai_interface::ModelError;
-use ai_models_core::ThinkingLevel;
 use serde_json::json;
 
 use crate::deepseek::DEEPSEEK_V4_PRO;
@@ -43,9 +43,9 @@ fn complete(
     body: serde_json::Value,
 ) -> std::result::Result<ai_interface::ModelResponse, ModelError> {
     response::parse_response(
-        DEEPSEEK_V4_PRO,
-        DEEPSEEK_V4_PRO,
-        ThinkingLevel::High,
+        DEEPSEEK_V4_PRO.provider_model_id.as_ref(),
+        DEEPSEEK_V4_PRO.provider_model_id.as_ref(),
+        Effort::High,
         body,
         None,
     )

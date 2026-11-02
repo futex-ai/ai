@@ -1,18 +1,14 @@
 //! Kimi tool request and response tests.
 
 use ai_interface::{
-    ConversationMessage, FinishReason, KimiToolCallContext, ModelError, ProviderConversationItem,
-    ToolCall, ToolDefinition,
+    ConversationMessage, Effort, FinishReason, KimiToolCallContext, ModelError,
+    ProviderConversationItem, ToolCall, ToolDefinition,
 };
-use ai_models_core::ThinkingLevel;
 use serde_json::{Value, json};
 
 use crate::kimi::KIMI_K3;
 
-use super::{
-    client::KimiReasoningEffort, request::build_request, response::parse_response,
-    test_support::simple_request,
-};
+use super::{request::build_request, response::parse_response, test_support::simple_request};
 
 #[test]
 fn serializes_custom_tools_auto_choice_and_normalized_assistant_calls() {
@@ -39,7 +35,7 @@ fn serializes_custom_tools_auto_choice_and_normalized_assistant_calls() {
         "memory_read",
         "call_1",
     ));
-    let body = build_request(KIMI_K3, KimiReasoningEffort::Max, &request)
+    let body = build_request(KIMI_K3.provider_model_id.as_ref(), Effort::Max, &request)
         .expect("Kimi request should build");
     let body = serde_json::to_value(body).expect("Kimi request should serialize");
     let tool = &body["tools"][0];
@@ -220,7 +216,13 @@ fn non_tool_finishes_ignore_structurally_partial_tool_calls() {
 }
 
 fn parse(body: Value) -> Result<ai_interface::ModelResponse, ModelError> {
-    parse_response(KIMI_K3, KIMI_K3, ThinkingLevel::Max, body, None)
+    parse_response(
+        KIMI_K3.provider_model_id.as_ref(),
+        KIMI_K3.provider_model_id.as_ref(),
+        Effort::Max,
+        body,
+        None,
+    )
 }
 
 fn tool_response(finish_reason: Option<&str>, tool_calls: Vec<Value>) -> Value {

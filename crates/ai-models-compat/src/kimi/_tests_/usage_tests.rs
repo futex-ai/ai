@@ -1,6 +1,6 @@
 //! Kimi usage normalization tests.
 
-use ai_models_core::ThinkingLevel;
+use ai_interface::Effort;
 use serde_json::{Value, json};
 
 use crate::kimi::KIMI_K3;
@@ -68,8 +68,14 @@ fn usage_remains_unpriced_in_provider_crate() {
 }
 
 fn parse(body: Value) -> ai_interface::ModelResponse {
-    parse_response(KIMI_K3, KIMI_K3, ThinkingLevel::Max, body, None)
-        .expect("usage response should parse")
+    parse_response(
+        KIMI_K3.provider_model_id.as_ref(),
+        KIMI_K3.provider_model_id.as_ref(),
+        Effort::Max,
+        body,
+        None,
+    )
+    .expect("usage response should parse")
 }
 
 fn usage_body(usage: Value) -> Value {

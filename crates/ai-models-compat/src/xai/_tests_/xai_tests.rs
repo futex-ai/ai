@@ -1,13 +1,14 @@
 //! Tests for xAI request mapping and response parsing.
 
 use ai_interface::{
-    ConversationMessage, ConversationRole, FinishReason, Model, ModelRequest,
+    ConversationMessage, ConversationRole, Effort, FinishReason, Model, ModelRequest,
     StructuredOutputSchema, ToolDefinition,
 };
-use ai_models_core::{ThinkingLevel, synthetic_tool_call_scope};
+use ai_models_core::synthetic_tool_call_scope;
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use super::test_support::custom_spec;
 use super::{XaiModel, response, test_support::recording_http_client};
 
 #[tokio::test]
@@ -35,7 +36,7 @@ async fn builds_xai_tool_requests_and_parses_response() {
             }
         }),
     });
-    let model = XaiModel::new(http_client, "grok-4", "xai-key");
+    let model = XaiModel::new(http_client, custom_spec("grok-4"), "xai-key");
 
     let response = model
         .complete(&ModelRequest {
@@ -113,7 +114,7 @@ async fn builds_xai_structured_output_requests_and_parses_response() {
             }
         }),
     });
-    let model = XaiModel::new(http_client, "grok-4", "xai-key");
+    let model = XaiModel::new(http_client, custom_spec("grok-4"), "xai-key");
 
     let response = model
         .complete(&ModelRequest {
@@ -177,7 +178,7 @@ async fn maps_xai_finish_reasons() {
             status: 200,
             body: xai_response_body(raw_reason, include_tool),
         });
-        let model = XaiModel::new(http_client, "grok-4", "xai-key");
+        let model = XaiModel::new(http_client, custom_spec("grok-4"), "xai-key");
 
         let response = model
             .complete(&simple_request())
@@ -194,7 +195,7 @@ fn maps_missing_xai_finish_reason_to_other() {
     let response = response::parse_response(
         "grok-4",
         "grok-4",
-        ThinkingLevel::Disabled,
+        Effort::Disabled,
         &synthetic_tool_call_scope(&request),
         json!({
             "choices": [{

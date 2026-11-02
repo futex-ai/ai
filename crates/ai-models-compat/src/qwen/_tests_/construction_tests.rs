@@ -2,55 +2,54 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use ai_interface::{Model, ProviderKind};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, Model, ModelSpec};
 use json_http::StaticHeaderAuth;
 
-use crate::qwen::{QWEN_3_7_MAX, QWEN_3_7_PLUS, QwenConfigurationError};
+use crate::qwen::{CUSTOM_DEFAULTS, PROVIDER_ID, QWEN_3_7_MAX};
 
 use super::{
     QwenModel,
-    test_support::{
-        recording_http_client, simple_request, successful_response, unused_http_client,
-    },
+    test_support::{recording_http_client, simple_request, successful_response},
 };
 
-#[test]
-fn rejects_unsupported_provider_model_id() {
-    let result = QwenModel::with_catalog_auth(
-        unused_http_client(),
-        QWEN_3_7_PLUS,
-        "qwen-preview",
-        ThinkingLevel::High,
-        Arc::new(StaticHeaderAuth::default()),
+#[tokio::test]
+async fn custom_provider_model_reaches_transport_without_catalog_validation() {
+    let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
+    let spec = ModelSpec::custom(PROVIDER_ID, "qwen-custom", &CUSTOM_DEFAULTS);
+    let model =
+        QwenModel::with_catalog_auth(http_client, spec, Arc::new(StaticHeaderAuth::default()));
+    let response = model
+        .complete(&simple_request())
+        .await
+        .expect("custom response");
+    assert_eq!(response.model_id, "qwen-custom");
+    assert_eq!(
+        requests.lock().expect("requests lock")[0]
+            .body
+            .as_ref()
+            .expect("body")["model"],
+        "qwen-custom"
     );
-
-    assert!(matches!(
-        result,
-        Err(QwenConfigurationError::UnsupportedProviderModel { provider_model_id })
-            if provider_model_id == "qwen-preview"
-    ));
 }
 
 #[tokio::test]
-async fn downgrades_unsupported_thinking_levels() {
+async fn downgrades_unsupported_request_efforts() {
     for (requested, effective, enabled) in [
-        (ThinkingLevel::Low, ThinkingLevel::Disabled, false),
-        (ThinkingLevel::Medium, ThinkingLevel::Disabled, false),
-        (ThinkingLevel::ExtraHigh, ThinkingLevel::High, true),
-        (ThinkingLevel::Max, ThinkingLevel::High, true),
+        (Effort::Low, Effort::Disabled, false),
+        (Effort::Medium, Effort::Disabled, false),
+        (Effort::ExtraHigh, Effort::High, true),
+        (Effort::Max, Effort::High, true),
     ] {
         let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
         let model = QwenModel::with_catalog_auth(
             http_client,
             QWEN_3_7_MAX,
-            QWEN_3_7_MAX,
-            requested,
             Arc::new(StaticHeaderAuth::default()),
-        )
-        .expect("unsupported thinking level should downgrade");
+        );
+        let mut request = simple_request();
+        request.controls.generation.effort = Some(requested);
         let response = model
-            .complete(&simple_request())
+            .complete(&request)
             .await
             .expect("Qwen response should parse");
         let requests = requests
@@ -108,10 +107,10 @@ async fn default_uses_plus_high_thinking_endpoint_and_injected_auth() {
         .and_then(|body| body.as_json())
         .expect("JSON request body");
 
-    assert_eq!(response.provider, ProviderKind::Qwen.as_str());
-    assert_eq!(response.model_id, QWEN_3_7_PLUS);
+    assert_eq!(response.provider, "qwen");
+    assert_eq!(response.model_id, "qwen3.7-plus");
     assert_eq!(response.thinking_level.as_deref(), Some("high"));
-    assert_eq!(body["model"], QWEN_3_7_PLUS);
+    assert_eq!(body["model"], "qwen3.7-plus");
     assert_eq!(body["enable_thinking"], true);
     assert_eq!(body["preserve_thinking"], true);
     assert_eq!(

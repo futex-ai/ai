@@ -12,10 +12,9 @@ mod request;
 mod response;
 
 pub use catalog::{
-    DEEPSEEK_V4_FLASH, DEEPSEEK_V4_FLASH_THINKING_DISABLED, DEEPSEEK_V4_FLASH_THINKING_MAX,
-    DEEPSEEK_V4_PRO, DEEPSEEK_V4_PRO_THINKING_DISABLED, DEEPSEEK_V4_PRO_THINKING_MAX, known_models,
+    CATALOG, CUSTOM_DEFAULTS, DEEPSEEK_V4_FLASH, DEEPSEEK_V4_PRO, PROVIDER_ID, known_models,
 };
-pub use client::{DeepSeekConfigurationError, DeepSeekConfigurationResult, DeepSeekModel};
+pub use client::DeepSeekModel;
 
 #[cfg(test)]
 #[path = "_tests_/support.rs"]

@@ -5,8 +5,9 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use ai_interface::{ConversationMessage, ConversationRole, Model, ModelRequest};
 use json_http::StaticHeaderAuth;
 
-use super::{DeepSeekModel, test_support::recording_http_client};
 use crate::deepseek::DEEPSEEK_V4_PRO;
+
+use super::{DeepSeekModel, test_support::recording_http_client};
 
 #[tokio::test]
 async fn sends_bearer_auth_to_exact_streaming_endpoint() {
@@ -35,7 +36,7 @@ async fn sends_bearer_auth_to_exact_streaming_endpoint() {
         request.headers.get("Authorization").map(String::as_str),
         Some("Bearer deepseek-secret")
     );
-    assert_eq!(body["model"], DEEPSEEK_V4_PRO);
+    assert_eq!(body["model"], DEEPSEEK_V4_PRO.provider_model_id.as_ref());
     assert_eq!(body["stream"], true);
     assert_eq!(body["stream_options"]["include_usage"], true);
     for omitted in [

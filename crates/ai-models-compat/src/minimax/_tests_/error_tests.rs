@@ -2,11 +2,8 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use ai_interface::{Model, ModelError};
-use ai_models_core::{
-    ThinkingLevel,
-    test_support::{SseFixture, recording_streaming_client},
-};
+use ai_interface::{Effort, Model, ModelError};
+use ai_models_core::test_support::{SseFixture, recording_streaming_client};
 use async_trait::async_trait;
 use json_http::JsonHttpAuth;
 use serde_json::json;
@@ -55,9 +52,9 @@ async fn classifies_auth_and_response_shape_failures() {
     assert!(matches!(auth_error, ModelError::TransientProvider { .. }));
 
     let malformed_error = response::parse_response(
-        MINIMAX_M3,
-        MINIMAX_M3,
-        ThinkingLevel::Medium,
+        MINIMAX_M3.provider_model_id.as_ref(),
+        MINIMAX_M3.provider_model_id.as_ref(),
+        Effort::Medium,
         json!({"choices": "not-an-array"}),
         None,
     )

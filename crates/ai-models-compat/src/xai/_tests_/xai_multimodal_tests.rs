@@ -6,6 +6,7 @@ use ai_interface::{
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use super::test_support::custom_spec;
 use super::{
     XaiModel,
     test_support::{recording_http_client, unused_http_client},
@@ -14,7 +15,7 @@ use super::{
 #[tokio::test]
 async fn serializes_image_context_message() {
     let (http_client, requests) = recording_http_client(successful_response());
-    let model = XaiModel::new(http_client, "grok-4", "xai-key");
+    let model = XaiModel::new(http_client, custom_spec("grok-4"), "xai-key");
 
     model
         .complete(&ModelRequest {
@@ -70,7 +71,7 @@ async fn serializes_image_context_message() {
 
 #[tokio::test]
 async fn rejects_video_content_parts_before_transport() {
-    let model = XaiModel::new(unused_http_client(), "grok-4", "xai-key");
+    let model = XaiModel::new(unused_http_client(), custom_spec("grok-4"), "xai-key");
 
     let error = model
         .complete(&ModelRequest {

@@ -1,21 +1,17 @@
 //! Kimi structured-output request and response tests.
 
-use ai_interface::{FinishReason, ModelError, StructuredOutputSchema};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, FinishReason, ModelError, StructuredOutputSchema};
 use serde_json::json;
 
 use crate::kimi::KIMI_K3;
 
-use super::{
-    client::KimiReasoningEffort, request::build_request, response::parse_response,
-    test_support::simple_request,
-};
+use super::{request::build_request, response::parse_response, test_support::simple_request};
 
 #[test]
 fn sends_actual_schema_with_non_strict_response_format() {
     let mut request = simple_request();
     request.response_schema = Some(status_schema());
-    let body = build_request(KIMI_K3, KimiReasoningEffort::Max, &request)
+    let body = build_request(KIMI_K3.provider_model_id.as_ref(), Effort::Max, &request)
         .expect("Kimi request should build");
     let body = serde_json::to_value(body).expect("Kimi request should serialize");
 
@@ -81,9 +77,9 @@ fn non_stop_response_preserves_finish_without_parsing_partial_json() {
 #[test]
 fn tool_call_finish_skips_partial_structured_output() {
     let response = parse_response(
-        KIMI_K3,
-        KIMI_K3,
-        ThinkingLevel::Max,
+        KIMI_K3.provider_model_id.as_ref(),
+        KIMI_K3.provider_model_id.as_ref(),
+        Effort::Max,
         json!({
             "choices": [{
                 "finish_reason": "tool_calls",
@@ -116,9 +112,9 @@ fn structured_response(
     schema: &StructuredOutputSchema,
 ) -> Result<ai_interface::ModelResponse, ModelError> {
     parse_response(
-        KIMI_K3,
-        KIMI_K3,
-        ThinkingLevel::Max,
+        KIMI_K3.provider_model_id.as_ref(),
+        KIMI_K3.provider_model_id.as_ref(),
+        Effort::Max,
         json!({
             "choices": [{
                 "finish_reason": finish_reason,

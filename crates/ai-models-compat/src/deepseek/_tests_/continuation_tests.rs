@@ -1,9 +1,9 @@
 //! DeepSeek raw assistant continuation replay tests.
 
 use ai_interface::{
-    ConversationMessage, DeepSeekToolCallContext, ModelRequest, ProviderConversationItem, ToolCall,
+    ConversationMessage, DeepSeekToolCallContext, Effort, ModelRequest, ProviderConversationItem,
+    ToolCall,
 };
-use ai_models_core::ThinkingLevel;
 use serde_json::{Value, json};
 
 use crate::deepseek::DEEPSEEK_V4_PRO;
@@ -15,9 +15,9 @@ fn response_context_survives_serde_and_replays_exactly_before_tool_results() {
     let raw_first = "{ \"path\": \"one\" }";
     let raw_second = "{\n  \"path\": \"two\",\n  \"value\": 2\n}";
     let response = parse_response(
-        DEEPSEEK_V4_PRO,
-        DEEPSEEK_V4_PRO,
-        ThinkingLevel::High,
+        DEEPSEEK_V4_PRO.provider_model_id.as_ref(),
+        DEEPSEEK_V4_PRO.provider_model_id.as_ref(),
+        Effort::High,
         json!({
             "choices": [{
                 "finish_reason": "tool_calls",
@@ -118,8 +118,12 @@ fn deepseek_context_precedes_normalized_fields_and_foreign_context_is_ignored() 
 
 fn request_json(request: &ModelRequest) -> Value {
     serde_json::to_value(
-        build_request(DEEPSEEK_V4_PRO, ThinkingLevel::High, request)
-            .expect("plain request should build"),
+        build_request(
+            DEEPSEEK_V4_PRO.provider_model_id.as_ref(),
+            Effort::High,
+            request,
+        )
+        .expect("plain request should build"),
     )
     .expect("DeepSeek continuation should serialize")
 }

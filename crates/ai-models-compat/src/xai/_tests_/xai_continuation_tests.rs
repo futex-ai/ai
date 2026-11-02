@@ -7,12 +7,13 @@ use ai_interface::{
 use json_http::JsonHttpResponse;
 use serde_json::{Value, json};
 
+use super::test_support::custom_spec;
 use super::{XaiModel, test_support::recording_http_client};
 
 #[tokio::test]
 async fn omits_name_from_tool_role_continuation_messages() {
     let (http_client, requests) = recording_http_client(xai_text_response("Done"));
-    let model = XaiModel::new(http_client, "grok-4", "xai-key");
+    let model = XaiModel::new(http_client, custom_spec("grok-4"), "xai-key");
 
     model
         .complete(&ModelRequest {
@@ -56,7 +57,7 @@ async fn omits_name_from_tool_role_continuation_messages() {
 #[tokio::test]
 async fn serializes_legacy_function_call_continuation_messages() {
     let (http_client, requests) = recording_http_client(xai_text_response("Done"));
-    let model = XaiModel::new(http_client, "grok-4", "xai-key");
+    let model = XaiModel::new(http_client, custom_spec("grok-4"), "xai-key");
     let legacy_call_id = "xai_legacy_function_call:memory_read";
 
     model

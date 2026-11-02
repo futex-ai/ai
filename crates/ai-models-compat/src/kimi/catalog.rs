@@ -1,67 +1,65 @@
-//! Known Kimi model metadata.
+//! Model specs and custom defaults owned by the kimi dialect.
 
-use ai_models_core::{
-    CostTier, IntelligenceScore, KnownModelSpec, ModelFeature, ProviderKind, SpeedTier,
-    ThinkingLevel,
+use std::borrow::Cow;
+
+use ai_interface::{
+    CostTier, CustomModelDefaults, Effort, EffortSet, ForcedToolChoice, IntelligenceScore,
+    ModelFeature, ModelSpec, ProviderId, RoutingTiers, Sampling, SpeedTier,
 };
 
-/// Default max-reasoning Kimi K3 catalog id.
-pub const KIMI_K3: &str = "kimi-k3";
+/// Stable provider identity for configuration and replay state.
+pub const PROVIDER_ID: ProviderId = ProviderId::new("kimi");
 
-/// Kimi K3 catalog id with high reasoning effort.
-pub const KIMI_K3_THINKING_HIGH: &str = "kimi-k3-thinking-high";
+/// Defaults for an unlisted model, without routing features or scores.
+pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
+    context_window_tokens: 0,
+    max_output_tokens: 131_072,
+    efforts: EffortSet::new(Effort::Low)
+        .with(Effort::High)
+        .with(Effort::Max),
+    default_effort: Effort::Max,
+    forced_tool_choice: ForcedToolChoice::Always,
+    sampling: Sampling::Fixed,
+    supports_stop_sequences: true,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: &[Effort::Low, Effort::High, Effort::Max],
+};
 
-/// Kimi K3 catalog id with low reasoning effort.
-pub const KIMI_K3_THINKING_LOW: &str = "kimi-k3-thinking-low";
+/// kimi-k3 model facts at its default max effort.
+pub const KIMI_K3: ModelSpec = ModelSpec {
+    provider: PROVIDER_ID,
+    provider_model_id: Cow::Borrowed("kimi-k3"),
+    context_window_tokens: 1_000_000,
+    max_output_tokens: 131_072,
+    efforts: EffortSet::new(Effort::Low)
+        .with(Effort::High)
+        .with(Effort::Max),
+    default_effort: Effort::Max,
+    forced_tool_choice: ForcedToolChoice::Always,
+    sampling: Sampling::Fixed,
+    supports_stop_sequences: true,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: Cow::Borrowed(&[Effort::Low, Effort::High, Effort::Max]),
+    features: Cow::Borrowed(&[
+        ModelFeature::ToolCalling,
+        ModelFeature::StructuredOutput,
+        ModelFeature::Vision,
+        ModelFeature::LongContext,
+        ModelFeature::Reasoning,
+    ]),
+    routing: Some(RoutingTiers {
+        intelligence: IntelligenceScore::Ten,
+        speed: SpeedTier::Slow,
+        cost: CostTier::Premium,
+    }),
+};
 
-const KIMI_K3_FEATURES: &[ModelFeature] = &[
-    ModelFeature::ToolCalling,
-    ModelFeature::StructuredOutput,
-    ModelFeature::Vision,
-    ModelFeature::LongContext,
-    ModelFeature::Reasoning,
-];
+/// One model spec for each provider model id.
+pub const CATALOG: &[ModelSpec] = &[KIMI_K3];
 
-/// Returns Kimi models known to this provider crate.
-pub fn known_models() -> Vec<KnownModelSpec> {
-    vec![
-        kimi_k3_spec(
-            KIMI_K3,
-            ThinkingLevel::Max,
-            SpeedTier::Slow,
-            CostTier::Premium,
-        ),
-        kimi_k3_spec(
-            KIMI_K3_THINKING_HIGH,
-            ThinkingLevel::High,
-            SpeedTier::Medium,
-            CostTier::Premium,
-        ),
-        kimi_k3_spec(
-            KIMI_K3_THINKING_LOW,
-            ThinkingLevel::Low,
-            SpeedTier::Fast,
-            CostTier::High,
-        ),
-    ]
-}
-
-fn kimi_k3_spec(
-    id: &'static str,
-    thinking_level: ThinkingLevel,
-    speed: SpeedTier,
-    cost: CostTier,
-) -> KnownModelSpec {
-    KnownModelSpec {
-        provider: ProviderKind::Kimi,
-        id,
-        provider_model_id: KIMI_K3,
-        context_window_tokens: 1_000_000,
-        max_output_tokens: 131_072,
-        intelligence_score: IntelligenceScore::Ten,
-        speed,
-        cost,
-        thinking_level,
-        features: KIMI_K3_FEATURES,
-    }
+/// Returns the model specs known to this dialect.
+pub fn known_models() -> Vec<ModelSpec> {
+    CATALOG.to_vec()
 }

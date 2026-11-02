@@ -2,11 +2,8 @@
 
 use std::time::Duration;
 
-use ai_interface::{Model, StructuredOutputSchema};
-use ai_models_core::{
-    ThinkingLevel,
-    test_support::{SseFixture, done_event, event, recording_streaming_client},
-};
+use ai_interface::{Effort, Model, StructuredOutputSchema};
+use ai_models_core::test_support::{SseFixture, done_event, event, recording_streaming_client};
 use serde_json::{Value, json};
 
 use crate::qwen::{QWEN_3_7_PLUS, QwenModel};
@@ -54,9 +51,9 @@ async fn streams_rich_deltas_with_usage_and_matches_buffered_parser() {
         .await
         .expect("Qwen stream should parse");
     let parsed = response::parse_response(
-        QWEN_3_7_PLUS,
-        QWEN_3_7_PLUS,
-        ThinkingLevel::High,
+        &QWEN_3_7_PLUS.text_id(),
+        QWEN_3_7_PLUS.provider_model_id.as_ref(),
+        Effort::High,
         buffered,
         None,
     )
@@ -120,9 +117,9 @@ async fn streamed_structured_output_matches_buffered_parser() {
         .await
         .expect("structured stream should parse");
     let parsed = response::parse_response(
-        QWEN_3_7_PLUS,
-        QWEN_3_7_PLUS,
-        ThinkingLevel::High,
+        &QWEN_3_7_PLUS.text_id(),
+        QWEN_3_7_PLUS.provider_model_id.as_ref(),
+        Effort::High,
         body,
         Some(&schema),
     )

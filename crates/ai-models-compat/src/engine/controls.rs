@@ -1,83 +1,34 @@
-//! Portable tool-choice validation and wire forms.
+//! Provider wire forms for tool choices that the shared checker resolved.
 
-use ai_interface::{ModelControl, ModelError, ModelRequest, ModelResult, ModelToolChoice};
-use ai_models_core::ThinkingLevel;
+use ai_models_core::{ResolvedModelControls, ResolvedToolChoice};
 
 use super::{
-    dialect::{Dialect, ToolChoiceRule},
+    dialect::{Dialect, ToolChoiceWire},
     request_types::{
         ChatCompletionsNamedFunction, ChatCompletionsNamedToolChoice, ChatCompletionsToolChoice,
     },
 };
 
-pub(super) fn validate_controls(
-    dialect: &Dialect,
-    model_id: &str,
-    thinking: ThinkingLevel,
-    request: &ModelRequest,
-) -> ModelResult<()> {
-    if let ToolChoiceRule::RequiredFor(required_model) = dialect.tool_choice {
-        if !request.controls.generation.stop_sequences.is_empty() {
-            return Err(ModelError::unsupported_control(
-                dialect.provider,
-                model_id,
-                ModelControl::StopSequences,
-            ));
-        }
-        if matches!(
-            request.controls.generation.tool_choice,
-            Some(ModelToolChoice::Function(_))
-        ) || request.controls.generation.tool_choice == Some(ModelToolChoice::Required)
-            && model_id != required_model
-        {
-            return Err(ModelError::unsupported_control(
-                dialect.provider,
-                model_id,
-                ModelControl::ToolChoice,
-            ));
-        }
-    }
-    if matches!(
-        dialect.tool_choice,
-        ToolChoiceRule::OmitWhileThinking | ToolChoiceRule::AutoWhileThinking
-    ) && thinking.is_enabled()
-        && matches!(
-            request.controls.generation.tool_choice,
-            Some(ModelToolChoice::Required | ModelToolChoice::Function(_))
-        )
-    {
-        return Err(ModelError::unsupported_control(
-            dialect.provider,
-            model_id,
-            ModelControl::ToolChoice,
-        ));
-    }
-    Ok(())
-}
-
 pub(super) fn tool_choice(
     dialect: &Dialect,
-    model_id: &str,
-    thinking: ThinkingLevel,
-    request: &ModelRequest,
+    has_tools: bool,
+    controls: &ResolvedModelControls,
 ) -> Option<ChatCompletionsToolChoice> {
-    if matches!(dialect.tool_choice, ToolChoiceRule::OmitWhileThinking) && thinking.is_enabled() {
+    let choice = controls.tool_choice.as_ref();
+    if matches!(dialect.tool_choice, ToolChoiceWire::OmitWhileThinking)
+        && controls.effort.is_enabled()
+        && matches!(
+            choice,
+            None | Some(ResolvedToolChoice::None | ResolvedToolChoice::Auto)
+        )
+    {
         return None;
     }
-    let mode = match request.controls.generation.tool_choice.as_ref() {
-        Some(ModelToolChoice::None) => "none",
-        Some(ModelToolChoice::Auto) => "auto",
-        Some(ModelToolChoice::RequiredOrAuto) if matches!(dialect.tool_choice, ToolChoiceRule::RequiredFor(required_model) if required_model != model_id) => {
-            "auto"
-        }
-        Some(ModelToolChoice::RequiredOrAuto)
-            if thinking.is_enabled()
-                && matches!(dialect.tool_choice, ToolChoiceRule::AutoWhileThinking) =>
-        {
-            "auto"
-        }
-        Some(ModelToolChoice::Required | ModelToolChoice::RequiredOrAuto) => "required",
-        Some(ModelToolChoice::Function(name)) => {
+    let mode = match choice {
+        Some(ResolvedToolChoice::None) => "none",
+        Some(ResolvedToolChoice::Auto) => "auto",
+        Some(ResolvedToolChoice::Required) => "required",
+        Some(ResolvedToolChoice::Function(name)) => {
             return Some(ChatCompletionsToolChoice::Function(
                 ChatCompletionsNamedToolChoice {
                     kind: "function",
@@ -85,16 +36,7 @@ pub(super) fn tool_choice(
                 },
             ));
         }
-        None if !request.tools.is_empty()
-            && matches!(
-                dialect.tool_choice,
-                ToolChoiceRule::Standard
-                    | ToolChoiceRule::AutoWhileThinking
-                    | ToolChoiceRule::RequiredFor(_)
-            ) =>
-        {
-            "auto"
-        }
+        None if has_tools && matches!(dialect.tool_choice, ToolChoiceWire::AutoWhenTools) => "auto",
         None => return None,
     };
     Some(ChatCompletionsToolChoice::Mode(mode.to_owned()))

@@ -11,9 +11,9 @@ use ai_models_core::test_support::{
 use serde_json::{Value, json};
 use unimock::Unimock;
 
-use super::XaiModel;
+use crate::xai::GROK_4_5;
 
-const MODEL_ID: &str = "grok-4.5";
+use super::XaiModel;
 
 #[tokio::test]
 async fn emits_reasoning_and_assistant_deltas_in_order_with_parity() {
@@ -24,7 +24,7 @@ async fn emits_reasoning_and_assistant_deltas_in_order_with_parity() {
         usage_chunk(),
     ]);
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = XaiModel::new(http_client, MODEL_ID, "key");
+    let model = XaiModel::new(http_client, GROK_4_5, "key");
     let (sink, recorded) = recording_completion_event_sink();
 
     let response = model
@@ -53,7 +53,7 @@ async fn structured_completion_suppresses_text_deltas() {
         usage_chunk(),
     ]);
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = XaiModel::new(http_client, MODEL_ID, "key");
+    let model = XaiModel::new(http_client, GROK_4_5, "key");
     let sink = Unimock::new(());
     let mut request = simple_request();
     request.response_schema = Some(summary_schema());
@@ -73,7 +73,7 @@ async fn emits_partial_text_before_an_interruption() {
         Err(json_http::Error::transport("reset")),
     ];
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = XaiModel::new(http_client, MODEL_ID, "key");
+    let model = XaiModel::new(http_client, GROK_4_5, "key");
     let (sink, recorded) = recording_completion_event_sink();
 
     let error = model

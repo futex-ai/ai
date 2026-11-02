@@ -4,6 +4,8 @@ use ai_interface::{ConversationMessage, Model, ModelError, ModelRequest};
 use ai_models_core::test_support::{SseFixture, data_event, event, recording_streaming_client};
 use serde_json::json;
 
+use crate::xai::GROK_4_5;
+
 use super::XaiModel;
 
 #[tokio::test]
@@ -17,7 +19,7 @@ async fn provider_errors_preserve_classification_until_progress() {
         SseFixture::Stream(vec![provider_error()]),
         SseFixture::Stream(vec![progress_event(), provider_error()]),
     ]);
-    let model = XaiModel::new(http_client, "grok-4.5", "key");
+    let model = XaiModel::new(http_client, GROK_4_5, "key");
 
     let before = model
         .complete(&simple_request())
@@ -45,7 +47,7 @@ async fn eof_transport_and_malformed_events_are_progress_aware() {
         SseFixture::Stream(vec![data_event("not JSON")]),
         SseFixture::Stream(vec![progress_event(), data_event("not JSON")]),
     ]);
-    let model = XaiModel::new(http_client, "grok-4.5", "key");
+    let model = XaiModel::new(http_client, GROK_4_5, "key");
 
     for (position, interrupted) in [false, true, false, true, false, true]
         .into_iter()

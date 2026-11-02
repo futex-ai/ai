@@ -2,37 +2,36 @@
 
 use std::sync::Arc;
 
-use ai_interface::{Model, ModelRequest};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, Model, ModelRequest};
 use json_http::{JsonHttpResponse, StaticHeaderAuth};
 use serde_json::json;
 
-use crate::minimax::{MINIMAX_M2_7, MINIMAX_M2_7_HIGHSPEED, known_models};
+use crate::minimax::{MINIMAX_M2_7, MINIMAX_M2_7_HIGHSPEED, MINIMAX_M3, known_models};
 
 use super::{MiniMaxModel, support::recording_http_client};
 
 #[tokio::test]
 async fn maps_disabled_and_enabled_thinking_controls() {
     let cases = [
-        (ThinkingLevel::Disabled, ThinkingLevel::Disabled, "disabled"),
-        (ThinkingLevel::Low, ThinkingLevel::Disabled, "disabled"),
-        (ThinkingLevel::Medium, ThinkingLevel::Medium, "adaptive"),
-        (ThinkingLevel::High, ThinkingLevel::Medium, "adaptive"),
-        (ThinkingLevel::ExtraHigh, ThinkingLevel::Medium, "adaptive"),
-        (ThinkingLevel::Max, ThinkingLevel::Medium, "adaptive"),
+        (Effort::Disabled, Effort::Disabled, "disabled"),
+        (Effort::Low, Effort::Disabled, "disabled"),
+        (Effort::Medium, Effort::Medium, "adaptive"),
+        (Effort::High, Effort::Medium, "adaptive"),
+        (Effort::ExtraHigh, Effort::Medium, "adaptive"),
+        (Effort::Max, Effort::Medium, "adaptive"),
     ];
 
     for (requested, effective, expected_control) in cases {
         let (http_client, requests) = recording_http_client([stopped_response()]);
         let model = MiniMaxModel::with_catalog_auth(
             http_client,
-            "catalog-id",
-            "MiniMax-M3",
-            requested,
+            MINIMAX_M3,
             Arc::new(StaticHeaderAuth::bearer_token("minimax-key")),
         );
+        let mut request = simple_request();
+        request.controls.generation.effort = Some(requested);
         let response = model
-            .complete(&simple_request())
+            .complete(&request)
             .await
             .expect("thinking response should parse");
         let requests = requests
@@ -56,9 +55,9 @@ fn m2_7_catalog_entries_always_enable_thinking() {
     for id in [MINIMAX_M2_7, MINIMAX_M2_7_HIGHSPEED] {
         let model = models
             .iter()
-            .find(|model| model.id == id)
+            .find(|model| model.provider_model_id == id.provider_model_id)
             .expect("M2.7 model should exist");
-        assert!(model.thinking_level.is_enabled());
+        assert!(model.default_effort.is_enabled());
     }
 }
 

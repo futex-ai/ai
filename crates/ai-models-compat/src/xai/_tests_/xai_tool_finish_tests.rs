@@ -1,7 +1,6 @@
 //! Tests for xAI tool-call terminal finish handling.
 
-use ai_interface::{FinishReason, ProviderConversationItem};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, FinishReason, ProviderConversationItem};
 use serde_json::json;
 
 use super::response::parse_response;
@@ -11,7 +10,7 @@ fn truncated_tool_call_response_does_not_parse_partial_arguments() {
     let response = parse_response(
         "grok-4",
         "grok-4",
-        ThinkingLevel::Disabled,
+        Effort::Disabled,
         "test_scope",
         json!({
             "choices": [{
@@ -41,7 +40,7 @@ fn legacy_function_call_response_parses_tool_call() {
     let response = parse_response(
         "grok-4",
         "grok-4",
-        ThinkingLevel::Disabled,
+        Effort::Disabled,
         "test_scope",
         json!({
             "choices": [{

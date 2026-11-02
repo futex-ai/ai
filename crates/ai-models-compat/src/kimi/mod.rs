@@ -11,8 +11,8 @@ mod request;
 #[path = "_tests_/response.rs"]
 mod response;
 
-pub use catalog::{KIMI_K3, KIMI_K3_THINKING_HIGH, KIMI_K3_THINKING_LOW, known_models};
-pub use client::{KimiConfigurationError, KimiConfigurationResult, KimiModel};
+pub use catalog::{CATALOG, CUSTOM_DEFAULTS, KIMI_K3, PROVIDER_ID, known_models};
+pub use client::KimiModel;
 
 #[cfg(test)]
 #[path = "_tests_/support.rs"]

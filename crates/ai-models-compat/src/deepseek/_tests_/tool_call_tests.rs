@@ -1,10 +1,9 @@
 //! DeepSeek tool request and response tests.
 
 use ai_interface::{
-    ConversationMessage, DeepSeekToolCallContext, FinishReason, ModelError,
+    ConversationMessage, DeepSeekToolCallContext, Effort, FinishReason, ModelError,
     ProviderConversationItem, ToolCall, ToolDefinition,
 };
-use ai_models_core::ThinkingLevel;
 use serde_json::{Value, json};
 
 use crate::deepseek::DEEPSEEK_V4_PRO;
@@ -36,7 +35,7 @@ fn serializes_tools_normalized_calls_and_matching_tool_results() {
         "memory_read",
         "call_1",
     ));
-    let body = request_json(ThinkingLevel::Disabled, &request);
+    let body = request_json(Effort::Disabled, &request);
     let object = body.as_object().expect("request object");
     let tool = &body["tools"][0];
     let assistant = &body["messages"][2];
@@ -62,7 +61,7 @@ fn serializes_tools_normalized_calls_and_matching_tool_results() {
 #[test]
 fn parses_parallel_calls_and_preserves_ids_order_and_raw_arguments() {
     let response = parse(
-        ThinkingLevel::High,
+        Effort::High,
         tool_response(vec![
             raw_call("call_1", "memory_read", "{ \"path\": \"one\" }"),
             raw_call(
@@ -129,7 +128,7 @@ fn rejects_absent_null_empty_partial_and_malformed_dispatchable_calls() {
 
     for message in messages {
         let result = parse(
-            ThinkingLevel::High,
+            Effort::High,
             json!({
                 "choices": [{
                     "finish_reason": "tool_calls",
@@ -152,7 +151,7 @@ fn non_tool_finishes_ignore_and_suppress_malformed_tool_payloads() {
         None,
     ] {
         let response = parse(
-            ThinkingLevel::High,
+            Effort::High,
             json!({
                 "choices": [{
                     "finish_reason": finish_reason,
@@ -188,25 +187,32 @@ fn enabled_thinking_requires_reasoning_but_disabled_thinking_does_not() {
     });
 
     assert!(matches!(
-        parse(ThinkingLevel::High, missing_reasoning.clone()),
+        parse(Effort::High, missing_reasoning.clone()),
         Err(ModelError::Provider { .. })
     ));
-    let response = parse(ThinkingLevel::Disabled, missing_reasoning)
+    let response = parse(Effort::Disabled, missing_reasoning)
         .expect("disabled-thinking tool call should not require reasoning");
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
 }
 
-fn parse(
-    thinking_level: ThinkingLevel,
-    body: Value,
-) -> Result<ai_interface::ModelResponse, ModelError> {
-    parse_response(DEEPSEEK_V4_PRO, DEEPSEEK_V4_PRO, thinking_level, body, None)
+fn parse(thinking_level: Effort, body: Value) -> Result<ai_interface::ModelResponse, ModelError> {
+    parse_response(
+        DEEPSEEK_V4_PRO.provider_model_id.as_ref(),
+        DEEPSEEK_V4_PRO.provider_model_id.as_ref(),
+        thinking_level,
+        body,
+        None,
+    )
 }
 
-fn request_json(thinking_level: ThinkingLevel, request: &ai_interface::ModelRequest) -> Value {
+fn request_json(thinking_level: Effort, request: &ai_interface::ModelRequest) -> Value {
     serde_json::to_value(
-        build_request(DEEPSEEK_V4_PRO, thinking_level, request)
-            .expect("plain request should build"),
+        build_request(
+            DEEPSEEK_V4_PRO.provider_model_id.as_ref(),
+            thinking_level,
+            request,
+        )
+        .expect("plain request should build"),
     )
     .expect("DeepSeek request should serialize")
 }

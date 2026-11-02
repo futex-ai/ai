@@ -4,6 +4,8 @@ use ai_interface::{Model, ModelUsage};
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use crate::minimax::MINIMAX_M3;
+
 use super::{
     MiniMaxModel,
     support::{recording_http_client, simple_request},
@@ -62,7 +64,7 @@ async fn complete_with_usage(usage: serde_json::Value) -> ModelUsage {
             "usage": usage
         }),
     }]);
-    MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key")
+    MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
         .complete(&simple_request())
         .await
         .expect("usage response should parse")

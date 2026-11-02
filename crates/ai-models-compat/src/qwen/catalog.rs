@@ -1,141 +1,120 @@
-//! Known QwenCloud model metadata.
+//! Model specs and custom defaults owned by the qwen dialect.
 
-use ai_models_core::{
-    CostTier, IntelligenceScore, KnownModelSpec, ModelFeature, ProviderKind, SpeedTier,
-    ThinkingLevel,
+use std::borrow::Cow;
+
+use ai_interface::{
+    CostTier, CustomModelDefaults, Effort, EffortSet, ForcedToolChoice, IntelligenceScore,
+    ModelFeature, ModelSpec, ProviderId, RoutingTiers, Sampling, SpeedTier,
 };
 
-/// Default high-thinking Qwen 3.7 Max catalog id.
-pub const QWEN_3_7_MAX: &str = "qwen3.7-max";
+/// Stable provider identity for configuration and replay state.
+pub const PROVIDER_ID: ProviderId = ProviderId::new("qwen");
 
-/// Qwen 3.7 Max catalog id with thinking disabled.
-pub const QWEN_3_7_MAX_THINKING_DISABLED: &str = "qwen3.7-max-thinking-disabled";
+pub(super) const QWEN_3_7_MAX_ID: &str = "qwen3.7-max";
+pub(super) const QWEN_3_7_PLUS_ID: &str = "qwen3.7-plus";
+pub(super) const QWEN_3_7_FLASH_ID: &str = "qwen3.7-flash";
 
-/// Default high-thinking Qwen 3.7 Plus catalog id.
-pub const QWEN_3_7_PLUS: &str = "qwen3.7-plus";
+/// Defaults for an unlisted model, without routing features or scores.
+pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
+    context_window_tokens: 0,
+    max_output_tokens: 65_536,
+    efforts: EffortSet::new(Effort::Disabled).with(Effort::High),
+    default_effort: Effort::High,
+    forced_tool_choice: ForcedToolChoice::OnlyWithoutThinking,
+    sampling: Sampling::FixedWhileThinking,
+    supports_stop_sequences: true,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: &[Effort::High],
+};
 
-/// Qwen 3.7 Plus catalog id with thinking disabled.
-pub const QWEN_3_7_PLUS_THINKING_DISABLED: &str = "qwen3.7-plus-thinking-disabled";
+/// qwen3.7-max model facts at its default high effort.
+pub const QWEN_3_7_MAX: ModelSpec = ModelSpec {
+    provider: PROVIDER_ID,
+    provider_model_id: Cow::Borrowed(QWEN_3_7_MAX_ID),
+    context_window_tokens: 1_000_000,
+    max_output_tokens: 65_536,
+    efforts: EffortSet::new(Effort::Disabled).with(Effort::High),
+    default_effort: Effort::High,
+    forced_tool_choice: ForcedToolChoice::OnlyWithoutThinking,
+    sampling: Sampling::FixedWhileThinking,
+    supports_stop_sequences: true,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: Cow::Borrowed(&[Effort::High]),
+    features: Cow::Borrowed(&[
+        ModelFeature::ToolCalling,
+        ModelFeature::StructuredOutput,
+        ModelFeature::LongContext,
+        ModelFeature::Reasoning,
+    ]),
+    routing: Some(RoutingTiers {
+        intelligence: IntelligenceScore::Ten,
+        speed: SpeedTier::Slow,
+        cost: CostTier::Premium,
+    }),
+};
 
-/// Default high-thinking Qwen 3.7 Flash catalog id.
-pub const QWEN_3_7_FLASH: &str = "qwen3.7-flash";
+/// qwen3.7-plus model facts at its default high effort.
+pub const QWEN_3_7_PLUS: ModelSpec = ModelSpec {
+    provider: PROVIDER_ID,
+    provider_model_id: Cow::Borrowed(QWEN_3_7_PLUS_ID),
+    context_window_tokens: 1_000_000,
+    max_output_tokens: 65_536,
+    efforts: EffortSet::new(Effort::Disabled).with(Effort::High),
+    default_effort: Effort::High,
+    forced_tool_choice: ForcedToolChoice::OnlyWithoutThinking,
+    sampling: Sampling::FixedWhileThinking,
+    supports_stop_sequences: true,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: Cow::Borrowed(&[Effort::High]),
+    features: Cow::Borrowed(&[
+        ModelFeature::ToolCalling,
+        ModelFeature::StructuredOutput,
+        ModelFeature::Vision,
+        ModelFeature::LongContext,
+        ModelFeature::Reasoning,
+    ]),
+    routing: Some(RoutingTiers {
+        intelligence: IntelligenceScore::Nine,
+        speed: SpeedTier::Medium,
+        cost: CostTier::Medium,
+    }),
+};
 
-/// Qwen 3.7 Flash catalog id with thinking disabled.
-pub const QWEN_3_7_FLASH_THINKING_DISABLED: &str = "qwen3.7-flash-thinking-disabled";
+/// qwen3.7-flash model facts at its default high effort.
+pub const QWEN_3_7_FLASH: ModelSpec = ModelSpec {
+    provider: PROVIDER_ID,
+    provider_model_id: Cow::Borrowed(QWEN_3_7_FLASH_ID),
+    context_window_tokens: 1_000_000,
+    max_output_tokens: 65_536,
+    efforts: EffortSet::new(Effort::Disabled).with(Effort::High),
+    default_effort: Effort::High,
+    forced_tool_choice: ForcedToolChoice::OnlyWithoutThinking,
+    sampling: Sampling::FixedWhileThinking,
+    supports_stop_sequences: true,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: Cow::Borrowed(&[Effort::High]),
+    features: Cow::Borrowed(&[
+        ModelFeature::ToolCalling,
+        ModelFeature::StructuredOutput,
+        ModelFeature::Vision,
+        ModelFeature::LongContext,
+        ModelFeature::Reasoning,
+    ]),
+    routing: Some(RoutingTiers {
+        intelligence: IntelligenceScore::Eight,
+        speed: SpeedTier::Fast,
+        cost: CostTier::Low,
+    }),
+};
 
-const TEXT_THINKING_FEATURES: &[ModelFeature] = &[
-    ModelFeature::ToolCalling,
-    ModelFeature::StructuredOutput,
-    ModelFeature::LongContext,
-    ModelFeature::Reasoning,
-];
+/// One model spec for each provider model id.
+pub const CATALOG: &[ModelSpec] = &[QWEN_3_7_MAX, QWEN_3_7_PLUS, QWEN_3_7_FLASH];
 
-const TEXT_DISABLED_FEATURES: &[ModelFeature] = &[
-    ModelFeature::ToolCalling,
-    ModelFeature::StructuredOutput,
-    ModelFeature::LongContext,
-];
-
-const VISION_THINKING_FEATURES: &[ModelFeature] = &[
-    ModelFeature::ToolCalling,
-    ModelFeature::StructuredOutput,
-    ModelFeature::Vision,
-    ModelFeature::LongContext,
-    ModelFeature::Reasoning,
-];
-
-const VISION_DISABLED_FEATURES: &[ModelFeature] = &[
-    ModelFeature::ToolCalling,
-    ModelFeature::StructuredOutput,
-    ModelFeature::Vision,
-    ModelFeature::LongContext,
-];
-
-/// Returns current stable Qwen 3.7 models known to this provider crate.
-pub fn known_models() -> Vec<KnownModelSpec> {
-    vec![
-        model_spec(
-            QWEN_3_7_MAX,
-            QWEN_3_7_MAX,
-            IntelligenceScore::Ten,
-            SpeedTier::Slow,
-            CostTier::Premium,
-            ThinkingLevel::High,
-            false,
-        ),
-        model_spec(
-            QWEN_3_7_MAX_THINKING_DISABLED,
-            QWEN_3_7_MAX,
-            IntelligenceScore::Ten,
-            SpeedTier::Medium,
-            CostTier::Premium,
-            ThinkingLevel::Disabled,
-            false,
-        ),
-        model_spec(
-            QWEN_3_7_PLUS,
-            QWEN_3_7_PLUS,
-            IntelligenceScore::Nine,
-            SpeedTier::Medium,
-            CostTier::Medium,
-            ThinkingLevel::High,
-            true,
-        ),
-        model_spec(
-            QWEN_3_7_PLUS_THINKING_DISABLED,
-            QWEN_3_7_PLUS,
-            IntelligenceScore::Nine,
-            SpeedTier::Fast,
-            CostTier::Medium,
-            ThinkingLevel::Disabled,
-            true,
-        ),
-        model_spec(
-            QWEN_3_7_FLASH,
-            QWEN_3_7_FLASH,
-            IntelligenceScore::Eight,
-            SpeedTier::Fast,
-            CostTier::Low,
-            ThinkingLevel::High,
-            true,
-        ),
-        model_spec(
-            QWEN_3_7_FLASH_THINKING_DISABLED,
-            QWEN_3_7_FLASH,
-            IntelligenceScore::Eight,
-            SpeedTier::VeryFast,
-            CostTier::Low,
-            ThinkingLevel::Disabled,
-            true,
-        ),
-    ]
-}
-
-fn model_spec(
-    id: &'static str,
-    provider_model_id: &'static str,
-    intelligence_score: IntelligenceScore,
-    speed: SpeedTier,
-    cost: CostTier,
-    thinking_level: ThinkingLevel,
-    vision: bool,
-) -> KnownModelSpec {
-    let features = match (vision, thinking_level.is_enabled()) {
-        (false, true) => TEXT_THINKING_FEATURES,
-        (false, false) => TEXT_DISABLED_FEATURES,
-        (true, true) => VISION_THINKING_FEATURES,
-        (true, false) => VISION_DISABLED_FEATURES,
-    };
-    KnownModelSpec {
-        provider: ProviderKind::Qwen,
-        id,
-        provider_model_id,
-        context_window_tokens: 1_000_000,
-        max_output_tokens: 65_536,
-        intelligence_score,
-        speed,
-        cost,
-        thinking_level,
-        features,
-    }
+/// Returns the model specs known to this dialect.
+pub fn known_models() -> Vec<ModelSpec> {
+    CATALOG.to_vec()
 }

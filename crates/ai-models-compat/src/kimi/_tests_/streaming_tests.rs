@@ -2,11 +2,8 @@
 
 use std::time::Duration;
 
-use ai_interface::{Model, StructuredOutputSchema};
-use ai_models_core::{
-    ThinkingLevel,
-    test_support::{SseFixture, done_event, event, recording_streaming_client},
-};
+use ai_interface::{Effort, Model, StructuredOutputSchema};
+use ai_models_core::test_support::{SseFixture, done_event, event, recording_streaming_client};
 use serde_json::{Value, json};
 
 use crate::kimi::{KIMI_K3, KimiModel};
@@ -53,8 +50,14 @@ async fn streams_rich_deltas_with_current_usage_shape() {
         .complete(&simple_request())
         .await
         .expect("Kimi stream should parse");
-    let parsed = response::parse_response(KIMI_K3, KIMI_K3, ThinkingLevel::Max, buffered, None)
-        .expect("buffered Kimi response should parse");
+    let parsed = response::parse_response(
+        &KIMI_K3.text_id(),
+        KIMI_K3.provider_model_id.as_ref(),
+        Effort::Max,
+        buffered,
+        None,
+    )
+    .expect("buffered Kimi response should parse");
 
     assert_eq!(streamed, parsed);
     assert_eq!(streamed.usage.cached_input_tokens, 5);
@@ -114,9 +117,14 @@ async fn streamed_structured_output_matches_buffered_parser() {
         .complete(&request)
         .await
         .expect("structured stream should parse");
-    let parsed =
-        response::parse_response(KIMI_K3, KIMI_K3, ThinkingLevel::Max, body, Some(&schema))
-            .expect("buffered structured response should parse");
+    let parsed = response::parse_response(
+        &KIMI_K3.text_id(),
+        KIMI_K3.provider_model_id.as_ref(),
+        Effort::Max,
+        body,
+        Some(&schema),
+    )
+    .expect("buffered structured response should parse");
 
     assert_eq!(streamed, parsed);
 }

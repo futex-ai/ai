@@ -7,13 +7,15 @@ use ai_interface::{
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use crate::minimax::MINIMAX_M3;
+
 use super::{MiniMaxModel, support::recording_http_client};
 
 #[tokio::test]
 async fn preserves_and_replays_complete_reasoning_context_without_disclosure() {
     let (http_client, requests) =
         recording_http_client([reasoning_tool_response(), stopped_response()]);
-    let model = MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key");
+    let model = MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key");
     let first_response = model
         .complete(&simple_request())
         .await

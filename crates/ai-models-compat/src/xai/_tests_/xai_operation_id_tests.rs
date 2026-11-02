@@ -4,6 +4,7 @@ use ai_interface::{ConversationMessage, Model, ModelRequest, ProviderConversatio
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use super::test_support::custom_spec;
 use super::{XaiModel, test_support::recording_http_client};
 
 #[tokio::test]
@@ -42,7 +43,7 @@ async fn complete_legacy_tool_call(content: &str) -> ai_interface::ModelResponse
             }]
         }),
     });
-    let model = XaiModel::new(http_client, "grok-4", "xai-key");
+    let model = XaiModel::new(http_client, custom_spec("grok-4"), "xai-key");
 
     model
         .complete(&ModelRequest {

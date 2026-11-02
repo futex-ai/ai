@@ -95,7 +95,7 @@ fn request_serialization_and_response_deserialization_errors_are_internal() {
     let source = serde_json::from_str::<Value>("{").expect_err("invalid JSON");
     let serialization = request_error(
         json_http::Error::SerializeRequest { source },
-        DEEPSEEK_V4_PRO,
+        DEEPSEEK_V4_PRO.provider_model_id.as_ref(),
     );
     let source = serde_json::from_str::<Value>("{").expect_err("invalid JSON");
     let deserialization = request_error(
@@ -103,7 +103,7 @@ fn request_serialization_and_response_deserialization_errors_are_internal() {
             body: Value::Null,
             source,
         },
-        DEEPSEEK_V4_PRO,
+        DEEPSEEK_V4_PRO.provider_model_id.as_ref(),
     );
 
     assert!(matches!(serialization, ModelError::Internal { .. }));

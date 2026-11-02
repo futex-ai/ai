@@ -1,8 +1,8 @@
 //! DeepSeek endpoint and wire settings.
 
 use crate::engine::dialect::{
-    Dialect, InputParts, OutputLimit, ReplayRule, Sampling, StructuredOutput, ThinkingFormat,
-    ToolChoiceRule, UsageFields,
+    Dialect, InputParts, OutputLimit, ReplayRule, StructuredOutput, ThinkingFormat, ToolChoiceWire,
+    UsageFields,
 };
 
 pub(super) static DIALECT: Dialect = Dialect {
@@ -14,8 +14,7 @@ pub(super) static DIALECT: Dialect = Dialect {
     thinking: ThinkingFormat::ToggleEffort,
     output_limit: OutputLimit::MaxTokens,
     structured_output: StructuredOutput::JsonObjectPrompt,
-    sampling: Sampling::WithoutThinking,
-    tool_choice: ToolChoiceRule::OmitWhileThinking,
+    tool_choice: ToolChoiceWire::OmitWhileThinking,
     input: InputParts::PlainText,
     deferred_timeout: None,
     clean_eof: false,

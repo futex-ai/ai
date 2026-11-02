@@ -2,12 +2,14 @@
 
 use std::time::Duration;
 
-use ai_interface::{ConversationMessage, Model, ModelRequest, StructuredOutputSchema};
+use ai_interface::{ConversationMessage, Effort, Model, ModelRequest, StructuredOutputSchema};
 use ai_models_core::{
-    ThinkingLevel, synthetic_tool_call_scope,
+    synthetic_tool_call_scope,
     test_support::{SseFixture, done_event, event, recording_streaming_client},
 };
 use serde_json::{Value, json};
+
+use crate::xai::GROK_4_5;
 
 use super::{XaiModel, response};
 
@@ -47,16 +49,16 @@ async fn streams_rich_deltas_with_usage_and_matches_buffered_parser() {
         done_event(),
     ];
     let (http_client, requests) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = XaiModel::new(http_client, MODEL_ID, "xai-key");
+    let model = XaiModel::new(http_client, GROK_4_5, "xai-key");
 
     let streamed = model
         .complete(&request)
         .await
         .expect("xAI stream should parse");
     let parsed = response::parse_response(
+        "xai/grok-4.5",
         MODEL_ID,
-        MODEL_ID,
-        ThinkingLevel::Disabled,
+        Effort::High,
         &synthetic_tool_call_scope(&request),
         buffered,
         None,
@@ -113,7 +115,7 @@ async fn streamed_structured_output_matches_buffered_parser() {
         done_event(),
     ];
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = XaiModel::new(http_client, MODEL_ID, "key");
+    let model = XaiModel::new(http_client, GROK_4_5, "key");
     let mut request = simple_request();
     request.response_schema = Some(schema.clone());
 
@@ -122,9 +124,9 @@ async fn streamed_structured_output_matches_buffered_parser() {
         .await
         .expect("structured stream should parse");
     let parsed = response::parse_response(
+        "xai/grok-4.5",
         MODEL_ID,
-        MODEL_ID,
-        ThinkingLevel::Disabled,
+        Effort::High,
         &synthetic_tool_call_scope(&request),
         body,
         Some(&schema),
@@ -169,16 +171,16 @@ async fn legacy_function_call_deltas_match_buffered_parser() {
         done_event(),
     ];
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = XaiModel::new(http_client, MODEL_ID, "key");
+    let model = XaiModel::new(http_client, GROK_4_5, "key");
 
     let streamed = model
         .complete(&request)
         .await
         .expect("legacy function stream should parse");
     let parsed = response::parse_response(
+        "xai/grok-4.5",
         MODEL_ID,
-        MODEL_ID,
-        ThinkingLevel::Disabled,
+        Effort::High,
         &synthetic_tool_call_scope(&request),
         body,
         None,

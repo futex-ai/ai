@@ -10,7 +10,6 @@ use ai_interface::{
     ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelError,
     ModelExecutionControls, ModelRequest,
 };
-use ai_models_core::ThinkingLevel;
 use json_http::{
     JsonHttpClient, JsonHttpMethod, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
     StaticHeaderAuth, TransportBackedJsonHttpClient,
@@ -18,6 +17,7 @@ use json_http::{
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
+use super::test_support::custom_spec;
 use super::{
     XaiModel,
     deferred::{DeferredRuntime, DeferredRuntimeMock},
@@ -182,9 +182,7 @@ async fn total_timeout_bounds_submission_poll_and_sleep() {
 fn model(http_client: Arc<dyn JsonHttpClient>, runtime: Arc<dyn DeferredRuntime>) -> XaiModel {
     XaiModel::with_catalog_auth_and_runtime(
         http_client,
-        "grok-4",
-        "grok-4",
-        ThinkingLevel::Disabled,
+        custom_spec("grok-4"),
         Arc::new(StaticHeaderAuth::bearer_token("xai-key")),
         runtime,
     )

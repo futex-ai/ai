@@ -1,14 +1,16 @@
-//! MiniMax public constructors over the shared engine.
+//! MiniMax public constructors over a model spec and the shared engine.
 
-use super::{catalog::known_models, dialect::DIALECT};
-use crate::engine::CompatModel;
+use std::sync::Arc;
+
 use ai_interface::{
-    Model, ModelCompletionEventSink, ModelRequest, ModelResponse, ModelResult, ProviderKind,
+    Model, ModelCompletionEventSink, ModelRequest, ModelResponse, ModelResult, ModelSpec,
 };
-use ai_models_core::{ThinkingLevel, resolve_catalog_thinking_level};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
-use std::sync::Arc;
+
+use crate::engine::CompatModel;
+
+use super::dialect::DIALECT;
 
 #[derive(Clone)]
 /// MiniMax-backed `ai_interface::Model` implementation.
@@ -17,60 +19,36 @@ pub struct MiniMaxModel {
 }
 
 impl MiniMaxModel {
-    /// Builds a MiniMax model from an explicit API key.
+    /// Builds a MiniMax model from its spec and an API key.
     pub fn new(
         http_client: DynJsonHttpClient,
-        model_id: impl Into<String>,
+        spec: ModelSpec,
         api_key: impl Into<String>,
     ) -> Self {
         Self::with_auth(
             http_client,
-            model_id,
+            spec,
             Arc::new(StaticHeaderAuth::bearer_token(api_key)),
         )
     }
 
-    /// Builds a MiniMax model with adaptive thinking and an explicit auth hook.
+    /// Builds a MiniMax model from its spec and an auth hook.
     pub fn with_auth(
         http_client: DynJsonHttpClient,
-        model_id: impl Into<String>,
+        spec: ModelSpec,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        let model_id = model_id.into();
-        Self::with_catalog_auth(
-            http_client,
-            model_id.clone(),
-            model_id,
-            ThinkingLevel::Medium,
-            auth,
-        )
+        Self::with_catalog_auth(http_client, spec, auth)
     }
 
-    /// Builds a MiniMax model from catalog metadata and an explicit auth hook.
+    /// Builds a MiniMax model from a catalog or custom spec and explicit auth.
     pub fn with_catalog_auth(
         http_client: DynJsonHttpClient,
-        catalog_model_id: impl Into<String>,
-        provider_model_id: impl Into<String>,
-        thinking_level: ThinkingLevel,
+        spec: ModelSpec,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        let provider_model_id = provider_model_id.into();
-        let thinking_level = resolve_catalog_thinking_level(
-            &known_models(),
-            ProviderKind::MiniMax,
-            &provider_model_id,
-            thinking_level,
-        )
-        .unwrap_or(thinking_level);
         Self {
-            inner: CompatModel::new(
-                &DIALECT,
-                http_client,
-                catalog_model_id.into(),
-                provider_model_id,
-                thinking_level,
-                auth,
-            ),
+            inner: CompatModel::new(&DIALECT, http_client, spec, auth),
         }
     }
 }
@@ -80,6 +58,7 @@ impl Model for MiniMaxModel {
     async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
         self.inner.complete(request).await
     }
+
     async fn complete_with_events(
         &self,
         request: &ModelRequest,

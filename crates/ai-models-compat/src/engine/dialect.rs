@@ -2,8 +2,7 @@
 
 use std::time::Duration;
 
-use ai_interface::ModelError;
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, ModelError};
 use serde_json::Value;
 
 use super::{response::BaseResponse, stream::StreamNormalizer};
@@ -20,8 +19,7 @@ pub(crate) struct Dialect {
     pub(crate) thinking: ThinkingFormat,
     pub(crate) output_limit: OutputLimit,
     pub(crate) structured_output: StructuredOutput,
-    pub(crate) sampling: Sampling,
-    pub(crate) tool_choice: ToolChoiceRule,
+    pub(crate) tool_choice: ToolChoiceWire,
     pub(crate) input: InputParts,
     pub(crate) names: bool,
     pub(crate) required_reasoning: bool,
@@ -76,18 +74,9 @@ pub(crate) enum StructuredOutput {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) enum Sampling {
-    WithoutThinking,
-    Fixed,
-    Any,
-}
-
-#[derive(Clone, Copy)]
-pub(crate) enum ToolChoiceRule {
+pub(crate) enum ToolChoiceWire {
     OmitWhileThinking,
-    Standard,
-    AutoWhileThinking,
-    RequiredFor(&'static str),
+    AutoWhenTools,
 }
 
 #[derive(Clone, Copy)]
@@ -103,6 +92,6 @@ pub(crate) struct CompletionContext<'a> {
     pub(crate) dialect: &'a Dialect,
     pub(crate) catalog_model_id: &'a str,
     pub(crate) provider_model_id: &'a str,
-    pub(crate) thinking_level: ThinkingLevel,
+    pub(crate) thinking_level: Effort,
     pub(crate) synthetic_tool_call_scope: &'a str,
 }

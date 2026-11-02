@@ -10,8 +10,7 @@ mod dialect;
 mod response;
 
 pub use catalog::{
-    GROK_4_5, GROK_4_5_THINKING_LOW, GROK_4_5_THINKING_MEDIUM, GROK_4_20, GROK_4_20_REASONING,
-    known_models,
+    CATALOG, CUSTOM_DEFAULTS, GROK_4_5, GROK_4_20, GROK_4_20_REASONING, PROVIDER_ID, known_models,
 };
 pub use client::XaiModel;
 

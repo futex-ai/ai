@@ -1,56 +1,47 @@
-//! Kimi catalog contract tests.
+//! Kimi catalog metadata and supported-effort tests.
 
-use ai_models_core::{
-    CostTier, IntelligenceScore, ModelFeature, ProviderKind, SpeedTier, ThinkingLevel,
-};
+use ai_interface::{CostTier, Effort, IntelligenceScore, ModelFeature, SpeedTier};
 
-use super::{KIMI_K3, KIMI_K3_THINKING_HIGH, KIMI_K3_THINKING_LOW, known_models};
+use super::{CATALOG, PROVIDER_ID, known_models};
 
 #[test]
-fn catalog_exposes_exact_kimi_k3_variants() {
+fn catalog_exposes_one_k3_model_with_all_efforts() {
     let models = known_models();
-    assert!(known_models().iter().any(|model| model.id == KIMI_K3));
-
+    assert_eq!(models, CATALOG);
+    assert_eq!(models.len(), 1);
+    assert_eq!(models[0].provider_model_id, "kimi-k3");
+    assert_eq!(models[0].default_effort, Effort::Max);
     assert_eq!(
-        models.iter().map(|model| model.id).collect::<Vec<_>>(),
-        vec![KIMI_K3, KIMI_K3_THINKING_HIGH, KIMI_K3_THINKING_LOW]
-    );
-    assert_eq!(
-        models
-            .iter()
-            .map(|model| model.thinking_level)
-            .collect::<Vec<_>>(),
-        vec![ThinkingLevel::Max, ThinkingLevel::High, ThinkingLevel::Low]
+        models[0].efforts.iter().collect::<Vec<_>>(),
+        vec![Effort::Low, Effort::High, Effort::Max]
     );
 }
 
 #[test]
-fn catalog_variants_share_k3_provider_contract() {
-    let expected_features = [
-        ModelFeature::ToolCalling,
-        ModelFeature::StructuredOutput,
-        ModelFeature::Vision,
-        ModelFeature::LongContext,
-        ModelFeature::Reasoning,
-    ];
-
-    for model in known_models() {
-        assert_eq!(model.provider, ProviderKind::Kimi);
-        assert_eq!(model.provider_model_id, KIMI_K3);
-        assert_eq!(model.context_window_tokens, 1_000_000);
-        assert_eq!(model.intelligence_score, IntelligenceScore::Ten);
-        assert_eq!(model.features, expected_features);
-    }
+fn catalog_model_keeps_k3_provider_contract() {
+    let model = &CATALOG[0];
+    assert_eq!(model.provider, PROVIDER_ID);
+    assert_eq!(model.context_window_tokens, 1_000_000);
+    assert_eq!(model.max_output_tokens, 131_072);
+    assert_eq!(
+        model.features.as_ref(),
+        [
+            ModelFeature::ToolCalling,
+            ModelFeature::StructuredOutput,
+            ModelFeature::Vision,
+            ModelFeature::LongContext,
+            ModelFeature::Reasoning
+        ]
+    );
+    assert_eq!(
+        model.routing.expect("routing tiers").intelligence,
+        IntelligenceScore::Ten
+    );
 }
 
 #[test]
-fn catalog_variants_have_specified_speed_and_cost_tiers() {
-    let models = known_models();
-
-    assert_eq!(models[0].speed, SpeedTier::Slow);
-    assert_eq!(models[0].cost, CostTier::Premium);
-    assert_eq!(models[1].speed, SpeedTier::Medium);
-    assert_eq!(models[1].cost, CostTier::Premium);
-    assert_eq!(models[2].speed, SpeedTier::Fast);
-    assert_eq!(models[2].cost, CostTier::High);
+fn catalog_model_keeps_default_speed_and_cost() {
+    let tiers = CATALOG[0].routing.expect("routing tiers");
+    assert_eq!(tiers.speed, SpeedTier::Slow);
+    assert_eq!(tiers.cost, CostTier::Premium);
 }

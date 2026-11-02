@@ -10,12 +10,13 @@ use ai_models_core::test_support::RecordedRequests;
 use json_http::{JsonHttpClient, JsonHttpResponse};
 use serde_json::json;
 
+use super::test_support::custom_spec;
 use super::{XaiModel, test_support::recording_http_client};
 
 #[tokio::test]
 async fn maps_generation_controls_timeout_and_blank_system_to_final_request() {
     let (http_client, requests) = recording_client();
-    let model = XaiModel::new(http_client, "grok-4", "key");
+    let model = XaiModel::new(http_client, custom_spec("grok-4"), "key");
 
     model
         .complete(&controlled_request())
@@ -38,7 +39,7 @@ async fn maps_generation_controls_timeout_and_blank_system_to_final_request() {
 #[tokio::test]
 async fn required_or_auto_uses_forced_required_semantics() {
     let (http_client, requests) = recording_client();
-    let model = XaiModel::new(http_client, "grok-4", "key");
+    let model = XaiModel::new(http_client, custom_spec("grok-4"), "key");
     let mut request = controlled_request();
     request.controls.generation.tool_choice = Some(ModelToolChoice::RequiredOrAuto);
 
@@ -58,7 +59,7 @@ async fn required_or_auto_uses_forced_required_semantics() {
 async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
     for (system_prompt, expected) in [("", None), ("   ", None), ("normal", Some("normal"))] {
         let (http_client, requests) = recording_client();
-        let model = XaiModel::new(http_client, "grok-4", "key");
+        let model = XaiModel::new(http_client, custom_spec("grok-4"), "key");
         let mut request = controlled_request();
         request.system_prompt = system_prompt.to_owned();
 

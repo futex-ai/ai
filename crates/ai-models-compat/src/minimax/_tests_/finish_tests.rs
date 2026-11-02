@@ -1,7 +1,7 @@
 //! MiniMax finish-reason safety tests.
 
+use ai_interface::Effort;
 use ai_interface::FinishReason;
-use ai_models_core::ThinkingLevel;
 use serde_json::{Value, json};
 
 use crate::minimax::MINIMAX_M3;
@@ -25,9 +25,9 @@ fn maps_finish_reasons_and_suppresses_non_tool_payloads() {
 
     for (raw_reason, expected, exposes_tools) in cases {
         let result = parse_response(
-            MINIMAX_M3,
-            MINIMAX_M3,
-            ThinkingLevel::Medium,
+            MINIMAX_M3.provider_model_id.as_ref(),
+            MINIMAX_M3.provider_model_id.as_ref(),
+            Effort::Medium,
             response(raw_reason, exposes_tools),
             None,
         )

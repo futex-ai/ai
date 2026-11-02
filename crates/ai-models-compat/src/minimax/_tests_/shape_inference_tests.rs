@@ -1,12 +1,9 @@
 //! MiniMax M2.x stream-shape inference regression tests.
 
-use ai_interface::{Model, ModelCompletionEvent, ModelResponse};
-use ai_models_core::{
-    ThinkingLevel,
-    test_support::{
-        SseFixture, StreamItem, done_event, event, recorded_completion_events,
-        recording_completion_event_sink, recording_streaming_client,
-    },
+use ai_interface::{Effort, Model, ModelCompletionEvent, ModelResponse};
+use ai_models_core::test_support::{
+    SseFixture, StreamItem, done_event, event, recorded_completion_events,
+    recording_completion_event_sink, recording_streaming_client,
 };
 use serde_json::{Value, json};
 
@@ -163,9 +160,9 @@ fn buffered_response(content: &str, reasoning_details: Option<Value>) -> ModelRe
         message["reasoning_details"] = reasoning_details;
     }
     response::parse_response(
-        MINIMAX_M2_7,
-        MINIMAX_M2_7,
-        ThinkingLevel::Medium,
+        &MINIMAX_M2_7.text_id(),
+        MINIMAX_M2_7.provider_model_id.as_ref(),
+        Effort::Medium,
         json!({
             "choices": [{"message": message, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 4, "completion_tokens": 4, "total_tokens": 8}

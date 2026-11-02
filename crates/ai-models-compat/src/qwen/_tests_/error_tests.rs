@@ -63,13 +63,13 @@ fn recognizes_documented_input_length_message_in_both_error_shapes() {
         }),
     ] {
         assert!(matches!(
-            classify_qwen_http_error(QWEN_3_7_PLUS, 400, &body),
+            classify_qwen_http_error(QWEN_3_7_PLUS.provider_model_id.as_ref(), 400, &body),
             ModelError::ContextLimitExceeded { .. }
         ));
     }
 
     let unrelated = classify_qwen_http_error(
-        QWEN_3_7_PLUS,
+        QWEN_3_7_PLUS.provider_model_id.as_ref(),
         400,
         &json!({
             "error": {"code": "InvalidParameter", "message": "Invalid tool schema"}
@@ -105,14 +105,17 @@ async fn transport_and_auth_failures_are_transient() {
 #[test]
 fn serialization_and_deserialization_failures_are_internal() {
     let source = serde_json::from_str::<Value>("{").expect_err("invalid JSON");
-    let serialization = request_error(json_http::Error::SerializeRequest { source }, QWEN_3_7_PLUS);
+    let serialization = request_error(
+        json_http::Error::SerializeRequest { source },
+        QWEN_3_7_PLUS.provider_model_id.as_ref(),
+    );
     let source = serde_json::from_str::<Value>("{").expect_err("invalid JSON");
     let deserialization = request_error(
         json_http::Error::DeserializeResponse {
             body: Value::Null,
             source,
         },
-        QWEN_3_7_PLUS,
+        QWEN_3_7_PLUS.provider_model_id.as_ref(),
     );
 
     assert!(matches!(serialization, ModelError::Internal { .. }));

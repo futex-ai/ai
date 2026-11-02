@@ -2,11 +2,8 @@
 
 use std::time::Duration;
 
-use ai_interface::{Model, StructuredOutputSchema};
-use ai_models_core::{
-    ThinkingLevel,
-    test_support::{SseFixture, done_event, event, recording_streaming_client},
-};
+use ai_interface::{Effort, Model, StructuredOutputSchema};
+use ai_models_core::test_support::{SseFixture, done_event, event, recording_streaming_client};
 use serde_json::{Value, json};
 
 use crate::minimax::{MINIMAX_M2_7, MINIMAX_M3, MiniMaxModel};
@@ -66,9 +63,9 @@ async fn normalizes_cumulative_content_and_preserves_reasoning_details() {
         .await
         .expect("MiniMax stream should parse");
     let parsed = response::parse_response(
-        MINIMAX_M2_7,
-        MINIMAX_M2_7,
-        ThinkingLevel::Medium,
+        &MINIMAX_M2_7.text_id(),
+        MINIMAX_M2_7.provider_model_id.as_ref(),
+        Effort::Medium,
         buffered,
         None,
     )
@@ -169,9 +166,9 @@ async fn accepts_complete_m3_stream_at_clean_eof() {
         .await
         .expect("complete MiniMax-M3 stream should parse at clean EOF");
     let parsed = response::parse_response(
-        MINIMAX_M3,
-        MINIMAX_M3,
-        ThinkingLevel::Medium,
+        &MINIMAX_M3.text_id(),
+        MINIMAX_M3.provider_model_id.as_ref(),
+        Effort::Medium,
         buffered,
         None,
     )
@@ -225,9 +222,9 @@ async fn cumulative_structured_output_matches_buffered_parser() {
         .await
         .expect("structured stream should parse");
     let parsed = response::parse_response(
-        MINIMAX_M2_7,
-        MINIMAX_M2_7,
-        ThinkingLevel::Medium,
+        &MINIMAX_M2_7.text_id(),
+        MINIMAX_M2_7.provider_model_id.as_ref(),
+        Effort::Medium,
         body,
         Some(&schema),
     )

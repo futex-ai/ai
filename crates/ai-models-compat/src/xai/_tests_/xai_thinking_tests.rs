@@ -2,12 +2,11 @@
 
 use std::sync::Arc;
 
-use ai_interface::{ConversationMessage, Model, ModelRequest};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{ConversationMessage, Effort, Model, ModelRequest};
 use json_http::{JsonHttpResponse, StaticHeaderAuth};
 use serde_json::json;
 
-use super::{XaiModel, test_support::recording_http_client};
+use super::{GROK_4_5, GROK_4_20_REASONING, XaiModel, test_support::recording_http_client};
 
 #[tokio::test]
 async fn builds_xai_thinking_variant_requests() {
@@ -25,9 +24,7 @@ async fn builds_xai_thinking_variant_requests() {
     });
     let model = XaiModel::with_catalog_auth(
         http_client,
-        "grok-4.5-thinking-high",
-        "grok-4.5",
-        ThinkingLevel::High,
+        GROK_4_5,
         Arc::new(StaticHeaderAuth::bearer_token("xai-key")),
     );
 
@@ -42,10 +39,7 @@ async fn builds_xai_thinking_variant_requests() {
     let body = requests[0].body.as_ref().expect("body present");
     assert_eq!(body["model"], "grok-4.5");
     assert_eq!(body["reasoning_effort"], "high");
-    assert_eq!(
-        response.catalog_model_id.as_deref(),
-        Some("grok-4.5-thinking-high")
-    );
+    assert_eq!(response.catalog_model_id.as_deref(), Some("xai/grok-4.5"));
     assert_eq!(response.thinking_level.as_deref(), Some("high"));
     assert_eq!(response.model_id, "grok-4.5");
 }
@@ -63,14 +57,14 @@ async fn downgrades_max_to_grok_high() {
     });
     let model = XaiModel::with_catalog_auth(
         http_client,
-        "custom-grok-4.5-max",
-        "grok-4.5",
-        ThinkingLevel::Max,
+        GROK_4_5,
         Arc::new(StaticHeaderAuth::bearer_token("xai-key")),
     );
 
+    let mut request = simple_request();
+    request.controls.generation.effort = Some(Effort::Max);
     let response = model
-        .complete(&simple_request())
+        .complete(&request)
         .await
         .expect("xAI downgraded response should parse");
 
@@ -98,9 +92,7 @@ async fn omits_reasoning_effort_for_grok_4_20() {
     });
     let model = XaiModel::with_catalog_auth(
         http_client,
-        "grok-4.20-reasoning",
-        "grok-4.20-reasoning",
-        ThinkingLevel::High,
+        GROK_4_20_REASONING,
         Arc::new(StaticHeaderAuth::bearer_token("xai-key")),
     );
 

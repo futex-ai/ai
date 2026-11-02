@@ -5,11 +5,10 @@ use std::{collections::BTreeMap, sync::Arc};
 use ai_interface::{
     ConversationMessage, ConversationRole, FinishReason, Model, ModelRequest, ModelUsage,
 };
-use ai_models_core::ThinkingLevel;
 use json_http::{JsonHttpResponse, StaticHeaderAuth};
 use serde_json::json;
 
-use super::{MiniMaxModel, support::recording_http_client};
+use super::{MINIMAX_M3, MiniMaxModel, support::recording_http_client};
 
 #[tokio::test]
 async fn builds_text_request_and_parses_stopped_response() {
@@ -29,9 +28,7 @@ async fn builds_text_request_and_parses_stopped_response() {
     }]);
     let model = MiniMaxModel::with_catalog_auth(
         http_client,
-        "MiniMax-M3-routing",
-        "MiniMax-M3",
-        ThinkingLevel::Medium,
+        MINIMAX_M3,
         Arc::new(StaticHeaderAuth::bearer_token("minimax-key")),
     );
 
@@ -91,7 +88,7 @@ async fn builds_text_request_and_parses_stopped_response() {
     assert_eq!(response.model_id, "MiniMax-M3");
     assert_eq!(
         response.catalog_model_id,
-        Some("MiniMax-M3-routing".to_owned())
+        Some("minimax/MiniMax-M3".to_owned())
     );
     assert_eq!(response.thinking_level, Some("medium".to_owned()));
     assert_eq!(response.assistant_message, "Done");
@@ -115,7 +112,7 @@ async fn builds_text_request_and_parses_stopped_response() {
 #[tokio::test]
 async fn constructors_apply_bearer_and_injected_auth() {
     let (bearer_client, bearer_requests) = recording_http_client([stopped_response()]);
-    MiniMaxModel::new(bearer_client, "MiniMax-M3", "direct-key")
+    MiniMaxModel::new(bearer_client, MINIMAX_M3, "direct-key")
         .complete(&simple_request())
         .await
         .expect("direct auth request should succeed");
@@ -133,7 +130,7 @@ async fn constructors_apply_bearer_and_injected_auth() {
         "X-MiniMax-Test".to_owned(),
         "injected".to_owned(),
     )])));
-    MiniMaxModel::with_auth(injected_client, "MiniMax-M3", auth)
+    MiniMaxModel::with_auth(injected_client, MINIMAX_M3, auth)
         .complete(&simple_request())
         .await
         .expect("injected auth request should succeed");

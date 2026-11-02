@@ -1,13 +1,15 @@
 //! Qwen endpoint, wire settings, and input-length error quirk.
 
-use super::{QWEN_3_7_FLASH, QWEN_3_7_MAX, QWEN_3_7_PLUS};
-use crate::engine::dialect::{
-    Dialect, InputParts, OutputLimit, ReplayRule, Sampling, StructuredOutput, ThinkingFormat,
-    ToolChoiceRule, UsageFields,
-};
 use ai_interface::ModelError;
 use ai_models_core::classify_json_http_error;
 use serde_json::Value;
+
+use crate::engine::dialect::{
+    Dialect, InputParts, OutputLimit, ReplayRule, StructuredOutput, ThinkingFormat, ToolChoiceWire,
+    UsageFields,
+};
+
+use super::catalog::{QWEN_3_7_FLASH_ID, QWEN_3_7_MAX_ID, QWEN_3_7_PLUS_ID};
 
 pub(super) static DIALECT: Dialect = Dialect {
     provider: "qwen",
@@ -17,11 +19,13 @@ pub(super) static DIALECT: Dialect = Dialect {
     replay: ReplayRule::Qwen,
     thinking: ThinkingFormat::Flags,
     output_limit: OutputLimit::MaxCompletionTokens,
-    structured_output: StructuredOutput::JsonObjectWhenDisabled(&[QWEN_3_7_PLUS, QWEN_3_7_FLASH]),
-    sampling: Sampling::WithoutThinking,
-    tool_choice: ToolChoiceRule::AutoWhileThinking,
+    structured_output: StructuredOutput::JsonObjectWhenDisabled(&[
+        QWEN_3_7_PLUS_ID,
+        QWEN_3_7_FLASH_ID,
+    ]),
+    tool_choice: ToolChoiceWire::AutoWhenTools,
     input: InputParts::UserTextImage {
-        plain_text_model: QWEN_3_7_MAX,
+        plain_text_model: QWEN_3_7_MAX_ID,
     },
     deferred_timeout: None,
     clean_eof: false,

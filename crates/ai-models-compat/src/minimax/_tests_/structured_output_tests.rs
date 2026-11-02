@@ -1,7 +1,8 @@
 //! MiniMax locally validated structured-output tests.
 
-use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, StructuredOutputSchema};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{
+    Effort, Model, ModelError, ModelRequest, ModelResponse, StructuredOutputSchema,
+};
 use json_http::JsonHttpResponse;
 use serde_json::{Value, json};
 
@@ -22,7 +23,7 @@ async fn prompts_for_and_validates_structured_output_locally() {
             .to_string(),
         ),
     }]);
-    let response = MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key")
+    let response = MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
         .complete(&request_with_schema(schema.clone()))
         .await
         .expect("valid structured response should parse");
@@ -105,9 +106,9 @@ async fn skips_structured_parsing_on_tool_and_terminal_finishes() {
         }
         let schema = status_schema();
         let parsed = response::parse_response(
-            MINIMAX_M3,
-            MINIMAX_M3,
-            ThinkingLevel::Medium,
+            MINIMAX_M3.provider_model_id.as_ref(),
+            MINIMAX_M3.provider_model_id.as_ref(),
+            Effort::Medium,
             json!({"choices": [choice]}),
             Some(&schema),
         )
@@ -121,7 +122,7 @@ async fn complete_with_schema(
     schema: StructuredOutputSchema,
 ) -> std::result::Result<ModelResponse, ModelError> {
     let (http_client, _) = recording_http_client([JsonHttpResponse { status: 200, body }]);
-    MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key")
+    MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
         .complete(&request_with_schema(schema))
         .await
 }

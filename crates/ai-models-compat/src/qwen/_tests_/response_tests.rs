@@ -1,9 +1,9 @@
 //! Qwen response, tool-call, replay, usage, and schema tests.
 
 use ai_interface::{
-    FinishReason, ModelError, ProviderConversationItem, QwenToolCallContext, StructuredOutputSchema,
+    Effort, FinishReason, ModelError, ProviderConversationItem, QwenToolCallContext,
+    StructuredOutputSchema,
 };
-use ai_models_core::ThinkingLevel;
 use serde_json::{Value, json};
 
 use crate::qwen::QWEN_3_7_PLUS;
@@ -13,7 +13,7 @@ use super::response::parse_response;
 #[test]
 fn maps_text_metadata_finish_and_provider_replay() {
     let response = parse(
-        ThinkingLevel::High,
+        Effort::High,
         json!({
             "choices": [{
                 "finish_reason": "stop",
@@ -28,7 +28,7 @@ fn maps_text_metadata_finish_and_provider_replay() {
     .expect("stopped response should parse");
 
     assert_eq!(response.provider, "qwen");
-    assert_eq!(response.model_id, QWEN_3_7_PLUS);
+    assert_eq!(response.model_id, QWEN_3_7_PLUS.provider_model_id.as_ref());
     assert_eq!(response.catalog_model_id.as_deref(), Some("catalog-plus"));
     assert_eq!(response.thinking_level.as_deref(), Some("high"));
     assert_eq!(response.assistant_message, "Done");
@@ -64,7 +64,7 @@ fn normalizes_nullable_content_and_every_finish_reason() {
         if let Some(raw) = raw {
             choice["finish_reason"] = json!(raw);
         }
-        let response = parse(ThinkingLevel::High, json!({"choices": [choice]}), None)
+        let response = parse(Effort::High, json!({"choices": [choice]}), None)
             .expect("recognized response shape should parse");
 
         assert_eq!(response.assistant_message, "");
@@ -75,7 +75,7 @@ fn normalizes_nullable_content_and_every_finish_reason() {
 #[test]
 fn parses_parallel_calls_and_preserves_raw_arguments_in_order() {
     let response = parse(
-        ThinkingLevel::High,
+        Effort::High,
         tool_response(vec![
             raw_call("call_1", "memory_read", "{ \"path\": \"one\" }"),
             raw_call(
@@ -158,7 +158,7 @@ fn enforces_dispatchable_tool_shape_and_thinking_reasoning() {
 
     for message in malformed_messages {
         let result = parse(
-            ThinkingLevel::High,
+            Effort::High,
             json!({"choices": [{"finish_reason": "tool_calls", "message": message}]}),
             None,
         );
@@ -175,11 +175,11 @@ fn enforces_dispatchable_tool_shape_and_thinking_reasoning() {
         }]
     });
     assert!(matches!(
-        parse(ThinkingLevel::High, missing_reasoning.clone(), None),
+        parse(Effort::High, missing_reasoning.clone(), None),
         Err(ModelError::Provider { .. })
     ));
     assert!(
-        parse(ThinkingLevel::Disabled, missing_reasoning, None).is_ok(),
+        parse(Effort::Disabled, missing_reasoning, None).is_ok(),
         "disabled thinking should not require reasoning content"
     );
 }
@@ -187,7 +187,7 @@ fn enforces_dispatchable_tool_shape_and_thinking_reasoning() {
 #[test]
 fn non_tool_finishes_suppress_malformed_tool_payloads() {
     let response = parse(
-        ThinkingLevel::High,
+        Effort::High,
         json!({
             "choices": [{
                 "finish_reason": "stop",
@@ -214,11 +214,17 @@ fn non_tool_finishes_suppress_malformed_tool_payloads() {
 }
 
 fn parse(
-    thinking_level: ThinkingLevel,
+    thinking_level: Effort,
     body: Value,
     schema: Option<&StructuredOutputSchema>,
 ) -> Result<ai_interface::ModelResponse, ModelError> {
-    parse_response("catalog-plus", QWEN_3_7_PLUS, thinking_level, body, schema)
+    parse_response(
+        "catalog-plus",
+        QWEN_3_7_PLUS.provider_model_id.as_ref(),
+        thinking_level,
+        body,
+        schema,
+    )
 }
 
 fn tool_response(tool_calls: Vec<Value>) -> Value {

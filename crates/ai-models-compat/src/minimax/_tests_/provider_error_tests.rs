@@ -4,6 +4,8 @@ use ai_interface::{Model, ModelError};
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use crate::minimax::MINIMAX_M3;
+
 use super::{
     MiniMaxModel,
     support::{recording_http_client, simple_request},
@@ -40,7 +42,7 @@ async fn accepts_missing_or_zero_base_response() {
             body["base_resp"] = base_resp;
         }
         let (http_client, _) = recording_http_client([JsonHttpResponse { status: 200, body }]);
-        MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key")
+        MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
             .complete(&simple_request())
             .await
             .expect("successful base response should parse");
@@ -57,7 +59,7 @@ async fn assert_code_matches(code: i64, predicate: impl FnOnce(&ModelError) -> b
             }
         }),
     }]);
-    let error = MiniMaxModel::new(http_client, "MiniMax-M3", "minimax-key")
+    let error = MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
         .complete(&simple_request())
         .await
         .expect_err("non-zero base response should fail");

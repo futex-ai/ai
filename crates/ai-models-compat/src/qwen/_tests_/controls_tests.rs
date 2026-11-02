@@ -3,10 +3,10 @@
 use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
-    ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl, ModelError,
-    ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
+    ConversationMessage, Effort, Model, ModelCallControls, ModelCompletionMode, ModelControl,
+    ModelError, ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
+    ToolDefinition,
 };
-use ai_models_core::ThinkingLevel;
 use json_http::StaticHeaderAuth;
 use serde_json::json;
 
@@ -25,17 +25,14 @@ async fn maps_non_thinking_controls_to_the_final_request() {
     let (http_client, requests) = recording_http_client(successful_response(Some("Done")));
     let model = QwenModel::with_catalog_auth(
         http_client,
-        "qwen3.7-plus-thinking-disabled",
         QWEN_3_7_PLUS,
-        ThinkingLevel::Disabled,
         Arc::new(StaticHeaderAuth::bearer_token("key")),
-    )
-    .expect("configuration should be supported");
+    );
 
+    let mut request = controlled_request(ModelToolChoice::Function("lookup".to_owned()));
+    request.controls.generation.effort = Some(Effort::Disabled);
     model
-        .complete(&controlled_request(ModelToolChoice::Function(
-            "lookup".to_owned(),
-        )))
+        .complete(&request)
         .await
         .expect("controlled response should parse");
 
@@ -96,16 +93,15 @@ async fn disabled_thinking_required_choices_force_tool_use() {
     ]);
     let model = QwenModel::with_catalog_auth(
         http_client,
-        "qwen3.7-plus-thinking-disabled",
         QWEN_3_7_PLUS,
-        ThinkingLevel::Disabled,
         Arc::new(StaticHeaderAuth::bearer_token("key")),
-    )
-    .expect("configuration should be supported");
+    );
 
     for choice in [ModelToolChoice::Required, ModelToolChoice::RequiredOrAuto] {
+        let mut request = controlled_request(choice);
+        request.controls.generation.effort = Some(Effort::Disabled);
         model
-            .complete(&controlled_request(choice))
+            .complete(&request)
             .await
             .expect("non-thinking required choice should use provider enforcement");
     }

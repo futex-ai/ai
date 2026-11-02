@@ -18,3 +18,7 @@ mod tools;
 
 pub(crate) use client::CompatModel;
 pub(crate) use dialect::{CompletionContext, Dialect};
+
+#[cfg(test)]
+#[path = "_tests_/spec_controls_tests.rs"]
+mod spec_controls_tests;

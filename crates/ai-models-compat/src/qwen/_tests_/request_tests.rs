@@ -2,14 +2,12 @@
 
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, DeepSeekToolCallContext,
-    ModelError, ModelRequest, ProviderConversationItem, QwenToolCallContext,
+    Effort, ModelError, ModelRequest, ProviderConversationItem, QwenToolCallContext,
     StructuredOutputSchema, ToolCall, ToolDefinition,
 };
-use ai_models_core::ThinkingLevel;
 use serde_json::{Value, json};
 
-use crate::qwen::{QWEN_3_7_FLASH, QWEN_3_7_MAX, QWEN_3_7_PLUS};
-
+use super::catalog::{QWEN_3_7_FLASH_ID, QWEN_3_7_MAX_ID, QWEN_3_7_PLUS_ID};
 use super::{request::build_request, test_support::simple_request};
 
 #[test]
@@ -37,8 +35,8 @@ fn serializes_tools_parallel_calls_and_matching_results() {
     request
         .messages
         .push(ConversationMessage::tool("result", "memory_read", "call_1"));
-    let body = request_json(QWEN_3_7_FLASH, ThinkingLevel::High, &request)
-        .expect("tool request should build");
+    let body =
+        request_json(QWEN_3_7_FLASH_ID, Effort::High, &request).expect("tool request should build");
 
     assert_eq!(body["tool_choice"], "auto");
     assert_eq!(body["parallel_tool_calls"], true);
@@ -56,7 +54,7 @@ fn serializes_empty_non_tool_assistant_content_as_a_string() {
         .messages
         .push(ConversationMessage::assistant("", Vec::new()));
 
-    let body = request_json(QWEN_3_7_PLUS, ThinkingLevel::High, &request)
+    let body = request_json(QWEN_3_7_PLUS_ID, Effort::High, &request)
         .expect("empty assistant history should build");
 
     assert_eq!(body["messages"][2]["content"], "");
@@ -67,9 +65,9 @@ fn serializes_empty_non_tool_assistant_content_as_a_string() {
 fn serializes_plus_and_flash_images_as_data_urls() {
     let request = request_with_user_parts();
 
-    for model_id in [QWEN_3_7_PLUS, QWEN_3_7_FLASH] {
-        let body = request_json(model_id, ThinkingLevel::High, &request)
-            .expect("vision request should build");
+    for model_id in [QWEN_3_7_PLUS_ID, QWEN_3_7_FLASH_ID] {
+        let body =
+            request_json(model_id, Effort::High, &request).expect("vision request should build");
         assert_eq!(body["messages"][1]["content"][0]["type"], "text");
         assert_eq!(
             body["messages"][1]["content"][1]["image_url"]["url"],
@@ -80,12 +78,8 @@ fn serializes_plus_and_flash_images_as_data_urls() {
 
 #[test]
 fn rejects_max_images_and_non_user_content_parts() {
-    let max_error = build_request(
-        QWEN_3_7_MAX,
-        ThinkingLevel::High,
-        &request_with_user_parts(),
-    )
-    .expect_err("Max image input should fail");
+    let max_error = build_request(QWEN_3_7_MAX_ID, Effort::High, &request_with_user_parts())
+        .expect_err("Max image input should fail");
     assert!(matches!(max_error, ModelError::Provider { .. }));
 
     let request = ModelRequest {
@@ -105,7 +99,7 @@ fn rejects_max_images_and_non_user_content_parts() {
         response_schema: None,
         controls: Default::default(),
     };
-    let role_error = build_request(QWEN_3_7_PLUS, ThinkingLevel::High, &request)
+    let role_error = build_request(QWEN_3_7_PLUS_ID, Effort::High, &request)
         .expect_err("assistant content parts should fail");
     assert!(matches!(role_error, ModelError::Provider { .. }));
 }
@@ -143,7 +137,7 @@ fn replays_qwen_owned_raw_fields_and_ignores_foreign_context() {
         response_schema: None,
         controls: Default::default(),
     };
-    let body = request_json(QWEN_3_7_PLUS, ThinkingLevel::High, &request)
+    let body = request_json(QWEN_3_7_PLUS_ID, Effort::High, &request)
         .expect("replay request should build");
     let replay = &body["messages"][1];
 
@@ -176,7 +170,7 @@ fn replays_null_non_tool_content_as_an_empty_string() {
         controls: Default::default(),
     };
 
-    let body = request_json(QWEN_3_7_PLUS, ThinkingLevel::High, &request)
+    let body = request_json(QWEN_3_7_PLUS_ID, Effort::High, &request)
         .expect("non-tool replay request should build");
     let replay = &body["messages"][1];
 
@@ -191,10 +185,10 @@ fn structured_output_always_prompts_and_uses_native_json_only_when_supported() {
     request.response_schema = Some(status_schema());
 
     for (model_id, thinking_level, native) in [
-        (QWEN_3_7_PLUS, ThinkingLevel::Disabled, true),
-        (QWEN_3_7_FLASH, ThinkingLevel::Disabled, true),
-        (QWEN_3_7_PLUS, ThinkingLevel::High, false),
-        (QWEN_3_7_MAX, ThinkingLevel::Disabled, false),
+        (QWEN_3_7_PLUS_ID, Effort::Disabled, true),
+        (QWEN_3_7_FLASH_ID, Effort::Disabled, true),
+        (QWEN_3_7_PLUS_ID, Effort::High, false),
+        (QWEN_3_7_MAX_ID, Effort::Disabled, false),
     ] {
         let body = request_json(model_id, thinking_level, &request)
             .expect("structured request should build");
@@ -214,7 +208,7 @@ fn structured_output_always_prompts_and_uses_native_json_only_when_supported() {
 
 #[test]
 fn rejects_video_parts_with_typed_provider_error() {
-    for tested_model in [QWEN_3_7_PLUS, QWEN_3_7_FLASH] {
+    for tested_model in [QWEN_3_7_PLUS_ID, QWEN_3_7_FLASH_ID] {
         let request = ModelRequest {
             system_prompt: "system".to_owned(),
             messages: vec![ConversationMessage::user_with_parts(
@@ -229,7 +223,7 @@ fn rejects_video_parts_with_typed_provider_error() {
             controls: Default::default(),
         };
 
-        let error = request_json(tested_model, ThinkingLevel::Disabled, &request)
+        let error = request_json(tested_model, Effort::Disabled, &request)
             .expect_err("video parts must be rejected");
 
         match error {
@@ -277,7 +271,7 @@ fn status_schema() -> StructuredOutputSchema {
 
 fn request_json(
     model_id: &str,
-    thinking_level: ThinkingLevel,
+    thinking_level: Effort,
     request: &ModelRequest,
 ) -> Result<Value, ModelError> {
     let request = build_request(model_id, thinking_level, request)?;
