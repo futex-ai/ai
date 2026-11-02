@@ -302,6 +302,12 @@ All calls are mine, made on 2026-11-01.
   - Milestone 9 marks `chat-completions-dialects.md` implemented. The doc
     describes the engine on the specs, events, parts, error kinds, and
     base URLs of Milestones 5 to 9.
+- 2026-11-02, before Milestone 6:
+  - Until Milestone 7, the finish event carries each adapter's message-level
+    `provider_context` items as an interim field, so that the fold rebuilds
+    today's response. Milestone 7 replaces it with per-part provider state.
+  - Milestone 7 marks `model-stream.md` implemented, because the provider
+    state rules of that doc need the parts of Milestone 7.
 
 ## Pull requests
 
@@ -461,8 +467,8 @@ Make streaming the single model entry point.
 - [ ] Move the retry, concurrency, pricing, and fallback wrappers to
       stream semantics.
 - [ ] Re-run the recordings, and migrate the snapshots to events.
-- [ ] Mark `model-stream.md` implemented. Retire
-      `model-completion-events.md` and `model-completion-streaming.md`.
+- [ ] Retire `model-completion-events.md` and
+      `model-completion-streaming.md`.
 - [ ] Keep the current retry and fallback rules in force until Milestone 8.
       Move them from the retired docs into `model-policies.md` as the rules
       in force, next to the target rules.
@@ -483,7 +489,9 @@ Replace the closed replay enum with opaque provider state.
       of item 1.
 - [ ] Add each provider crate's conversion of its version 1 items.
 - [ ] Redact provider state in log copies.
-- [ ] Mark `conversation-parts.md` implemented.
+- [ ] Replace the interim `provider_context` field of the finish event
+      with per-part provider state.
+- [ ] Mark `conversation-parts.md` and `model-stream.md` implemented.
 - [ ] Run `cargo xtask check`, then commit and push.
 - [ ] Run the ship steps for pull request 4.
 
