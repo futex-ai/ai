@@ -184,6 +184,20 @@ answers that differ from the recommendation.
   conformance scenarios run live, or live models chosen from the specs.
 - Item 10, [xAI deferred timeout can bill twice](follow-ups/xai-deferred-timeout-rebills.md):
   open. It blocks the xAI deferred timeout rule of Milestones 4 and 8.
+- Item 16, [Choose how the MCP crates change](follow-ups/mcp-crate-direction.md):
+  open. Milestone 11 raised it on 2026-11-02. It blocks Milestone 12. The
+  recommendation is option B, which moves the `ai-mcp` transport onto
+  `json-http`.
+- Item 17, [Empty SSE data breaks rmcp-based servers](follow-ups/mcp-empty-sse-data.md):
+  open. Milestone 11 found this defect on `main` on 2026-11-02. Milestone 12
+  applies the answer. The recommendation is option E, which decodes only
+  message events with data.
+- Item 18, [Choose the MCP revisions the client supports](follow-ups/mcp-client-revision-target.md):
+  open. It decides between options B and G of item 16. The recommendation
+  is option B, a follow-up plan for dual-era support.
+- Item 19, [MCP OAuth misses the newer authorization rules](follow-ups/mcp-oauth-newer-rules.md):
+  open. The recommendation is option C, a follow-up plan for the newer
+  OAuth rules.
 - Decision 7, how much paid live testing each change pays for: option A.
   The live suites keep their current triggers. The alternatives were path
   filters, a pull-request label, schedules only, a small pull-request set,
@@ -491,6 +505,9 @@ fallback explicit.
       limits.
 - [ ] Make fallback require a policy, with the presets "any error" and
       "only when another model can succeed". Report every attempt.
+- [ ] Keep the provider message of every rate-limit error in the error
+      core. The MiniMax and xAI adapters lose it today, as their
+      `rate_limit` snapshots show.
 - [ ] Mark `model-policies.md` implemented.
 - [ ] Run `cargo xtask check`, then commit and push.
 
@@ -548,12 +565,12 @@ Depends on: 1
 
 Decide with evidence whether `rmcp` replaces the custom MCP client.
 
-- [ ] Compare `rmcp` with `docs/protocol/ai-mcp.md` and
+- [x] Compare `rmcp` with `docs/protocol/ai-mcp.md` and
       `docs/protocol/mcp-oauth.md`. Cover protocol versions, sessions, SSE
       limits, auth challenges, discovery, registration, PKCE, refresh, and
       URL safety.
-- [ ] Save the comparison under `.context/ai-library-redesign/`.
-- [ ] Add the MCP decision to this plan, run the options check, and ask
+- [x] Save the comparison under `.context/ai-library-redesign/`.
+- [x] Add the MCP decision to this plan, run the options check, and ask
       the user.
 
 ## Milestone 12: MCP change
@@ -562,8 +579,9 @@ Depends on: 8, 11
 
 Apply the MCP decision.
 
-- [ ] Apply the chosen option: move to `rmcp` behind `McpToolSet`, or move
-      the custom client onto `json-http`.
+- [ ] Apply the answer to item 16.
+- [ ] Apply the answer to item 17, and the answers to items 18 and 19
+      when they fall inside this plan.
 - [ ] Run `cargo xtask check`, then commit and push.
 - [ ] Run the ship steps for pull request 7.
 

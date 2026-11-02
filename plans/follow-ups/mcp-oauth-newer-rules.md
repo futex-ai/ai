@@ -1,0 +1,34 @@
+# MCP OAuth misses the newer authorization rules
+
+- **Severity:** High. **Effort:** Small. **Confidence:** High. **Harder later:** No.
+- **Kind:** Needs decision.
+- **Added:** 2026-11-02, from branch `calummoore/redesign-2-safety-net`, item 19. The options check of the MCP evaluation of `plans/ai-library-redesign.md` split it from the revision question.
+- **Location:** "Standards target" in `docs/protocol/mcp-oauth.md`, `crates/ai-mcp-oauth/src/`, `crates/ai-mcp-oauth/src/user_agent.rs:52`
+- **Reason:** The authorization standards target is a requirement of `docs/protocol/mcp-oauth.md`, and only the user can change it.
+
+- **Terms:**
+  - **MCP revision:** a dated version of the Model Context Protocol spec, such as 2025-06-18, 2025-11-25, or 2026-07-28.
+  - **Client ID metadata document:** a JSON file at an HTTPS URL. The URL serves as the OAuth client id, so no registration step is needed.
+  - **`iss` check:** the RFC 9207 check of the issuer value in the authorization callback.
+- **Background:**
+  - `ai-mcp-oauth` runs OAuth for MCP servers that need it. `docs/protocol/mcp-oauth.md` targets the authorization rules of MCP revision 2025-06-18.
+  - Revision 2025-11-25 requires RFC 8414 and OpenID Connect discovery in a fixed order of well-known URLs. It makes `WWW-Authenticate` optional: a client then falls back to the path-inserted, then the root, protected resource metadata URL. It recommends client ID metadata documents for registration.
+  - Revision 2026-07-28 requires `application_type` in dynamic client registration, deprecates that registration in favor of client ID metadata documents, and requires the `iss` check.
+  - OAuth discovery runs at the first HTTP 401, before MCP version negotiation. So these rules apply to servers of either era, and they do not depend on the client revision.
+  - The `iss` check needs a new field on the public `OAuthAuthorizationResponse`, in `crates/ai-mcp-oauth/src/user_agent.rs:52`. The callback adapters of the hosts Juno and Firna fill that type.
+- **Problem:** `ai-mcp-oauth` follows only the 2025-06-18 rules. Discovery fails when an authorization server offers only OpenID discovery, or when a 401 has no metadata URL and the metadata is only at the root URL. A protected 2026-07-28 server needs the `iss` check.
+- **Impact if no action:** Hosts cannot sign in to some MCP servers that follow the newer rules.
+- **Root question:** When must the MCP OAuth flow follow the newer authorization rules?
+- **Options:**
+  - **A.** Keep the 2025-06-18 rules, and record the gap as a known limit in `mcp-oauth.md`. Effort: Small.
+  - **B.** Plan the newer OAuth rules together with dual-era client support, in the follow-up plan of `plans/follow-ups/mcp-client-revision-target.md`. They then wait for that comparison. Effort: Small now, Large later.
+  - **C.** Plan the newer OAuth rules now, in their own follow-up plan, apart from dual-era client support. The rules are OpenID discovery in the spec order, the root fallback for resource metadata, `application_type`, the `iss` check, and client ID metadata documents. Four sections of `mcp-oauth.md` change, and Juno and Firna must fill the new callback field. Effort: Small now, Large later.
+  - **D.** Add the newer OAuth rules to `ai-mcp-oauth` inside the redesign, in its MCP change. Effort: Large.
+- **Left out:** None. The four options cover keeping the gap, the two places for a later plan, and the work inside the redesign.
+- **Wider fix:** None.
+- **Previous examples:** None found.
+- **Related:**
+  - `plans/follow-ups/mcp-client-revision-target.md`, a separate question that this item was split from. The two answers do not depend on each other.
+  - `plans/follow-ups/mcp-crate-direction.md`, the same code: its options C and E change the OAuth transport that these rules extend.
+- **Recommendation:** C. The OAuth gaps affect hosts now, and the fix changes only `ai-mcp-oauth`, which the recommended option of `plans/follow-ups/mcp-crate-direction.md` does not touch. Option C is option E of the options check, which first recommended keeping the OAuth target with the client target.
+- **Action:** ask the user, because the authorization standards target is a requirement in `docs/protocol/mcp-oauth.md`, and only the user can change it.
