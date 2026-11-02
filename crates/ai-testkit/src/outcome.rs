@@ -1,6 +1,6 @@
 //! Serializable completion results with a stable, secret-free error surface.
 
-use ai_interface::{ModelControl, ModelError, ModelResponse};
+use ai_interface::{ErrorCore, ModelAttempt, ModelError, ModelResponse};
 use json_http::test_support::Redactor;
 use serde::{Deserialize, Serialize};
 
@@ -32,138 +32,43 @@ pub enum StepOutcome {
         /// Ordered events received before this model call failed.
         #[serde(default)]
         events: Vec<ModelEventSnapshot>,
-        /// Model error variant and its sanitized fields.
+        /// Shared model error core and its earlier sanitized attempts.
         error: ErrorOutcome,
     },
     /// The tool loop's first response contained no tool call.
     MissingToolCall,
 }
 
-/// Serializable counterpart of today's `ModelError`.
+/// One sanitized shared error core and its earlier failed attempts.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(tag = "variant")]
-pub enum ErrorOutcome {
-    /// HTTP rate limiting.
-    RateLimited {
-        /// Provider identity.
-        provider: String,
-        /// Concrete provider model id.
-        model_id: String,
-        /// Sanitized diagnostic.
-        message: String,
-    },
-    /// Retryable provider failure before progress.
-    TransientProvider {
-        /// Provider identity.
-        provider: String,
-        /// Concrete provider model id.
-        model_id: String,
-        /// Sanitized diagnostic.
-        message: String,
-    },
-    /// Stream failure after generation starts.
-    Interrupted {
-        /// Provider identity.
-        provider: String,
-        /// Concrete provider model id.
-        model_id: String,
-        /// Sanitized diagnostic.
-        message: String,
-    },
-    /// Non-retryable provider failure.
-    Provider {
-        /// Provider identity.
-        provider: String,
-        /// Concrete provider model id.
-        model_id: String,
-        /// Sanitized diagnostic.
-        message: String,
-    },
-    /// Input exceeded the context window.
-    ContextLimitExceeded {
-        /// Provider identity.
-        provider: String,
-        /// Concrete provider model id.
-        model_id: String,
-        /// Sanitized diagnostic.
-        message: String,
-    },
-    /// A portable control is unsupported.
-    UnsupportedControl {
-        /// Provider identity.
-        provider: String,
-        /// Concrete provider model id.
-        model_id: String,
-        /// Rejected control.
-        control: ModelControl,
-    },
-    /// Unhandled model failure.
-    Internal {
-        /// Sanitized source diagnostic.
-        source: String,
-    },
+pub struct ErrorOutcome {
+    /// Shared failure details with optional response metadata.
+    #[serde(flatten)]
+    pub core: ErrorCore,
+    /// Earlier failed attempts in chronological order.
+    pub attempts: Vec<ModelAttempt>,
 }
 
 impl ErrorOutcome {
-    pub(crate) fn capture(error: ModelError, redactor: &Redactor) -> Self {
-        match error {
-            ModelError::RateLimited {
-                provider,
-                model_id,
-                message,
-            } => Self::RateLimited {
-                provider: redactor.text(&provider),
-                model_id: redactor.text(&model_id),
-                message: redactor.text(&message),
-            },
-            ModelError::TransientProvider {
-                provider,
-                model_id,
-                message,
-            } => Self::TransientProvider {
-                provider: redactor.text(&provider),
-                model_id: redactor.text(&model_id),
-                message: redactor.text(&message),
-            },
-            ModelError::Interrupted {
-                provider,
-                model_id,
-                message,
-            } => Self::Interrupted {
-                provider: redactor.text(&provider),
-                model_id: redactor.text(&model_id),
-                message: redactor.text(&message),
-            },
-            ModelError::Provider {
-                provider,
-                model_id,
-                message,
-            } => Self::Provider {
-                provider: redactor.text(&provider),
-                model_id: redactor.text(&model_id),
-                message: redactor.text(&message),
-            },
-            ModelError::ContextLimitExceeded {
-                provider,
-                model_id,
-                message,
-            } => Self::ContextLimitExceeded {
-                provider: redactor.text(&provider),
-                model_id: redactor.text(&model_id),
-                message: redactor.text(&message),
-            },
-            ModelError::UnsupportedControl {
-                provider,
-                model_id,
-                control,
-            } => Self::UnsupportedControl {
-                provider: redactor.text(&provider),
-                model_id: redactor.text(&model_id),
-                control,
-            },
-            ModelError::Internal { source } => Self::Internal {
-                source: redactor.text(&source.to_string()),
-            },
-        }
+    pub(crate) fn capture(mut error: ModelError, redactor: &Redactor) -> Self {
+        let mut core = error.core().clone();
+        core.provider = redactor.text(&core.provider);
+        core.model_id = redactor.text(&core.model_id);
+        core.message = redactor.text(&core.message);
+        core.provider_request_id = core
+            .provider_request_id
+            .as_ref()
+            .map(|id| redactor.text(id));
+        let attempts = error
+            .take_attempts()
+            .into_iter()
+            .map(|mut attempt| {
+                attempt.provider = redactor.text(&attempt.provider);
+                attempt.model_id = redactor.text(&attempt.model_id);
+                attempt.message = redactor.text(&attempt.message);
+                attempt
+            })
+            .collect();
+        Self { core, attempts }
     }
 }

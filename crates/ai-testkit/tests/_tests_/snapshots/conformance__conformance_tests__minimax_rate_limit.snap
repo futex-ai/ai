@@ -10,10 +10,11 @@ expression: outcome
       "kind": "error",
       "events": [],
       "error": {
-        "variant": "RateLimited",
+        "kind": "RateLimited",
         "provider": "minimax",
         "model_id": "MiniMax-M3",
-        "message": "HTTP 429: HTTP 429"
+        "message": "HTTP 429: base_resp status_code 1002: rate limit",
+        "attempts": []
       }
     }
   ],

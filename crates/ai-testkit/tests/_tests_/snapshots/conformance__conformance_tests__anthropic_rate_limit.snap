@@ -10,10 +10,11 @@ expression: outcome
       "kind": "error",
       "events": [],
       "error": {
-        "variant": "RateLimited",
+        "kind": "RateLimited",
         "provider": "anthropic",
         "model_id": "claude-sonnet-5",
-        "message": "HTTP 429: Rate limit reached."
+        "message": "HTTP 429: Rate limit reached.",
+        "attempts": []
       }
     }
   ],

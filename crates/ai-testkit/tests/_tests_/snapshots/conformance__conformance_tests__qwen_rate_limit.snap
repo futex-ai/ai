@@ -10,10 +10,11 @@ expression: outcome
       "kind": "error",
       "events": [],
       "error": {
-        "variant": "RateLimited",
+        "kind": "RateLimited",
         "provider": "qwen",
         "model_id": "qwen3.7-max",
-        "message": "HTTP 429: Requests rate limit exceeded, please try again later."
+        "message": "HTTP 429: Requests rate limit exceeded, please try again later.",
+        "attempts": []
       }
     }
   ],

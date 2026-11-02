@@ -97,7 +97,11 @@ async fn deepseek_reasoning_is_redacted_from_failed_request_logs() {
                             .iter()
                             .any(|message| replay_parts(&message.parts) == replay_context)
                     );
-                    Err(ModelError::internal(FixtureModelError))
+                    Err(ModelError::internal(
+                        "deepseek",
+                        "deepseek-v4-pro",
+                        FixtureModelError,
+                    ))
                 }
                 .map(model_response_stream)
             })),

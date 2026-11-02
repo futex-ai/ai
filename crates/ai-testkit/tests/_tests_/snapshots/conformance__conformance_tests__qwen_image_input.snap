@@ -10,10 +10,11 @@ expression: outcome
       "kind": "error",
       "events": [],
       "error": {
-        "variant": "Provider",
+        "kind": "UnsupportedInput",
         "provider": "qwen",
         "model_id": "qwen3.7-max",
-        "message": "qwen3.7-max accepts plain text messages only"
+        "message": "qwen3.7-max accepts plain text messages only",
+        "attempts": []
       }
     }
   ],

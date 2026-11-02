@@ -41,7 +41,8 @@ The scenarios are:
 The second tool step appends the assistant message that holds every part of
 the first response with its provider state. It then appends one tool result
 for each call and asks for the final answer.
-The runner stops at the first model error and stores its variant and fields.
+The runner stops at the first model error and stores its shared `ErrorCore`
+and earlier failed attempts. It sanitizes every diagnostic and identity field.
 It does not retry or change provider behavior.
 
 Replay compares the method, URL, sanitized body, and all recorded headers.
@@ -70,7 +71,7 @@ The events in the snapshots show the provider state of each part. The second
 recorded Anthropic and Google tool requests replay the signed thinking blocks
 and thought signatures in their original order. Anthropic requests use the
 max output of the spec.
-MiniMax and xAI currently lose their HTTP 429 message details.
+Rate-limit errors keep the provider message in the shared error core.
 Synthetic fixtures can be refreshed offline by wrapping their replay transport
 with the recording transport and running the production adapter. This keeps
 `source: "synthetic"` and does not prove live provider acceptance.

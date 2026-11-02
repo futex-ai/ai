@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use crate::{Error, Result, ToolCallingRuntime};
 
 use super::{
-    failures::provider_error,
+    failures::invalid_output_error,
     response::{complete_model_request, validate_response_contract},
     tool_dispatch::dispatch_tool_call,
     types::{
@@ -181,7 +181,7 @@ impl<'a> ActiveTurn<'a> {
 
     fn store_assistant_response(&mut self, response: &ModelResponse) -> Result<()> {
         if response.finish_reason != FinishReason::ToolCalls && !response.tool_calls().is_empty() {
-            return Err(provider_error(
+            return Err(invalid_output_error(
                 response,
                 "model returned tool calls without a tool-call finish reason",
             ));
@@ -225,15 +225,17 @@ impl<'a> ActiveTurn<'a> {
                     .log_turn_outcome(&self.terminal_outcome(log_outcome))?;
                 Ok(Some(outcome))
             }
-            FinishReason::Filtered => Err(provider_error(
+            FinishReason::Filtered => Err(invalid_output_error(
                 response,
                 "model response was filtered by the provider",
             )),
-            FinishReason::Other(raw) => Err(provider_error(response, raw.clone())),
-            FinishReason::ToolCalls if response.tool_calls().is_empty() => Err(provider_error(
-                response,
-                "model reported tool calls without any tool call payloads",
-            )),
+            FinishReason::Other(raw) => Err(invalid_output_error(response, raw.clone())),
+            FinishReason::ToolCalls if response.tool_calls().is_empty() => {
+                Err(invalid_output_error(
+                    response,
+                    "model reported tool calls without any tool call payloads",
+                ))
+            }
             FinishReason::ToolCalls => Ok(None),
         }
     }

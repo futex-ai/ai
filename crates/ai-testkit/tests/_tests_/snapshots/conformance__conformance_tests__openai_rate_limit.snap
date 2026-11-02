@@ -10,10 +10,11 @@ expression: outcome
       "kind": "error",
       "events": [],
       "error": {
-        "variant": "RateLimited",
+        "kind": "RateLimited",
         "provider": "openai",
         "model_id": "gpt-5.6-sol",
-        "message": "HTTP 429: Request rate increased too quickly."
+        "message": "HTTP 429: Request rate increased too quickly.",
+        "attempts": []
       }
     }
   ],

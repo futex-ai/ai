@@ -10,10 +10,11 @@ expression: outcome
       "kind": "error",
       "events": [],
       "error": {
-        "variant": "RateLimited",
+        "kind": "RateLimited",
         "provider": "kimi",
         "model_id": "kimi-k3",
-        "message": "HTTP 429: Organization-level RPM limit reached"
+        "message": "HTTP 429: Organization-level RPM limit reached",
+        "attempts": []
       }
     }
   ],

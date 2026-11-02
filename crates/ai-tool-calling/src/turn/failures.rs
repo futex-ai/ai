@@ -18,12 +18,15 @@ pub(super) fn tool_error_log_result(error: &ToolError) -> ToolCallLogResult {
     }
 }
 
-pub(super) fn provider_error(response: &ModelResponse, message: impl Into<String>) -> Error {
-    Error::Model(ModelError::provider(
-        response.provider.clone(),
-        response.model_id.clone(),
-        message,
-    ))
+pub(super) fn invalid_output_error(response: &ModelResponse, message: impl Into<String>) -> Error {
+    Error::Model(
+        ModelError::invalid_output(
+            response.provider.clone(),
+            response.model_id.clone(),
+            message,
+        )
+        .with_attempts(response.attempts.clone()),
+    )
 }
 
 pub(super) fn tool_error_message(call: &ToolCall, error: &ToolError) -> ConversationMessage {

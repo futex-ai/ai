@@ -3,7 +3,8 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    FinishReason, Model, ModelError, ModelMock, ModelResponse, ModelUsage, ToolCall,
+    ErrorKind, FinishReason, Model, ModelAttempt, ModelError, ModelMock, ModelResponse, ModelUsage,
+    ToolCall,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
@@ -22,7 +23,11 @@ async fn model_errors_abort_the_turn() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
         ModelMock::stream
             .next_call(matching!(_))
-            .answers_arc(stream_result(Err(ModelError::internal(FixtureModelError)))),
+            .answers_arc(stream_result(Err(ModelError::internal(
+                "mock",
+                "mock-model",
+                FixtureModelError,
+            )))),
     ));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
@@ -76,7 +81,7 @@ async fn tool_calls_finish_reason_without_calls_is_a_model_error() {
 
     assert!(matches!(
         error,
-        crate::Error::Model(ModelError::Provider { .. })
+        crate::Error::Model(error) if error.core().kind == ErrorKind::InvalidOutput
     ));
 }
 
@@ -90,7 +95,7 @@ async fn non_tool_finish_reason_with_calls_is_a_model_error() {
 
     assert!(matches!(
         error,
-        crate::Error::Model(ModelError::Provider { .. })
+        crate::Error::Model(error) if error.core().kind == ErrorKind::InvalidOutput
     ));
 }
 
@@ -124,16 +129,28 @@ async fn truncated_finish_reason_ends_the_turn_without_completion() {
 
 #[tokio::test]
 async fn filtered_finish_reason_is_a_model_error() {
-    let model = single_response_model(model_response(FinishReason::Filtered, Vec::new()));
+    let mut response = model_response(FinishReason::Filtered, Vec::new());
+    response.attempts.push(ModelAttempt {
+        provider: "first".to_owned(),
+        model_id: "first-model".to_owned(),
+        kind: ErrorKind::RejectedKey,
+        message: "key rejected".to_owned(),
+        emitted_events: false,
+    });
+    let expected_attempts = response.attempts.clone();
+    let model = single_response_model(response);
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
     let mut turn = runtime.send(user_message("start"), Some(4));
     let error = turn.step().await.expect_err("step should reject response");
 
-    assert!(matches!(
-        error,
-        crate::Error::Model(ModelError::Provider { .. })
-    ));
+    let crate::Error::Model(error) = error else {
+        panic!("expected a model error");
+    };
+    assert_eq!(error.core().kind, ErrorKind::InvalidOutput);
+    assert_eq!(error.core().provider, "mock");
+    assert_eq!(error.core().model_id, "mock-model");
+    assert_eq!(error.attempts(), expected_attempts);
 }
 
 #[tokio::test]
@@ -149,7 +166,8 @@ async fn other_finish_reason_is_a_model_error_with_raw_reason() {
 
     assert!(matches!(
         error,
-        crate::Error::Model(ModelError::Provider { message, .. }) if message.contains("custom")
+        crate::Error::Model(error) if error.core().kind == ErrorKind::InvalidOutput
+            && error.core().message.contains("custom")
     ));
 }
 

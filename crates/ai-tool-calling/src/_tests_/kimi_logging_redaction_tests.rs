@@ -97,7 +97,7 @@ async fn kimi_reasoning_is_redacted_from_failed_request_logs() {
                             .iter()
                             .any(|message| replay_parts(&message.parts) == replay_context)
                     );
-                    Err(ModelError::internal(FixtureModelError))
+                    Err(ModelError::internal("kimi", "kimi-k3", FixtureModelError))
                 }
                 .map(model_response_stream)
             })),

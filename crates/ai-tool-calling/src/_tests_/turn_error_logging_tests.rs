@@ -3,9 +3,9 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    FinishReason, Logger, LoggerMock, Model, ModelCallLogEntry, ModelCallLogResult, ModelError,
-    ModelMock, ModelResponse, ModelUsage, ToolActivityLogEntry, ToolActivityPhase, ToolCall,
-    ToolCallLogEntry, ToolCallLogResult,
+    ErrorCore, ErrorKind, FinishReason, Logger, LoggerMock, Model, ModelCallLogEntry,
+    ModelCallLogResult, ModelError, ModelMock, ModelResponse, ModelUsage, ToolActivityLogEntry,
+    ToolActivityPhase, ToolCall, ToolCallLogEntry, ToolCallLogResult,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
@@ -24,7 +24,10 @@ async fn model_errors_are_logged_before_the_turn_aborts() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
         ModelMock::stream
             .next_call(matching!(_))
-            .answers_arc(stream_result(Err(ModelError::internal(FixtureModelError)))),
+            .answers_arc(stream_result(Err(ModelError::with_source(
+                ErrorCore::new(ErrorKind::Internal, "mock", "mock-model", "model failed"),
+                FixtureModelError,
+            )))),
     ));
     let logger: Arc<dyn Logger> = Arc::new(Unimock::new(
         LoggerMock::log_model_call.next_call(matching!(_)).answers(
@@ -32,7 +35,7 @@ async fn model_errors_are_logged_before_the_turn_aborts() {
                 assert!(matches!(
                     &entry.result,
                     ModelCallLogResult::Error { message, debug }
-                        if message.contains("model failed") && debug.contains("FixtureModelError")
+                        if message.contains("model failed") && debug.contains("model failed")
                 ));
                 Ok(())
             },
@@ -44,6 +47,11 @@ async fn model_errors_are_logged_before_the_turn_aborts() {
     let error = turn.step().await.expect_err("model error should abort");
 
     assert!(matches!(error, crate::Error::Model(_)));
+    let crate::Error::Model(ModelError::Internal { core, source, .. }) = error else {
+        panic!("expected the original model source");
+    };
+    assert_eq!(core.kind, ErrorKind::Internal);
+    assert!(source.downcast_ref::<FixtureModelError>().is_some());
 }
 
 #[tokio::test]
