@@ -19,13 +19,13 @@ shared engine that serves this provider.
 ## Scope
 
 The provider supports `deepseek-v4-pro` and `deepseek-v4-flash` through
-DeepSeek's official OpenAI-format Chat Completions API, accumulated internally
-over SSE as defined by the [streaming protocol](model-completion-streaming.md).
+DeepSeek's official OpenAI-format Chat Completions API, streamed over SSE as
+the [model stream protocol](model-stream.md) defines.
 It includes text, custom and parallel function calls, optional thinking,
 reasoning effort, locally validated JSON output, and normalized cache and
-reasoning usage. Its opt-in public path emits primary-choice assistant and
-reasoning fragments as defined by the
-[completion-events protocol](model-completion-events.md).
+reasoning usage. Its stream emits model events for the primary choice:
+`delta.content` gives text deltas, and `delta.reasoning_content` gives
+reasoning deltas.
 
 The provider does not support the retired `deepseek-chat` or
 `deepseek-reasoner` aliases, image input, the Anthropic-format API, third-party
@@ -184,86 +184,10 @@ Tool results send `role: "tool"`, string `content`, and the matching id. The
 preceding assistant message replays its original content, reasoning, and raw
 calls.
 
-## Structured Output
+## Responses And Errors
 
-When `ModelRequest.response_schema` is present, the adapter:
-
-1. Appends an instruction containing the word `JSON`, the schema name, and the
-   complete JSON Schema to the system prompt.
-2. Requires raw JSON without Markdown fences or additional prose.
-3. Sends `response_format: { "type": "json_object" }`.
-4. Parses and validates a normal stopped response through the shared
-   `ai-models-core` JSON Schema boundary.
-
-DeepSeek guarantees JSON syntax, not arbitrary schema conformance. Local
-validation is mandatory; empty or invalid output, an invalid schema, and a
-schema mismatch are typed provider failures.
-
-Structured-output parsing runs only for `FinishReason::Stop` with no
-dispatchable tool calls. Reasoning content is never part of the structured
-value. Tool, truncated, filtered, resource-limited, unknown, and missing
-finishes do not attempt parsing.
-
-## Response Mapping
-
-The first response choice maps to `ModelResponse`. A response with no choices
-is a non-retryable provider failure. Typed wire deserialization failures are
-internal errors that retain their source.
-
-Finish reasons map as follows:
-
-| DeepSeek value | Shared outcome |
-| --- | --- |
-| `stop` | `FinishReason::Stop` |
-| `tool_calls` | `FinishReason::ToolCalls` |
-| `length` | `FinishReason::Truncated` |
-| `content_filter` | `FinishReason::Filtered` |
-| `insufficient_system_resource` | transient `ModelError` |
-| any other string | `FinishReason::Other(raw)` |
-| missing or null | `FinishReason::Other("missing")` |
-
-Nullable visible content becomes an empty string. The response includes
-provider `deepseek`, the provider model id and text id, the resolved effort,
-visible content, calls, finish, optional structured output, private context,
-and usage.
-
-## Usage
-
-DeepSeek usage maps into non-overlapping normalized buckets:
-
-- `cached_input_tokens = prompt_cache_hit_tokens`;
-- `input_tokens = prompt_cache_miss_tokens` when present, otherwise
-  `prompt_tokens - prompt_cache_hit_tokens` with saturating arithmetic;
-- `reasoning_tokens = completion_tokens_details.reasoning_tokens`;
-- `output_tokens = completion_tokens - reasoning_tokens` with saturating
-  arithmetic;
-- `total_tokens = total_tokens` when present, otherwise the saturating sum of
-  the four normalized buckets;
-- estimated cost and cost lines remain zero and empty until a composition root
-  applies `UsagePricingModel`.
-
-Missing usage and missing detail fields are valid and normalize to zero or the
-documented fallback calculations.
-
-## Error Contract
-
-HTTP failures use the shared classifier: `429` is rate limited; `408`, `409`,
-`425`, and `5xx` are transient; recognized context-limit codes are
-context-limit failures; and other statuses, including `400`, `401`, `402`,
-and `422`, are non-retryable provider failures.
-
-Transport and auth-hook failures are transient. Local serialization and typed
-deserialization failures are internal. Missing choices, invalid calls,
-missing required reasoning, malformed arguments, and invalid structured
-output are provider failures. Credentials never enter errors or diagnostics.
-
-The final empty-choice usage event must precede `[DONE]`. Stream failures and
-provider error events before progress retain retryable/provider
-classification; after any event they become `ModelError::Interrupted`.
-
-An HTTP-success response with `finish_reason:
-"insufficient_system_resource"` returns `ModelError::TransientProvider`
-rather than a terminal response.
+The [DeepSeek response protocol](deepseek-responses.md) defines structured
+output, response mapping, usage, and the error contract.
 
 ## Required Verification
 

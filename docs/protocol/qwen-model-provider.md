@@ -19,12 +19,12 @@ shared engine that serves this provider.
 
 The adapter supports the current stable Qwen3.7 Max, Plus, and Flash models
 through QwenCloud's pay-as-you-go, OpenAI-compatible Chat Completions API,
-accumulated internally over SSE. It supports text, image input where the
-selected model accepts it, hybrid thinking, preserved reasoning, custom and
-parallel function calls, locally validated structured output, and normalized
-cache usage. Its opt-in public path emits primary-choice assistant and
-reasoning fragments as defined by the
-[completion-events protocol](model-completion-events.md).
+streamed over SSE as the [model stream protocol](model-stream.md) defines. It
+supports text, image input where the selected model accepts it, hybrid
+thinking, preserved reasoning, custom and parallel function calls, locally
+validated structured output, and normalized cache usage. Its stream emits
+model events for the primary choice: `delta.content` gives text deltas, and
+`delta.reasoning_content` gives reasoning deltas.
 
 Token Plan and Coding Plan endpoints, snapshot and preview ids, legacy Qwen
 models, built-in tools, web search, video and audio content, Responses and
@@ -169,67 +169,10 @@ Tool payloads attached to stop, truncated, filtered, unknown, or missing
 finish reasons are ignored and not retained. Tool results send string content
 and the corresponding provider id.
 
-## Structured Output
+## Responses And Errors
 
-Every structured request appends an instruction containing the word `JSON`,
-the schema name, and the complete JSON Schema to the system prompt. It requires
-raw JSON without Markdown fences or extra prose.
-
-Qwen's native JSON-object mode is used only for non-thinking Plus and Flash,
-where QwenCloud documents it as supported. Enabled-thinking requests and Max
-use prompt enforcement only. In all cases, a normal stopped response is parsed
-and validated locally against the caller's complete JSON Schema through the
-shared boundary. Native JSON mode guarantees JSON syntax, not arbitrary schema
-conformance, so local validation is mandatory.
-
-Structured parsing runs only for `FinishReason::Stop` with no dispatchable
-tool calls. Reasoning content is never parsed as output. Invalid JSON, an
-invalid schema, and schema mismatch are provider failures.
-
-## Response And Usage
-
-The first choice maps to `ModelResponse`; no choices is a provider failure.
-Wire deserialization failures are internal errors retaining their source.
-Nullable visible content becomes an empty string.
-
-| Qwen value | Shared outcome |
-| --- | --- |
-| `stop` | `FinishReason::Stop` |
-| `tool_calls` | `FinishReason::ToolCalls` |
-| `length` | `FinishReason::Truncated` |
-| `content_filter` | `FinishReason::Filtered` |
-| other string | `FinishReason::Other(raw)` |
-| missing or null | `FinishReason::Other("missing")` |
-
-Usage maps into non-overlapping normalized buckets:
-
-- `cached_input_tokens = prompt_tokens_details.cached_tokens`;
-- `input_tokens = prompt_tokens - cached_input_tokens`, saturating at zero;
-- `output_tokens = completion_tokens`;
-- `reasoning_tokens = 0`, because QwenCloud does not report reasoning tokens
-  separately in Chat Completions usage;
-- `total_tokens` uses the provider value when present, otherwise the
-  saturating sum of normalized buckets;
-- estimated cost and cost lines remain empty until a composition root applies
-  pricing.
-
-Missing usage and detail objects are valid and normalize to zero.
-
-## Error Contract
-
-HTTP `429` is rate limited; `408`, `409`, `425`, and `5xx` are transient;
-documented input-length failures are context-limit errors; and other statuses
-are non-retryable provider failures. Transport and authentication-hook
-failures are transient. Request serialization and response deserialization
-failures are internal.
-
-Missing choices, invalid calls, missing required reasoning, and invalid
-structured output are non-retryable provider failures. Errors and diagnostics
-must never contain credentials or authorization headers.
-
-The final empty-choice usage event and `[DONE]` are required. Stream failures
-before progress remain retryable, while failures after progress become
-`ModelError::Interrupted`.
+The [Qwen response protocol](qwen-responses.md) defines structured output,
+response and usage mapping, and the error contract.
 
 ## Required Verification
 

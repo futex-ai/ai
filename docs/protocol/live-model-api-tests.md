@@ -22,15 +22,15 @@ outside this chat connectivity suite.
 Audio transcription, image or video generation, provider-built tools,
 multimodal input, multi-turn tool replay, pricing, and provider features
 outside the chat model catalog are not part of this connectivity suite. All
-eight providers stream production synchronous completions internally and
-implement the public completion-event boundary. Each live provider job starts
+eight providers implement `Model::stream`, the one entry point of the
+[model stream protocol](model-stream.md). Each live provider job starts
 with an explicit synchronous event probe, then observes events while exercising
-the full catalog with `PreferDeferred`. That preference falls back to the same
-synchronous event path for Anthropic, DeepSeek, Google, Kimi, MiniMax, OpenAI,
-and QwenCloud. For xAI it selects the buffered submit-and-poll lifecycle, whose
-public event sequence must remain empty. Deterministic transport tests in the
-provider crates remain responsible for detailed event ordering and wire
-behavior.
+the full catalog with `PreferDeferred`. That preference falls back to the
+synchronous lifecycle for Anthropic, DeepSeek, Google, Kimi, MiniMax, OpenAI,
+and QwenCloud. For xAI it selects the submit-and-poll lifecycle, which emits
+every event of the call after the provider result arrives. Deterministic
+transport tests in the provider crates remain responsible for detailed event
+ordering and wire behavior.
 
 Credentialed image generation is specified separately by the implemented
 [live image API test protocol](live-image-api-tests.md). Keeping the suites
@@ -62,23 +62,21 @@ test:
    adapter from the spec with `ReqwestJsonHttpClient` and explicit provider
    authentication, and it sets the effort of the probe in the request
    controls.
-   Providers migrated to internal SSE accumulation therefore use their real
-   streaming endpoint without a live-test-only branch.
+   Each probe uses the production adapter lifecycle without a live-test-only
+   branch.
 3. Erases the concrete adapter behind `DynModel` and applies the standard
    transient retry wrapper.
-4. Wraps the dynamic model in a test-only `Model` that routes the runtime's
-   buffered `complete` call through the inner model's public
-   `complete_with_events` entrypoint. The wrapper records ordered events while
-   `ToolCallingRuntime` still captures the normalized terminal response through
-   its provider-neutral response-checkpoint boundary.
+4. Wraps the dynamic model in a test-only `Model` whose `stream` forwards
+   the events of the inner model's `stream` and records them in order.
+   `ToolCallingRuntime` folds the same events through the provided
+   `complete` and captures the normalized response through its
+   provider-neutral response-checkpoint boundary.
 5. Runs one synchronous probe against the provider's first chat spec at its
-   default effort and requires assistant-event parity with its terminal
-   response.
+   default effort and requires text-event parity with its response.
 6. Runs every probe with no tool calls, a ten-minute adapter-call
    deadline, and `PreferDeferred`. XAI resolves that preference to its native
-   deferred lifecycle and must emit no events; every other adapter falls back
-   to its ordinary synchronous lifecycle and must retain assistant-event
-   parity.
+   deferred lifecycle; every other adapter falls back to its ordinary
+   synchronous lifecycle. Every probe must keep text-event parity.
 7. Retries the synchronous probe or a catalog probe exactly once when a
    successful response fails only because it omitted the probe marker and its
    event validation is otherwise clean, apart from a possible terminal-parity
@@ -114,11 +112,14 @@ Each live completion must:
 - return no tool calls when none were offered; and
 - report a non-zero total token count.
 
-Every synchronous probe and synchronous catalog completion must also emit at
-least one nonempty assistant-text event. Concatenating those assistant deltas
-must exactly reproduce the terminal `assistant_message`; any reasoning deltas
-must be nonempty, and a direct provider probe must not emit a fallback-restart
-event. XAI's deferred catalog completions must emit no completion events.
+Every probe, synchronous or deferred, must also emit at least one nonempty
+text delta. Text-event parity means that the text parts of those deltas,
+each joined from its deltas and then joined in part position order, exactly
+reproduce the response text, `assistant_message`. Any reasoning deltas must
+be nonempty, and a direct provider probe must not emit a fallback event.
+Each successful stream emits exactly one usage event, then exactly one finish
+event. A request with a response schema must emit text deltas with the same
+parity.
 
 A marker-only miss receives one bounded retry because model replies can vary;
 the second result must satisfy the complete contract. The retry does not mask
@@ -130,9 +131,11 @@ eligible event, missing credentials also fail explicitly and must never be
 treated as skipped or successful coverage.
 
 Credential-free tests enforce that all eight registered providers receive the
-synchronous parity probe, only xAI receives the deferred-silence expectation,
-the runtime bridge invokes the public event entrypoint, and the parity/silence
-validator rejects incomplete observations. They do not send provider requests.
+synchronous parity probe and the parity expectation for their catalog probes,
+including xAI with its deferred lifecycle. They also enforce that the test
+model records the events of the inner stream, and that the parity validator
+rejects incomplete observations. They check schema text, usage, and finish
+events without adding a paid probe. They do not send provider requests.
 
 ## CI And Credentials
 

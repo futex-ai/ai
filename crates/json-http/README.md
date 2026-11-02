@@ -150,4 +150,4 @@ server and requires no external network or credentials.
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../ai-testkit/README.md`](../ai-testkit/README.md)
 - [`../ai-models-openai/README.md`](../ai-models-openai/README.md)
-- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
+- [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)

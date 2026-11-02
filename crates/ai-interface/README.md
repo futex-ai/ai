@@ -112,10 +112,11 @@ runtime implementation.
   event of that attempt.
 - Defines `ModelResponseFold` with `new`, `push`, and `finish`. The provided
   `Model::complete` folds every event of `stream` with it, and other stream
-  consumers can use the same fold. The fold joins the text deltas into
-  `assistant_message`, keeps tool calls only for the `ToolCalls` finish
-  reason, and takes the usage and the finish fields from their events.
-  Reasoning deltas add nothing to the response. A `Fallback` event removes
+  consumers can use the same fold. The fold builds one part for each part
+  position. It joins the text parts, in part position order, into
+  `assistant_message`, keeps the tool-call parts only for the `ToolCalls`
+  finish reason, and takes the usage and the finish fields from their
+  events. Reasoning parts add nothing to the response. A `Fallback` event removes
   the content of the failed attempt and adds a `ModelAttempt` to
   `attempts`. Events that break the order of the
   [model stream protocol](../../docs/protocol/model-stream.md) fail the fold
@@ -179,6 +180,8 @@ not own.
 ## Quick Start
 
 ```rust
+use std::collections::BTreeMap;
+
 use ai_interface::{
     ConversationMessage, Effort, MOCK_CATALOG, MOCK_CUSTOM_DEFAULTS, MOCK_PROVIDER, MockModel,
     Model, ModelCatalog, ModelEvent, ModelRequest, ModelSpec,
@@ -216,15 +219,18 @@ async fn call_mock_model() -> ai_interface::ModelResult<String> {
 
 async fn stream_mock_text() -> ai_interface::ModelResult<String> {
     let mut stream = MockModel::new("done").stream(&high_effort_request()).await?;
-    let mut text = String::new();
+    // Parts can interleave, so collect each text part by its position.
+    let mut text_parts = BTreeMap::<usize, String>::new();
     while let Some(event) = stream.next().await? {
         match event {
-            ModelEvent::TextDelta { delta, .. } => text.push_str(&delta),
-            ModelEvent::Fallback { .. } => text.clear(),
+            ModelEvent::TextDelta { part_index, delta } => {
+                text_parts.entry(part_index).or_default().push_str(&delta);
+            }
+            ModelEvent::Fallback { .. } => text_parts.clear(),
             _ => {}
         }
     }
-    Ok(text)
+    Ok(text_parts.into_values().collect())
 }
 ```
 

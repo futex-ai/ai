@@ -6,11 +6,12 @@ in-memory tool-calling runtime behavior.
 
 ## Features
 
-- Shared `ai-interface` contracts for conversations, buffered model calls,
-  opt-in ordered assistant/reasoning/restart completion events, audio
-  transcription, one-image generation and editing, one-video generation, tool
-  calls, routing, logging, usage metering, and bounded model-visible tool output
-  envelopes
+- Shared `ai-interface` contracts for conversations, one pull-based model
+  stream of ordered text, reasoning, tool-call, usage, finish, and fallback
+  events with a provided `complete` that folds the stream into one response,
+  audio transcription, one-image generation and editing, one-video
+  generation, tool calls, routing, logging, usage metering, and bounded
+  model-visible tool output envelopes
 - One `ModelSpec` constant for each provider model, with stable provider ids,
   `provider/model` text ids, a combined catalog lookup, and custom specs for
   unlisted models
@@ -24,16 +25,16 @@ in-memory tool-calling runtime behavior.
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, Google and MiniMax inline video
   input, OpenAI and Gemini image generation, OpenAI Sora and Google Veo video
-  generation, internally streamed completions and public incremental events for
-  every synchronous provider path (with xAI's deferred path remaining buffered
-  and event-silent), structured output, usage normalization, effort lowering
-  to the efforts of each model spec, and typed errors
+  generation, model events mapped directly from each provider stream (also
+  for calls with a response schema and for xAI's deferred path), structured
+  output, usage normalization, effort lowering to the efforts of each model
+  spec, and typed errors
 - TypeSafe Jev judgment evaluation through a provider-neutral typed boundary
   for condition, choice, and score questions over shared text or JSON state
-- Provider-agnostic wrappers for retry, concurrency, structured output
-  validation, usage pricing, streaming failure classification, and
-  chat-completions delta accumulation
-- Ordered fallback model composition through `ai-models-multi`
+- Provider-agnostic stream wrappers for retry, concurrency, and usage pricing,
+  plus structured output validation and stream failure classification
+- Ordered fallback model composition through `ai-models-multi`, with a
+  fallback event for each failed model
 - Trait-backed buffered and incremental SSE HTTP client support through
   `json-http`, with connect, idle, and overall timeout controls
 - In-memory tool-calling runtime through `ai-tool-calling`, including
@@ -49,8 +50,11 @@ in-memory tool-calling runtime behavior.
   the target components, their boundaries, and the flow of a model call and
   an agent turn.
 - [Model stream](docs/protocol/model-stream.md) (approved, not implemented)
-  defines the one stream method, its events and their order, the fold,
-  deadlines, interruption, and the policy layers on the stream.
+  and its [adapter page](docs/protocol/model-stream-adapters.md) define the
+  one stream method, its events and their order, the fold, deadlines,
+  interruption, the policy layers on the stream, the native adapter mapping,
+  and the SSE transport. They also hold the stream rules in force until
+  conversation parts carry provider state.
 - [Conversation parts](docs/protocol/conversation-parts.md) (approved, not
   implemented) defines roles, parts, opaque provider state, replay rules, the
   stored format and its converter, and log copies.
@@ -66,17 +70,11 @@ in-memory tool-calling runtime behavior.
   conversations.
 - [Model policies](docs/protocol/model-policies.md) (approved, not
   implemented) defines the error core and kinds, retry, fallback policies,
-  concurrency, and pricing.
+  concurrency, and pricing. It also holds the error, retry, and fallback
+  rules in force until those layers are implemented.
 - [Agent loop](docs/protocol/agent-loop.md) (approved, not implemented)
   defines turns over a caller-owned conversation, agent events, parallel
   tools, outcomes, observers, and the output reader.
-- [Model completion events](docs/protocol/model-completion-events.md) defines
-  the opt-in public assistant, reasoning, and fallback-restart event boundary,
-  terminal parity, wrapper semantics, and downstream adoption contract.
-- [Model completion streaming](docs/protocol/model-completion-streaming.md)
-  defines internal SSE accumulation, idle and overall deadlines, interruption
-  retry policy, provider mappings, response parity, and the Firna revision-bump
-  contract.
 - [Provider call controls](docs/protocol/provider-call-controls.md) defines
   portable generation and execution intent, the error and fixed-value
   contract, blank system handling, full Google schemas, and XAI deferred
@@ -101,18 +99,21 @@ in-memory tool-calling runtime behavior.
   and CI secret boundary.
 - [Video input](docs/protocol/video-input.md) defines the shared video content
   part, the Google and MiniMax mappings, and typed rejection elsewhere.
-- [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) defines
-  the DeepSeek V4 Pro/Flash catalog, text-only request boundary, thinking,
-  replay, tool-calling, JSON-object, usage, and error contract.
-- [Kimi model provider](docs/protocol/kimi-model-provider.md) defines the
-  implemented Kimi K3 catalog, request, replay, tool-calling,
-  structured-output, usage, and error contract.
+- [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) and its
+  [response page](docs/protocol/deepseek-responses.md) define the DeepSeek V4
+  Pro/Flash catalog, text-only request boundary, thinking, replay,
+  tool-calling, JSON-object, usage, and error contract.
+- [Kimi model provider](docs/protocol/kimi-model-provider.md) and its
+  [response page](docs/protocol/kimi-responses.md) define the implemented
+  Kimi K3 catalog, request, replay, tool-calling, structured-output, usage,
+  and error contract.
 - [MiniMax model provider](docs/protocol/minimax-model-provider.md) and its
   [response page](docs/protocol/minimax-responses.md) define the provider
   identity, model specs, request/replay, response, usage, and
   error-normalization contract.
-- [Qwen model provider](docs/protocol/qwen-model-provider.md) defines the stable
-  Qwen 3.7 Max/Plus/Flash catalog, thinking, vision, replay, tool-calling,
+- [Qwen model provider](docs/protocol/qwen-model-provider.md) and its
+  [response page](docs/protocol/qwen-responses.md) define the stable Qwen
+  3.7 Max/Plus/Flash catalog, thinking, vision, replay, tool-calling,
   structured-output, usage, and error contract.
 - [Live model API tests](docs/protocol/live-model-api-tests.md) define the
   credentialed provider/catalog coverage, assertions, CI schedule, and secret
@@ -130,11 +131,11 @@ in-memory tool-calling runtime behavior.
 The workspace is library-first. Consumers depend on the crate matching the
 boundary they need:
 
-- `ai-interface`: shared DTOs, traits, mocks, error contracts, model specs,
-  provider ids, efforts, the combined model catalog, and model-visible tool
-  output envelopes
-- `ai-models-core`: reusable model wrappers, the shared capability check, and
-  provider helper logic
+- `ai-interface`: shared DTOs, traits, mocks, error contracts, the model
+  event stream and its fold, model specs, provider ids, efforts, the
+  combined model catalog, and model-visible tool output envelopes
+- `ai-models-core`: reusable stream wrappers, the shared capability check,
+  and provider helper logic
 - `ai-models-anthropic`: Anthropic model adapter
 - `ai-models-compat`: one Chat Completions engine with public `deepseek`,
   `kimi`, `qwen`, `minimax`, and `xai` dialect modules and their model specs
@@ -227,7 +228,8 @@ cargo test --locked -p xtask --test live_videos
 ```
 
 [`docs/development.md`](docs/development.md) gives the billable commands, the
-live workflows, their secrets, and the CI details.
+live workflows, their secrets, the CI details, and the steps that the
+downstream host Firna takes to adopt the model stream.
 
 Run local AI review after checks pass and the branch has been pushed:
 
@@ -240,7 +242,8 @@ cargo xtask review
 - `Cargo.toml`: workspace membership and shared internal crate dependencies
 - `crates/ai-interface`: shared AI contracts, including call controls,
   `src/model_spec.rs`, `src/effort.rs`, `src/model_catalog.rs`,
-  `src/model_completion_events.rs`, and `src/output/` envelope DTOs
+  `src/model_event.rs`, `src/model_stream.rs`, the
+  `src/model_response_fold/` fold, and `src/output/` envelope DTOs
 - `crates/ai-models-core`: provider-agnostic model wrappers and helpers,
   including the shared capability check in `src/capabilities.rs`
 - `crates/ai-models-compat`: shared request mapping, streaming, response,
@@ -277,10 +280,11 @@ cargo xtask review
   capability check, and generated control matrix contract
 - `docs/protocol/provider-call-controls.md`: normative model-call control and
   provider wire-compatibility contract
-- `docs/protocol/model-completion-streaming.md`: approved internal SSE,
-  timeout, interruption, parity, and downstream migration contract
-- `docs/protocol/model-completion-events.md`: approved public incremental
-  event, wrapper, provider, parity, and Firna adoption contract
+- `docs/protocol/model-stream.md`: approved model stream contract: the
+  stream method, events, fold, deadlines, interruption, SSE transport, and
+  the policy layers on the stream
+- `docs/protocol/model-policies.md`: approved error and policy contract,
+  with the error, retry, and fallback rules in force today
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
   contract
 - `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract

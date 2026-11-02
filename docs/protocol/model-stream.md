@@ -2,16 +2,22 @@
 
 Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
-When implemented, this protocol replaces
-[model-completion-events.md](model-completion-events.md) and
-[model-completion-streaming.md](model-completion-streaming.md).
+The section [Rules in force until Milestone 7](#rules-in-force-until-milestone-7)
+gives the provider state rules that apply until conversation parts carry
+provider state. Deadline defaults from a provider config apply when the
+[provider registry](provider-registry.md) is implemented. Every other rule
+of this protocol is in force.
 
 This protocol defines the single entry point of a model call. It covers the
 stream method, the model events and their order, and the fold into a
 response. It also covers deadlines, interruption, cancellation, and the
 stream rules of the policy layers. [Conversation parts](conversation-parts.md)
 defines the parts and the provider state that events carry.
-[Model policies](model-policies.md) defines the error kinds.
+[Model policies](model-policies.md) defines the error kinds. Image
+generation, video generation, audio transcription, and judgment calls do not
+stream. The MCP client has its own SSE rules in the
+[AI MCP protocol](ai-mcp.md). This protocol does not cover OpenAI background
+Responses, or event streams that are persisted, resumed, or reattached.
 
 ## Terms
 
@@ -54,7 +60,7 @@ defines the parts and the provider state that events carry.
 | Tool-call argument delta | part position, JSON text | The next fragment of the argument text of a call. |
 | Tool-call end | part position, optional provider state | The argument text of a call is complete. |
 | Usage | usage | The usage of the attempt. |
-| Finish | finish reason, provider id, model id, effort, optional structured output | The attempt is complete. |
+| Finish | finish reason, provider id, model id, text id, effort, optional structured output | The attempt is complete. |
 | Fallback | error of the failed attempt | The attempt failed, and its events are void. |
 
 - The event type is non-exhaustive.
@@ -65,11 +71,12 @@ defines the parts and the provider state that events carry.
   provider state.
 - The JSON text of an argument delta is never empty.
 - An adapter emits text in generation order. It does not trim, merge, or
-  rewrite text, except for the block rules of the native adapter mapping
-  below and the snapshot rules of its provider doc.
+  rewrite text, except for the block rules of the
+  [native adapter mapping](model-stream-adapters.md#native-adapter-mapping)
+  and the snapshot rules of its provider doc.
 - An event carries only the provider state of its own part.
-- The finish event names the provider id and the provider model id of the
-  attempt, and the effort that the capability check resolved.
+- The finish event names the provider id, the provider model id, and the
+  text id of the attempt, and the effort that the capability check resolved.
 - Only a policy layer emits a fallback event. An adapter never emits one.
 
 ## Event order
@@ -122,8 +129,8 @@ A failed attempt emits no usage event and no finish event.
   carried.
 - The fold keeps tool-call parts only when the finish reason is tool calls.
 - The response takes the usage from the usage event. It takes the finish
-  reason, the provider id, the model id, the effort, and the structured
-  output from the finish event.
+  reason, the provider id, the model id, the text id, the effort, and the
+  structured output from the finish event.
 - A fallback event removes every part that the fold built since the start
   of the failed attempt. It adds the failed attempt to the attempt list of
   the response.
@@ -131,6 +138,25 @@ A failed attempt emits no usage event and no finish event.
 - When the events break the event order, `complete` fails with the
   internal kind.
 - The text of a response is the concatenation of its text parts.
+
+## Rules in force until Milestone 7
+
+Until conversation parts carry provider state, these rules replace the
+provider state rules of this protocol and of its
+[adapter page](model-stream-adapters.md):
+
+- No event carries provider state, so the text of a delta is never empty.
+- The finish event also carries the message-level replay items of the
+  attempt. The fold copies them to the `provider_context` of the response.
+- The response stores no parts. The fold still builds the parts of the
+  successful attempt by part position, as "The fold" says.
+- The text of the response is the concatenation of those text parts, in
+  part position order. Its tool calls are those tool-call parts, in part
+  position order, when the finish reason is tool calls.
+- Reasoning parts add nothing to the response. A replay item can hold the
+  same reasoning for a later request.
+- The finish event carries the replay items so that the fold rebuilds the
+  current response. Milestone 7 replaces them with provider state on parts.
 
 ## Deadlines
 
@@ -169,6 +195,8 @@ A failed attempt emits no usage event and no finish event.
 - Decision: no layer repeats an interrupted attempt on the same model,
   because the provider can bill the partial generation twice. A move to
   another model after an interruption follows the fallback policy.
+- Until Milestone 8, each kind stands for a current model error, as
+  [model policies](model-policies.md#rules-in-force-until-milestone-8) says.
 
 ## Cancellation
 
@@ -198,56 +226,11 @@ A failed attempt emits no usage event and no finish event.
   error of that attempt.
 - A consumer that receives a fallback event discards every event since the
   start of the stream or since the previous fallback event.
-- [Model policies](model-policies.md) says when each layer acts.
+- [Model policies](model-policies.md) says when each layer acts, and which
+  retry and fallback rules are in force until Milestone 8.
 
-## Native adapter mapping
+## Adapter mapping and SSE transport
 
-| Adapter | Content events from | Terminal provider event | Provider state on |
-| --- | --- | --- | --- |
-| Anthropic Messages | text, thinking, and tool-use content blocks | `message_stop` | reasoning parts: thinking and redacted-thinking blocks with signatures |
-| OpenAI Responses | output text and refusal text, reasoning summary or reasoning text, and function-call items | `response.completed` or `response.incomplete` | reasoning parts: item id and encrypted content. Text parts: message phase. Tool-call parts: item id |
-| Google Gemini | candidate-zero parts: text, thought text, and function calls | end of stream after a finish reason or a prompt block | the part that carries a thought signature |
-
-- Anthropic and Google: a text block that holds only whitespace adds no
-  text. The first text delta of each later text block starts with a
-  newline, so that the response text joins the blocks with newlines.
-- Anthropic: `message_start` gives the input usage, and `message_delta`
-  gives the stop reason and the output usage. A `ping` event only keeps the
-  stream alive. Unknown events and unknown deltas produce no model event.
-- Anthropic: a block that starts and does not stop before `message_stop` is
-  a stream failure under the progress rule. A tool-use block without
-  argument fragments has the input of its start as its argument text.
-- OpenAI: output text and refusal text join without a separator.
-- OpenAI: `response.failed` and `error` events are failures under the
-  progress rule. Before progress, a rate-limit code has the rate limited
-  kind, a server or overload code has the transient kind, and another code
-  has the invalid request kind.
-- Google: the first text part of a chunk continues the last text part of
-  the previous chunk when both are thought text or both are not. Separate
-  text parts of one chunk are separate blocks.
-- Google: one function-call part gives a start event, one argument delta,
-  and an end event. A call without arguments has the argument text `{}`.
-- Google: the last finish reason and the last usage of the stream are those
-  of the attempt.
-- The [dialect protocol](chat-completions-dialects.md) gives the mapping of
-  the Chat Completions engine.
-
-## SSE transport
-
-- An SSE open with a non-success status opens no stream. Its error carries
-  the status and at most 64 KiB of the body. The body is JSON when it parses
-  as JSON, and a JSON string otherwise.
-- The status is checked before the content type. A success opens a stream
-  only with the media type `text/event-stream`, with or without parameters.
-  Another media type fails the open.
-- The decoder accepts any split of the bytes, also inside a UTF-8 character
-  or a line ending.
-- CRLF, CR, and LF are line endings, in any mix.
-- The first colon separates the field name from its value. One leading
-  space of the value is removed. A field without a colon has an empty value.
-- The `data` values of one event are joined with `\n`. `event` sets the
-  event name. Comments, `id`, `retry`, and unknown fields are ignored.
-- A blank line dispatches an event when the event has at least one `data`
-  field. Pending data is dispatched at the end of the stream.
-- Malformed UTF-8 is a decode error. The decoder never parses JSON and never
-  reads the `[DONE]` value.
+The [model stream adapter protocol](model-stream-adapters.md) gives the
+mapping of each native adapter from its provider stream to model events,
+and the SSE transport rules of the HTTP component.

@@ -39,8 +39,8 @@ The V1 adapter uses:
 - Endpoint: `POST https://api.minimax.io/v1/chat/completions`
 - Authentication: `Authorization: Bearer <api-key>`
 - Content type: `application/json`
-- Response mode: internally accumulated SSE with optional normalized public
-  events defined by the [completion-events protocol](model-completion-events.md)
+- Response mode: SSE, mapped to model events as the
+  [model stream protocol](model-stream.md) defines
 - Provider identifier: `minimax`
 
 `MiniMaxModel::new` accepts an injected `DynJsonHttpClient`, a model spec,
@@ -136,13 +136,18 @@ before that evidence and a repeated snapshot afterward. Before that evidence, ev
 appends as a fragment. After snapshot evidence, an otherwise ambiguous value
 is a replacing snapshot. Empty content is ignored and never clears retained
 text. The retained M2.x text is restored after terminal validation and emitted
-as one terminal assistant event. The adapter also retains the last nonempty
-`reasoning_details` snapshot as canonical replay state. A MiniMax-M3
+as one text delta before the usage event. The adapter also retains the last
+nonempty `reasoning_details` snapshot as canonical replay state. A MiniMax-M3
 required-tool stream observed by the credentialed suite on 2026-08-22 used
 incremental content and revised earlier reasoning text, so M3 content is
 accumulated directly and reasoning snapshots replace prior snapshots. Final
-usage is required; the stream may end with `[DONE]` or a structurally complete
-clean EOF.
+usage is required; the stream may end with `[DONE]` or with a clean EOF after
+the choices, the finish reason, the usage, and the tool-call metadata
+validate.
+
+Append-only `delta.reasoning_content` fragments give reasoning deltas as
+they arrive. The revisable `reasoning_details` snapshots give no reasoning
+deltas and stay replay state, because a delta cannot replace earlier text.
 
 MiniMax's public reference currently enumerates only `none` and `auto`. Firna
 reported a successful live MiniMax-M3 request with a real tool and

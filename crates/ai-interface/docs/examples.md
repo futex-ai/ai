@@ -9,10 +9,13 @@ boundaries. They need no provider, credential, or network access. The
 `Model::stream` returns the ordered events of one call. `Model::complete`
 reads the same events and folds them into one `ModelResponse`. A consumer
 that shows events as they arrive can use `ModelResponseFold`, the fold of
-`complete`, to get the same response. A `Fallback` event voids the events
-of the failed attempt.
+`complete`, to get the same response. Parts can interleave, so the consumer
+collects each text part by its `part_index`. A `Fallback` event voids the
+events of the failed attempt.
 
 ```rust
+use std::collections::BTreeMap;
+
 use ai_interface::{
     ConversationMessage, MockModel, Model, ModelEvent, ModelRequest, ModelResponse,
     ModelResponseFold,
@@ -36,15 +39,18 @@ async fn call_model() -> ai_interface::ModelResult<String> {
 async fn stream_and_fold() -> ai_interface::ModelResult<(String, ModelResponse)> {
     let mut stream = MockModel::new("done").stream(&request()).await?;
     let mut fold = ModelResponseFold::new();
-    let mut shown = String::new();
+    let mut text_parts = BTreeMap::<usize, String>::new();
     while let Some(event) = stream.next().await? {
         match &event {
-            ModelEvent::TextDelta { delta, .. } => shown.push_str(delta),
-            ModelEvent::Fallback { .. } => shown.clear(),
+            ModelEvent::TextDelta { part_index, delta } => {
+                text_parts.entry(*part_index).or_default().push_str(delta);
+            }
+            ModelEvent::Fallback { .. } => text_parts.clear(),
             _ => {}
         }
         fold.push(event)?;
     }
+    let shown = text_parts.into_values().collect::<String>();
     Ok((shown, fold.finish()?))
 }
 ```

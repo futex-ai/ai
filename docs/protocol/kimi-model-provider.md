@@ -20,11 +20,12 @@ shared engine that serves this provider.
 ## Scope
 
 The provider supports Kimi K3 through Moonshot AI's Chat Completions API,
-accumulated internally over SSE. It includes text and image input, custom
-function tools, parallel tool calls, structured JSON output, automatic cache
-usage reporting, and K3 reasoning efforts. Its opt-in public path emits
-primary-choice assistant and reasoning fragments as defined by the
-[completion-events protocol](model-completion-events.md).
+streamed over SSE as the [model stream protocol](model-stream.md) defines. It
+includes text and image input, custom function tools, parallel tool calls,
+structured JSON output, automatic cache usage reporting, and K3 reasoning
+efforts. Its stream emits model events for the primary choice:
+`delta.content` gives text deltas, and `delta.reasoning_content` gives
+reasoning deltas.
 
 The provider does not support K2.x models, Moonshot V1 models, Partial Mode,
 video or file upload, dynamic or official Kimi tools, `prompt_cache_key`, or
@@ -166,94 +167,10 @@ provider call that produced it.
 Tool-call payloads returned with terminal, truncated, filtered, unknown, or
 missing finish reasons are neither dispatched nor replayed.
 
-## Structured Output
+## Responses And Errors
 
-When `response_schema` is present, the request sends:
-
-```json
-{
-  "response_format": {
-    "type": "json_schema",
-    "json_schema": {
-      "name": "<schema name>",
-      "schema": {
-        "type": "object",
-        "properties": {
-          "answer": { "type": "string" }
-        },
-        "required": ["answer"]
-      },
-      "strict": false
-    }
-  }
-}
-```
-
-The `schema` object is copied verbatim from
-`ModelRequest::response_schema.schema`; the object above is illustrative.
-Kimi recommends strict mode, but strict mode accepts the narrower Moonshot
-Flavored JSON Schema contract. The workspace accepts general JSON Schema, so
-the adapter uses non-strict provider generation and always applies the shared
-local JSON parse and schema validation boundary.
-
-Only `message.content` from a normal `stop` response with no dispatchable tool
-calls is parsed. Reasoning content is never part of structured output.
-Truncated, filtered, tool-call, unknown, and missing-finish responses preserve
-their finish reason and do not attempt structured-output parsing.
-
-## Response Contract
-
-The first response choice maps to `ModelResponse`. An absent choice or invalid
-provider payload is a typed non-retryable provider failure.
-
-Finish reasons map as follows:
-
-| Kimi value | Shared value |
-| --- | --- |
-| `stop` | `FinishReason::Stop` |
-| `tool_calls` | `FinishReason::ToolCalls` |
-| `length` | `FinishReason::Truncated` |
-| `content_filter` | `FinishReason::Filtered` |
-| any other string | `FinishReason::Other(raw)` |
-| missing or null | `FinishReason::Other("missing")` |
-
-Nullable assistant content normalizes to an empty string unless valid
-structured output supplies its compact JSON representation. The response
-reports the text id and the resolved effort separately from the provider
-model id.
-
-## Usage
-
-Kimi usage fields map as follows:
-
-- `cached_input_tokens = cached_tokens`;
-- `input_tokens = prompt_tokens - cached_tokens`, saturating at zero;
-- `output_tokens = completion_tokens`;
-- `reasoning_tokens = 0`, because Kimi does not report a separate reasoning
-  token quantity;
-- `total_tokens = total_tokens` when supplied, otherwise the saturating sum of
-  normalized categories;
-- estimated cost and cost lines remain zero and empty until a composition root
-  applies `UsagePricingModel`.
-
-Missing usage is valid and maps to zero values.
-
-## Error Contract
-
-HTTP failures use the shared status classifier: `429` is rate limited;
-`408`, `409`, `425`, and `5xx` are transient; known typed context-limit codes
-are context-limit failures; other statuses are non-retryable provider
-failures. Provider error messages may be retained, but API keys and auth
-headers must never appear in errors or diagnostics.
-
-Transport and authentication-hook failures are transient provider failures.
-Local request serialization and response deserialization failures are
-internal errors. Invalid provider choices, tool arguments, or structured
-output are non-retryable provider failures.
-
-Malformed, incomplete, or provider-error streams before progress preserve
-their retryable/provider class. The same failures after progress become
-`ModelError::Interrupted` and are not blindly replayed.
+The [Kimi response protocol](kimi-responses.md) defines structured output,
+the response contract, usage, and the error contract.
 
 ## Required Verification
 

@@ -8,7 +8,7 @@ healthy activity, fail stalled streams promptly, avoid automatic replay after
 partial generation, and preserve the existing `ModelResponse` contract.
 
 The approved contract is
-[`docs/protocol/model-completion-streaming.md`](../docs/protocol/model-completion-streaming.md).
+[`docs/protocol/model-completion-streaming.md`](https://github.com/futex-ai/ai/blob/97637f2ce99941451fdbda154e9b68b49689ccdd/docs/protocol/model-completion-streaming.md).
 Protocol and plan creation were approved by Cal in the 2026-08-22 handoff.
 
 ## Design Decisions
