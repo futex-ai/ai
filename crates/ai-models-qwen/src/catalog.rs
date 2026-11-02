@@ -131,6 +131,7 @@ fn model_spec(
         id,
         provider_model_id,
         context_window_tokens: 1_000_000,
+        max_output_tokens: 65_536,
         intelligence_score,
         speed,
         cost,

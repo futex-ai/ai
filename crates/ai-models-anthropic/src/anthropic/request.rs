@@ -1,16 +1,19 @@
 //! Anthropic messages request mapping.
 
-use super::request_types::{
-    AnthropicBlock, AnthropicImageSource, AnthropicMessage, AnthropicOutputConfig,
-    AnthropicRequest, AnthropicThinking, AnthropicTool, AnthropicToolChoice,
-};
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, ModelControl, ModelError,
     ModelRequest, ModelResult, ModelToolChoice, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 
-const ANTHROPIC_MAX_TOKENS: u32 = 4096;
+use crate::catalog::known_models;
+
+use super::request_types::{
+    AnthropicBlock, AnthropicImageSource, AnthropicMessage, AnthropicOutputConfig,
+    AnthropicRequest, AnthropicThinking, AnthropicTool, AnthropicToolChoice,
+};
+
+const UNKNOWN_MODEL_MAX_OUTPUT_TOKENS: u32 = 64_000;
 const PROVIDER: &str = "anthropic";
 
 pub(super) fn build_request(
@@ -18,6 +21,12 @@ pub(super) fn build_request(
     thinking_level: ThinkingLevel,
     request: &ModelRequest,
 ) -> ModelResult<AnthropicRequest> {
+    let max_output_tokens = known_models()
+        .into_iter()
+        .find(|model| model.provider_model_id == model_id)
+        .map_or(UNKNOWN_MODEL_MAX_OUTPUT_TOKENS, |model| {
+            model.max_output_tokens
+        });
     Ok(AnthropicRequest {
         stream: true,
         model: model_id.to_owned(),
@@ -25,8 +34,8 @@ pub(super) fn build_request(
             .controls
             .generation
             .max_output_tokens
-            .unwrap_or(ANTHROPIC_MAX_TOKENS)
-            .min(ANTHROPIC_MAX_TOKENS),
+            .unwrap_or(max_output_tokens)
+            .min(max_output_tokens),
         system: system_prompt(request),
         messages: anthropic_messages(model_id, &request.messages)?,
         tools: request.tools.iter().map(tool).collect(),

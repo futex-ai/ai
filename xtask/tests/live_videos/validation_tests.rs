@@ -78,6 +78,7 @@ fn video_spec() -> KnownModelSpec {
         id: "video-catalog-id",
         provider_model_id: "sora-2",
         context_window_tokens: 0,
+        max_output_tokens: 0,
         intelligence_score: IntelligenceScore::Ten,
         speed: SpeedTier::Slow,
         cost: CostTier::Premium,

@@ -57,6 +57,7 @@ fn kimi_k3_spec(
         id,
         provider_model_id: KIMI_K3,
         context_window_tokens: 1_000_000,
+        max_output_tokens: 131_072,
         intelligence_score: IntelligenceScore::Ten,
         speed,
         cost,

@@ -107,6 +107,8 @@ pub struct KnownModelSpec {
     pub provider_model_id: &'static str,
     /// Provider-advertised total context window in tokens.
     pub context_window_tokens: u32,
+    /// Provider-advertised maximum generated text tokens; zero for non-chat models.
+    pub max_output_tokens: u32,
     /// Internal intelligence ranking from one to ten.
     pub intelligence_score: IntelligenceScore,
     /// Coarse speed tier.
@@ -198,6 +200,7 @@ pub fn known_mock_models() -> Vec<KnownModelSpec> {
         id: "mock",
         provider_model_id: "mock",
         context_window_tokens: 128_000,
+        max_output_tokens: 128_000,
         intelligence_score: IntelligenceScore::Five,
         speed: SpeedTier::VeryFast,
         cost: CostTier::Low,

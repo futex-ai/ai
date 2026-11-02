@@ -38,7 +38,10 @@ It also defines `KnownModelSpec`, `KnownModelCatalog`, coarse `SpeedTier` and
 by worker-side model routing. Provider crates own their concrete catalog
 entries. A known model spec has a unique workspace catalog id plus a separate
 provider model id, so a provider catalog can expose multiple deployable
-variants for the same upstream model.
+variants for the same upstream model. `max_output_tokens` states the provider's
+maximum generated text tokens. Non-chat entries use zero. The Anthropic adapter
+uses this value as its default and ceiling. Other adapters retain their
+existing output-control behavior.
 
 `ThinkingLevel` is ordered from `Disabled` through `Low`, `Medium`, `High`,
 `ExtraHigh`, and `Max`. The level is normalized routing metadata; each

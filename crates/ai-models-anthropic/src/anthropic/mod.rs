@@ -229,3 +229,7 @@ mod stream_support;
 #[cfg(test)]
 #[path = "_tests_/thinking_tool_choice_tests.rs"]
 mod thinking_tool_choice_tests;
+
+#[cfg(test)]
+#[path = "_tests_/output_limit_tests.rs"]
+mod output_limit_tests;

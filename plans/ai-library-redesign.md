@@ -154,7 +154,7 @@ answers that differ from the recommendation.
   regression tests. The alternatives were a live two-turn probe in
   addition, or opaque provider state at once. The recommendation was the
   live probe in addition.
-- Item 2, [Anthropic output is capped at 4,096 tokens](follow-ups/anthropic-output-cap-4096.md):
+- Item 2, Anthropic output is capped at 4,096 tokens, applied in Milestone 3:
   option B. Add a max output to each catalog entry, and use it as the
   default and the ceiling. The alternatives were a larger constant, or no
   ceiling. The recommendation was the larger constant.
@@ -366,7 +366,7 @@ Apply the answers to items 1 to 4 on today's types.
       in their adapters. Handle the new variants in every other adapter, in
       the synthetic tool-call id hasher, and in the log redaction list. Add
       mock regression tests.
-- [ ] Item 2, option B: add a max output to each catalog entry. Take each
+- [x] Item 2, option B: add a max output to each catalog entry. Take each
       value from the provider's model documentation. Use it as the default
       and the ceiling in the Anthropic adapter. Update
       `provider-call-controls.md`.

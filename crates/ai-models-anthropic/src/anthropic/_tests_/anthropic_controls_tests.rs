@@ -46,14 +46,14 @@ async fn maps_controls_bounds_output_and_keeps_thinking_sampling_fixed() {
     assert!(plain.get("system").is_none());
     assert_eq!(plain["temperature"], 0.3);
     assert_eq!(plain["top_p"], 0.7);
-    assert_eq!(plain["max_tokens"], 4096);
+    assert_eq!(plain["max_tokens"], 9000);
     assert_eq!(plain["stop_sequences"], json!(["first", "second"]));
     assert_eq!(plain["tool_choice"]["type"], "tool");
     assert_eq!(plain["tool_choice"]["name"], "lookup");
     let thinking = requests[1].body.as_ref().expect("thinking body");
     assert!(thinking.get("temperature").is_none());
     assert!(thinking.get("top_p").is_none());
-    assert_eq!(thinking["max_tokens"], 4096);
+    assert_eq!(thinking["max_tokens"], 9000);
 }
 
 #[tokio::test]

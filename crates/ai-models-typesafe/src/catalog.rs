@@ -24,6 +24,7 @@ fn jev_spec(id: &'static str) -> KnownModelSpec {
         id,
         provider_model_id: id,
         context_window_tokens: 64_000,
+        max_output_tokens: 0,
         intelligence_score: IntelligenceScore::Five,
         speed: SpeedTier::VeryFast,
         cost: CostTier::Low,

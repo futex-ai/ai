@@ -27,6 +27,11 @@
   `ModelError::UnsupportedControl` for `ModelControl::ToolChoice` before
   transport. `RequiredOrAuto` sends `auto` and retains tool definitions.
   Without thinking, `RequiredOrAuto` sends `any`, as `Required` does.
+- output limits from `KnownModelSpec::max_output_tokens`: use the caller's
+  limit capped at the provider model's catalog maximum, or that maximum when
+  no limit is given. Claude Sonnet 5, Opus 5, Fable 5, Sonnet 4.6, and
+  Opus 4.7 use 128,000 tokens. Haiku 4.5 uses 64,000 tokens. Unknown provider
+  model ids use 64,000 tokens as both the default and the ceiling.
 - Anthropic tool-use and tool-result content blocks
 - shared text and image parts as Anthropic text and base64 image blocks, with
   typed rejection of shared video parts before transport
