@@ -119,7 +119,6 @@ dependencies = [
  "async-trait",
  "json-http",
  "jsonschema",
- "serde",
  "serde_json",
  "thiserror",
  "tokio",

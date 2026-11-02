@@ -14,7 +14,8 @@ use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
 
 use super::{
-    CompletionContext, Dialect, lifecycle::DynDeferredCompletion, request, response, stream,
+    CompletionContext, Dialect, dialect::ReplayRule, lifecycle::DynDeferredCompletion, request,
+    response, stream,
 };
 
 const STREAM_TIMEOUT: Duration = Duration::from_secs(3_600);
@@ -75,7 +76,11 @@ impl CompatModel {
                 ));
             }
         };
-        let scope = synthetic_tool_call_scope(model_request);
+        let scope = if self.dialect.replay == ReplayRule::Xai {
+            synthetic_tool_call_scope(model_request)
+        } else {
+            String::new()
+        };
         let context = CompletionContext {
             dialect: self.dialect,
             catalog_model_id: &self.catalog_model_id,

@@ -414,16 +414,16 @@ Depends on: 3
 
 Replace five copies of one protocol with one engine and five dialects.
 
-- [ ] Add `ai-models-compat` with the engine: request mapping, streaming,
+- [x] Add `ai-models-compat` with the engine: request mapping, streaming,
       accumulation, response mapping, usage, and errors.
-- [ ] Port DeepSeek, Kimi, and Qwen as dialects. Move their tests into
+- [x] Port DeepSeek, Kimi, and Qwen as dialects. Move their tests into
       dialect test modules, and keep every assertion.
-- [ ] Port MiniMax with its stream normalizer and reasoning details.
-- [ ] Port xAI with deferred completion and legacy function calls.
-- [ ] Prove parity with the recordings and the moved tests.
-- [ ] Delete the five crates. Update the workspace members, the READMEs,
+- [x] Port MiniMax with its stream normalizer and reasoning details.
+- [x] Port xAI with deferred completion and legacy function calls.
+- [x] Prove parity with the recordings and the moved tests.
+- [x] Delete the five crates. Update the workspace members, the READMEs,
       the docs, `xtask`, and CI.
-- [ ] Run `cargo xtask check`, then commit and push.
+- [x] Run `cargo xtask check`, then commit and push.
 
 ## Milestone 5: Model specs and capabilities
 
