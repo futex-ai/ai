@@ -308,6 +308,11 @@ All calls are mine, made on 2026-11-01.
     today's response. Milestone 7 replaces it with per-part provider state.
   - Milestone 7 marks `model-stream.md` implemented, because the provider
     state rules of that doc need the parts of Milestone 7.
+  - The Milestone 6 implementor converts each test-only `Model`
+    implementation to `stream`, including the fixture in
+    `crates/ai-mcp/tests/tool_runtime_smoke.rs`. This follows the trait
+    change and changes no MCP production code, so the MCP crates still
+    change only after Milestone 11.
 
 ## Pull requests
 
@@ -474,7 +479,7 @@ Make streaming the single model entry point.
       in force, next to the target rules.
 - [x] Update `live-model-api-tests.md`: deferred and schema calls now emit
       model events, so the live checks expect events for them.
-- [x] Run `cargo xtask check`, then commit. Do not push for this task.
+- [x] Run `cargo xtask check`, then commit and push.
 
 Verification evidence: `.context/milestone-6/parity.md`,
 `.context/milestone-6/snapshot-review-root.md`, and `.context/milestone-6/gate.log`.
