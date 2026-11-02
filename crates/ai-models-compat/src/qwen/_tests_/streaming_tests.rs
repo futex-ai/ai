@@ -9,7 +9,7 @@ use ai_models_core::{
 };
 use serde_json::{Value, json};
 
-use crate::{QWEN_3_7_PLUS, QwenModel};
+use crate::qwen::{QWEN_3_7_PLUS, QwenModel};
 
 use super::{response, test_support::simple_request};
 

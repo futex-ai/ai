@@ -16,8 +16,10 @@ pub(super) fn validate_controls(
     thinking: ThinkingLevel,
     request: &ModelRequest,
 ) -> ModelResult<()> {
-    if matches!(dialect.tool_choice, ToolChoiceRule::OmitWhileThinking)
-        && thinking.is_enabled()
+    if matches!(
+        dialect.tool_choice,
+        ToolChoiceRule::OmitWhileThinking | ToolChoiceRule::AutoWhileThinking
+    ) && thinking.is_enabled()
         && matches!(
             request.controls.generation.tool_choice,
             Some(ModelToolChoice::Required | ModelToolChoice::Function(_))
@@ -43,6 +45,12 @@ pub(super) fn tool_choice(
     let mode = match request.controls.generation.tool_choice.as_ref() {
         Some(ModelToolChoice::None) => "none",
         Some(ModelToolChoice::Auto) => "auto",
+        Some(ModelToolChoice::RequiredOrAuto)
+            if thinking.is_enabled()
+                && matches!(dialect.tool_choice, ToolChoiceRule::AutoWhileThinking) =>
+        {
+            "auto"
+        }
         Some(ModelToolChoice::Required | ModelToolChoice::RequiredOrAuto) => "required",
         Some(ModelToolChoice::Function(name)) => {
             return Some(ChatCompletionsToolChoice::Function(
@@ -53,7 +61,10 @@ pub(super) fn tool_choice(
             ));
         }
         None if !request.tools.is_empty()
-            && matches!(dialect.tool_choice, ToolChoiceRule::Standard) =>
+            && matches!(
+                dialect.tool_choice,
+                ToolChoiceRule::Standard | ToolChoiceRule::AutoWhileThinking
+            ) =>
         {
             "auto"
         }

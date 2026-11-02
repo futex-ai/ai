@@ -44,6 +44,23 @@ pub(super) fn replay_message(
                     .map(|call| raw_tool_call(&call.id, &call.name, &call.arguments))
                     .collect(),
             ),
+            (
+                ReplayRule::Qwen,
+                ProviderConversationItem::QwenAssistantMessage {
+                    content,
+                    reasoning_content,
+                    tool_calls,
+                },
+            ) => (
+                content
+                    .clone()
+                    .or_else(|| tool_calls.is_empty().then(String::new)),
+                reasoning_content.clone(),
+                tool_calls
+                    .iter()
+                    .map(|call| raw_tool_call(&call.id, &call.name, &call.arguments))
+                    .collect(),
+            ),
             _ => return None,
         };
         Some(ChatCompletionsMessage {

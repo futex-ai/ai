@@ -6,7 +6,7 @@ use ai_interface::{Model, ProviderKind};
 use ai_models_core::ThinkingLevel;
 use json_http::StaticHeaderAuth;
 
-use crate::{QWEN_3_7_MAX, QWEN_3_7_PLUS, QwenConfigurationError};
+use crate::qwen::{QWEN_3_7_MAX, QWEN_3_7_PLUS, QwenConfigurationError};
 
 use super::{
     QwenModel,

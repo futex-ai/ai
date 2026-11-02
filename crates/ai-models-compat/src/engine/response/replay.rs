@@ -1,7 +1,9 @@
 //! Provider-owned state built from validated response fields.
 
 use super::{super::dialect::ReplayRule, types::ChatCompletionsToolCall};
-use ai_interface::{DeepSeekToolCallContext, KimiToolCallContext, ProviderConversationItem};
+use ai_interface::{
+    DeepSeekToolCallContext, KimiToolCallContext, ProviderConversationItem, QwenToolCallContext,
+};
 
 pub(super) fn provider_context(
     rule: ReplayRule,
@@ -32,6 +34,18 @@ pub(super) fn provider_context(
             tool_calls: calls
                 .iter()
                 .map(|call| KimiToolCallContext {
+                    id: call.id.clone(),
+                    name: call.function.name.clone(),
+                    arguments: call.function.arguments.clone(),
+                })
+                .collect(),
+        }],
+        ReplayRule::Qwen => vec![ProviderConversationItem::QwenAssistantMessage {
+            content,
+            reasoning_content,
+            tool_calls: calls
+                .iter()
+                .map(|call| QwenToolCallContext {
                     id: call.id.clone(),
                     name: call.function.name.clone(),
                     arguments: call.function.arguments.clone(),

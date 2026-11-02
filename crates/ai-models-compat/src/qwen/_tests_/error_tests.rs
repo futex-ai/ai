@@ -7,10 +7,11 @@ use json_http::{JsonHttpAuth, JsonHttpAuthMock, JsonHttpResponse};
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
-use crate::{QWEN_3_7_PLUS, QwenModel};
+use crate::qwen::{QWEN_3_7_PLUS, QwenModel};
 
 use super::{
-    client::{classify_qwen_http_error, request_error},
+    client::request_error,
+    dialect::classify_qwen_http_error,
     test_support::{
         recording_http_client, simple_request, transport_failure_http_client, unused_http_client,
     },

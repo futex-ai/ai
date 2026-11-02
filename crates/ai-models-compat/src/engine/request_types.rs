@@ -11,6 +11,12 @@ pub(crate) struct ChatCompletionsRequest {
     pub(crate) tools: Vec<ChatCompletionsTool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) tool_choice: Option<ChatCompletionsToolChoice>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) parallel_tool_calls: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) enable_thinking: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) preserve_thinking: Option<bool>,
     pub(crate) stream: bool,
     pub(crate) stream_options: ChatCompletionsStreamOptions,
     #[serde(skip_serializing_if = "Option::is_none")]

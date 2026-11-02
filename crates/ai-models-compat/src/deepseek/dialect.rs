@@ -17,5 +17,11 @@ pub(super) static DIALECT: Dialect = Dialect {
     tool_choice: ToolChoiceRule::OmitWhileThinking,
     input: InputParts::PlainText,
     names: true,
+    parallel_tools: false,
+    http_error: None,
+    transient_finish: Some((
+        "insufficient_system_resource",
+        "DeepSeek reported insufficient system resources",
+    )),
     required_reasoning: true,
 };

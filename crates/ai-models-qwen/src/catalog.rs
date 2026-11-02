@@ -139,7 +139,3 @@ fn model_spec(
         features,
     }
 }
-
-#[cfg(test)]
-#[path = "_tests_/catalog_tests.rs"]
-mod catalog_tests;

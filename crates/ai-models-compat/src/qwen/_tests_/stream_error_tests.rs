@@ -4,7 +4,7 @@ use ai_interface::{Model, ModelError};
 use ai_models_core::test_support::{SseFixture, data_event, event, recording_streaming_client};
 use serde_json::json;
 
-use crate::QwenModel;
+use crate::qwen::QwenModel;
 
 use super::test_support::simple_request;
 

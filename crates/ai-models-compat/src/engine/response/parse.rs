@@ -98,6 +98,12 @@ pub(crate) fn parse_response(
             .map(Value::to_string)
             .unwrap_or_default();
     }
+    if dialect.replay == ReplayRule::Qwen
+        && assistant_message.trim().is_empty()
+        && let Some(output) = structured_output.as_ref()
+    {
+        assistant_message = output.to_string();
+    }
     Ok(ModelResponse {
         provider: dialect.provider.to_owned(),
         model_id: provider_model_id.to_owned(),

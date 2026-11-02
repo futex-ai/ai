@@ -43,6 +43,30 @@ pub(super) fn validate_content_parts(
             format!("{} accepts plain text messages only", dialect.label),
         ));
     }
+    if let InputParts::UserTextImage { plain_text_model } = dialect.input {
+        for message in &request.messages {
+            if message.content_parts.is_empty() {
+                continue;
+            }
+            if model_id == plain_text_model {
+                return Err(ModelError::provider(
+                    dialect.provider,
+                    model_id,
+                    format!("{model_id} accepts plain text messages only"),
+                ));
+            }
+            if message.role != ConversationRole::User {
+                return Err(ModelError::provider(
+                    dialect.provider,
+                    model_id,
+                    format!(
+                        "{} accepts typed content parts only on user messages",
+                        dialect.label
+                    ),
+                ));
+            }
+        }
+    }
     Ok(())
 }
 
@@ -98,9 +122,10 @@ fn message_content(
                 .collect::<ModelResult<Vec<_>>>()?,
         )));
     }
-    if dialect.replay == ReplayRule::Kimi
-        && message.role == ConversationRole::Assistant
+    if message.role == ConversationRole::Assistant
         && message.content.is_empty()
+        && (dialect.replay == ReplayRule::Kimi
+            || dialect.replay == ReplayRule::Qwen && !message.tool_calls.is_empty())
     {
         Ok(None)
     } else {

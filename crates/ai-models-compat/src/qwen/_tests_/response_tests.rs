@@ -6,7 +6,7 @@ use ai_interface::{
 use ai_models_core::ThinkingLevel;
 use serde_json::{Value, json};
 
-use crate::QWEN_3_7_PLUS;
+use crate::qwen::QWEN_3_7_PLUS;
 
 use super::response::parse_response;
 

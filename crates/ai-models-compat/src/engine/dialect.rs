@@ -1,6 +1,8 @@
 //! Dialect settings and invocation identity shared by the engine stages.
 
+use ai_interface::ModelError;
 use ai_models_core::ThinkingLevel;
+use serde_json::Value;
 
 pub(crate) struct Dialect {
     pub(crate) provider: &'static str,
@@ -15,18 +17,23 @@ pub(crate) struct Dialect {
     pub(crate) input: InputParts,
     pub(crate) names: bool,
     pub(crate) required_reasoning: bool,
+    pub(crate) transient_finish: Option<(&'static str, &'static str)>,
+    pub(crate) http_error: Option<fn(&str, u16, &Value) -> ModelError>,
+    pub(crate) parallel_tools: bool,
 }
 
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum ReplayRule {
     DeepSeek,
     Kimi,
+    Qwen,
 }
 
 #[derive(Clone, Copy)]
 pub(crate) enum ThinkingFormat {
     ToggleEffort,
     Effort,
+    Flags,
 }
 
 #[derive(Clone, Copy)]
@@ -39,6 +46,7 @@ pub(crate) enum OutputLimit {
 pub(crate) enum StructuredOutput {
     JsonObjectPrompt,
     JsonSchema,
+    JsonObjectWhenDisabled(&'static [&'static str]),
 }
 
 #[derive(Clone, Copy)]
@@ -51,12 +59,14 @@ pub(crate) enum Sampling {
 pub(crate) enum ToolChoiceRule {
     OmitWhileThinking,
     Standard,
+    AutoWhileThinking,
 }
 
 #[derive(Clone, Copy)]
 pub(crate) enum InputParts {
     PlainText,
     TextImage,
+    UserTextImage { plain_text_model: &'static str },
 }
 
 #[derive(Clone, Copy)]

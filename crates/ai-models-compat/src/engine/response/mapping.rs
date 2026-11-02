@@ -4,7 +4,10 @@ use ai_interface::{FinishReason, ModelError, ModelResult, ToolCall};
 use ai_models_core::parse_tool_call_arguments;
 use serde_json::Value;
 
-use super::{super::dialect::Dialect, types::ChatCompletionsToolCall};
+use super::{
+    super::dialect::{Dialect, ReplayRule},
+    types::ChatCompletionsToolCall,
+};
 
 pub(super) fn finish_reason(
     dialect: &Dialect,
@@ -16,11 +19,19 @@ pub(super) fn finish_reason(
         Some("tool_calls") => FinishReason::ToolCalls,
         Some("length") => FinishReason::Truncated,
         Some("content_filter") => FinishReason::Filtered,
-        Some("insufficient_system_resource") if dialect.required_reasoning => {
+        Some(raw)
+            if dialect
+                .transient_finish
+                .is_some_and(|(reason, _)| reason == raw) =>
+        {
+            let message = dialect
+                .transient_finish
+                .map(|(_, message)| message)
+                .unwrap_or_default();
             return Err(ModelError::transient_provider(
                 dialect.provider,
                 model_id,
-                "DeepSeek reported insufficient system resources",
+                message,
             ));
         }
         Some(raw) => FinishReason::Other(raw.to_owned()),
@@ -71,6 +82,7 @@ pub(super) fn parse_tool_calls(
     calls
         .iter()
         .map(|call| {
+            validate_identity(dialect, model_id, call)?;
             Ok(ToolCall {
                 id: call.id.clone(),
                 name: call.function.name.clone(),
@@ -83,4 +95,29 @@ pub(super) fn parse_tool_calls(
             })
         })
         .collect()
+}
+
+fn validate_identity(
+    dialect: &Dialect,
+    model_id: &str,
+    call: &ChatCompletionsToolCall,
+) -> ModelResult<()> {
+    if dialect.replay != ReplayRule::Qwen {
+        return Ok(());
+    }
+    if call.id.trim().is_empty() {
+        return Err(ModelError::provider(
+            dialect.provider,
+            model_id,
+            "Qwen tool call had no id",
+        ));
+    }
+    if call.function.name.trim().is_empty() {
+        return Err(ModelError::provider(
+            dialect.provider,
+            model_id,
+            "Qwen tool call had no function name",
+        ));
+    }
+    Ok(())
 }

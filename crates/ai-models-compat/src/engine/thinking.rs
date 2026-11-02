@@ -14,6 +14,7 @@ pub(super) fn thinking_fields(
     level: ThinkingLevel,
 ) -> ModelResult<(Option<ChatCompletionsThinking>, Option<String>)> {
     match dialect.thinking {
+        ThinkingFormat::Flags => Ok((None, None)),
         ThinkingFormat::Effort => Ok((None, Some(level.as_str().to_owned()))),
         ThinkingFormat::ToggleEffort => {
             let (kind, effort) = match level {

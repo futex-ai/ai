@@ -6,7 +6,7 @@ use ai_interface::{
     Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse, ModelResult,
     NoopModelCompletionEventSink,
 };
-use ai_models_core::{ThinkingLevel, classify_json_http_stream_error};
+use ai_models_core::{ThinkingLevel, classify_json_http_error, classify_json_http_stream_error};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
 
@@ -80,6 +80,17 @@ impl CompatModel {
         };
         let event_stream = match request.send_sse().await {
             Ok(event_stream) => event_stream,
+            Err(json_http::Error::HttpStatus { status, body }) => {
+                return Err(match self.dialect.http_error {
+                    Some(classify) => classify(&self.provider_model_id, status, &body),
+                    None => classify_json_http_error(
+                        self.dialect.provider,
+                        &self.provider_model_id,
+                        status,
+                        &body,
+                    ),
+                });
+            }
             Err(source) => {
                 return Err(classify_json_http_stream_error(
                     self.dialect.provider,

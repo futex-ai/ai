@@ -10,7 +10,7 @@ use ai_models_core::ThinkingLevel;
 use json_http::StaticHeaderAuth;
 use serde_json::json;
 
-use crate::QWEN_3_7_PLUS;
+use crate::qwen::QWEN_3_7_PLUS;
 
 use super::{
     QwenModel,

@@ -1,11 +1,11 @@
 //! Shared request mapping and structured-output instructions.
 
-use ai_interface::{ModelRequest, ModelResult};
+use ai_interface::{ModelRequest, ModelResult, ModelToolChoice};
 use ai_models_core::ThinkingLevel;
 
 use super::{
     controls::{tool_choice, validate_controls},
-    dialect::{Dialect, OutputLimit, Sampling, StructuredOutput, ToolChoiceRule},
+    dialect::{Dialect, OutputLimit, Sampling, StructuredOutput, ThinkingFormat, ToolChoiceRule},
     messages::{message, system_message, validate_content_parts},
     request_types::{
         ChatCompletionsJsonSchema, ChatCompletionsRequest, ChatCompletionsResponseFormat,
@@ -34,7 +34,7 @@ pub(crate) fn build_request(
     }
     let omit_tools = matches!(dialect.tool_choice, ToolChoiceRule::OmitWhileThinking)
         && thinking_level.is_enabled()
-        && request.controls.generation.tool_choice == Some(ai_interface::ModelToolChoice::None);
+        && request.controls.generation.tool_choice == Some(ModelToolChoice::None);
     let tools = if omit_tools {
         Vec::new()
     } else {
@@ -50,13 +50,18 @@ pub(crate) fn build_request(
         messages,
         tools,
         tool_choice: tool_choice(dialect, thinking_level, request),
+        parallel_tool_calls: (dialect.parallel_tools && !request.tools.is_empty()).then_some(true),
+        enable_thinking: matches!(dialect.thinking, ThinkingFormat::Flags)
+            .then_some(thinking_level.is_enabled()),
+        preserve_thinking: matches!(dialect.thinking, ThinkingFormat::Flags)
+            .then_some(thinking_level.is_enabled()),
         stream: true,
         stream_options: ChatCompletionsStreamOptions {
             include_usage: true,
         },
         thinking,
         reasoning_effort,
-        response_format: response_format(dialect, request),
+        response_format: response_format(dialect, model_id, thinking_level, request),
         temperature: sampling
             .then_some(request.controls.generation.temperature)
             .flatten(),
@@ -77,7 +82,7 @@ fn system_prompt(dialect: &Dialect, request: &ModelRequest) -> String {
     let Some(schema) = request.response_schema.as_ref().filter(|_| {
         matches!(
             dialect.structured_output,
-            StructuredOutput::JsonObjectPrompt
+            StructuredOutput::JsonObjectPrompt | StructuredOutput::JsonObjectWhenDisabled(_)
         )
     }) else {
         return request.system_prompt.clone();
@@ -91,11 +96,19 @@ The response must be a JSON object matching schema `{}`.\nJSON Schema:\n{}",
 
 fn response_format(
     dialect: &Dialect,
+    model_id: &str,
+    thinking: ThinkingLevel,
     request: &ModelRequest,
 ) -> Option<ChatCompletionsResponseFormat> {
     let schema = request.response_schema.as_ref()?;
     Some(match dialect.structured_output {
         StructuredOutput::JsonObjectPrompt => ChatCompletionsResponseFormat::JsonObject,
+        StructuredOutput::JsonObjectWhenDisabled(models)
+            if models.contains(&model_id) && !thinking.is_enabled() =>
+        {
+            ChatCompletionsResponseFormat::JsonObject
+        }
+        StructuredOutput::JsonObjectWhenDisabled(_) => return None,
         StructuredOutput::JsonSchema => ChatCompletionsResponseFormat::JsonSchema {
             json_schema: ChatCompletionsJsonSchema {
                 name: schema.name.clone(),

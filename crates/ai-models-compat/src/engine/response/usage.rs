@@ -43,6 +43,18 @@ struct KimiUsage {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+struct QwenUsage {
+    #[serde(default)]
+    prompt_tokens: u64,
+    #[serde(default)]
+    completion_tokens: u64,
+    #[serde(default)]
+    total_tokens: Option<u64>,
+    #[serde(default)]
+    prompt_tokens_details: PromptTokenDetails,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
 struct PromptTokenDetails {
     #[serde(default)]
     cached_tokens: u64,
@@ -78,6 +90,20 @@ pub(super) fn normalize(
                 usage
                     .cached_tokens
                     .unwrap_or(usage.prompt_tokens_details.cached_tokens),
+                None,
+                0,
+                usage.total_tokens,
+            )
+        }
+        ReplayRule::Qwen => {
+            let usage: QwenUsage = match raw {
+                Some(raw) => serde_json::from_value(raw)?,
+                None => QwenUsage::default(),
+            };
+            (
+                usage.prompt_tokens,
+                usage.completion_tokens,
+                usage.prompt_tokens_details.cached_tokens,
                 None,
                 0,
                 usage.total_tokens,
