@@ -1,11 +1,10 @@
-//! OpenAI image generation error classification.
+//! OpenAI image error kinds with safe response metadata and original sources.
 
-use ai_interface::ImageGenerationError;
-use ai_models_core::{HttpFailureClass, classify_http_status};
+use ai_interface::{ErrorKind, ImageGenerationError};
+use ai_models_core::{ErrorContext, json_http_error_core};
+use json_http::JsonHttpHeaders;
 use serde::Deserialize;
 use serde_json::Value;
-
-const PROVIDER: &str = "openai";
 
 #[derive(Deserialize)]
 struct ErrorEnvelope {
@@ -20,7 +19,12 @@ struct ErrorBody {
     message: Option<String>,
 }
 
-pub(super) fn classify_status(status: u16, model_id: &str, body: &Value) -> ImageGenerationError {
+pub(super) fn classify_status(
+    context: &ErrorContext,
+    status: u16,
+    headers: &JsonHttpHeaders,
+    body: &Value,
+) -> ImageGenerationError {
     let parsed = serde_json::from_value::<ErrorEnvelope>(body.clone()).ok();
     let details = parsed.as_ref().and_then(|envelope| envelope.error.as_ref());
     let message = details
@@ -30,42 +34,23 @@ pub(super) fn classify_status(status: u16, model_id: &str, body: &Value) -> Imag
             body.as_str()
                 .map_or_else(|| body.to_string(), ToOwned::to_owned)
         });
-    match classify_http_status(status) {
-        Some(HttpFailureClass::RateLimited) => {
-            return ImageGenerationError::rate_limited(PROVIDER, model_id, message);
-        }
-        Some(HttpFailureClass::Transient) => {
-            return ImageGenerationError::transient_provider(PROVIDER, model_id, message);
-        }
-        Some(HttpFailureClass::Terminal) | None => {}
+    let mut core = json_http_error_core(context, status, headers, body);
+    core.message = context.redact(&message);
+    if !matches!(
+        core.kind,
+        ErrorKind::RateLimited | ErrorKind::Transient | ErrorKind::ContextLimitExceeded
+    ) && details.is_some_and(is_content_policy)
+    {
+        core.kind = ErrorKind::ContentPolicy;
     }
-    if details.is_some_and(is_content_policy) {
-        return ImageGenerationError::content_policy(PROVIDER, model_id, message);
-    }
-    ImageGenerationError::provider(PROVIDER, model_id, message)
+    ImageGenerationError::new(core)
 }
 
 pub(super) fn classify_request_error(
+    context: &ErrorContext,
     source: json_http::Error,
-    model_id: &str,
 ) -> ImageGenerationError {
-    match source {
-        json_http::Error::Transport { .. }
-        | json_http::Error::ReqwestTransport { .. }
-        | json_http::Error::Auth { .. } => {
-            ImageGenerationError::transient_provider(PROVIDER, model_id, source.to_string())
-        }
-        json_http::Error::SerializeRequest { .. }
-        | json_http::Error::DeserializeResponse { .. }
-        | json_http::Error::ClientInitialization { .. }
-        | json_http::Error::SseUnsupported
-        | json_http::Error::HttpStatus { .. }
-        | json_http::Error::InvalidSseContentType { .. }
-        | json_http::Error::IdleTimeout { .. }
-        | json_http::Error::DeadlineExceeded { .. }
-        | json_http::Error::SseTransport { .. }
-        | json_http::Error::SseDecode { .. } => ImageGenerationError::internal(source),
-    }
+    ImageGenerationError::with_source(context.request_error(&source), source)
 }
 
 fn is_content_policy(error: &ErrorBody) -> bool {

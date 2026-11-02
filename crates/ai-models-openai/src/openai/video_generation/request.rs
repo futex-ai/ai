@@ -1,8 +1,10 @@
 //! OpenAI video generation request mapping.
 
 use ai_interface::{
-    VideoGenerationAspect, VideoGenerationError, VideoGenerationRequest, VideoGenerationResult,
+    ErrorKind, VideoGenerationAspect, VideoGenerationError, VideoGenerationRequest,
+    VideoGenerationResult,
 };
+use ai_models_core::ErrorContext;
 use json_http::JsonHttpMultipartField;
 use serde::Serialize;
 
@@ -20,11 +22,14 @@ pub(super) enum OpenAiVideoApiRequest {
 }
 
 pub(super) fn build_request(
+    context: &ErrorContext,
     model_id: &str,
     request: &VideoGenerationRequest,
 ) -> VideoGenerationResult<OpenAiVideoApiRequest> {
     if request.prompt.trim().is_empty() {
-        return Err(VideoGenerationError::EmptyPrompt);
+        return Err(VideoGenerationError::EmptyPrompt {
+            core: Box::new(context.core(ErrorKind::InvalidRequest, "prompt must not be empty")),
+        });
     }
     let body = OpenAiVideoRequest {
         model: model_id.to_owned(),
@@ -35,7 +40,7 @@ pub(super) fn build_request(
     let Some(image) = &request.input_image else {
         return Ok(OpenAiVideoApiRequest::Json(body));
     };
-    validate_media_type(&image.mime_type)?;
+    validate_media_type(context, &image.mime_type)?;
     Ok(OpenAiVideoApiRequest::Multipart(vec![
         text_field("model", body.model),
         text_field("prompt", body.prompt),
@@ -54,10 +59,16 @@ fn size(aspect: VideoGenerationAspect) -> &'static str {
     }
 }
 
-fn validate_media_type(mime_type: &str) -> VideoGenerationResult<()> {
+fn validate_media_type(context: &ErrorContext, mime_type: &str) -> VideoGenerationResult<()> {
     match mime_type {
         "image/jpeg" | "image/png" | "image/webp" => Ok(()),
-        _ => Err(VideoGenerationError::unsupported_media_type(mime_type)),
+        _ => Err(VideoGenerationError::UnsupportedMediaType {
+            core: Box::new(context.core(
+                ErrorKind::UnsupportedInput,
+                format!("unsupported media type `{mime_type}`"),
+            )),
+            content_type: context.redact(mime_type),
+        }),
     }
 }
 

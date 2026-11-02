@@ -1,5 +1,7 @@
 //! OpenAI video request mapping tests.
 
+use crate::openai::stream_support::error_context;
+
 use ai_interface::{
     VideoGenerationAspect, VideoGenerationDuration, VideoGenerationError,
     VideoGenerationInputImage, VideoGenerationRequest,
@@ -11,6 +13,7 @@ use super::super::request::{OpenAiVideoApiRequest, build_request};
 #[test]
 fn maps_text_requests_to_portable_json_controls() {
     let OpenAiVideoApiRequest::Json(body) = build_request(
+        &error_context("sora-2"),
         "sora-2",
         &VideoGenerationRequest {
             prompt: "A paper bird takes flight".to_owned(),
@@ -37,6 +40,7 @@ fn maps_text_requests_to_portable_json_controls() {
 #[test]
 fn maps_first_frame_to_multipart_input_reference() {
     let OpenAiVideoApiRequest::Multipart(fields) = build_request(
+        &error_context("sora-2"),
         "sora-2",
         &VideoGenerationRequest {
             prompt: "Animate this".to_owned(),
@@ -65,23 +69,24 @@ fn maps_first_frame_to_multipart_input_reference() {
 #[test]
 fn rejects_blank_prompts_and_unsupported_first_frames() {
     assert!(matches!(
-        build_request("sora-2", &VideoGenerationRequest::default()),
-        Err(VideoGenerationError::EmptyPrompt)
+        build_request(
+            &error_context("sora-2"),
+            "sora-2",
+            &VideoGenerationRequest::default()
+        ),
+        Err(VideoGenerationError::EmptyPrompt { ref core }) if core.kind == ai_interface::ErrorKind::InvalidRequest
     ));
     assert!(matches!(
-        build_request(
-            "sora-2",
-            &VideoGenerationRequest {
+        build_request(&error_context("sora-2"), "sora-2", &VideoGenerationRequest {
                 prompt: "Animate".to_owned(),
                 input_image: Some(VideoGenerationInputImage {
                     data: vec![1],
                     mime_type: "image/gif".to_owned(),
                 }),
                 ..VideoGenerationRequest::default()
-            }
-        ),
-        Err(VideoGenerationError::UnsupportedMediaType { content_type })
-            if content_type == "image/gif"
+            }),
+        Err(VideoGenerationError::UnsupportedMediaType { content_type, core })
+            if content_type == "image/gif" && core.kind == ai_interface::ErrorKind::UnsupportedInput
     ));
 }
 

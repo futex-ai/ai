@@ -93,7 +93,7 @@ async fn deadline_stops_pending_jobs_and_empty_download_is_no_video() {
         .generate(&request())
         .await
         .unwrap_err();
-    assert!(matches!(error, VideoGenerationError::TimedOut { .. }));
+    assert!(matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::TimedOut));
 
     let (client, _) = scripted_client(
         vec![ok_json(json!({"id": "video_1", "status": "completed"}))],
@@ -107,7 +107,9 @@ async fn deadline_stops_pending_jobs_and_empty_download_is_no_video() {
         .generate(&request())
         .await
         .unwrap_err();
-    assert!(matches!(error, VideoGenerationError::NoVideo { .. }));
+    assert!(
+        matches!(error, VideoGenerationError::NoVideo { ref core } if core.kind == ai_interface::ErrorKind::InvalidOutput)
+    );
 }
 
 #[tokio::test]
@@ -142,7 +144,7 @@ fn generator(
     )
 }
 
-fn scripted_client(
+pub(super) fn scripted_client(
     json_responses: Vec<JsonResult>,
     byte_responses: Vec<BytesResult>,
 ) -> (
@@ -202,7 +204,7 @@ fn record_bytes(
     })
 }
 
-fn advancing_runtime() -> (Arc<dyn PollingRuntime>, Arc<Mutex<Vec<Duration>>>) {
+pub(super) fn advancing_runtime() -> (Arc<dyn PollingRuntime>, Arc<Mutex<Vec<Duration>>>) {
     let started_at = Instant::now();
     let elapsed = Arc::new(Mutex::new(Duration::ZERO));
     let sleeps = Arc::new(Mutex::new(Vec::new()));
@@ -225,7 +227,7 @@ fn advancing_runtime() -> (Arc<dyn PollingRuntime>, Arc<Mutex<Vec<Duration>>>) {
     (runtime, sleeps)
 }
 
-fn stationary_runtime() -> Arc<dyn PollingRuntime> {
+pub(super) fn stationary_runtime() -> Arc<dyn PollingRuntime> {
     let now = Instant::now();
     Arc::new(Unimock::new(
         PollingRuntimeMock::now.each_call(matching!()).returns(now),
@@ -240,7 +242,7 @@ fn ok_json(body: Value) -> JsonResult {
     })
 }
 
-fn request() -> VideoGenerationRequest {
+pub(super) fn request() -> VideoGenerationRequest {
     VideoGenerationRequest {
         prompt: "A bird takes flight".to_owned(),
         ..VideoGenerationRequest::default()

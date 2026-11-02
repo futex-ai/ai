@@ -5,10 +5,13 @@ use std::{sync::Arc, time::Duration};
 use ai_interface::{
     ImageGenerationRequest, ImageGenerationResponse, ImageGenerationResult, ImageGenerator,
 };
+use ai_models_core::{Clock, ErrorContext, SystemClock};
 use async_trait::async_trait;
 use json_http::{
     DynJsonHttpAuth, DynJsonHttpClient, JsonHttpMultipartField, JsonHttpResponse, StaticHeaderAuth,
 };
+
+use crate::openai::error_context;
 
 use super::{
     error::{classify_request_error, classify_status},
@@ -32,6 +35,8 @@ pub struct OpenAiImageGenerator {
     pub(super) generation_endpoint: String,
     pub(super) edit_endpoint: String,
     pub(super) timeout: Duration,
+    clock: Arc<dyn Clock>,
+    initial_secrets: Vec<String>,
 }
 
 impl OpenAiImageGenerator {
@@ -41,11 +46,14 @@ impl OpenAiImageGenerator {
         model_id: impl Into<String>,
         api_key: impl Into<String>,
     ) -> Self {
-        Self::with_auth(
+        let api_key = api_key.into();
+        let mut model = Self::with_auth(
             http_client,
             model_id,
-            Arc::new(StaticHeaderAuth::bearer_token(api_key)),
-        )
+            Arc::new(StaticHeaderAuth::bearer_token(api_key.clone())),
+        );
+        model.initial_secrets.push(api_key);
+        model
     }
 
     /// Builds an OpenAI image generator from an injected client and auth hook.
@@ -61,7 +69,15 @@ impl OpenAiImageGenerator {
             generation_endpoint: OPENAI_IMAGE_GENERATIONS_URL.to_owned(),
             edit_endpoint: OPENAI_IMAGE_EDITS_URL.to_owned(),
             timeout: DEFAULT_IMAGE_TIMEOUT,
+            clock: Arc::new(SystemClock),
+            initial_secrets: Vec::new(),
         }
+    }
+
+    /// Uses an injected wall clock for response retry dates.
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
+        self
     }
 
     /// Overrides generation and edit endpoints.
@@ -83,54 +99,59 @@ impl OpenAiImageGenerator {
 
     async fn send_generation(
         &self,
+        context: &ErrorContext,
         body: OpenAiGenerationRequest,
     ) -> ImageGenerationResult<JsonHttpResponse<serde_json::Value>> {
         let request = match self
             .http_client
             .post(&self.generation_endpoint)
-            .auth(self.auth.clone())
+            .auth(context.capture_auth(self.auth.clone()))
             .timeout(self.timeout)
             .json(body)
         {
             Ok(request) => request,
-            Err(source) => return Err(classify_request_error(source, &self.model_id)),
+            Err(source) => return Err(classify_request_error(context, source)),
         };
         match request.send_value().await {
             Ok(response) => Ok(response),
-            Err(source) => Err(classify_request_error(source, &self.model_id)),
+            Err(source) => Err(classify_request_error(context, source)),
         }
     }
 
     async fn send_edit(
         &self,
+        context: &ErrorContext,
         body: OpenAiEditRequest,
     ) -> ImageGenerationResult<JsonHttpResponse<serde_json::Value>> {
         match self
             .http_client
             .post(&self.edit_endpoint)
-            .auth(self.auth.clone())
+            .auth(context.capture_auth(self.auth.clone()))
             .timeout(self.timeout)
             .multipart(edit_fields(body))
             .send_value()
             .await
         {
             Ok(response) => Ok(response),
-            Err(source) => Err(classify_request_error(source, &self.model_id)),
+            Err(source) => Err(classify_request_error(context, source)),
         }
     }
 
     fn parse_http_response(
         &self,
+        context: &ErrorContext,
         response: JsonHttpResponse<serde_json::Value>,
     ) -> ImageGenerationResult<ImageGenerationResponse> {
         if response.status >= 400 {
             return Err(classify_status(
+                context,
                 response.status,
-                &self.model_id,
+                &response.headers,
                 &response.body,
             ));
         }
-        parse_response(&self.model_id, response.body)
+        let context = context.for_response(&response.headers);
+        parse_response(&context, &self.model_id, response.body)
     }
 }
 
@@ -140,11 +161,18 @@ impl ImageGenerator for OpenAiImageGenerator {
         &self,
         request: &ImageGenerationRequest,
     ) -> ImageGenerationResult<ImageGenerationResponse> {
-        let response = match build_request(&self.model_id, request)? {
-            OpenAiImageApiRequest::Generation(body) => self.send_generation(body).await?,
-            OpenAiImageApiRequest::Edit(body) => self.send_edit(body).await?,
+        let context = error_context::new(&self.model_id, self.clock.clone());
+        for secret in &self.initial_secrets {
+            context.add_secret(secret);
+            if let Some(token) = secret.split_whitespace().last() {
+                context.add_secret(token);
+            }
+        }
+        let response = match build_request(&context, &self.model_id, request)? {
+            OpenAiImageApiRequest::Generation(body) => self.send_generation(&context, body).await?,
+            OpenAiImageApiRequest::Edit(body) => self.send_edit(&context, body).await?,
         };
-        self.parse_http_response(response)
+        self.parse_http_response(&context, response)
     }
 }
 

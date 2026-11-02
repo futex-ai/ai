@@ -1,7 +1,7 @@
 //! Native item identity, tool lifecycle, and terminal validation tests.
 
 use ai_interface::{
-    ConversationMessage, FinishReason, Model, ModelError, ModelRequest, StructuredOutputSchema,
+    ConversationMessage, FinishReason, Model, ModelRequest, StructuredOutputSchema,
 };
 use ai_models_core::test_support::collect_model_events;
 use serde_json::{Value, json};
@@ -257,7 +257,9 @@ async fn validates_terminal_tool_and_schema_output_before_usage_and_closes() {
         request.response_schema = schema;
         let mut stream = model.stream(&request).await.expect("stream should open");
         let result = stream.next().await;
-        assert!(matches!(result, Err(ModelError::Provider { .. })));
+        assert!(
+            matches!(result, Err(ref error) if error.core().kind == ai_interface::ErrorKind::InvalidOutput)
+        );
         assert!(
             stream
                 .next()

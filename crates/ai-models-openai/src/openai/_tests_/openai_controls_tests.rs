@@ -5,8 +5,7 @@ use std::time::Duration;
 
 use ai_interface::{
     ConversationMessage, Effort, Model, ModelCallControls, ModelCompletionMode, ModelControl,
-    ModelError, ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
-    ToolDefinition,
+    ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
 };
 use json_http::{JsonHttpClient, StaticHeaderAuth, TransportBackedJsonHttpClient};
 use serde_json::json;
@@ -144,13 +143,9 @@ async fn rejects_stops_and_required_deferred_mode_before_transport() {
         .complete(&stop_request)
         .await
         .expect_err("Responses stops should be rejected");
-    assert!(matches!(
-        stop_error,
-        ModelError::UnsupportedControl {
-            control: ModelControl::StopSequences,
-            ..
-        }
-    ));
+    assert!(
+        matches!(stop_error, ref error if error.core().kind == ai_interface::ErrorKind::UnsupportedControl(ModelControl::StopSequences))
+    );
 
     let mut deferred_request = base_request();
     deferred_request.controls.execution.completion_mode = ModelCompletionMode::RequireDeferred;
@@ -158,13 +153,9 @@ async fn rejects_stops_and_required_deferred_mode_before_transport() {
         .complete(&deferred_request)
         .await
         .expect_err("required deferred mode should be rejected");
-    assert!(matches!(
-        deferred_error,
-        ModelError::UnsupportedControl {
-            control: ModelControl::CompletionMode,
-            ..
-        }
-    ));
+    assert!(
+        matches!(deferred_error, ref error if error.core().kind == ai_interface::ErrorKind::UnsupportedControl(ModelControl::CompletionMode))
+    );
 }
 
 fn controlled_request() -> ModelRequest {

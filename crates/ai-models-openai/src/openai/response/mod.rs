@@ -5,21 +5,17 @@ mod output;
 pub(super) mod types;
 
 use ai_interface::{
-    Effort, FinishReason, ModelError, ModelEvent, ModelResult, ModelUsage, StructuredOutputSchema,
+    Effort, ErrorKind, FinishReason, ModelEvent, ModelResult, ModelUsage, StructuredOutputSchema,
 };
-use ai_models_core::parse_structured_output;
+use ai_models_core::{ErrorContext, parse_structured_output};
 
 use self::types::{ResponsesError, ResponsesResponse};
 
 const PROVIDER: &str = "openai";
 
-pub(super) fn check_error(model_id: &str, parsed: &ResponsesResponse) -> ModelResult<()> {
+pub(super) fn check_error(context: &ErrorContext, parsed: &ResponsesResponse) -> ModelResult<()> {
     if let Some(error) = &parsed.error {
-        return Err(ModelError::provider(
-            PROVIDER,
-            model_id,
-            response_error_message(error),
-        ));
+        return Err(context.model_error(ErrorKind::InvalidOutput, response_error_message(error)));
     }
     Ok(())
 }
@@ -29,6 +25,7 @@ pub(super) fn finish_reason(parsed: &ResponsesResponse) -> FinishReason {
 }
 
 pub(super) fn terminal_events(
+    context: &ErrorContext,
     catalog_model_id: &str,
     provider_model_id: &str,
     thinking_level: Effort,
@@ -38,9 +35,9 @@ pub(super) fn terminal_events(
 ) -> ModelResult<[ModelEvent; 2]> {
     let finish_reason = finish_reason(&parsed);
     let structured_output = match response_schema {
-        Some(schema) if matches!(finish_reason, FinishReason::Stop) => Some(
-            parse_structured_output(PROVIDER, provider_model_id, assistant_message, schema)?,
-        ),
+        Some(schema) if matches!(finish_reason, FinishReason::Stop) => {
+            Some(parse_structured_output(context, assistant_message, schema)?)
+        }
         _ => None,
     };
     let usage = parsed.usage.unwrap_or_default();

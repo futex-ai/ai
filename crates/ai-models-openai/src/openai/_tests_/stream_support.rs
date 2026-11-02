@@ -9,9 +9,10 @@ use ai_interface::{
     ConversationPart, Effort, FinishReason, ModelResponse, ModelResponseFold, ModelResult,
     ModelSpec, ModelUsage, StructuredOutputSchema,
 };
+use ai_models_core::ErrorContext;
 use json_http::{
-    DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpSseEvent, JsonHttpSseStreamMock,
-    JsonHttpTransportMock, TransportBackedJsonHttpClient,
+    DynJsonHttpSseStream, JsonHttpClient, JsonHttpHeaders, JsonHttpRequest, JsonHttpSseEvent,
+    JsonHttpSseStreamMock, JsonHttpTransportMock, TransportBackedJsonHttpClient,
 };
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
@@ -90,7 +91,10 @@ pub(super) fn terminal_event(kind: &str, response: Value) -> StreamItem {
 
 fn mock_stream(items: Vec<StreamItem>) -> DynJsonHttpSseStream {
     let items = Arc::new(Mutex::new(VecDeque::from(items)));
-    Box::new(Unimock::new(
+    Box::new(Unimock::new((
+        JsonHttpSseStreamMock::headers
+            .each_call(matching!())
+            .returns(JsonHttpHeaders::new()),
         JsonHttpSseStreamMock::next
             .each_call(matching!())
             .answers_arc(Arc::new(move |_| {
@@ -100,7 +104,7 @@ fn mock_stream(items: Vec<StreamItem>) -> DynJsonHttpSseStream {
                     .pop_front()
                     .unwrap_or(Ok(None))
             })),
-    ))
+    )))
 }
 
 pub(super) async fn response_from_fixture(
@@ -112,6 +116,7 @@ pub(super) async fn response_from_fixture(
 ) -> ModelResult<ModelResponse> {
     let mut stream = stream::open(
         mock_stream(vec![terminal_event("response.completed", body)]),
+        error_context(provider_model_id),
         catalog_model_id.to_owned(),
         provider_model_id.to_owned(),
         thinking_level,
@@ -160,4 +165,8 @@ pub(super) fn state(payload: Value) -> ai_interface::ProviderState {
         version: 1,
         payload: payload.as_object().unwrap().clone(),
     }
+}
+
+pub(super) fn error_context(model_id: &str) -> ErrorContext {
+    super::error_context::new(model_id, Arc::new(Unimock::new(())))
 }

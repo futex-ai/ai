@@ -6,9 +6,7 @@ use std::{
     time::Duration,
 };
 
-use ai_interface::{
-    ImageGenerationError, ImageGenerationInputImage, ImageGenerationRequest, ImageGenerator,
-};
+use ai_interface::{ImageGenerationInputImage, ImageGenerationRequest, ImageGenerator};
 use json_http::{
     JsonHttpBody, JsonHttpClient, JsonHttpMultipartField, JsonHttpRequest, JsonHttpResponse,
     JsonHttpTransportMock, TransportBackedJsonHttpClient,
@@ -122,7 +120,7 @@ async fn client_classifies_injected_status_and_transport_failures() {
         .await
         .unwrap_err();
     assert!(
-        matches!(error, ImageGenerationError::RateLimited { message, .. } if message == "slow down")
+        matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::RateLimited && (error.core().message == "slow down"))
     );
 
     let transport = Arc::new(Unimock::new(
@@ -142,7 +140,7 @@ async fn client_classifies_injected_status_and_transport_failures() {
     .await
     .unwrap_err();
     assert!(
-        matches!(error, ImageGenerationError::TransientProvider { message, .. } if message.contains("offline"))
+        matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::Transient && (error.core().message.contains("offline")))
     );
 }
 

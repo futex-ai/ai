@@ -1,7 +1,7 @@
 //! OpenAI Responses request mapping.
 
 use ai_interface::{Effort, ModelRequest, ModelResult, StructuredOutputSchema, ToolDefinition};
-use ai_models_core::{ResolvedModelControls, ResolvedToolChoice};
+use ai_models_core::{ErrorContext, ResolvedModelControls, ResolvedToolChoice};
 
 use super::request_input::input_items;
 use super::request_types::{
@@ -10,6 +10,7 @@ use super::request_types::{
 };
 
 pub(super) fn build_request(
+    context: &ErrorContext,
     model_id: &str,
     request: &ModelRequest,
     controls: &ResolvedModelControls,
@@ -19,7 +20,7 @@ pub(super) fn build_request(
         stream: true,
         model: model_id.to_owned(),
         instructions: request.nonblank_system_prompt().map(str::to_owned),
-        input: input_items(model_id, &request.messages)?,
+        input: input_items(context, model_id, &request.messages)?,
         store: false,
         include: include_items(controls.effort),
         tool_choice: tool_choice(controls.tool_choice.as_ref(), !tools.is_empty()),

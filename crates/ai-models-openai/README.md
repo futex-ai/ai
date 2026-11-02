@@ -81,7 +81,7 @@ against the spec before transport. The adapter handles:
   for `content_filter`, and the other finish reason otherwise
 - typed classification of completion failures before stream progress as
   retryable or provider errors and failures after progress as
-  `ModelError::Interrupted`
+  the `Interrupted` error kind
 - status, transport, and structured-output validation failure mapping onto
   `ai_interface::ModelError`, with retryable `408`, `409`, `425`, and `5xx`
   transcription statuses mapped to transient provider failures
@@ -117,7 +117,7 @@ the phased assistant message and the provider items, in their original
 order, before the associated function-call outputs. The portable tool calls
 remain the tool-dispatch contract, but own state is preferred for OpenAI
 request replay when present. Own state with an unknown version or a payload
-that does not decode fails before transport with `ModelError::Provider`.
+that does not decode fails before transport with the `InvalidRequest` error kind.
 
 `OpenAiLegacyConverter` converts stored version 1 `openai_message`,
 `openai_reasoning`, and `openai_function_call` items. It keeps their
@@ -129,11 +129,19 @@ requests. It keeps its position after the text. Native call items without a
 portable call stay on empty reasoning parts and still reach OpenAI.
 Add the converter to the `LegacyMessageConverter` of the host.
 
+All OpenAI adapters attach shared error details with the configured model id.
+Errors retain `Retry-After` and the `x-request-id` response header.
+Late stream, decode, and download failures keep the relevant response metadata.
+Each adapter offers `with_clock` for HTTP-date retry hints.
+Provider diagnostics and typed media details redact the actual call credentials.
+Malformed generated output uses `InvalidOutput`; invalid caller schemas use `InvalidRequest`.
+
 `OpenAiAudioTranscriber` submits completed audio recordings to the OpenAI
 transcription endpoint using `gpt-4o-mini-transcribe` or another caller-chosen
 transcription model. It expects the caller to provide the API key and the
 uploaded audio media type. It applies a 60-second request timeout and surfaces
-retryable OpenAI transcription statuses as transient errors.
+retryable OpenAI transcription statuses as transient errors. Its direct reqwest
+client, multipart request, and redirect behavior stay unchanged.
 
 `OpenAiImageGenerator` accepts an injected `json-http` client and explicit
 model id. The `GPT_IMAGE_2` spec identifies the current image catalog model,

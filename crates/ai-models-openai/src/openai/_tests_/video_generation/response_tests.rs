@@ -1,6 +1,7 @@
 //! OpenAI video job response tests.
 
-use ai_interface::VideoGenerationError;
+use crate::openai::stream_support::error_context;
+
 use serde_json::json;
 
 use super::super::response::{JobState, parse_job};
@@ -8,11 +9,19 @@ use super::super::response::{JobState, parse_job};
 #[test]
 fn parses_pending_and_completed_jobs() {
     assert_eq!(
-        parse_job("sora-2", json!({"id": "video_1", "status": "queued"})).unwrap(),
+        parse_job(
+            &error_context("sora-2"),
+            json!({"id": "video_1", "status": "queued"})
+        )
+        .unwrap(),
         ("video_1".to_owned(), JobState::Pending)
     );
     assert_eq!(
-        parse_job("sora-2", json!({"id": "video_1", "status": "completed"})).unwrap(),
+        parse_job(
+            &error_context("sora-2"),
+            json!({"id": "video_1", "status": "completed"})
+        )
+        .unwrap(),
         ("video_1".to_owned(), JobState::Completed)
     );
 }
@@ -20,7 +29,7 @@ fn parses_pending_and_completed_jobs() {
 #[test]
 fn failed_policy_job_is_typed_separately() {
     let error = parse_job(
-        "sora-2",
+        &error_context("sora-2"),
         json!({
             "id": "video_1",
             "status": "failed",
@@ -28,10 +37,18 @@ fn failed_policy_job_is_typed_separately() {
         }),
     )
     .unwrap_err();
-    assert!(matches!(
-        error,
-        VideoGenerationError::ContentPolicy { message, .. } if message == "blocked"
-    ));
+    assert!(
+        matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::ContentPolicy && (error.core().message == "blocked"))
+    );
+    let rejected = parse_job(
+        &error_context("sora-2"),
+        json!({"id":"video_1","status":"failed","error":{"code":"invalid_prompt","message":"invalid prompt"}}),
+    ).unwrap_err();
+    assert_eq!(
+        rejected.core().kind,
+        ai_interface::ErrorKind::InvalidRequest
+    );
+    assert_eq!(rejected.core().message, "invalid prompt");
 }
 
 #[test]
@@ -41,9 +58,8 @@ fn rejects_invalid_ids_unknown_states_and_malformed_jobs() {
         json!({"id": "video_1", "status": "mystery"}),
         json!({"status": "queued"}),
     ] {
-        assert!(matches!(
-            parse_job("sora-2", body),
-            Err(VideoGenerationError::Provider { .. })
-        ));
+        assert!(
+            matches!(parse_job(&error_context("sora-2"), body), Err(ref error) if error.core().kind == ai_interface::ErrorKind::InvalidOutput)
+        );
     }
 }

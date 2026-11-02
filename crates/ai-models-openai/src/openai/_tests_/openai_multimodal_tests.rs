@@ -2,9 +2,7 @@
 
 use std::sync::Arc;
 
-use ai_interface::{
-    ConversationMessage, ConversationPart, Model, ModelError, ModelRequest, ToolCall,
-};
+use ai_interface::{ConversationMessage, ConversationPart, Model, ModelRequest, ToolCall};
 use json_http::{JsonHttpClient, TransportBackedJsonHttpClient};
 use serde_json::json;
 use unimock::Unimock;
@@ -106,18 +104,14 @@ async fn rejects_video_content_parts_before_transport() {
         .await
         .expect_err("video parts must be rejected");
 
-    match error {
-        ModelError::Provider {
-            provider,
-            model_id,
-            message,
-        } => {
-            assert_eq!(provider, "openai");
-            assert_eq!(model_id, "gpt-5.5");
-            assert_eq!(message, "OpenAI accepts text and image content parts only");
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
+    let core = error.core();
+    assert_eq!(core.kind, ai_interface::ErrorKind::UnsupportedInput);
+    assert_eq!(core.provider, "openai");
+    assert_eq!(core.model_id, "gpt-5.5");
+    assert_eq!(
+        core.message,
+        "OpenAI accepts text and image content parts only"
+    );
 }
 
 fn openai_text_response(text: &str) -> serde_json::Value {

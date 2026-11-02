@@ -1,8 +1,9 @@
 //! Tests for OpenAI audio transcription configuration.
 
+use crate::openai::stream_support::error_context;
+
 use std::time::Duration;
 
-use ai_interface::TranscriptionError;
 use reqwest::StatusCode;
 
 use super::{OpenAiAudioTranscriber, classify_status};
@@ -23,9 +24,8 @@ fn retryable_http_statuses_are_transient_provider_failures() {
     ];
 
     for status in statuses {
-        assert!(matches!(
-            classify_status(status, "gpt-4o-mini-transcribe", "retry later".to_owned()),
-            TranscriptionError::TransientProvider { .. }
-        ));
+        assert!(
+            matches!(classify_status(&error_context("gpt-4o-mini-transcribe"), status, &Default::default(), "retry later".to_owned()), ref error if error.core().kind == ai_interface::ErrorKind::Transient)
+        );
     }
 }
