@@ -1,5 +1,8 @@
+//! Usage pricing and unchanged call-control forwarding.
+
 use std::sync::Arc;
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     FinishReason, Model, ModelGenerationControls, ModelMock, ModelRequest, ModelResponse,
     ModelToolChoice, ModelUsage, ModelUsageMeasurementState, ModelUsageUnitKind,
@@ -11,14 +14,14 @@ use crate::{ModelPricing, UsagePricingModel, price_usage};
 #[tokio::test]
 async fn pricing_wrapper_forwards_call_controls_unchanged() {
     let inner: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
                 assert_eq!(
                     request.controls.generation.tool_choice,
                     Some(ModelToolChoice::RequiredOrAuto)
                 );
-                Ok(success_response())
+                Ok(model_response_stream(success_response()))
             }),
     ));
     let model = UsagePricingModel::new(inner, ModelPricing::default());
@@ -141,5 +144,6 @@ fn success_response() -> ModelResponse {
         structured_output: None,
         provider_context: Vec::new(),
         usage: ModelUsage::default(),
+        attempts: Vec::new(),
     }
 }

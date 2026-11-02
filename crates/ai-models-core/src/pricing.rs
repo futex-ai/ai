@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    Model, ModelCompletionEventSink, ModelRequest, ModelResponse, ModelResult, ModelUsage,
-    ModelUsageCostLine, ModelUsageMeasurementState, ModelUsageUnitKind,
+    DynModelEventStream, Model, ModelEvent, ModelEventStream, ModelRequest, ModelResult,
+    ModelUsage, ModelUsageCostLine, ModelUsageMeasurementState, ModelUsageUnitKind,
 };
 use async_trait::async_trait;
 
@@ -55,20 +55,35 @@ impl UsagePricingModel {
 
 #[async_trait]
 impl Model for UsagePricingModel {
-    async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
-        let mut response = self.inner.complete(request).await?;
-        response.usage = price_usage(response.usage, &self.pricing);
-        Ok(response)
+    async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
+        Ok(Box::new(PricingStream {
+            inner: Some(self.inner.stream(request).await?),
+            pricing: self.pricing.clone(),
+        }))
     }
+}
 
-    async fn complete_with_events(
-        &self,
-        request: &ModelRequest,
-        event_sink: &dyn ModelCompletionEventSink,
-    ) -> ModelResult<ModelResponse> {
-        let mut response = self.inner.complete_with_events(request, event_sink).await?;
-        response.usage = price_usage(response.usage, &self.pricing);
-        Ok(response)
+struct PricingStream {
+    inner: Option<DynModelEventStream>,
+    pricing: ModelPricing,
+}
+
+#[async_trait]
+impl ModelEventStream for PricingStream {
+    async fn next(&mut self) -> ModelResult<Option<ModelEvent>> {
+        let Some(inner) = &mut self.inner else {
+            return Ok(None);
+        };
+        match inner.next().await {
+            Ok(Some(ModelEvent::Usage { usage })) => Ok(Some(ModelEvent::Usage {
+                usage: price_usage(usage, &self.pricing),
+            })),
+            Ok(Some(event)) => Ok(Some(event)),
+            result => {
+                self.inner = None;
+                result
+            }
+        }
     }
 }
 

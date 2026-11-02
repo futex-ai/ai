@@ -1,13 +1,16 @@
 //! Tests for concurrency limiting around model calls.
 
 use std::{
+    future::Future,
+    pin::pin,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    time::Duration,
+    task::{Context, Poll, Waker},
 };
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     FinishReason, Model, ModelGenerationControls, ModelMock, ModelRequest, ModelResponse,
     ModelToolChoice, ModelUsage,
@@ -16,39 +19,41 @@ use unimock::{MockFn, Unimock, matching};
 
 use crate::ConcurrencyLimitedModel;
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn enforces_the_max_concurrent_limit() {
     let first_entered = Arc::new(AtomicBool::new(false));
     let second_entered = Arc::new(AtomicBool::new(false));
-    let wrapped = Arc::new(ConcurrencyLimitedModel::new(
+    let wrapped = ConcurrencyLimitedModel::new(
         blocking_model(first_entered.clone(), second_entered.clone()),
         "mock",
         1,
-    ));
-
-    let first_model = wrapped.clone();
-    let first = tokio::spawn(async move { first_model.complete(&controlled_request()).await });
-    while !first_entered.load(Ordering::SeqCst) {
-        tokio::task::yield_now().await;
-    }
-
-    let second_model = wrapped.clone();
-    let second = tokio::spawn(async move { second_model.complete(&controlled_request()).await });
-    tokio::time::sleep(Duration::from_millis(30)).await;
+    );
+    let request = controlled_request();
+    let mut first = wrapped
+        .stream(&request)
+        .await
+        .expect("first open should succeed");
+    let mut second = pin!(wrapped.stream(&request));
+    let mut context = Context::from_waker(Waker::noop());
+    assert!(matches!(second.as_mut().poll(&mut context), Poll::Pending));
 
     assert!(
         !second_entered.load(Ordering::SeqCst),
         "second request should wait for the first permit"
     );
-
-    first
+    while first
+        .next()
         .await
-        .expect("first task should join")
-        .expect("first call should succeed");
-    second
+        .expect("first call should succeed")
+        .is_some()
+    {}
+    let mut second = second.await.expect("second open should succeed");
+    while second
+        .next()
         .await
-        .expect("second task should join")
-        .expect("second call should succeed");
+        .expect("second call should succeed")
+        .is_some()
+    {}
     assert!(second_entered.load(Ordering::SeqCst));
 }
 
@@ -57,7 +62,7 @@ fn blocking_model(
     second_entered: Arc<AtomicBool>,
 ) -> Arc<dyn Model> {
     Arc::new(Unimock::new(
-        ModelMock::complete.each_call(matching!(_)).answers_arc({
+        ModelMock::stream.each_call(matching!(_)).answers_arc({
             let first_entered = first_entered.clone();
             let second_entered = second_entered.clone();
             Arc::new(move |_, request: &ModelRequest| {
@@ -67,13 +72,11 @@ fn blocking_model(
                 );
                 if first_entered
                     .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-                    .is_ok()
+                    .is_err()
                 {
-                    std::thread::sleep(Duration::from_millis(150));
-                } else {
                     second_entered.store(true, Ordering::SeqCst);
                 }
-                Ok(success_response())
+                Ok(model_response_stream(success_response()))
             })
         }),
     ))
@@ -110,5 +113,6 @@ fn success_response() -> ModelResponse {
         structured_output: None,
         provider_context: Vec::new(),
         usage: ModelUsage::default(),
+        attempts: Vec::new(),
     }
 }

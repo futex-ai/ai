@@ -3,11 +3,11 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse, ModelResult,
+    DynModelEventStream, Model, ModelError, ModelEvent, ModelEventStream, ModelRequest, ModelResult,
 };
 use async_trait::async_trait;
 use thiserror::Error;
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 #[derive(Debug, Error)]
 enum Error {
@@ -37,38 +37,43 @@ impl ConcurrencyLimitedModel {
 
 #[async_trait]
 impl Model for ConcurrencyLimitedModel {
-    async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
-        let Some(semaphore) = &self.semaphore else {
-            return self.inner.complete(request).await;
+    async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
+        let permit = match &self.semaphore {
+            Some(semaphore) => match semaphore.clone().acquire_owned().await {
+                Ok(permit) => Some(permit),
+                Err(_) => {
+                    return Err(ModelError::internal(Error::ConcurrencyLimiterClosed {
+                        model_id: self.model_id.clone(),
+                    }));
+                }
+            },
+            None => None,
         };
-        let _permit = match semaphore.clone().acquire_owned().await {
-            Ok(permit) => permit,
-            Err(_) => {
-                return Err(ModelError::internal(Error::ConcurrencyLimiterClosed {
-                    model_id: self.model_id.clone(),
-                }));
-            }
-        };
-        self.inner.complete(request).await
+        let inner = self.inner.stream(request).await?;
+        Ok(Box::new(ConcurrencyStream {
+            inner: Some(inner),
+            permit,
+        }))
     }
+}
 
-    async fn complete_with_events(
-        &self,
-        request: &ModelRequest,
-        event_sink: &dyn ModelCompletionEventSink,
-    ) -> ModelResult<ModelResponse> {
-        let Some(semaphore) = &self.semaphore else {
-            return self.inner.complete_with_events(request, event_sink).await;
+struct ConcurrencyStream {
+    inner: Option<DynModelEventStream>,
+    permit: Option<OwnedSemaphorePermit>,
+}
+
+#[async_trait]
+impl ModelEventStream for ConcurrencyStream {
+    async fn next(&mut self) -> ModelResult<Option<ModelEvent>> {
+        let Some(inner) = &mut self.inner else {
+            return Ok(None);
         };
-        let _permit = match semaphore.clone().acquire_owned().await {
-            Ok(permit) => permit,
-            Err(_) => {
-                return Err(ModelError::internal(Error::ConcurrencyLimiterClosed {
-                    model_id: self.model_id.clone(),
-                }));
-            }
-        };
-        self.inner.complete_with_events(request, event_sink).await
+        let result = inner.next().await;
+        if !matches!(&result, Ok(Some(_))) {
+            self.inner = None;
+            self.permit = None;
+        }
+        result
     }
 }
 

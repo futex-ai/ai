@@ -5,8 +5,8 @@
 ## Responsibilities
 
 - Provide reusable wrappers around `Arc<dyn ai_interface::Model>`
-- Preserve public completion-event delivery through retry, concurrency, and
-  usage-pricing wrapper layers
+- Keep the event order of the model stream through the retry, concurrency,
+  and usage-pricing wrappers
 - Keep retry, sleeping, and concurrency policy out of vendor crates
 - Provide an injectable monotonic clock and async sleep boundary for provider
   operations that must poll within a total deadline
@@ -62,20 +62,25 @@ Anthropic block and Google part field, as well as DeepSeek and Kimi raw
 assistant, reasoning, and tool-call fields, so retained
 provider conversations remain distinct during deterministic id generation.
 
-`UsagePricingModel` wraps any `ai_interface::Model` and applies a deployment
-provided `ModelPricing` snapshot to normalized usage categories. It emits
-`ModelUsageCostLine` values and sums known line costs in micro-USD; provider
-crates keep parsing usage quantities but do not own mutable price tables.
+Each wrapper is a `Model` whose stream forwards the events of the inner
+stream in order. `UsagePricingModel` wraps any `ai_interface::Model` and
+applies a deployment provided `ModelPricing` snapshot to the normalized usage
+categories of the `Usage` event. It writes `ModelUsageCostLine` values and
+sums known line costs in micro-USD; provider crates keep parsing usage
+quantities but do not own mutable price tables. It forwards every other
+event unchanged, so `complete` returns the priced usage.
 
 The default retry schedule preserved by this crate is `100ms` then `250ms` for
-transient model failures. `RetryingModel` does not replay interrupted
-generations because doing so can duplicate provider work and billing. Its
-event-observing path forwards only the successful attempt's events because a
-retryable transient failure is classified before provider progress.
+transient model failures. `RetryingModel` retries only
+`ModelError::TransientProvider`. It opens the inner stream again when the
+open fails with that error, or when the stream fails with it before the
+stream returned its first event. After the first event it passes every
+error on, so a consumer never sees an event of a retried attempt.
+`RetryingModel` never retries `ModelError::Interrupted`, because a repeated
+generation can duplicate provider work and billing.
 
-`ConcurrencyLimitedModel` holds its permit while events and the terminal
-response are delivered. `UsagePricingModel` forwards events unchanged and
-prices only the terminal response.
+`ConcurrencyLimitedModel` holds its permit from the call of `stream` until
+its stream returns `None`, returns an error, or is dropped.
 
 Long-running provider adapters can use `PollingRuntime` to couple monotonic
 deadline measurement with async sleeping behind one testable trait. Production
@@ -132,15 +137,20 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
   `ResolvedToolChoice`: the shared capability check before transport
 - `src/catalog.rs` - `known_mock_models()`, which copies the mock catalog of
   `ai-interface`
-- `src/retrying.rs` - transient retry wrapper and retry schedule
-- `src/concurrency.rs` - per-model concurrency limiter wrapper
-- `src/pricing.rs` - model usage pricing wrapper and integer cost calculator
+- `src/retrying.rs` - transient retry wrapper on the stream and its retry
+  schedule
+- `src/concurrency.rs` - per-model concurrency limiter that holds a permit for
+  the life of a stream
+- `src/pricing.rs` - usage-event pricing wrapper and integer cost calculator
 - `src/http_status.rs` - boundary-neutral HTTP failure classification
 - `src/errors.rs` - provider-agnostic JSON error mapping, parsing, and
   structured-output validation helpers
 - `src/tool_call_identity/` - deterministic synthetic tool-call ids and
   hashing of normalized requests and provider replay state
 - `src/sleeper.rs` - abstract sleeper boundary for retry testing
+- `src/test_support.rs` - behind `test-support`: in-memory Chat Completions
+  SSE fixtures, and `collect_model_events`, which records the events of a
+  model stream as JSON and folds them, keeping the events before a failure
 - `src/polling.rs` - monotonic clock and async sleeper boundary for
   deadline-aware provider polling
 
@@ -151,8 +161,8 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - [`../../docs/architecture.md`](../../docs/architecture.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
-- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
-- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
+- [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
+- [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)

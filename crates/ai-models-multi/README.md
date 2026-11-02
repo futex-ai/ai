@@ -6,12 +6,13 @@
 
 - Combine multiple `Arc<dyn ai_interface::Model>` instances behind one model boundary
 - Preserve ordered fallback semantics across wrapped models
-- Forward completion events and mark replacement attempts after partial text
+- Forward the events of each model in order, and emit a fallback event for
+  each failed model before the next model
 - Keep fallback policy separate from provider and transport code
 
 ## What This Crate Does
 
-`MultiModel` accepts a `Vec<Arc<dyn Model>>` and calls them in order. It falls through to the next model for any `ModelError`, including provider rejections, rate limits, context-window failures, transient failures after retry exhaustion, interrupted streams, and internal adapter errors. If every model fails, it returns the last model error.
+`MultiModel` accepts a `Vec<Arc<dyn Model>>` and opens their streams in order. It falls through to the next model for any `ModelError`, including provider rejections, rate limits, context-window failures, transient failures after retry exhaustion, interrupted streams, and internal adapter errors. This applies when a stream fails to open and when an open stream fails. If every model fails, it returns the error of the last model: from `stream` when no stream opened, and from the stream's `next` otherwise. A `MultiModel` with no models fails every call with `ModelError::Internal`.
 
 `MultiModel` passes each request to every lane unchanged, including its
 effort and other controls. A provider adapter resolves the controls against
@@ -26,10 +27,15 @@ Falling through can therefore bill both that partial generation and the next
 model attempt. Composition roots that cannot accept that cost should avoid a
 fallback lane or enforce their own policy before constructing `MultiModel`.
 
-`complete_with_events` forwards each lane's deltas. When a failed lane emitted
-assistant or reasoning text, `MultiModel` emits `AttemptRestarted` immediately
-before the next lane begins so consumers can discard the failed attempt. It
-does not emit a restart for pre-delta failures or after the final lane fails.
+The stream of `MultiModel` forwards the events of each lane unchanged and in
+order. Before the next lane starts, it emits one `ModelEvent::Fallback` with
+the error of the failed lane. It does this for every failed lane, also when
+the lane failed before its stream opened or before it emitted an event. A
+consumer discards every event since the start of the stream or since the
+previous fallback event. The last lane's failure is an error, not a fallback
+event. The folded response lists each failed lane in
+`ModelResponse::attempts`. The fallback events of a nested `MultiModel` pass
+through unchanged.
 
 This crate expects retry and concurrency policy to be applied by wrappers before the models are inserted into the vector.
 Composition roots can use this crate as the concrete model returned by
@@ -60,14 +66,21 @@ cargo clippy -p ai-models-multi --all-targets --all-features -- -D warnings
 
 ### Key Code
 
-- `src/lib.rs` - ordered fallback model implementation
+- `src/lib.rs` - crate root that exports `MultiModel`
+- `src/model.rs` - `MultiModel` and the ordered opening of the first stream
+  that opens
+- `src/stream.rs` - the fallback stream: lane changes during reads and one
+  fallback event for each failed lane
 - `src/_tests_/multi_tests.rs` - fallback behavior coverage
-- `src/_tests_/multi_event_tests.rs` - event forwarding and restart coverage
+- `src/_tests_/multi_event_tests.rs` - event forwarding and fallback event
+  coverage
+- `src/_tests_/stream_fallback_tests.rs` - failed attempt reporting, the last
+  error, and drop behavior of the fallback stream
 
 ### Related Docs
 
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
-- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
-- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
+- [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
+- [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)
