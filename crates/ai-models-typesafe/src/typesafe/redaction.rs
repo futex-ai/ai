@@ -27,15 +27,15 @@ pub(super) fn secrets_from_headers(
     explicit: &[String],
     headers: &BTreeMap<String, String>,
 ) -> Vec<String> {
-    let mut secrets = explicit
+    let mut secrets = Vec::new();
+    for value in explicit
         .iter()
-        .filter(|secret| !secret.is_empty())
-        .cloned()
-        .collect::<Vec<_>>();
-    for value in headers.values().filter(|value| !value.is_empty()) {
+        .chain(headers.values())
+        .filter(|value| !value.is_empty())
+    {
         secrets.push(value.clone());
-        if let Some((_, suffix)) = value.rsplit_once(char::is_whitespace)
-            && !suffix.is_empty()
+        if let Some(suffix) = value.split_whitespace().next_back()
+            && suffix != value.as_str()
         {
             secrets.push(suffix.to_owned());
         }

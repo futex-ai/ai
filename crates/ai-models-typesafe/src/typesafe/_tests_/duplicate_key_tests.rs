@@ -1,5 +1,7 @@
 //! Duplicate provider map key rejection tests through the public judge path.
 
+use ai_interface::ErrorKind;
+
 use std::collections::BTreeMap;
 
 use ai_interface::{JudgmentError, JudgmentModel, JudgmentQuestion, JudgmentRequest};
@@ -57,9 +59,8 @@ async fn judge_raw(request: JudgmentRequest, body: &[u8]) -> JudgmentError {
 }
 
 fn assert_malformed(error: &JudgmentError, expected_detail: &str) {
-    let JudgmentError::Provider { message, .. } = error else {
-        panic!("expected a provider error, got {error}");
-    };
+    let message = &error.core().message;
+    assert_eq!(error.core().kind, ErrorKind::InvalidOutput);
     assert!(
         message.starts_with("malformed provider payload: "),
         "{message}"

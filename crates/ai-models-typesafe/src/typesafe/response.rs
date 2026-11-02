@@ -3,9 +3,10 @@
 use std::collections::BTreeMap;
 
 use ai_interface::{
-    JudgmentAnswer, JudgmentAnswerProblem, JudgmentError, JudgmentRequest, JudgmentResponse,
-    JudgmentResult, ModelUsage, deserialize_score_probabilities,
+    ErrorCore, ErrorKind, JudgmentAnswer, JudgmentAnswerProblem, JudgmentError, JudgmentRequest,
+    JudgmentResponse, JudgmentResult, ModelUsage, deserialize_score_probabilities,
 };
+use ai_models_core::ErrorContext;
 use serde::Deserialize;
 use serde_json::value::RawValue;
 
@@ -62,7 +63,7 @@ pub(super) fn parse_response(
 ) -> JudgmentResult<JudgmentResponse> {
     let response = match serde_json::from_slice::<TypeSafeResponse>(body) {
         Ok(response) => response,
-        Err(source) => return Err(malformed_payload(model_id, &source)),
+        Err(source) => return Err(malformed_payload(model_id, source)),
     };
     let TypeSafeResponse {
         model,
@@ -77,7 +78,7 @@ pub(super) fn parse_response(
         };
         let answer = match serde_json::from_str::<TypeSafeAnswer>(fragment.get()) {
             Ok(answer) => answer,
-            Err(source) => return Err(malformed_payload(model_id, &source)),
+            Err(source) => return Err(malformed_payload(model_id, source)),
         };
         answers.insert(id.clone(), answer.normalize());
     }
@@ -132,8 +133,16 @@ fn normalize_usage(usage: Option<TypeSafeUsage>) -> ModelUsage {
     }
 }
 
-fn malformed_payload(model_id: &str, source: &serde_json::Error) -> JudgmentError {
-    JudgmentError::provider(PROVIDER, model_id, malformed_payload_message(source))
+fn malformed_payload(model_id: &str, source: serde_json::Error) -> JudgmentError {
+    JudgmentError::with_source(
+        ErrorCore::new(
+            ErrorKind::InvalidOutput,
+            PROVIDER,
+            model_id,
+            malformed_payload_message(&source),
+        ),
+        source,
+    )
 }
 
 fn malformed_payload_message(source: &serde_json::Error) -> String {
@@ -142,26 +151,16 @@ fn malformed_payload_message(source: &serde_json::Error) -> String {
 }
 
 /// Redacts provider diagnostics produced during successful-body decoding.
-pub(super) fn redact_response_error(error: JudgmentError, secrets: &[String]) -> JudgmentError {
-    match error {
-        JudgmentError::Provider {
-            provider,
-            model_id,
-            message,
-        } => JudgmentError::provider(provider, model_id, redact_secrets(&message, secrets)),
-        JudgmentError::InvalidAnswer {
-            provider,
-            model_id,
-            id,
-            problem,
-        } => JudgmentError::invalid_answer(
-            provider,
-            model_id,
-            id,
-            redact_answer_problem(problem, secrets),
-        ),
-        error => error,
+pub(super) fn redact_response_error(
+    mut error: JudgmentError,
+    context: &ErrorContext,
+    secrets: &[String],
+) -> JudgmentError {
+    error.core_mut().message = redact_secrets(&error.core().message, secrets);
+    if let JudgmentError::InvalidAnswer { problem, .. } = &mut error {
+        *problem = redact_answer_problem(problem.clone(), secrets);
     }
+    context.apply_judgment_error(error)
 }
 
 /// Redacts the only answer problems that can carry provider-controlled text.

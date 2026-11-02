@@ -1,5 +1,7 @@
 //! TypeSafe judgment credential-redaction tests.
 
+use ai_interface::ErrorKind;
+
 use std::collections::BTreeMap;
 
 use ai_interface::{
@@ -28,7 +30,7 @@ async fn bearer_key_is_redacted_from_transport_diagnostics() {
     .await
     .expect_err("transport failure should return an error");
 
-    assert!(matches!(error, JudgmentError::TransientProvider { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::Transient));
     assert_redacted(&error, API_KEY);
 }
 
@@ -44,7 +46,7 @@ async fn bearer_key_is_redacted_from_provider_bodies() {
         .await
         .expect_err("provider rejection should return an error");
 
-    assert!(matches!(error, JudgmentError::Provider { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::InvalidRequest));
     assert_redacted(&error, API_KEY);
 }
 
@@ -65,7 +67,7 @@ async fn malformed_payload_diagnostics_are_redacted() {
         .await
         .expect_err("malformed response should return an error");
 
-    assert!(matches!(error, JudgmentError::Provider { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::InvalidOutput));
     assert_redacted(&error, API_KEY);
 }
 
@@ -137,14 +139,15 @@ fn choice_request() -> JudgmentRequest {
 
 fn assert_unknown_option_redacted(error: &JudgmentError) {
     let JudgmentError::InvalidAnswer {
-        provider,
-        model_id,
+        core,
         id,
         problem: JudgmentAnswerProblem::UnknownOption { label },
     } = error
     else {
         panic!("expected an unknown-option answer error, got {error}");
     };
+    let (provider, model_id) = (&core.provider, &core.model_id);
+    assert_eq!(core.kind, ErrorKind::InvalidOutput);
 
     assert_eq!(provider, "typesafe");
     assert_eq!(model_id, "jev-latest");

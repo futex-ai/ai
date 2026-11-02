@@ -1,7 +1,11 @@
 //! TypeSafe judgment HTTP dispatch and local validation tests.
 
+use ai_interface::ErrorKind;
+
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use std::time::Duration;
+use unimock::Unimock;
 
 use ai_interface::{
     JudgmentError, JudgmentModel, JudgmentQuestion, JudgmentQuestionProblem, JudgmentRequest,
@@ -30,33 +34,49 @@ async fn sends_the_exact_bearer_authenticated_request() {
 
     assert_eq!(response.provider, "typesafe");
     assert_eq!(response.model_id, "jev-latest");
-    let requests = requests.lock().expect("request lock should be valid");
-    assert_eq!(requests.len(), 1);
-    assert_eq!(requests[0].method, JsonHttpMethod::Post);
-    assert_eq!(requests[0].url, "https://api.typesafe.ai/v1/systemone");
-    assert_eq!(requests[0].timeout, Duration::from_secs(60));
-    assert_eq!(
-        requests[0].headers.get("Authorization").map(String::as_str),
-        Some("Bearer typesafe-secret-key")
-    );
-    assert_eq!(
-        requests[0]
-            .body
-            .as_ref()
-            .and_then(JsonHttpBody::as_json_bytes)
-            .map(|bytes| serde_json::from_slice::<serde_json::Value>(bytes)
-                .expect("valid JSON request body"))
-            .expect("request body should be JSON"),
-        json!({
-            "state": "A payout has been delayed for three days.",
-            "model": "jev-latest",
-            "questions": {
-                "is_urgent": {
-                    "type": "noul",
-                    "instructions": "Is this urgent?"
+    {
+        let requests = requests.lock().expect("request lock should be valid");
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].method, JsonHttpMethod::Post);
+        assert_eq!(requests[0].url, "https://api.typesafe.ai/v1/systemone");
+        assert_eq!(requests[0].timeout, Duration::from_secs(60));
+        assert_eq!(
+            requests[0].headers.get("Authorization").map(String::as_str),
+            Some("Bearer typesafe-secret-key")
+        );
+        assert_eq!(
+            requests[0]
+                .body
+                .as_ref()
+                .and_then(JsonHttpBody::as_json_bytes)
+                .map(|bytes| serde_json::from_slice::<serde_json::Value>(bytes)
+                    .expect("valid JSON request body"))
+                .expect("request body should be JSON"),
+            json!({
+                "state": "A payout has been delayed for three days.",
+                "model": "jev-latest",
+                "questions": {
+                    "is_urgent": {
+                        "type": "noul",
+                        "instructions": "Is this urgent?"
+                    }
                 }
-            }
-        })
+            })
+        );
+    }
+    let (http, compound_requests) = recording_http_client(successful_response());
+    TypeSafeJudgmentModel::new(http, "jev-latest", "Scheme prefix local-secret")
+        .judge(&simple_request())
+        .await
+        .unwrap();
+    let compound_requests = compound_requests.lock().unwrap();
+    assert_eq!(compound_requests.len(), 1);
+    assert_eq!(
+        compound_requests[0]
+            .headers
+            .get("Authorization")
+            .map(String::as_str),
+        Some("Bearer Scheme prefix local-secret")
     );
 }
 
@@ -92,7 +112,7 @@ async fn duplicate_score_keys_are_rejected_through_judge() {
         .await
         .expect_err("duplicate score keys should fail");
 
-    assert!(matches!(error, JudgmentError::Provider { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::InvalidOutput));
 }
 
 #[tokio::test]
@@ -109,9 +129,8 @@ async fn malformed_success_body_retains_the_decoder_diagnostic() {
         .await
         .expect_err("malformed response should return an error");
 
-    let JudgmentError::Provider { message, .. } = error else {
-        panic!("expected a terminal provider error");
-    };
+    let message = &error.core().message;
+    assert_eq!(error.core().kind, ErrorKind::InvalidOutput);
     assert!(message.starts_with("malformed provider payload: "));
     assert!(message.contains("answers"));
 }
@@ -127,7 +146,11 @@ async fn local_validation_returns_the_exact_error_before_transport() {
         })
         .await
         .expect_err("empty state should fail locally");
-    assert!(matches!(empty_state, JudgmentError::EmptyState));
+    assert_eq!(empty_state.core().provider, "typesafe");
+    assert_eq!(empty_state.core().model_id, "jev-latest");
+    assert!(
+        matches!(empty_state, JudgmentError::EmptyState { ref core } if core.kind == ErrorKind::InvalidRequest)
+    );
 
     let no_questions = model
         .judge(&JudgmentRequest {
@@ -136,7 +159,11 @@ async fn local_validation_returns_the_exact_error_before_transport() {
         })
         .await
         .expect_err("missing questions should fail locally");
-    assert!(matches!(no_questions, JudgmentError::NoQuestions));
+    assert_eq!(no_questions.core().provider, "typesafe");
+    assert_eq!(no_questions.core().model_id, "jev-latest");
+    assert!(
+        matches!(no_questions, JudgmentError::NoQuestions { ref core } if core.kind == ErrorKind::InvalidRequest)
+    );
 
     let no_options = model
         .judge(&JudgmentRequest {
@@ -151,11 +178,75 @@ async fn local_validation_returns_the_exact_error_before_transport() {
         })
         .await
         .expect_err("choice without options should fail locally");
+    assert_eq!(no_options.core().provider, "typesafe");
+    assert_eq!(no_options.core().model_id, "jev-latest");
     assert!(matches!(
         no_options,
         JudgmentError::InvalidQuestion {
             id,
             problem: JudgmentQuestionProblem::NoOptions,
-        } if id == "choice"
+            core,
+        } if id == "choice" && core.kind == ErrorKind::InvalidRequest
     ));
+
+    let secret_id = model
+        .judge(&JudgmentRequest {
+            state: "ticket".into(),
+            questions: BTreeMap::from([(
+                API_KEY.to_owned(),
+                JudgmentQuestion::Choice {
+                    instructions: "Choose".into(),
+                    options: BTreeMap::new(),
+                },
+            )]),
+        })
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(&secret_id, JudgmentError::InvalidQuestion { id, problem: JudgmentQuestionProblem::NoOptions, .. } if id == "[redacted]")
+    );
+    assert!(!secret_id.to_string().contains(API_KEY));
+    assert!(!format!("{secret_id:?}").contains(API_KEY));
+    let dynamic = TypeSafeJudgmentModel::with_auth(
+        unused_http_client(),
+        "jev-custom",
+        Arc::new(Unimock::new(())),
+    );
+    let invalid = dynamic
+        .judge(&JudgmentRequest {
+            state: "ticket".into(),
+            questions: BTreeMap::new(),
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(invalid.core().kind, ErrorKind::InvalidRequest);
+    assert_eq!(invalid.core().provider, "typesafe");
+    assert_eq!(invalid.core().model_id, "jev-custom");
+    let mut compound = TypeSafeJudgmentModel::new(
+        unused_http_client(),
+        "jev-custom",
+        "Scheme prefix local-secret   ",
+    );
+    compound.auth = Arc::new(Unimock::new(()));
+    let compound_error = compound
+        .judge(&JudgmentRequest {
+            state: "ticket".into(),
+            questions: BTreeMap::from([(
+                "q-local-secret".to_owned(),
+                JudgmentQuestion::Choice {
+                    instructions: "Choose".into(),
+                    options: BTreeMap::new(),
+                },
+            )]),
+        })
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(&compound_error, JudgmentError::InvalidQuestion { id, problem: JudgmentQuestionProblem::NoOptions, .. } if id == "q-[redacted]")
+    );
+    assert_eq!(compound_error.core().kind, ErrorKind::InvalidRequest);
+    assert_eq!(compound_error.core().provider, "typesafe");
+    assert_eq!(compound_error.core().model_id, "jev-custom");
+    assert!(!compound_error.to_string().contains("local-secret"));
+    assert!(!format!("{compound_error:?}").contains("local-secret"));
 }

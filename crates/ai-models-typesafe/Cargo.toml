@@ -16,6 +16,7 @@ thiserror = "2.0.18"
 
 [dev-dependencies]
 ai-interface = { workspace = true, features = ["test-support"] }
+ai-models-core = { workspace = true, features = ["test-support"] }
 json-http = { workspace = true, features = ["test-support"] }
 tokio = { version = "1.52.3", features = ["macros", "rt"] }
 unimock = "0.6.8"

@@ -3,8 +3,9 @@
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use ai_interface::{
-    JudgmentError, JudgmentModel, JudgmentRequest, JudgmentResponse, JudgmentResult,
+    ErrorKind, JudgmentError, JudgmentModel, JudgmentRequest, JudgmentResponse, JudgmentResult,
 };
+use ai_models_core::{Clock, ErrorContext, SystemClock};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use serde_json::Value;
@@ -19,6 +20,7 @@ use super::{
 const PROVIDER: &str = "typesafe";
 const TYPESAFE_SYSTEM_ONE_URL: &str = "https://api.typesafe.ai/v1/systemone";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
+const REQUEST_ID_HEADERS: &[&str] = &["x-request-id", "request-id"];
 
 /// TypeSafe-backed `ai_interface::JudgmentModel` implementation.
 #[derive(Clone)]
@@ -29,6 +31,7 @@ pub struct TypeSafeJudgmentModel {
     redaction_secrets: Vec<String>,
     endpoint: String,
     timeout: Duration,
+    clock: Arc<dyn Clock>,
 }
 
 impl TypeSafeJudgmentModel {
@@ -61,6 +64,7 @@ impl TypeSafeJudgmentModel {
             redaction_secrets: Vec::new(),
             endpoint: TYPESAFE_SYSTEM_ONE_URL.to_owned(),
             timeout: DEFAULT_TIMEOUT,
+            clock: Arc::new(SystemClock),
         }
     }
 
@@ -75,21 +79,39 @@ impl TypeSafeJudgmentModel {
         self.timeout = timeout;
         self
     }
+
+    /// Uses an injected wall clock to evaluate response retry dates.
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
+        self
+    }
 }
 
 #[async_trait]
 impl JudgmentModel for TypeSafeJudgmentModel {
     async fn judge(&self, request: &JudgmentRequest) -> JudgmentResult<JudgmentResponse> {
-        request.validate()?;
+        let context = ErrorContext::new(
+            PROVIDER,
+            &self.model_id,
+            REQUEST_ID_HEADERS,
+            self.clock.clone(),
+        );
+        for secret in secrets_from_headers(&self.redaction_secrets, &BTreeMap::new()) {
+            context.add_secret(secret);
+        }
+        if let Err(error) = request.validate() {
+            return Err(context.apply_judgment_error(error.with_identity(PROVIDER, &self.model_id)));
+        }
         let mut headers = BTreeMap::new();
         if self.auth.apply_headers(&mut headers).await.is_err() {
-            return Err(JudgmentError::transient_provider(
-                PROVIDER,
-                &self.model_id,
-                AUTH_HOOK_FAILED,
+            return Err(JudgmentError::new(
+                context.core(ErrorKind::Transient, AUTH_HOOK_FAILED),
             ));
         }
         let secrets = secrets_from_headers(&self.redaction_secrets, &headers);
+        for secret in &secrets {
+            context.add_secret(secret.clone());
+        }
         let body = build_request(&self.model_id, request);
         let http_request = match self
             .http_client
@@ -100,15 +122,16 @@ impl JudgmentModel for TypeSafeJudgmentModel {
         {
             Ok(request) => request,
             Err(source) => {
-                return Err(classify_request_error(source, &self.model_id, &secrets));
+                return Err(classify_request_error(source, &context, &secrets));
             }
         };
         let response = match http_request.send_bytes().await {
             Ok(response) => response,
             Err(source) => {
-                return Err(classify_request_error(source, &self.model_id, &secrets));
+                return Err(classify_request_error(source, &context, &secrets));
             }
         };
+        let context = context.for_response(&response.headers);
         if !(200..300).contains(&response.status) {
             let classification_body = match serde_json::from_slice::<Value>(&response.body) {
                 Ok(body) => body,
@@ -120,15 +143,16 @@ impl JudgmentModel for TypeSafeJudgmentModel {
                 classification_body
             };
             return Err(classify_status(
+                &context,
                 response.status,
-                &self.model_id,
+                &response.headers,
                 &classification_body,
                 &secrets,
             ));
         }
         match parse_response(&self.model_id, request, &response.body) {
             Ok(response) => Ok(response),
-            Err(error) => Err(redact_response_error(error, &secrets)),
+            Err(error) => Err(redact_response_error(error, &context, &secrets)),
         }
     }
 }
@@ -160,3 +184,11 @@ mod status_tests;
 #[cfg(test)]
 #[path = "_tests_/duplicate_key_tests.rs"]
 mod duplicate_key_tests;
+
+#[cfg(test)]
+#[path = "_tests_/error_context_tests.rs"]
+mod error_context_tests;
+
+#[cfg(test)]
+#[path = "_tests_/auth_context_tests.rs"]
+mod auth_context_tests;

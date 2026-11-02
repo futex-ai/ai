@@ -48,6 +48,14 @@ the last whitespace in scheme-prefixed values. Hook failures discard their
 unsanitizable diagnostic and use the fixed `authentication hook failed`
 message.
 
+Every error carries a precise shared kind, the selected adapter identity, and
+optional Retry-After and provider request-id values from its actual response.
+The adapter tries the optional `x-request-id` and `request-id` header aliases.
+`with_clock(Arc<dyn ai_models_core::Clock>)` injects retry-date time.
+Production uses `SystemClock`.
+Local validation remains before dynamic auth and uses any explicit constructor
+key and its last whitespace token to redact known secrets.
+
 ## Quick Start
 
 ```rust

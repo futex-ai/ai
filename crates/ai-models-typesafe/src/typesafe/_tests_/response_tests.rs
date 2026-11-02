@@ -1,5 +1,7 @@
 //! TypeSafe judgment response mapping and validation tests.
 
+use ai_interface::ErrorKind;
+
 use std::collections::BTreeMap;
 
 use ai_interface::{
@@ -54,10 +56,10 @@ fn malformed_payloads_are_terminal_provider_errors() {
         let error = parse_value(body).expect_err("malformed response should fail");
         assert!(matches!(
             error,
-            JudgmentError::Provider { provider, model_id, message }
-                if provider == "typesafe"
-                    && model_id == "jev-latest"
-                    && message.starts_with("malformed provider payload: ")
+            JudgmentError::Internal { core, .. }
+                if core.kind == ErrorKind::InvalidOutput && core.provider == "typesafe"
+                    && core.model_id == "jev-latest"
+                    && core.message.starts_with("malformed provider payload: ")
         ));
     }
 }
@@ -271,14 +273,15 @@ fn assert_problem(body: Value, expected: JudgmentAnswerProblem, id: &str) {
     let result = parse_value(body);
     let error = result.expect_err("shared response validation should fail");
     let JudgmentError::InvalidAnswer {
-        provider,
-        model_id,
+        core,
         id: actual_id,
         problem,
     } = error
     else {
         panic!("expected invalid answer, got {error}");
     };
+    let (provider, model_id) = (&core.provider, &core.model_id);
+    assert_eq!(core.kind, ErrorKind::InvalidOutput);
 
     assert_eq!(provider, "typesafe");
     assert_eq!(model_id, "jev-latest");

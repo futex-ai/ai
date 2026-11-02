@@ -1,5 +1,7 @@
 //! TypeSafe judgment HTTP status classification tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{JudgmentError, JudgmentModel};
 use json_http::JsonHttpResponse;
 use serde_json::json;
@@ -15,6 +17,11 @@ const API_KEY: &str = "typesafe-secret-key";
 async fn classifies_rate_limited_and_transient_statuses() {
     for (status, expected) in [
         (429, ErrorKind::RateLimited),
+        (408, ErrorKind::Transient),
+        (409, ErrorKind::Transient),
+        (425, ErrorKind::Transient),
+        (500, ErrorKind::Transient),
+        (599, ErrorKind::Transient),
         (529, ErrorKind::Transient),
         (503, ErrorKind::Transient),
     ] {
@@ -27,14 +34,23 @@ async fn classifies_rate_limited_and_transient_statuses() {
             .await
             .expect_err("failing status should return an error");
 
-        assert!(expected.matches(&error), "status {status}: {error}");
+        assert!(expected == error.core().kind, "status {status}: {error}");
         assert_provider_fields(&error, "provider overloaded");
     }
 }
 
 #[tokio::test]
 async fn terminal_statuses_use_nested_detail_messages() {
-    for status in [401, 403, 422] {
+    for (status, kind) in [
+        (401, ErrorKind::RejectedKey),
+        (402, ErrorKind::RejectedKey),
+        (403, ErrorKind::RejectedKey),
+        (404, ErrorKind::UnknownModel),
+        (400, ErrorKind::InvalidRequest),
+        (413, ErrorKind::InvalidRequest),
+        (422, ErrorKind::InvalidRequest),
+        (451, ErrorKind::InvalidRequest),
+    ] {
         let (http_client, _) = recording_http_client(json_response(
             status,
             json!({
@@ -49,7 +65,7 @@ async fn terminal_statuses_use_nested_detail_messages() {
             .await
             .expect_err("failing status should return an error");
 
-        assert!(matches!(error, JudgmentError::Provider { .. }));
+        assert!(matches!(error.core().kind, actual if actual == kind));
         assert_provider_fields(&error, "request rejected");
     }
 }
@@ -102,46 +118,11 @@ async fn redirects_with_valid_judgments_are_terminal_provider_errors() {
         .await
         .expect_err("redirects must not be parsed as judgments");
 
-    assert!(matches!(error, JudgmentError::Provider { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::InvalidOutput));
 }
 
 fn assert_provider_fields(error: &JudgmentError, expected_message: &str) {
-    match error {
-        JudgmentError::RateLimited {
-            provider,
-            model_id,
-            message,
-        }
-        | JudgmentError::TransientProvider {
-            provider,
-            model_id,
-            message,
-        }
-        | JudgmentError::Provider {
-            provider,
-            model_id,
-            message,
-        } => {
-            assert_eq!(provider, "typesafe");
-            assert_eq!(model_id, "jev-latest");
-            assert_eq!(message, expected_message);
-        }
-        error => panic!("expected provider error, got {error}"),
-    }
-}
-
-#[derive(Clone, Copy)]
-enum ErrorKind {
-    RateLimited,
-    Transient,
-}
-
-impl ErrorKind {
-    fn matches(self, error: &JudgmentError) -> bool {
-        matches!(
-            (self, error),
-            (Self::RateLimited, JudgmentError::RateLimited { .. })
-                | (Self::Transient, JudgmentError::TransientProvider { .. })
-        )
-    }
+    assert_eq!(error.core().provider, "typesafe");
+    assert_eq!(error.core().model_id, "jev-latest");
+    assert_eq!(error.core().message, expected_message);
 }
