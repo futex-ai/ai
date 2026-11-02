@@ -1,129 +1,30 @@
 //! Request builder and request/response DTOs for JSON HTTP calls.
 
-use std::{collections::BTreeMap, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    time::Duration,
+};
 
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
 use crate::canonical::CanonicalSerializer;
 use crate::{
-    DynJsonHttpAuth, DynJsonHttpSseStream, DynJsonHttpTransport, Error, JsonHttpHeaders, Result,
+    DynJsonHttpAuth, DynJsonHttpSseStream, DynJsonHttpTransport, Error, JsonHttpBody,
+    JsonHttpMethod, JsonHttpMultipart, JsonHttpMultipartField, JsonHttpRequest, JsonHttpResponse,
+    Result,
+    request_headers::{insert, same_origin},
 };
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(600);
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-/// Supported JSON HTTP verbs.
-pub enum JsonHttpMethod {
-    /// `GET`
-    Get,
-    /// `POST`
-    Post,
-    /// `PUT`
-    Put,
-    /// `DELETE`
-    Delete,
-    /// `PATCH`
-    Patch,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-/// Serialized request body passed to the transport.
-pub enum JsonHttpBody {
-    /// JSON request body.
-    Json(Vec<u8>),
-    /// Multipart form request body.
-    Multipart(JsonHttpMultipart),
-}
-
-impl JsonHttpBody {
-    /// Returns encoded JSON bytes when this body is JSON.
-    pub fn as_json_bytes(&self) -> Option<&[u8]> {
-        match self {
-            Self::Json(bytes) => Some(bytes),
-            Self::Multipart(_) => None,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-/// Multipart request body with byte fields.
-pub struct JsonHttpMultipart {
-    /// Multipart fields in insertion order.
-    pub fields: Vec<JsonHttpMultipartField>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-/// One multipart byte field.
-pub struct JsonHttpMultipartField {
-    /// Form field name.
-    pub name: String,
-    /// Optional uploaded filename.
-    pub filename: Option<String>,
-    /// Optional field content type.
-    pub content_type: Option<String>,
-    /// Raw field bytes.
-    pub bytes: Vec<u8>,
-}
-
-impl JsonHttpMultipartField {
-    /// Builds a multipart byte field.
-    pub fn bytes(name: impl Into<String>, bytes: Vec<u8>) -> Self {
-        Self {
-            name: name.into(),
-            filename: None,
-            content_type: None,
-            bytes,
-        }
-    }
-
-    /// Sets the multipart filename.
-    pub fn filename(mut self, filename: impl Into<String>) -> Self {
-        self.filename = Some(filename.into());
-        self
-    }
-
-    /// Sets the multipart content type.
-    pub fn content_type(mut self, content_type: impl Into<String>) -> Self {
-        self.content_type = Some(content_type.into());
-        self
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-/// Serialized JSON HTTP request passed to the transport.
-pub struct JsonHttpRequest {
-    /// HTTP method to use for the request.
-    pub method: JsonHttpMethod,
-    /// Fully-qualified request URL.
-    pub url: String,
-    /// Request headers after auth hooks are applied.
-    pub headers: BTreeMap<String, String>,
-    /// Optional request body.
-    pub body: Option<JsonHttpBody>,
-    /// Per-request transport timeout.
-    pub timeout: Duration,
-    /// Optional maximum gap between decoded events on the SSE path.
-    pub idle_timeout: Option<Duration>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-/// Typed JSON HTTP response returned from the client.
-pub struct JsonHttpResponse<T> {
-    /// HTTP status code.
-    pub status: u16,
-    /// Response headers received before body consumption.
-    pub headers: JsonHttpHeaders,
-    /// Parsed JSON body.
-    pub body: T,
-}
 
 #[derive(Clone)]
 /// Builder used to assemble a JSON request before dispatch.
 pub struct JsonHttpRequestBuilder {
     transport: DynJsonHttpTransport,
     request: JsonHttpRequest,
-    auth_hooks: Vec<DynJsonHttpAuth>,
+    auth_hooks: Vec<(DynJsonHttpAuth, Option<String>)>,
+    default_headers: BTreeMap<String, String>,
 }
 
 impl JsonHttpRequestBuilder {
@@ -139,23 +40,35 @@ impl JsonHttpRequestBuilder {
                 method,
                 url: url.into(),
                 headers: BTreeMap::new(),
+                auth_headers: BTreeSet::new(),
                 body: None,
                 timeout: DEFAULT_TIMEOUT,
                 idle_timeout: None,
             },
             auth_hooks: Vec::new(),
+            default_headers: BTreeMap::new(),
         }
     }
 
     /// Adds or replaces a single request header.
     pub fn header(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.request.headers.insert(key.into(), value.into());
+        insert(&mut self.request.headers, key.into(), value.into());
         self
     }
 
     /// Adds or replaces a set of request headers.
     pub fn headers(mut self, headers: BTreeMap<String, String>) -> Self {
-        self.request.headers.extend(headers);
+        for (name, value) in headers {
+            insert(&mut self.request.headers, name, value);
+        }
+        self
+    }
+
+    /// Adds lower-priority headers after authentication, without replacing body content types.
+    pub fn default_headers(mut self, headers: BTreeMap<String, String>) -> Self {
+        for (name, value) in headers {
+            insert(&mut self.default_headers, name, value);
+        }
         self
     }
 
@@ -173,7 +86,13 @@ impl JsonHttpRequestBuilder {
 
     /// Registers an auth hook that will run before dispatch.
     pub fn auth(mut self, auth: DynJsonHttpAuth) -> Self {
-        self.auth_hooks.push(auth);
+        self.auth_hooks.push((auth, None));
+        self
+    }
+
+    /// Applies an auth hook only when the request matches the supplied origin.
+    pub fn auth_for_origin(mut self, auth: DynJsonHttpAuth, origin: impl Into<String>) -> Self {
+        self.auth_hooks.push((auth, Some(origin.into())));
         self
     }
 
@@ -241,8 +160,37 @@ impl JsonHttpRequestBuilder {
     }
 
     async fn build_request(mut self) -> Result<JsonHttpRequest> {
-        for auth in self.auth_hooks {
+        for (auth, origin) in self.auth_hooks {
+            if origin.is_some_and(|origin| !same_origin(&origin, &self.request.url)) {
+                continue;
+            }
+            let before = self.request.headers.clone();
             auth.apply_headers(&mut self.request.headers).await?;
+            let changed = self
+                .request
+                .headers
+                .iter()
+                .filter(|(name, value)| before.get(*name) != Some(*value))
+                .map(|(name, value)| (name.clone(), value.clone()))
+                .collect::<Vec<_>>();
+            for (name, value) in changed {
+                self.request.auth_headers.insert(name.to_ascii_lowercase());
+                insert(&mut self.request.headers, name, value);
+            }
+        }
+        for (name, value) in self.default_headers {
+            if self.request.body.is_some() && name.eq_ignore_ascii_case("content-type") {
+                continue;
+            }
+            if self
+                .request
+                .headers
+                .keys()
+                .any(|key| key.eq_ignore_ascii_case(&name))
+            {
+                continue;
+            }
+            insert(&mut self.request.headers, name, value);
         }
         Ok(self.request)
     }

@@ -22,6 +22,7 @@ pub(super) fn request() -> JsonHttpRequest {
     JsonHttpRequest {
         method: JsonHttpMethod::Post,
         url: "https://example.com/chat".to_owned(),
+        auth_headers: Default::default(),
         headers: BTreeMap::from([(
             "Authorization".to_owned(),
             "Bearer sentinel-private-key".to_owned(),
@@ -39,6 +40,10 @@ async fn forwards_original_json_and_records_no_credentials() {
     let mut request = request();
     request.url = "https://example.com/chat?key=sentinel-query-key".to_owned();
     request.headers.extend([
+        (
+            "X-Hook-Key".to_owned(),
+            "Scheme prefix sentinel-hook-key".to_owned(),
+        ),
         ("X-API-KEY".to_owned(), "sentinel-anthropic-key".to_owned()),
         (
             "x-goog-api-key".to_owned(),
@@ -46,6 +51,7 @@ async fn forwards_original_json_and_records_no_credentials() {
         ),
         ("api-key".to_owned(), "sentinel-api-key".to_owned()),
     ]);
+    request.auth_headers.insert("X-HOOK-KEY".to_owned());
     request.body = Some(JsonHttpBody::Json(
         json!({"prompt": "sentinel-private-key", "api_key": "body-only-secret"})
             .to_string()
@@ -54,7 +60,7 @@ async fn forwards_original_json_and_records_no_credentials() {
     let original = request.clone();
     let upstream = Unimock::new(JsonHttpTransportMock::execute.some_call(matching!(_)).answers_arc(Arc::new(move |_, request| {
         assert_eq!(request, &original);
-        Ok(JsonHttpResponse { headers: Default::default(), status: 201, body: json!({"echo": "sentinel-private-key", "body_echo": "body-only-secret", "authorization": "response-secret"}) })
+        Ok(JsonHttpResponse { headers: Default::default(), status: 201, body: json!({"echo": "sentinel-private-key", "body_echo": "body-only-secret", "hook_echo": "sentinel-hook-key", "authorization": "response-secret"}) })
     })));
     let log: Arc<dyn RecordingLog + Send + Sync> = Arc::new(MemoryRecordingLog::default());
     let transport = RecordingTransport::new(Arc::new(upstream), log.clone());
@@ -66,14 +72,14 @@ async fn forwards_original_json_and_records_no_credentials() {
     let recordings = log.snapshot();
     assert_eq!(
         recordings[0].request.headers.values().collect::<Vec<_>>(),
-        vec!["[redacted]"; 4]
+        vec!["[redacted]"; 5]
     );
     assert_eq!(
         recordings[0].response,
         RecordedResponse::Json {
             headers: Default::default(),
             status: 201,
-            body: json!({"echo": "[redacted]", "body_echo": "[redacted]", "authorization": "[redacted]"})
+            body: json!({"echo": "[redacted]", "body_echo": "[redacted]", "hook_echo": "[redacted]", "authorization": "[redacted]"})
         }
     );
     let serialized = serde_json::to_string(&recordings).expect("serializable log");
@@ -83,6 +89,7 @@ async fn forwards_original_json_and_records_no_credentials() {
         "sentinel-anthropic-key",
         "sentinel-google-key",
         "sentinel-api-key",
+        "sentinel-hook-key",
         "body-only-secret",
         "response-secret",
     ] {

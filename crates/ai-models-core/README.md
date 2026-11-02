@@ -7,6 +7,7 @@ for retry, fallback, concurrency, and usage pricing.
 
 ## Responsibilities
 
+- Hold provider-neutral connection settings, credentials, headers, and timeout overrides
 - Provide an injectable monotonic clock and async sleep boundary for provider
   operations that must poll within a total deadline
 - Offer a boundary-neutral HTTP failure classifier and provider-agnostic
@@ -46,6 +47,18 @@ Auth-hook failures use a fixed diagnostic. They do not copy unknown hook text.
 
 The Chat Completions engine and its accumulator live in
 [`ai-models-compat`](../ai-models-compat/README.md).
+
+`ProviderConfig` holds one provider id, an optional base URL, an API key or
+auth hook, extra headers, and optional idle, total, and polling timeouts.
+It names no providers and supplies no provider defaults.
+`endpoint(default_base, fixed_path)` keeps a configured path prefix and
+treats base URLs with and without a trailing slash the same.
+Adapters select `ApiKeyScheme::Bearer` or `ApiKeyScheme::Header(name)`.
+They call `capture_secrets` before validation and wrap `auth(scheme)` with
+the call context's `capture_auth` before dispatch.
+`apply_headers` adds extra headers after auth. Adapter headers, auth headers,
+and body content types take precedence without regard to header-name case.
+Config and static-auth debug output omit credential and header values.
 
 `resolve_controls(&request, &spec)` is the shared capability check. Every
 chat adapter calls it before transport and sends exactly the returned
@@ -127,6 +140,8 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 
 ### Key Code
 
+- `src/provider_config.rs` and `src/provider_auth.rs` - provider settings,
+  endpoint construction, timeout overrides, and adapter-selected key schemes
 - `src/capabilities.rs` - `resolve_controls`, `ResolvedModelControls`, and
   `ResolvedToolChoice`: the shared capability check before transport
 - `src/catalog.rs` - `known_mock_models()`, which copies the mock catalog of

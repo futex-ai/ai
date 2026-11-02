@@ -36,6 +36,17 @@ progress and diagnostic fields. This covers buffered body reads, typed response
 decoding, rejected SSE body reads, and wrong SSE media types. Recordings keep
 sanitized headers for these failures and restore their failure class on replay.
 
+Request headers compare without case. `default_headers` adds values after
+auth and keeps adapter headers, auth headers, and generated body content types.
+Auth hooks run once before dispatch. `auth_for_origin` skips a hook when
+the request has a different scheme, host, or port from the supplied origin.
+Requests follow up to ten redirects. Redirects preserve credentials on the
+original origin and remove hook-added or hook-changed headers elsewhere.
+The transport also protects standard authorization, cookie, and API-key headers.
+It restores credentials only when a redirect returns to the original origin.
+Redirect hops share one total timeout budget.
+Request and static-auth debug output omit header values.
+
 The crate ships with:
 
 - `ReqwestJsonHttpClient` for real transport
@@ -68,6 +79,7 @@ so that repeated and binary values survive replay. Existing recordings without
 response headers remain readable and replay with an empty header map.
 Credential header names are case-insensitive. The values of `authorization`,
 `x-api-key`, `x-goog-api-key`, and `api-key` become `[redacted]`.
+The recorder also removes custom auth header values that the builder tracks.
 The recorder also removes credential URL fields, named JSON credentials,
 and known secret values from responses. It forwards the original requests
 and responses unchanged. Raw transport error text is never persisted.
@@ -155,12 +167,14 @@ server and requires no external network or credentials.
 ### Key Code
 
 - `src/client.rs` - trait-backed client and transport boundaries
-- `src/request.rs` - request builder, request DTOs, and typed response helpers
+- `src/request.rs` - request builder, auth origin scopes, and typed response helpers
+- `src/request_types.rs` - serialized request and response DTOs
 - `src/canonical/` - typed JSON serialization with sorted object fields
 - `src/headers.rs` - common buffered and streaming response header type
 - `src/sse.rs` - pure incremental SSE framing and stream boundary
 - `src/reqwest_sse.rs` - idle/deadline-aware reqwest stream consumption
 - `src/reqwest_transport.rs` - buffered and streaming reqwest execution
+- `src/reqwest_redirect.rs` - origin-scoped credentials and the shared redirect budget
 - `src/auth.rs` - auth hook trait and static header implementation
 - `src/test_support/` - recording types, credential redaction, shared logs,
   transport wrappers, and ordered replay behind `test-support`

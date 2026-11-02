@@ -9,7 +9,7 @@ use tokio::time::timeout;
 
 use crate::{
     DynJsonHttpSseStream, Error, JsonHttpBody, JsonHttpMethod, JsonHttpMultipartField,
-    JsonHttpRequest, JsonHttpResponse, JsonHttpTransport, Result,
+    JsonHttpRequest, JsonHttpResponse, JsonHttpTransport, Result, reqwest_redirect,
     reqwest_sse::{ReqwestJsonHttpSseStream, SseTimer},
 };
 
@@ -31,6 +31,7 @@ impl ReqwestJsonHttpTransport {
     pub(crate) fn new() -> Self {
         let client = reqwest::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
+            .redirect(reqwest_redirect::policy())
             .build();
         Self {
             client: match client {
@@ -85,7 +86,7 @@ impl ReqwestJsonHttpTransport {
         request: &JsonHttpRequest,
     ) -> Result<reqwest::Response> {
         let builder = self.request_builder(request)?.timeout(request.timeout);
-        match builder.send().await {
+        match reqwest_redirect::send(builder, &request.auth_headers).await {
             Ok(response) => Ok(response),
             Err(source) => Err(Error::ReqwestTransport { source }),
         }
@@ -136,16 +137,17 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
         if wait.is_zero() {
             return Err(timer.error(kind, 0));
         }
-        let mut response = match timeout(wait, builder.send()).await {
-            Ok(Ok(response)) => response,
-            Ok(Err(source)) => {
-                return Err(Error::SseTransport {
-                    events_received: 0,
-                    source,
-                });
-            }
-            Err(_) => return Err(timer.error(kind, 0)),
-        };
+        let mut response =
+            match timeout(wait, reqwest_redirect::send(builder, &request.auth_headers)).await {
+                Ok(Ok(response)) => response,
+                Ok(Err(source)) => {
+                    return Err(Error::SseTransport {
+                        events_received: 0,
+                        source,
+                    });
+                }
+                Err(_) => return Err(timer.error(kind, 0)),
+            };
 
         if !response.status().is_success() {
             let status = response.status().as_u16();

@@ -11,6 +11,8 @@ mod error_metadata;
 mod errors;
 mod http_status;
 mod polling;
+mod provider_auth;
+mod provider_config;
 mod structured_output;
 mod tool_call_identity;
 
@@ -33,6 +35,8 @@ pub use http_status::classify_http_status;
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use polling::PollingRuntimeMock;
 pub use polling::{DynPollingRuntime, PollingRuntime, TokioPollingRuntime};
+pub use provider_auth::ApiKeyScheme;
+pub use provider_config::{ProviderConfig, ProviderTimeouts};
 pub use structured_output::{
     parse_structured_output, parse_tool_call_arguments, validate_structured_output,
 };

@@ -8,6 +8,9 @@ mod client;
 mod error;
 mod headers;
 mod request;
+mod request_headers;
+mod request_types;
+mod reqwest_redirect;
 mod reqwest_sse;
 mod reqwest_transport;
 mod sse;
@@ -33,9 +36,10 @@ pub use client::{
 };
 pub use error::{Error, Result};
 pub use headers::JsonHttpHeaders;
-pub use request::{
+pub use request::JsonHttpRequestBuilder;
+pub use request_types::{
     JsonHttpBody, JsonHttpMethod, JsonHttpMultipart, JsonHttpMultipartField, JsonHttpRequest,
-    JsonHttpRequestBuilder, JsonHttpResponse,
+    JsonHttpResponse,
 };
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use sse::JsonHttpSseStreamMock;

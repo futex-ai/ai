@@ -32,9 +32,14 @@ impl Redactor {
     pub(super) fn for_request(request: &JsonHttpRequest) -> Self {
         let mut secrets = Vec::new();
         for (name, value) in &request.headers {
-            if sensitive(name) {
+            if sensitive(name)
+                || request
+                    .auth_headers
+                    .iter()
+                    .any(|key| key.eq_ignore_ascii_case(name))
+            {
                 secrets.push(value.clone());
-                if let Some((_, token)) = value.split_once(' ') {
+                if let Some(token) = value.split_whitespace().last() {
                     secrets.push(token.to_owned());
                 }
             }
