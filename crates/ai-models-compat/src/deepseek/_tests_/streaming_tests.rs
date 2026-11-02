@@ -9,7 +9,7 @@ use ai_models_core::{
 };
 use serde_json::{Value, json};
 
-use crate::{DEEPSEEK_V4_PRO, DeepSeekModel};
+use crate::deepseek::{DEEPSEEK_V4_PRO, DeepSeekModel};
 
 use super::{response, test_support::simple_request};
 

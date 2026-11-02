@@ -7,7 +7,7 @@ use ai_interface::{
 use ai_models_core::ThinkingLevel;
 use serde_json::{Value, json};
 
-use crate::DEEPSEEK_V4_PRO;
+use crate::deepseek::DEEPSEEK_V4_PRO;
 
 use super::{request::build_request, response::parse_response, test_support::simple_request};
 

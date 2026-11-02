@@ -6,7 +6,7 @@ use ai_interface::{ConversationMessage, ConversationRole, Model, ModelRequest};
 use json_http::StaticHeaderAuth;
 
 use super::{DeepSeekModel, test_support::recording_http_client};
-use crate::DEEPSEEK_V4_PRO;
+use crate::deepseek::DEEPSEEK_V4_PRO;
 
 #[tokio::test]
 async fn sends_bearer_auth_to_exact_streaming_endpoint() {

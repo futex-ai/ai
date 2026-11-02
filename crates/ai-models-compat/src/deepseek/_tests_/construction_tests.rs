@@ -6,7 +6,7 @@ use ai_interface::Model;
 use ai_models_core::ThinkingLevel;
 use json_http::StaticHeaderAuth;
 
-use crate::{
+use crate::deepseek::{
     DEEPSEEK_V4_FLASH, DEEPSEEK_V4_FLASH_THINKING_DISABLED, DEEPSEEK_V4_FLASH_THINKING_MAX,
     DEEPSEEK_V4_PRO, DEEPSEEK_V4_PRO_THINKING_DISABLED, DEEPSEEK_V4_PRO_THINKING_MAX,
     DeepSeekConfigurationError,

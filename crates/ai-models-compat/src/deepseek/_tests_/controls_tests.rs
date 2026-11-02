@@ -10,7 +10,7 @@ use ai_models_core::ThinkingLevel;
 use json_http::StaticHeaderAuth;
 use serde_json::json;
 
-use crate::DEEPSEEK_V4_PRO;
+use crate::deepseek::DEEPSEEK_V4_PRO;
 
 use super::{
     DeepSeekModel,

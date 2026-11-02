@@ -5,6 +5,7 @@ members = [
     "crates/ai-mcp-oauth",
     "crates/ai-models-anthropic",
     "crates/ai-models-core",
+    "crates/ai-models-compat",
     "crates/ai-models-deepseek",
     "crates/ai-models-google",
     "crates/ai-models-kimi",
@@ -32,6 +33,7 @@ ai-interface = { version = "0.3.0", path = "crates/ai-interface" }
 ai-mcp = { version = "0.3.0", path = "crates/ai-mcp" }
 ai-mcp-oauth = { version = "0.3.0", path = "crates/ai-mcp-oauth" }
 ai-models-anthropic = { version = "0.3.0", path = "crates/ai-models-anthropic" }
+ai-models-compat = { version = "0.3.0", path = "crates/ai-models-compat" }
 ai-models-core = { version = "0.3.0", path = "crates/ai-models-core" }
 ai-models-deepseek = { version = "0.3.0", path = "crates/ai-models-deepseek" }
 ai-models-google = { version = "0.3.0", path = "crates/ai-models-google" }

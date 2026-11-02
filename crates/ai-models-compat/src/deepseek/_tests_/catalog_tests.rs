@@ -12,6 +12,11 @@ use super::{
 #[test]
 fn catalog_exposes_exact_current_deepseek_variants() {
     let models = known_models();
+    assert!(
+        known_models()
+            .iter()
+            .any(|model| model.id == DEEPSEEK_V4_PRO)
+    );
 
     assert_eq!(
         models.iter().map(|model| model.id).collect::<Vec<_>>(),

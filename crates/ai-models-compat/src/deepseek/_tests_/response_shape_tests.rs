@@ -4,7 +4,7 @@ use ai_interface::ModelError;
 use ai_models_core::ThinkingLevel;
 use serde_json::json;
 
-use crate::DEEPSEEK_V4_PRO;
+use crate::deepseek::DEEPSEEK_V4_PRO;
 
 use super::response;
 

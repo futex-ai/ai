@@ -4,7 +4,7 @@ use ai_interface::{FinishReason, ModelError, ModelUsage};
 use ai_models_core::ThinkingLevel;
 use serde_json::json;
 
-use crate::{DEEPSEEK_V4_FLASH, DEEPSEEK_V4_FLASH_THINKING_DISABLED};
+use crate::deepseek::{DEEPSEEK_V4_FLASH, DEEPSEEK_V4_FLASH_THINKING_DISABLED};
 
 use super::response;
 

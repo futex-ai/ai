@@ -7,7 +7,7 @@ use json_http::{JsonHttpAuth, JsonHttpAuthMock};
 use serde_json::Value;
 use unimock::{MockFn, Unimock, matching};
 
-use crate::{DEEPSEEK_V4_PRO, DeepSeekModel};
+use crate::deepseek::{DEEPSEEK_V4_PRO, DeepSeekModel};
 
 use super::{
     client::request_error,
