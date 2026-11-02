@@ -2,9 +2,10 @@
 
 `ai-interface` is the shared contract crate for AI-facing runtime boundaries in
 this workspace. Depend on it when you need the common conversation, model,
-model spec, effort, tool, audio transcription, image generation, video
-generation, judgment, routing, logging, usage, or model-visible tool output
-DTOs without taking a dependency on a stateful runtime implementation.
+model event stream, model spec, effort, tool, audio transcription, image
+generation, video generation, judgment, routing, logging, usage, or
+model-visible tool output DTOs without taking a dependency on a stateful
+runtime implementation.
 
 ## Responsibilities
 
@@ -25,8 +26,9 @@ DTOs without taking a dependency on a stateful runtime implementation.
 - Own the generic `Model`, `Tool`, `ModelRouter`, `AudioTranscriber`,
   `ImageGenerator`, `VideoGenerator`, `JudgmentModel`, and `Logger` trait
   boundaries plus their dyn aliases.
-- Define ordered assistant, reasoning, and fallback-restart completion events,
-  an async event sink, and a default-compatible opt-in model entrypoint.
+- Own the one model entry point: `Model::stream`, its ordered `ModelEvent`
+  values, and the shared fold that the provided `Model::complete` and other
+  stream consumers use.
 - Keep individual tools pagination-agnostic: `Tool::call()` and
   `Tool::call_with_invocation()` return raw `serde_json::Value`.
 - Define logger success payloads in terms of bounded model-visible envelopes,
@@ -85,16 +87,39 @@ DTOs without taking a dependency on a stateful runtime implementation.
   `ModelResponse::effort()` returns the resolved effort. The typed
   `thinking_level` field holds it and serializes as `effort`.
   `catalog_model_id` records the text id of the spec.
-  `ModelError::Interrupted` identifies a streaming completion that failed only
-  after provider events had arrived, keeping it distinct from a safe-to-retry
+  `ModelResponse::attempts` lists the failed fallback attempts before the
+  response as `ModelAttempt` records. JSON leaves out an empty list.
+  `ModelError::Interrupted` identifies a model stream that failed only after
+  provider events had arrived, keeping it distinct from a safe-to-retry
   `TransientProvider` failure before any progress.
 - Defines `ModelRouteRequest`, `ModelRequirement`, `ModelPreference`, and the
   `ModelRouter` trait. `ModelRequirement::ModelId` holds a text id, and
   `ModelRequirement::Provider` holds a `ProviderId`.
-- Defines `ModelCompletionEvent` and `ModelCompletionEventSink` for callers
-  that opt into `Model::complete_with_events`. The default method delegates to
-  `complete` without events, while `NoopModelCompletionEventSink` lets concrete
-  adapters share the observing path with buffered callers.
+- Defines `Model::stream`, the one method that a model implements. It
+  returns an error or a `DynModelEventStream`, a boxed `ModelEventStream`.
+  Its async `next` returns the next `ModelEvent`, `None` after the finish
+  event, or an error. After `None` or an error, every later call returns
+  `None`. Dropping the stream cancels the call.
+- Defines `ModelEvent`: `TextDelta`, `ReasoningDelta`, `ToolCallStart`,
+  `ToolCallArgumentsDelta`, `ToolCallEnd`, `Usage`, `Finish`, and
+  `Fallback`. Content events carry a zero-based `part_index`.
+  `ToolCallStart` carries the call id, the tool name, and the optional
+  runtime operation id. `Finish` carries the finish reason, the provider,
+  the provider model id, the text id, the resolved effort, the structured
+  output, and the message-level `provider_context` replay items. Events
+  carry no other provider state. Only a policy layer emits `Fallback`. It
+  carries the error of a failed attempt, and a consumer discards every
+  event of that attempt.
+- Defines `ModelResponseFold` with `new`, `push`, and `finish`. The provided
+  `Model::complete` folds every event of `stream` with it, and other stream
+  consumers can use the same fold. The fold joins the text deltas into
+  `assistant_message`, keeps tool calls only for the `ToolCalls` finish
+  reason, and takes the usage and the finish fields from their events.
+  Reasoning deltas add nothing to the response. A `Fallback` event removes
+  the content of the failed attempt and adds a `ModelAttempt` to
+  `attempts`. Events that break the order of the
+  [model stream protocol](../../docs/protocol/model-stream.md) fail the fold
+  with `ModelError::Internal`.
 - Defines defaulted `ModelCallControls` for the request effort, portable
   sampling, output limits, ordered stops, strict or explicit
   required-with-automatic-fallback tool choice, total call timeout, and
@@ -156,7 +181,7 @@ not own.
 ```rust
 use ai_interface::{
     ConversationMessage, Effort, MOCK_CATALOG, MOCK_CUSTOM_DEFAULTS, MOCK_PROVIDER, MockModel,
-    Model, ModelCatalog, ModelRequest, ModelSpec,
+    Model, ModelCatalog, ModelEvent, ModelRequest, ModelSpec,
 };
 
 fn find_mock_spec() -> Option<ModelSpec> {
@@ -188,10 +213,23 @@ async fn call_mock_model() -> ai_interface::ModelResult<String> {
     let response = MockModel::new("done").complete(&high_effort_request()).await?;
     Ok(response.assistant_message)
 }
+
+async fn stream_mock_text() -> ai_interface::ModelResult<String> {
+    let mut stream = MockModel::new("done").stream(&high_effort_request()).await?;
+    let mut text = String::new();
+    while let Some(event) = stream.next().await? {
+        match event {
+            ModelEvent::TextDelta { delta, .. } => text.push_str(&delta),
+            ModelEvent::Fallback { .. } => text.clear(),
+            _ => {}
+        }
+    }
+    Ok(text)
+}
 ```
 
-[`docs/examples.md`](docs/examples.md) has more examples: model calls with
-completion events, image and video generation, judgment, tool output
+[`docs/examples.md`](docs/examples.md) has more examples: model calls and
+model events, test models, image and video generation, judgment, tool output
 envelopes, and provider replay context.
 
 ## Development
@@ -205,15 +243,29 @@ The crate is intentionally dependency-light. `serde` and `serde_json` are used
 for contract DTOs, while runtime policy, storage, pagination, and intrinsic
 tool dispatch live in `ai-tool-calling`.
 
+Downstream tests can enable the `test-support` feature for the `unimock`
+mocks, such as `ModelMock` and `ModelEventStreamMock`, and for the finite
+streams of `test_support`. `model_event_stream` boxes a list of events.
+`model_response_stream` turns a response fixture into the events that fold
+back into it.
+
 ### Key Code
 
 - `src/messages/` - conversation DTOs, typed Anthropic blocks and Google parts,
   DeepSeek/Kimi/Qwen raw tool replay, MiniMax reasoning details, and provider
   replay context.
-- `src/model.rs` - model trait, request/response DTOs, finish reasons, and
-  typed model errors.
-- `src/model_completion_events.rs` - public incremental events, sink trait,
-  dynamic alias, and no-op sink.
+- `src/model.rs` - the `Model` trait with its provided `complete`,
+  request/response DTOs, and finish reasons.
+- `src/model_event.rs` - `ModelEvent`, the ordered events of a model stream.
+- `src/model_stream.rs` - the `ModelEventStream` trait and
+  `DynModelEventStream`.
+- `src/model_response_fold/` - `ModelResponseFold`, the shared fold from
+  events to a `ModelResponse`, and its event-order errors.
+- `src/model_attempt.rs` - `ModelAttempt`, the serializable record of a
+  failed fallback attempt.
+- `src/model_error.rs` - `ModelError` and its constructors.
+- `src/test_support.rs` - finite event streams for tests, behind
+  `test-support`.
 - `src/model_controls.rs` - portable generation and execution controls,
   including the request effort.
 - `src/model_spec.rs` - `ModelSpec`, its text id, and `ModelSpec::custom`.
@@ -249,9 +301,9 @@ tool dispatch live in `ai-tool-calling`.
 
 - [`docs/examples.md`](docs/examples.md)
 - [`../../docs/architecture.md`](../../docs/architecture.md)
+- [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
+- [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
-- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
-- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`futex-ai/internal-error`](https://github.com/futex-ai/internal-error)
 - [`../ai-tool-calling/README.md`](../ai-tool-calling/README.md)

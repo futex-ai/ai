@@ -6,36 +6,72 @@ boundaries. They need no provider, credential, or network access. The
 
 ## Model calls
 
-`Model::complete` returns the buffered response. `Model::complete_with_events`
-also sends ordered completion events to a sink.
+`Model::stream` returns the ordered events of one call. `Model::complete`
+reads the same events and folds them into one `ModelResponse`. A consumer
+that shows events as they arrive can use `ModelResponseFold`, the fold of
+`complete`, to get the same response. A `Fallback` event voids the events
+of the failed attempt.
 
 ```rust
 use ai_interface::{
-    ConversationMessage, Model, ModelRequest, MockModel, NoopModelCompletionEventSink,
+    ConversationMessage, MockModel, Model, ModelEvent, ModelRequest, ModelResponse,
+    ModelResponseFold,
 };
 
-async fn call_model() -> ai_interface::ModelResult<String> {
-    let model = MockModel::new("done");
-    let response = model
-        .complete(&ModelRequest {
-            system_prompt: "You are concise.".to_owned(),
-            messages: vec![ConversationMessage::user("Summarize the status")],
-            tools: Vec::new(),
-            response_schema: None,
-            controls: Default::default(),
-        })
-        .await?;
+fn request() -> ModelRequest {
+    ModelRequest {
+        system_prompt: "You are concise.".to_owned(),
+        messages: vec![ConversationMessage::user("Summarize the status")],
+        tools: Vec::new(),
+        response_schema: None,
+        controls: Default::default(),
+    }
+}
 
+async fn call_model() -> ai_interface::ModelResult<String> {
+    let response = MockModel::new("done").complete(&request()).await?;
     Ok(response.assistant_message)
 }
 
-async fn call_model_through_event_boundary(
-    request: &ModelRequest,
-) -> ai_interface::ModelResult<String> {
-    let response = MockModel::new("done")
-        .complete_with_events(request, &NoopModelCompletionEventSink)
-        .await?;
-    Ok(response.assistant_message)
+async fn stream_and_fold() -> ai_interface::ModelResult<(String, ModelResponse)> {
+    let mut stream = MockModel::new("done").stream(&request()).await?;
+    let mut fold = ModelResponseFold::new();
+    let mut shown = String::new();
+    while let Some(event) = stream.next().await? {
+        match &event {
+            ModelEvent::TextDelta { delta, .. } => shown.push_str(delta),
+            ModelEvent::Fallback { .. } => shown.clear(),
+            _ => {}
+        }
+        fold.push(event)?;
+    }
+    Ok((shown, fold.finish()?))
+}
+```
+
+## Test models
+
+With the `test-support` feature, a test model can return fixed events.
+`test_support::model_response_stream` turns a response fixture into the
+events that fold back into it. `test_support::model_event_stream` boxes a
+list of events.
+
+```rust
+use ai_interface::{
+    DynModelEventStream, Model, ModelRequest, ModelResponse, ModelResult,
+    test_support::model_response_stream,
+};
+use async_trait::async_trait;
+
+struct FixedModel {
+    response: ModelResponse,
+}
+
+#[async_trait]
+impl Model for FixedModel {
+    async fn stream(&self, _request: &ModelRequest) -> ModelResult<DynModelEventStream> {
+        Ok(model_response_stream(self.response.clone()))
+    }
 }
 ```
 
