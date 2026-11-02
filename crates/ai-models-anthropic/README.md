@@ -8,9 +8,10 @@
 - Export the Anthropic `PROVIDER_ID`, one `ModelSpec` constant for each known
   model, the `CATALOG` slice, and the `CUSTOM_DEFAULTS` of unlisted models
 - Map shared model/tool DTOs to the Anthropic messages API
-- Consume Anthropic Messages SSE events and reconstruct complete responses
-- Emit public assistant text and thinking deltas in provider order
-- Parse Anthropic responses into shared response DTOs and typed model errors
+- Map Anthropic Messages SSE events to model events in provider order: text,
+  thinking, tool use, usage, and finish
+- Map Anthropic stop reasons, usage, and failures to finish events, usage
+  events, and typed model errors
 
 ## What This Crate Does
 
@@ -18,9 +19,14 @@
 auth input. Each call runs the shared capability check of `ai-models-core`
 against the spec before transport. The adapter handles:
 
-- Anthropic messages request serialization with internal SSE accumulation
-- opt-in `complete_with_events` delivery for text and thinking deltas, with
-  assistant text normalized to the terminal response's block boundaries
+- Anthropic messages request serialization with `"stream": true`
+- `Model::stream`: a text delta for each text fragment, a reasoning delta for
+  each thinking fragment, and tool-call start, argument, and end events for
+  each tool-use block, in provider order. One usage event and one finish
+  event follow after `message_stop`. `Model::complete` folds these events.
+- text block boundaries: a block that holds only whitespace adds no text, and
+  the first text delta of each later block starts with a newline, so the
+  folded text joins the blocks with newlines
 - 3,600-second default overall completion deadline, 120-second stream idle
   deadline, and explicit per-call total-timeout overrides
 - portable sampling outside thinking mode, bounded output limits, stop
@@ -41,15 +47,15 @@ against the spec before transport. The adapter handles:
 - shared text and image parts as Anthropic text and base64 image blocks, with
   typed rejection of shared video parts before transport
 - Anthropic `stop_reason` normalization into `ai_interface::FinishReason`
-- terminal Anthropic stop reasons suppress parsed tool calls unless the
-  normalized finish reason is `ToolCalls`
+- the folded response keeps parsed tool calls only when the normalized
+  finish reason is `ToolCalls`
 - Anthropic adaptive thinking mapping from the resolved request effort
 - effort lowering to the highest effort that the spec lists at or below the
   request, with the resolved effort and the text id retained in responses
 - validated structured-output requests via JSON-only final responses
-- provider response usage extraction into normalized input, output, cached
-  input, and cache-creation token counts; cache creation is folded into regular
-  input usage
+- usage from `message_start` and `message_delta`, normalized into input,
+  output, cached input, and cache-creation token counts; cache creation is
+  folded into regular input usage
 - typed classification of failures before stream progress as retryable and
   failures after progress as `ModelError::Interrupted`
 - status, native stream error, transport, and structured-output validation
@@ -78,13 +84,16 @@ A request with the max effort on `CLAUDE_OPUS_5` sends provider model id
 `max`, and requests omitted thinking display.
 When a response has `thinking` or `redacted_thinking` blocks, the adapter keeps
 its full ordered content in `ProviderConversationItem::AnthropicAssistantMessage`.
+The finish event carries this item in its `provider_context`, and the folded
+response keeps it.
 This includes text, tool uses, empty thinking text with its signature, and
 redacted thinking data. An assistant message with this context replays those
 blocks exactly, with their original order and message boundary.
-Thinking stays separate from visible assistant text. Event-observing callers
-receive thinking text through `ReasoningTextDelta`. Schema-constrained calls
-suppress all public deltas in version one. The tool runtime removes private
-replay context from logger copies while retaining it in conversation history.
+Thinking stays separate from visible assistant text. Stream consumers receive
+thinking text as `ReasoningDelta` events. A call with a response schema
+emits text deltas like any other call, and its finish event carries the
+validated structured output. The tool runtime removes private replay context
+from logger copies while retaining it in conversation history.
 
 ## Quick Start
 
@@ -138,22 +147,22 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 
 ### Key Code
 
-- `src/anthropic/mod.rs` - `Model` implementation and request dispatch
+- `src/anthropic/mod.rs` - `Model::stream` implementation and request
+  dispatch
 - `src/catalog.rs` - Anthropic provider id, model spec constants, `CATALOG`,
   and custom defaults
 - `src/anthropic/request.rs` - maps the resolved controls and the effort to
   the Messages request
 - `src/anthropic/request_types.rs` - typed Messages request bodies
-- `src/anthropic/response.rs` - Anthropic response parsing
-- `src/anthropic/stream/` - public delta emission, terminal accumulation, and
-  stream failure mapping
+- `src/anthropic/response.rs` - typed terminal metadata and its validation
+- `src/anthropic/stream/` - typed Messages SSE events, content block state,
+  model event mapping, and stream failure mapping
 
 ### Related Docs
 
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
-- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
-- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
+- [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [Anthropic model overview](https://platform.claude.com/docs/en/about-claude/models/overview)
 - [Anthropic thinking and replay](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)

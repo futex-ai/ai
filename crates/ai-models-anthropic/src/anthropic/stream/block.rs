@@ -1,43 +1,50 @@
 //! Typed state for one indexed Anthropic content block.
 
-use serde_json::{Value, json};
+use ai_interface::AnthropicAssistantBlock;
+use serde_json::Value;
 
 use super::types::{
-    AnthropicContentBlockDelta, AnthropicContentBlockStart, AnthropicStreamDelta,
-    AnthropicStreamError,
+    AnthropicContentBlockDelta, AnthropicContentBlockStart, AnthropicStreamError, BlockEvent,
 };
 
 #[derive(Debug)]
 pub(super) struct ContentBlockState {
     content: ContentBlockContent,
     pub(super) stopped: bool,
+    pub(super) part_index: Option<usize>,
 }
 
 impl ContentBlockState {
-    pub(super) fn new(block: AnthropicContentBlockStart) -> (Self, Option<AnthropicStreamDelta>) {
-        let (content, delta) = match block {
+    pub(super) fn new(block: AnthropicContentBlockStart) -> (Self, Option<BlockEvent>) {
+        let (content, event) = match block {
             AnthropicContentBlockStart::Text { text } => {
                 let emitted = !text.trim().is_empty();
-                let delta = emitted.then(|| AnthropicStreamDelta::AssistantText {
+                let event = emitted.then(|| BlockEvent::Text {
                     delta: text.clone(),
                     starts_block: true,
                 });
-                (ContentBlockContent::Text { text, emitted }, delta)
+                (ContentBlockContent::Text { text, emitted }, event)
             }
-            AnthropicContentBlockStart::ToolUse { id, name, input } => (
-                ContentBlockContent::ToolUse {
-                    id,
-                    name,
-                    input,
-                    partial_json: String::new(),
-                },
-                None,
-            ),
+            AnthropicContentBlockStart::ToolUse { id, name, input } => {
+                let event = Some(BlockEvent::ToolStart {
+                    id: id.clone(),
+                    name: name.clone(),
+                });
+                (
+                    ContentBlockContent::ToolUse {
+                        id,
+                        name,
+                        input,
+                        partial_json: String::new(),
+                    },
+                    event,
+                )
+            }
             AnthropicContentBlockStart::Thinking {
                 thinking,
                 signature,
             } => {
-                let delta = (!thinking.is_empty()).then(|| AnthropicStreamDelta::ReasoningText {
+                let event = (!thinking.is_empty()).then(|| BlockEvent::Reasoning {
                     delta: thinking.clone(),
                 });
                 (
@@ -45,7 +52,7 @@ impl ContentBlockState {
                         thinking,
                         signature,
                     },
-                    delta,
+                    event,
                 )
             }
             AnthropicContentBlockStart::RedactedThinking { data } => {
@@ -57,8 +64,9 @@ impl ContentBlockState {
             Self {
                 content,
                 stopped: false,
+                part_index: None,
             },
-            delta,
+            event,
         )
     }
 
@@ -66,11 +74,11 @@ impl ContentBlockState {
         &mut self,
         index: u64,
         delta: AnthropicContentBlockDelta,
-    ) -> Result<Option<AnthropicStreamDelta>, AnthropicStreamError> {
+    ) -> Result<Option<BlockEvent>, AnthropicStreamError> {
         if self.stopped {
             return Err(AnthropicStreamError::ContentBlockAfterStop { index });
         }
-        let stream_delta = match (&mut self.content, delta) {
+        let event = match (&mut self.content, delta) {
             (
                 ContentBlockContent::Text { text, emitted },
                 AnthropicContentBlockDelta::Text { text: delta },
@@ -79,7 +87,7 @@ impl ContentBlockState {
                 if delta.is_empty() {
                     None
                 } else if *emitted {
-                    Some(AnthropicStreamDelta::AssistantText {
+                    Some(BlockEvent::Text {
                         delta,
                         starts_block: false,
                     })
@@ -87,7 +95,7 @@ impl ContentBlockState {
                     None
                 } else {
                     *emitted = true;
-                    Some(AnthropicStreamDelta::AssistantText {
+                    Some(BlockEvent::Text {
                         delta: text.clone(),
                         starts_block: true,
                     })
@@ -100,14 +108,14 @@ impl ContentBlockState {
                 },
             ) => {
                 partial_json.push_str(&delta);
-                None
+                (!delta.is_empty()).then_some(BlockEvent::ToolArguments { delta })
             }
             (
                 ContentBlockContent::Thinking { thinking, .. },
                 AnthropicContentBlockDelta::Thinking { thinking: delta },
             ) => {
                 thinking.push_str(&delta);
-                (!delta.is_empty()).then_some(AnthropicStreamDelta::ReasoningText { delta })
+                (!delta.is_empty()).then_some(BlockEvent::Reasoning { delta })
             }
             (
                 ContentBlockContent::Thinking { signature, .. },
@@ -125,54 +133,62 @@ impl ContentBlockState {
                 });
             }
         };
-        Ok(stream_delta)
+        Ok(event)
     }
 
-    pub(super) fn stop(&mut self, index: u64) -> Result<(), AnthropicStreamError> {
+    pub(super) fn stop(&mut self, index: u64) -> Result<Vec<BlockEvent>, AnthropicStreamError> {
         if self.stopped {
             return Err(AnthropicStreamError::DuplicateContentBlockStop { index });
         }
+        let mut events = Vec::new();
         if let ContentBlockContent::ToolUse {
             input,
             partial_json,
             ..
         } = &mut self.content
-            && !partial_json.is_empty()
         {
-            *input = match serde_json::from_str(partial_json) {
-                Ok(input) => input,
-                Err(source) => {
-                    return Err(AnthropicStreamError::InvalidToolInput { index, source });
-                }
-            };
+            if partial_json.is_empty() {
+                events.push(BlockEvent::ToolArguments {
+                    delta: input.to_string(),
+                });
+            } else {
+                *input = match serde_json::from_str(partial_json) {
+                    Ok(input) => input,
+                    Err(source) => {
+                        return Err(AnthropicStreamError::InvalidToolInput { index, source });
+                    }
+                };
+            }
+            events.push(BlockEvent::ToolEnd);
         }
         self.stopped = true;
-        Ok(())
+        Ok(events)
     }
 
-    pub(super) fn body(&self, index: u64) -> Result<Value, AnthropicStreamError> {
-        if !self.stopped {
-            return Err(AnthropicStreamError::OpenContentBlocks);
-        }
-        let body = match &self.content {
-            ContentBlockContent::Text { text, .. } => json!({"type": "text", "text": text}),
+    pub(super) fn replay(&self) -> Option<AnthropicAssistantBlock> {
+        match &self.content {
+            ContentBlockContent::Text { text, .. } => {
+                Some(AnthropicAssistantBlock::Text { text: text.clone() })
+            }
             ContentBlockContent::ToolUse {
                 id, name, input, ..
-            } => json!({"type": "tool_use", "id": id, "name": name, "input": input}),
+            } => Some(AnthropicAssistantBlock::ToolUse {
+                id: id.clone(),
+                name: name.clone(),
+                input: input.clone(),
+            }),
             ContentBlockContent::Thinking {
                 thinking,
                 signature,
-            } => json!({
-                "type": "thinking",
-                "thinking": thinking,
-                "signature": signature
+            } => Some(AnthropicAssistantBlock::Thinking {
+                thinking: thinking.clone(),
+                signature: signature.clone(),
             }),
             ContentBlockContent::RedactedThinking { data } => {
-                json!({"type": "redacted_thinking", "data": data})
+                Some(AnthropicAssistantBlock::RedactedThinking { data: data.clone() })
             }
-            ContentBlockContent::Ignored => json!({"type": "ignored", "index": index}),
-        };
-        Ok(body)
+            ContentBlockContent::Ignored => None,
+        }
     }
 }
 

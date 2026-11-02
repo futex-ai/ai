@@ -2,7 +2,10 @@
 
 use std::time::Duration;
 
-use ai_interface::{ConversationMessage, Effort, Model, ModelRequest};
+use ai_interface::{
+    AnthropicAssistantBlock, ConversationMessage, Effort, FinishReason, Model, ModelRequest,
+    ModelResponse, ModelUsage, ProviderConversationItem, ToolCall,
+};
 use json_http::StaticHeaderAuth;
 use serde_json::json;
 
@@ -11,7 +14,7 @@ use crate::anthropic::stream_support::{
     client_for_buffered_bodies, event, recording_streaming_client,
 };
 
-use super::{AnthropicModel, response::parse_response, stream_support::custom_spec};
+use super::{AnthropicModel, stream_support::custom_spec};
 
 #[tokio::test]
 async fn sends_streaming_request_with_completion_deadlines() {
@@ -53,26 +56,7 @@ async fn explicit_total_timeout_overrides_streaming_default() {
 }
 
 #[tokio::test]
-async fn streamed_deltas_match_the_buffered_response_mapper() {
-    let buffered = json!({
-        "stop_reason": "tool_use",
-        "content": [
-            {"type": "thinking", "thinking": "private thought", "signature": "signed"},
-            {"type": "text", "text": "Done"},
-            {
-                "type": "tool_use",
-                "id": "call_1",
-                "name": "memory_read",
-                "input": {"path": "root"}
-            }
-        ],
-        "usage": {
-            "input_tokens": 120,
-            "cache_creation_input_tokens": 10,
-            "cache_read_input_tokens": 40,
-            "output_tokens": 32
-        }
-    });
+async fn streamed_deltas_preserve_complete_response_fields() {
     let events = vec![
         event(
             "future_event",
@@ -240,14 +224,47 @@ async fn streamed_deltas_match_the_buffered_response_mapper() {
         .complete(&simple_request())
         .await
         .expect("streamed response should parse");
-    let buffered = parse_response(
-        "anthropic/claude-opus-streaming",
-        "claude-opus-streaming",
-        Effort::Disabled,
-        buffered,
-        None,
-    )
-    .expect("buffered fixture should parse");
+    let buffered = ModelResponse {
+        provider: "anthropic".to_owned(),
+        model_id: "claude-opus-streaming".to_owned(),
+        catalog_model_id: Some("anthropic/claude-opus-streaming".to_owned()),
+        thinking_level: Some(Effort::Disabled),
+        assistant_message: "Done".to_owned(),
+        tool_calls: vec![ToolCall {
+            id: "call_1".to_owned(),
+            name: "memory_read".to_owned(),
+            input: json!({"path": "root"}),
+            operation_id: None,
+        }],
+        finish_reason: FinishReason::ToolCalls,
+        structured_output: None,
+        provider_context: vec![ProviderConversationItem::AnthropicAssistantMessage {
+            blocks: vec![
+                AnthropicAssistantBlock::Thinking {
+                    thinking: "private thought".to_owned(),
+                    signature: "signed".to_owned(),
+                },
+                AnthropicAssistantBlock::Text {
+                    text: "Done".to_owned(),
+                },
+                AnthropicAssistantBlock::ToolUse {
+                    id: "call_1".to_owned(),
+                    name: "memory_read".to_owned(),
+                    input: json!({"path": "root"}),
+                },
+            ],
+        }],
+        usage: ModelUsage {
+            input_tokens: 130,
+            output_tokens: 32,
+            cached_input_tokens: 40,
+            reasoning_tokens: 0,
+            total_tokens: 202,
+            estimated_cost_microusd: 0,
+            cost_lines: Vec::new(),
+        },
+        attempts: Vec::new(),
+    };
 
     assert_eq!(streamed, buffered);
 }
