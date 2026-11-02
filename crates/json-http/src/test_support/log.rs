@@ -41,6 +41,7 @@ impl RecordingLog for MemoryRecordingLog {
         log.push(Recording {
             request,
             response: RecordedResponse::Failure {
+                headers: None,
                 failure: RecordedFailure::Pending,
             },
         });

@@ -60,7 +60,7 @@ async fn successful_non_sse_content_type_is_rejected() {
     let body = b"{}".to_vec();
     let server = spawn_server(ResponseSpec {
         status: "200 OK",
-        content_type: Some("application/json"),
+        content_type: Some("application/json\r\nX-Request-Id: req-wrong-type"),
         header_delay: Duration::ZERO,
         framing: BodyFraming::Fixed {
             declared_length: body.len(),
@@ -71,10 +71,17 @@ async fn successful_non_sse_content_type_is_rejected() {
     let client = ReqwestJsonHttpClient::new();
 
     let result = client.get(&server.url).send_sse().await;
-
+    let error = result.err().expect("wrong SSE type should fail");
+    assert_eq!(
+        error
+            .response_headers()
+            .and_then(|headers| headers.get("x-request-id"))
+            .and_then(|value| value.to_str().ok()),
+        Some("req-wrong-type")
+    );
     assert!(matches!(
-        result,
-        Err(Error::InvalidSseContentType { content_type })
+        error.cause(),
+        Error::InvalidSseContentType { content_type }
             if content_type.as_deref() == Some("application/json")
     ));
     server.request().await;

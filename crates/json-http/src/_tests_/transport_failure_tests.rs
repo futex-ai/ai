@@ -25,7 +25,8 @@ fn shared_transport_classification_keeps_network_and_local_failures_separate() {
             Error::SseTransport {
                 events_received: 2,
                 source: request_error("://invalid"),
-            },
+            }
+            .with_response_headers(Default::default()),
             true,
         ),
         (Error::auth("denied"), false),

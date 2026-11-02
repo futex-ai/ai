@@ -229,7 +229,8 @@ impl JsonHttpRequestBuilder {
                 return Err(Error::DeserializeResponse {
                     body: response.body,
                     source,
-                });
+                }
+                .with_response_headers(response.headers));
             }
         };
         Ok(JsonHttpResponse {

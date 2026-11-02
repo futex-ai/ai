@@ -10,6 +10,14 @@ use crate::{JsonHttpHeaders, sse::JsonHttpSseDecodeError};
 #[derive(Debug, Error)]
 /// Errors returned by the JSON HTTP boundary.
 pub enum Error {
+    /// A response failed after its headers arrived.
+    #[error("[json_http/error] response failed: {source}")]
+    ResponseContext {
+        /// Headers received before the failure.
+        headers: Box<JsonHttpHeaders>,
+        /// Original typed failure with its progress and diagnostics.
+        source: Box<Error>,
+    },
     /// The configured reqwest client could not be constructed.
     #[error("[json_http/error] failed to initialize reqwest client: {source}")]
     ClientInitialization {
@@ -102,10 +110,44 @@ pub enum Error {
 }
 
 impl Error {
+    /// Retains response headers with the original typed failure.
+    pub fn with_response_headers(self, headers: JsonHttpHeaders) -> Self {
+        Self::ResponseContext {
+            headers: Box::new(headers),
+            source: Box::new(self),
+        }
+    }
+
+    /// Returns received response headers when a response was available.
+    pub fn response_headers(&self) -> Option<&JsonHttpHeaders> {
+        match self {
+            Self::ResponseContext { headers, .. } | Self::HttpStatus { headers, .. } => {
+                Some(headers)
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns the original typed cause beneath response-context wrappers.
+    pub fn cause(&self) -> &Self {
+        match self {
+            Self::ResponseContext { source, .. } => source.cause(),
+            cause => cause,
+        }
+    }
+
+    /// Removes response-context wrappers and returns the original typed cause.
+    pub fn into_cause(self) -> Self {
+        match self {
+            Self::ResponseContext { source, .. } => source.into_cause(),
+            cause => cause,
+        }
+    }
+
     /// Reports request or stream transport failures, excluding auth and local errors.
     pub fn is_transport_failure(&self) -> bool {
         matches!(
-            self,
+            self.cause(),
             Self::Transport { .. } | Self::ReqwestTransport { .. } | Self::SseTransport { .. }
         )
     }

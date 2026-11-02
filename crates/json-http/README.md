@@ -29,6 +29,13 @@ same headers with their status and bounded body. `Error::is_transport_failure`
 identifies network failures without classifying auth or local errors as network
 failures.
 
+Failures after headers arrive retain them in `Error::ResponseContext`.
+`response_headers()` also reads headers on status errors. `cause()` borrows the
+original typed failure, and `into_cause()` returns it by value. Both retain its
+progress and diagnostic fields. This covers buffered body reads, typed response
+decoding, rejected SSE body reads, and wrong SSE media types. Recordings keep
+sanitized headers for these failures and restore their failure class on replay.
+
 The crate ships with:
 
 - `ReqwestJsonHttpClient` for real transport

@@ -167,7 +167,8 @@ async fn records_consumed_sse_events_and_failure_without_error_text() {
                     Err(Error::IdleTimeout {
                         idle: Duration::from_secs(10),
                         events_received: 1,
-                    })
+                    }
+                    .with_response_headers(JsonHttpHeaders::new()))
                 });
         }),
     ));
@@ -190,7 +191,7 @@ async fn records_consumed_sse_events_and_failure_without_error_text() {
     );
     let error = stream.next().await.expect_err("idle failure");
     assert!(matches!(
-        error,
+        error.cause(),
         Error::IdleTimeout {
             events_received: 1,
             ..

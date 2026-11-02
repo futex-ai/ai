@@ -37,17 +37,17 @@ impl RecordingTransport {
     }
 
     fn failed(&self, index: usize, error: &Error, redactor: &Redactor) {
-        let response = match error {
-            Error::HttpStatus {
-                status,
-                headers,
-                body,
-            } => RecordedResponse::Json {
-                headers: redactor.headers(headers),
+        let headers = error
+            .response_headers()
+            .map(|headers| redactor.headers(headers));
+        let response = match error.cause() {
+            Error::HttpStatus { status, body, .. } => RecordedResponse::Json {
+                headers: headers.unwrap_or_default(),
                 status: *status,
                 body: redactor.value(body),
             },
             error => RecordedResponse::Failure {
+                headers,
                 failure: RecordedFailure::capture(error),
             },
         };

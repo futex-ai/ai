@@ -100,7 +100,9 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
         let headers = response.headers().clone();
         let text = match response.text().await {
             Ok(text) => text,
-            Err(source) => return Err(Error::ReqwestTransport { source }),
+            Err(source) => {
+                return Err(Error::ReqwestTransport { source }.with_response_headers(headers));
+            }
         };
         let body = serde_json::from_str(&text).unwrap_or(Value::String(text));
         Ok(JsonHttpResponse {
@@ -116,7 +118,9 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
         let headers = response.headers().clone();
         let body = match response.bytes().await {
             Ok(body) => body.to_vec(),
-            Err(source) => return Err(Error::ReqwestTransport { source }),
+            Err(source) => {
+                return Err(Error::ReqwestTransport { source }.with_response_headers(headers));
+            }
         };
         Ok(JsonHttpResponse {
             headers,
@@ -146,7 +150,10 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
         if !response.status().is_success() {
             let status = response.status().as_u16();
             let headers = response.headers().clone();
-            let body = read_error_body(&mut response, &timer).await?;
+            let body = match read_error_body(&mut response, &timer).await {
+                Ok(body) => body,
+                Err(source) => return Err(source.with_response_headers(headers)),
+            };
             return Err(Error::HttpStatus {
                 status,
                 headers: Box::new(headers),
@@ -159,7 +166,8 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
             .and_then(|value| value.to_str().ok())
             .map(ToOwned::to_owned);
         if !content_type.as_deref().is_some_and(is_event_stream) {
-            return Err(Error::InvalidSseContentType { content_type });
+            return Err(Error::InvalidSseContentType { content_type }
+                .with_response_headers(response.headers().clone()));
         }
 
         Ok(Box::new(ReqwestJsonHttpSseStream::new(response, timer)))

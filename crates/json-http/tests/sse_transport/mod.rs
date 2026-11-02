@@ -1,3 +1,5 @@
+#[path = "../_tests_/body_failure_headers_tests.rs"]
+mod body_failure_headers_tests;
 mod error_tests;
 #[path = "../_tests_/response_headers_tests.rs"]
 mod response_headers_tests;

@@ -132,6 +132,13 @@ pub enum RecordedResponse {
     },
     /// A failure before a response was available.
     Failure {
+        /// Sanitized response headers when headers arrived before this failure.
+        #[serde(
+            default,
+            with = "super::optional_headers",
+            skip_serializing_if = "Option::is_none"
+        )]
+        headers: Option<JsonHttpHeaders>,
         /// Failure class without raw error text or credentials.
         failure: RecordedFailure,
     },

@@ -5,7 +5,7 @@ use std::time::Duration;
 use reqwest::IntoUrl;
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, JsonHttpSseDecoder};
+use crate::{Error, JsonHttpHeaders, JsonHttpSseDecoder};
 
 /// Persisted failure facts, without diagnostic strings from a real request.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -37,7 +37,7 @@ pub enum RecordedFailure {
 
 impl RecordedFailure {
     pub(super) fn capture(error: &Error) -> Self {
-        match error {
+        match error.cause() {
             Error::IdleTimeout { idle, .. } => Self::IdleTimeout { idle: *idle },
             Error::DeadlineExceeded { timeout, .. } => Self::DeadlineExceeded { timeout: *timeout },
             Error::SseDecode { .. } => Self::Decode,
@@ -45,6 +45,18 @@ impl RecordedFailure {
             Error::Auth { .. } => Self::Auth,
             Error::InvalidSseContentType { .. } => Self::InvalidContentType,
             _ => Self::Transport,
+        }
+    }
+
+    pub(super) fn error_with_headers(
+        &self,
+        events_received: u64,
+        headers: Option<JsonHttpHeaders>,
+    ) -> Error {
+        let error = self.error(events_received);
+        match headers {
+            Some(headers) => error.with_response_headers(headers),
+            None => error,
         }
     }
 

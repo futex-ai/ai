@@ -114,7 +114,9 @@ impl JsonHttpTransport for ReplayTransport {
                 status,
                 body,
             }),
-            RecordedResponse::Failure { failure } => Err(failure.error(0)),
+            RecordedResponse::Failure { failure, headers } => {
+                Err(failure.error_with_headers(0, headers))
+            }
             _ => Err(ReplayError::ResponseMismatch.http()),
         }
     }
@@ -133,7 +135,9 @@ impl JsonHttpTransport for ReplayTransport {
                 }),
                 Err(source) => Err(ReplayError::InvalidBase64 { source }.http()),
             },
-            RecordedResponse::Failure { failure } => Err(failure.error(0)),
+            RecordedResponse::Failure { failure, headers } => {
+                Err(failure.error_with_headers(0, headers))
+            }
             _ => Err(ReplayError::ResponseMismatch.http()),
         }
     }
@@ -160,7 +164,9 @@ impl JsonHttpTransport for ReplayTransport {
                 headers: Box::new(headers),
                 body,
             }),
-            RecordedResponse::Failure { failure } => Err(failure.error(0)),
+            RecordedResponse::Failure { failure, headers } => {
+                Err(failure.error_with_headers(0, headers))
+            }
             _ => Err(ReplayError::ResponseMismatch.http()),
         }
     }
