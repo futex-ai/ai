@@ -313,6 +313,16 @@ All calls are mine, made on 2026-11-01.
     `crates/ai-mcp/tests/tool_runtime_smoke.rs`. This follows the trait
     change and changes no MCP production code, so the MCP crates still
     change only after Milestone 11.
+- 2026-11-02, before Milestone 9:
+  - Milestone 9 keeps the per-provider constructors until the user answers
+    item 24 (`plans/follow-ups/constructor-default-effort.md`), because
+    one option of item 24 keeps a constructor path. A later TODO deletes
+    them.
+  - Milestone 9 implements the rule of `provider-registry.md` that an
+    adapter sends its credentials only to the host of its base URL. It
+    drops the auth on cross-origin redirect hops, which adds no new
+    failure. `plans/follow-ups/json-http-redirect-leaks-keys.md` then keeps
+    only the question whether to disable redirects entirely.
 
 ## Pull requests
 
@@ -530,7 +540,7 @@ fallback explicit.
       that deferred polling continues after a network failure of the
       production transport.
 - [x] Mark `model-policies.md` implemented.
-- [ ] Run `cargo xtask check`, then commit and push.
+- [x] Run `cargo xtask check`, then commit and push.
 
 ## Milestone 9: Provider registry
 
@@ -549,6 +559,7 @@ Build any catalog entry from one config shape.
       with the registry.
 - [ ] Mark `provider-registry.md` and `chat-completions-dialects.md`
       implemented.
+- [ ] Delete the per-provider constructors after the user answers item 24.
 - [ ] Run `cargo xtask check` and `cargo xtask smoke-test`, then commit
       and push.
 - [ ] Run the ship steps for pull request 5.
