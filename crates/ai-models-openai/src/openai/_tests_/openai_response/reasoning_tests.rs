@@ -3,11 +3,11 @@
 use ai_interface::{FinishReason, OpenAiReasoningSummary, ProviderConversationItem};
 use serde_json::json;
 
-use super::{Effort, parse_response};
+use super::{Effort, response_from_fixture};
 
-#[test]
-fn ignores_reasoning_output_items() {
-    let response = parse_response(
+#[tokio::test]
+async fn ignores_reasoning_output_items() {
+    let response = response_from_fixture(
         "gpt-5.5-thinking-extra-high",
         "gpt-5.5",
         Effort::ExtraHigh,
@@ -34,6 +34,7 @@ fn ignores_reasoning_output_items() {
         }),
         None,
     )
+    .await
     .expect("mixed reasoning response should parse");
 
     assert_eq!(response.assistant_message, "Visible");
@@ -45,9 +46,9 @@ fn ignores_reasoning_output_items() {
     );
 }
 
-#[test]
-fn preserves_reasoning_items_for_stateless_tool_continuation() {
-    let response = parse_response(
+#[tokio::test]
+async fn preserves_reasoning_items_for_stateless_tool_continuation() {
+    let response = response_from_fixture(
         "gpt-5.5-thinking-extra-high",
         "gpt-5.5",
         Effort::ExtraHigh,
@@ -70,6 +71,7 @@ fn preserves_reasoning_items_for_stateless_tool_continuation() {
         }),
         None,
     )
+    .await
     .expect("reasoning response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
@@ -95,9 +97,9 @@ fn preserves_reasoning_items_for_stateless_tool_continuation() {
     );
 }
 
-#[test]
-fn preserves_function_call_items_for_stateless_replay_context() {
-    let response = parse_response(
+#[tokio::test]
+async fn preserves_function_call_items_for_stateless_replay_context() {
+    let response = response_from_fixture(
         "gpt-5.5-thinking-extra-high",
         "gpt-5.5",
         Effort::ExtraHigh,
@@ -121,6 +123,7 @@ fn preserves_function_call_items_for_stateless_replay_context() {
         }),
         None,
     )
+    .await
     .expect("function-call response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
@@ -150,9 +153,9 @@ fn preserves_function_call_items_for_stateless_replay_context() {
     );
 }
 
-#[test]
-fn preserves_assistant_message_phase_for_stateless_replay_context() {
-    let response = parse_response(
+#[tokio::test]
+async fn preserves_assistant_message_phase_for_stateless_replay_context() {
+    let response = response_from_fixture(
         "gpt-5.5-thinking-extra-high",
         "gpt-5.5",
         Effort::ExtraHigh,
@@ -176,6 +179,7 @@ fn preserves_assistant_message_phase_for_stateless_replay_context() {
         }),
         None,
     )
+    .await
     .expect("preamble response should parse");
 
     let provider_context =
@@ -186,9 +190,9 @@ fn preserves_assistant_message_phase_for_stateless_replay_context() {
     assert_eq!(response.assistant_message, "I'll inspect memory.");
 }
 
-#[test]
-fn preserves_phase_less_assistant_message_order_for_stateless_replay_context() {
-    let response = parse_response(
+#[tokio::test]
+async fn preserves_phase_less_assistant_message_order_for_stateless_replay_context() {
+    let response = response_from_fixture(
         "gpt-5.5-thinking-extra-high",
         "gpt-5.5",
         Effort::ExtraHigh,
@@ -211,6 +215,7 @@ fn preserves_phase_less_assistant_message_order_for_stateless_replay_context() {
         }),
         None,
     )
+    .await
     .expect("phase-less preamble response should parse");
 
     let provider_context =

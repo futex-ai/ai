@@ -3,11 +3,11 @@
 use ai_interface::{Effort, FinishReason, StructuredOutputSchema};
 use serde_json::json;
 
-use super::response::parse_response;
+use super::stream_support::response_from_fixture;
 
-#[test]
-fn structured_output_refusal_preserves_filtered_finish_reason() {
-    let response = parse_response(
+#[tokio::test]
+async fn structured_output_refusal_preserves_filtered_finish_reason() {
+    let response = response_from_fixture(
         "gpt-5.5",
         "gpt-5.5",
         Effort::Medium,
@@ -24,6 +24,7 @@ fn structured_output_refusal_preserves_filtered_finish_reason() {
         }),
         Some(&status_schema()),
     )
+    .await
     .expect("filtered structured response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::Filtered);
@@ -31,9 +32,9 @@ fn structured_output_refusal_preserves_filtered_finish_reason() {
     assert_eq!(response.assistant_message, "I cannot provide that.");
 }
 
-#[test]
-fn structured_output_truncation_preserves_truncated_finish_reason() {
-    let response = parse_response(
+#[tokio::test]
+async fn structured_output_truncation_preserves_truncated_finish_reason() {
+    let response = response_from_fixture(
         "gpt-5.5",
         "gpt-5.5",
         Effort::Medium,
@@ -51,6 +52,7 @@ fn structured_output_truncation_preserves_truncated_finish_reason() {
         }),
         Some(&status_schema()),
     )
+    .await
     .expect("truncated structured response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::Truncated);

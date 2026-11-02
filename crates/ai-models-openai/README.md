@@ -16,12 +16,13 @@ neighboring crates.
 - Export the OpenAI `PROVIDER_ID`, one `ModelSpec` constant for each known
   model, the `CATALOG` slice, and the `CUSTOM_DEFAULTS` of unlisted models
 - Map shared model/tool DTOs to the OpenAI Responses API
-- Consume OpenAI Responses SSE events, emit public text progress, and retain
-  the complete terminal response
+- Map OpenAI Responses SSE events to model events in provider order: output
+  text, reasoning, function calls, usage, and finish
 - Map shared audio transcription DTOs to `v1/audio/transcriptions`
 - Map shared image DTOs to `v1/images/generations` and `v1/images/edits`
 - Map shared video DTOs to asynchronous `v1/videos` jobs and downloads
-- Parse OpenAI responses into shared response DTOs and typed model errors
+- Map Responses terminal events and failures to finish events, usage events,
+  and typed model errors
 
 ## What This Crate Does
 
@@ -29,9 +30,15 @@ neighboring crates.
 input. Each call runs the shared capability check of `ai-models-core`
 against the spec before transport. The adapter handles:
 
-- OpenAI Responses request serialization with internal SSE consumption
-- opt-in assistant output and reasoning-summary delta delivery through
-  `complete_with_events`, while schema-constrained calls remain silent
+- OpenAI Responses request serialization with `"stream": true`
+- `Model::stream`: a text delta for each output-text or refusal fragment, a
+  reasoning delta for each reasoning-summary or reasoning-text fragment, and
+  tool-call start, argument, and end events for each function-call item, in
+  provider order. Output text and refusal text join without a separator. One
+  usage event and one finish event follow the terminal `response.completed`
+  or `response.incomplete` event. `Model::complete` folds these events.
+- calls with a response schema emit text deltas like any other call, and
+  the finish event carries the validated structured output
 - 3,600-second default overall completion deadline, 120-second stream idle
   deadline, and explicit per-call total-timeout overrides
 - shared text and image parts as Responses input content, with typed rejection
@@ -41,9 +48,10 @@ against the spec before transport. The adapter handles:
   timeouts, blank-instruction omission, and typed rejection of unsupported
   stop sequences
 - OpenAI tool-call parsing
-- OpenAI `finish_reason` normalization into `ai_interface::FinishReason`
-  before exposing tool calls, so incomplete or failed Responses results cannot
-  dispatch partial function-call output items
+- OpenAI terminal status normalization into `ai_interface::FinishReason`.
+  The folded response keeps tool calls only for the `ToolCalls` finish
+  reason, so incomplete Responses results cannot dispatch partial
+  function-call output items
 - OpenAI `text.format` JSON-schema mapping for structured outputs, using
   non-strict mode so callers can pass the broader shared schema contract
 - OpenAI `reasoning.effort` mapping from the resolved request effort for
@@ -65,8 +73,9 @@ against the spec before transport. The adapter handles:
   Kimi, and MiniMax assistant reasoning state and raw tool calls
 - provider response usage extraction into normalized input, output, cached
   input, and reasoning token counts
-- terminal `response.completed` and `response.incomplete` objects routed
-  through the buffered response parser, preserving truncated partial results
+- `response.incomplete` ends the attempt with its partial output: the
+  truncated finish reason for `max_output_tokens`, the filtered finish reason
+  for `content_filter`, and the other finish reason otherwise
 - typed classification of completion failures before stream progress as
   retryable or provider errors and failures after progress as
   `ModelError::Interrupted`
@@ -95,7 +104,8 @@ OpenAI generation uses workspace-defined function tools with `strict: false` dur
 the Responses cutover. OpenAI built-in tools are intentionally not exposed by
 this crate.
 When OpenAI returns Responses assistant message `phase`, `reasoning`, or
-`function_call` output items, this crate stores those replay-sensitive items in
+`function_call` output items, the finish event carries those replay-sensitive
+items in its `provider_context`, and the folded response keeps them in
 `ModelResponse::provider_context`; runtimes should keep that context on the
 assistant message so later OpenAI requests can replay the phased assistant
 message and provider items before the associated function-call outputs. The
@@ -191,17 +201,18 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 
 ### Key Code
 
-- `src/openai/mod.rs` - `Model` implementation and request dispatch
+- `src/openai/mod.rs` - `Model::stream` implementation and request dispatch
 - `src/catalog.rs` - OpenAI provider id, model spec constants, `CATALOG`, and
   custom defaults
 - `src/openai/request.rs` - maps the resolved controls and the effort to the
   Responses request
 - `src/openai/request_types.rs` - OpenAI Responses request DTOs
-- `src/openai/response/mod.rs` - OpenAI Responses response parsing
-- `src/openai/stream/` - public delta emission, terminal event handling, and
-  stream failure mapping
-- `src/openai/_tests_/openai_event_tests.rs` - event order, parity,
-  suppression, and interruption coverage
+- `src/openai/response/` - typed Responses output items, finish reasons,
+  and replay items
+- `src/openai/stream/` - typed Responses SSE events, model event mapping,
+  and stream failure mapping
+- `src/openai/_tests_/openai_event_tests.rs` - event order, schema events,
+  and interruption coverage
 - `src/openai/transcription.rs` - OpenAI audio transcription implementation
 - `src/openai/image_generation/` - OpenAI image request, response, and error mapping
 - `src/openai/video_generation/` - OpenAI asynchronous video submission,
@@ -211,8 +222,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
-- [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
-- [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
+- [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [OpenAI model catalog](https://developers.openai.com/api/docs/models)
 - [OpenAI Responses streaming reference](https://developers.openai.com/api/reference/typescript/resources/beta/subresources/responses/methods/create)

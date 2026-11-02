@@ -5,7 +5,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ai_interface::ModelSpec;
+use ai_interface::{
+    Effort, FinishReason, ModelResponse, ModelResponseFold, ModelResult, ModelSpec, ModelUsage,
+    StructuredOutputSchema,
+};
 use json_http::{
     DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpSseEvent, JsonHttpSseStreamMock,
     JsonHttpTransportMock, TransportBackedJsonHttpClient,
@@ -14,6 +17,8 @@ use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{CUSTOM_DEFAULTS, PROVIDER_ID};
+
+use super::stream;
 
 pub(super) type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 pub(super) type StreamItem = json_http::Result<Option<JsonHttpSseEvent>>;
@@ -96,4 +101,46 @@ fn mock_stream(items: Vec<StreamItem>) -> DynJsonHttpSseStream {
                     .unwrap_or(Ok(None))
             })),
     ))
+}
+
+pub(super) async fn response_from_fixture(
+    catalog_model_id: &str,
+    provider_model_id: &str,
+    thinking_level: Effort,
+    body: Value,
+    schema: Option<&StructuredOutputSchema>,
+) -> ModelResult<ModelResponse> {
+    let mut stream = stream::open(
+        mock_stream(vec![terminal_event("response.completed", body)]),
+        catalog_model_id.to_owned(),
+        provider_model_id.to_owned(),
+        thinking_level,
+        schema.cloned(),
+    );
+    let mut fold = ModelResponseFold::new();
+    while let Some(event) = stream.next().await? {
+        fold.push(event)?;
+    }
+    fold.finish()
+}
+
+pub(super) fn expected_response(
+    assistant_message: &str,
+    thinking_level: Effort,
+    finish_reason: FinishReason,
+    usage: ModelUsage,
+) -> ModelResponse {
+    ModelResponse {
+        provider: "openai".to_owned(),
+        model_id: "gpt-5.5".to_owned(),
+        catalog_model_id: Some("openai/gpt-5.5".to_owned()),
+        thinking_level: Some(thinking_level),
+        assistant_message: assistant_message.to_owned(),
+        tool_calls: Vec::new(),
+        finish_reason,
+        structured_output: None,
+        provider_context: Vec::new(),
+        usage,
+        attempts: Vec::new(),
+    }
 }

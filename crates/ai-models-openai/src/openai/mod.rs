@@ -11,10 +11,7 @@ mod video_generation;
 
 use std::{sync::Arc, time::Duration};
 
-use ai_interface::{
-    Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse, ModelSpec,
-    NoopModelCompletionEventSink,
-};
+use ai_interface::{DynModelEventStream, Model, ModelError, ModelRequest, ModelResult, ModelSpec};
 use ai_models_core::{classify_json_http_stream_error, resolve_controls};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
@@ -75,12 +72,9 @@ impl OpenAiModel {
     }
 }
 
-impl OpenAiModel {
-    async fn complete_with_sink(
-        &self,
-        request: &ModelRequest,
-        event_sink: &dyn ModelCompletionEventSink,
-    ) -> std::result::Result<ModelResponse, ModelError> {
+#[async_trait]
+impl Model for OpenAiModel {
+    async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
         let controls = resolve_controls(request, &self.spec)?;
         let response_schema = request.response_schema.as_ref();
         let builder = self
@@ -108,39 +102,13 @@ impl OpenAiModel {
                 ));
             }
         };
-        stream::complete(
+        Ok(stream::open(
             stream,
-            &self.spec.text_id(),
-            &self.spec.provider_model_id,
+            self.spec.text_id(),
+            self.spec.provider_model_id.to_string(),
             controls.effort,
-            response_schema,
-            event_sink,
-        )
-        .await
-    }
-}
-
-#[async_trait]
-impl Model for OpenAiModel {
-    async fn complete(
-        &self,
-        request: &ModelRequest,
-    ) -> std::result::Result<ModelResponse, ModelError> {
-        self.complete_with_sink(request, &NoopModelCompletionEventSink)
-            .await
-    }
-
-    async fn complete_with_events(
-        &self,
-        request: &ModelRequest,
-        event_sink: &dyn ModelCompletionEventSink,
-    ) -> std::result::Result<ModelResponse, ModelError> {
-        if request.response_schema.is_some() {
-            return self
-                .complete_with_sink(request, &NoopModelCompletionEventSink)
-                .await;
-        }
-        self.complete_with_sink(request, event_sink).await
+            response_schema.cloned(),
+        ))
     }
 }
 
@@ -191,3 +159,7 @@ mod stream_support;
 #[cfg(test)]
 #[path = "_tests_/request_effort_tests.rs"]
 mod request_effort_tests;
+
+#[cfg(test)]
+#[path = "_tests_/openai_lifecycle_tests.rs"]
+mod openai_lifecycle_tests;

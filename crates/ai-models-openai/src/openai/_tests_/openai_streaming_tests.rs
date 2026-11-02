@@ -5,7 +5,8 @@ use std::time::Duration;
 
 use ai_interface::{
     ConversationMessage, Effort, FinishReason, Model, ModelCallControls, ModelExecutionControls,
-    ModelRequest, StructuredOutputSchema,
+    ModelRequest, ModelUsage, OpenAiReasoningSummary, ProviderConversationItem,
+    StructuredOutputSchema, ToolCall,
 };
 use json_http::StaticHeaderAuth;
 use serde_json::{Value, json};
@@ -14,7 +15,7 @@ use crate::GPT_5_5;
 use crate::openai::stream_support::custom_spec;
 use crate::openai::stream_support::{event, recording_streaming_client, terminal_event};
 
-use super::{OpenAiModel, response::parse_response};
+use super::{OpenAiModel, stream_support::expected_response};
 
 #[tokio::test]
 async fn sends_streaming_request_with_completion_deadlines() {
@@ -69,7 +70,7 @@ async fn completed_stream_matches_rich_buffered_response() {
         ),
         event(
             "response.output_text.delta",
-            json!({"type": "response.output_text.delta", "delta": "Done"}),
+            json!({"type": "response.output_text.delta", "delta": "Checking. "}),
         ),
         event("future.event", json!({"type": "future.event"})),
         terminal_event("response.completed", body.clone()),
@@ -84,8 +85,44 @@ async fn completed_stream_matches_rich_buffered_response() {
         .complete(&request)
         .await
         .expect("streamed response should parse");
-    let buffered = parse_response("openai/gpt-5.5", "gpt-5.5", Effort::High, body, None)
-        .expect("buffered response should parse");
+    let mut buffered = expected_response(
+        "Checking. ",
+        Effort::High,
+        FinishReason::ToolCalls,
+        ModelUsage {
+            input_tokens: 80,
+            output_tokens: 20,
+            cached_input_tokens: 40,
+            reasoning_tokens: 12,
+            total_tokens: 152,
+            ..Default::default()
+        },
+    );
+    buffered.tool_calls = vec![ToolCall {
+        id: "call_1".to_owned(),
+        name: "memory_read".to_owned(),
+        input: json!({"path": "root"}),
+        operation_id: None,
+    }];
+    buffered.provider_context = vec![
+        ProviderConversationItem::OpenAiReasoning {
+            id: "rs_1".to_owned(),
+            summary: vec![OpenAiReasoningSummary {
+                kind: "summary_text".to_owned(),
+                text: "Use memory".to_owned(),
+            }],
+            encrypted_content: Some("encrypted".to_owned()),
+        },
+        ProviderConversationItem::OpenAiMessage {
+            phase: Some("commentary".to_owned()),
+        },
+        ProviderConversationItem::OpenAiFunctionCall {
+            id: Some("fc_1".to_owned()),
+            call_id: "call_1".to_owned(),
+            name: "memory_read".to_owned(),
+            arguments: "{\"path\":\"root\"}".to_owned(),
+        },
+    ];
 
     assert_eq!(streamed, buffered);
     assert_eq!(streamed.finish_reason, FinishReason::ToolCalls);
@@ -112,14 +149,18 @@ async fn completed_structured_stream_matches_buffered_response() {
         .complete(&request)
         .await
         .expect("structured stream should parse");
-    let buffered = parse_response(
-        "openai/gpt-5.5",
-        "gpt-5.5",
+    let mut buffered = expected_response(
+        "{\"summary\":\"Done\"}",
         Effort::Disabled,
-        body,
-        Some(&schema),
-    )
-    .expect("buffered response should parse");
+        FinishReason::Stop,
+        ModelUsage {
+            input_tokens: 4,
+            output_tokens: 2,
+            total_tokens: 6,
+            ..Default::default()
+        },
+    );
+    buffered.structured_output = Some(json!({"summary": "Done"}));
 
     assert_eq!(streamed, buffered);
 }
@@ -143,8 +184,17 @@ async fn incomplete_stream_matches_buffered_truncation() {
         .complete(&simple_request())
         .await
         .expect("incomplete response should remain usable");
-    let buffered = parse_response("openai/gpt-5.5", "gpt-5.5", Effort::Disabled, body, None)
-        .expect("buffered incomplete response should parse");
+    let buffered = expected_response(
+        "Partial",
+        Effort::Disabled,
+        FinishReason::Truncated,
+        ModelUsage {
+            input_tokens: 4,
+            output_tokens: 8,
+            total_tokens: 12,
+            ..Default::default()
+        },
+    );
 
     assert_eq!(streamed, buffered);
     assert_eq!(streamed.finish_reason, FinishReason::Truncated);

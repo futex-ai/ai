@@ -3,10 +3,10 @@
 use ai_interface::{FinishReason, ModelError};
 use serde_json::json;
 
-use super::{Effort, openai_function_call_body, openai_text_body, parse_response};
+use super::{Effort, openai_function_call_body, openai_text_body, response_from_fixture};
 
-#[test]
-fn maps_response_finish_reasons() {
+#[tokio::test]
+async fn maps_response_finish_reasons() {
     let cases = [
         (
             openai_text_body("Done"),
@@ -47,15 +47,16 @@ fn maps_response_finish_reasons() {
     ];
 
     for (body, expected, label) in cases {
-        let response =
-            parse_response("gpt-5.5", "gpt-5.5", Effort::Medium, body, None).expect(label);
+        let response = response_from_fixture("gpt-5.5", "gpt-5.5", Effort::Medium, body, None)
+            .await
+            .expect(label);
         assert_eq!(response.finish_reason, expected, "{label}");
     }
 }
 
-#[test]
-fn maps_refusal_content_to_filtered_finish_reason() {
-    let response = parse_response(
+#[tokio::test]
+async fn maps_refusal_content_to_filtered_finish_reason() {
+    let response = response_from_fixture(
         "gpt-5.5",
         "gpt-5.5",
         Effort::Medium,
@@ -72,15 +73,16 @@ fn maps_refusal_content_to_filtered_finish_reason() {
         }),
         None,
     )
+    .await
     .expect("refusal response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::Filtered);
     assert_eq!(response.assistant_message, "I cannot help with that.");
 }
 
-#[test]
-fn parses_multiple_function_call_output_items() {
-    let response = parse_response(
+#[tokio::test]
+async fn parses_multiple_function_call_output_items() {
+    let response = response_from_fixture(
         "gpt-5.5",
         "gpt-5.5",
         Effort::Medium,
@@ -103,6 +105,7 @@ fn parses_multiple_function_call_output_items() {
         }),
         None,
     )
+    .await
     .expect("function calls should parse");
 
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
@@ -111,9 +114,9 @@ fn parses_multiple_function_call_output_items() {
     assert_eq!(response.tool_calls[1].id, "call_2");
 }
 
-#[test]
-fn incomplete_function_call_response_is_not_dispatchable() {
-    let response = parse_response(
+#[tokio::test]
+async fn incomplete_function_call_response_is_not_dispatchable() {
+    let response = response_from_fixture(
         "gpt-5.5",
         "gpt-5.5",
         Effort::Medium,
@@ -129,6 +132,7 @@ fn incomplete_function_call_response_is_not_dispatchable() {
         }),
         None,
     )
+    .await
     .expect("incomplete function-call response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::Truncated);
@@ -136,15 +140,16 @@ fn incomplete_function_call_response_is_not_dispatchable() {
     assert!(response.provider_context.is_empty());
 }
 
-#[test]
-fn rejects_invalid_function_call_arguments() {
-    let error = parse_response(
+#[tokio::test]
+async fn rejects_invalid_function_call_arguments() {
+    let error = response_from_fixture(
         "gpt-5.5",
         "gpt-5.5",
         Effort::Medium,
         openai_function_call_body("not json"),
         None,
     )
+    .await
     .expect_err("invalid tool arguments should fail");
 
     assert!(matches!(error, ModelError::Provider { .. }));
