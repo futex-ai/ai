@@ -1,8 +1,9 @@
 # AI library redesign
 
 Status: Active. [PR #24](https://github.com/futex-ai/ai/pull/24) is open for
-the first pull request, and [PR #25](https://github.com/futex-ai/ai/pull/25)
-for the second. The work spans eight stacked pull requests. Each earlier pull request keeps
+the first pull request, [PR #25](https://github.com/futex-ai/ai/pull/25)
+for the second, and [PR #26](https://github.com/futex-ai/ai/pull/26) for the
+third. The work spans eight stacked pull requests. Each earlier pull request keeps
 this plan. The last one deletes it, as the final milestone says.
 
 The workspace puts nine AI providers behind one interface, with a
@@ -443,7 +444,7 @@ Put the facts of each model in one constant, and check requests against it.
 - [x] Add `cargo xtask capability-matrix`, and regenerate the matrix in
       `model-capabilities.md`. Mark that doc implemented.
 - [x] Run `cargo xtask check`, then commit and push.
-- [ ] Run the ship steps for pull request 3.
+- [x] Run the ship steps for pull request 3.
 
 ## Milestone 6: One stream method
 
