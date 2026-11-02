@@ -115,8 +115,9 @@ Each live completion must:
 Every probe, synchronous or deferred, must also emit at least one nonempty
 text delta. Text-event parity means that the text parts of those deltas,
 each joined from its deltas and then joined in part position order, exactly
-reproduce the response text, `assistant_message`. Any reasoning deltas must
-be nonempty, and a direct provider probe must not emit a fallback event.
+reproduce the response text. Text and reasoning deltas follow the
+[delta rules of the model stream protocol](model-stream.md#model-events).
+A direct provider probe must not emit a fallback event.
 Each successful stream emits exactly one usage event, then exactly one finish
 event. A request with a response schema must emit text deltas with the same
 parity.
