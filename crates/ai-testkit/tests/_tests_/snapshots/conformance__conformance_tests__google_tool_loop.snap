@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's google adapter result for tool_loop using gemini-3.6-flash synthetic recordings."
 expression: outcome
 ---
@@ -15,12 +16,11 @@ expression: outcome
         "assistant_message": "",
         "tool_calls": [
           {
-            "id": "google_function_call:c763611175a29ef4",
+            "id": "call-lookup-7",
             "name": "lookup",
             "input": {
               "id": 7
-            },
-            "operation_id": "google_function_call:c763611175a29ef4"
+            }
           }
         ],
         "finish_reason": "ToolCalls",
@@ -34,6 +34,7 @@ expression: outcome
               },
               {
                 "functionCall": {
+                  "id": "call-lookup-7",
                   "name": "lookup",
                   "args": {
                     "id": 7

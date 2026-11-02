@@ -70,7 +70,7 @@
         "events": [
           {
             "event": null,
-            "data": "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Use lookup.\",\"thought\":true},{\"functionCall\":{\"args\":{\"id\":7},\"name\":\"lookup\"},\"thoughtSignature\":\"synthetic-thought-signature\"}],\"role\":\"model\"}}]}"
+            "data": "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Use lookup.\",\"thought\":true},{\"functionCall\":{\"args\":{\"id\":7},\"id\":\"call-lookup-7\",\"name\":\"lookup\"},\"thoughtSignature\":\"synthetic-thought-signature\"}],\"role\":\"model\"}}]}"
           },
           {
             "event": null,
@@ -112,6 +112,7 @@
                       "args": {
                         "id": 7
                       },
+                      "id": "call-lookup-7",
                       "name": "lookup"
                     },
                     "thoughtSignature": "synthetic-thought-signature"
@@ -123,7 +124,7 @@
                 "parts": [
                   {
                     "functionResponse": {
-                      "id": "google_function_call:c763611175a29ef4",
+                      "id": "call-lookup-7",
                       "name": "lookup",
                       "response": {
                         "result": "{\"value\":7}"

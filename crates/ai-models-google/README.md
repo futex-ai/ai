@@ -35,10 +35,11 @@ neighboring crates.
 - full ordered model content in `ProviderConversationItem::GoogleAssistantMessage`
   when any part has a `thoughtSignature`. Replay preserves the original text,
   thought flags, function-call ids and arguments, and signatures. A missing
-  provider call id stays absent in replay even when runtime dispatch needs a
-  synthetic id. Signed parts, including empty text and signature-only parts,
-  stay separate in replay data. Signatures do not change answer text or public
-  deltas. Text continues across chunks, and separate text parts in one chunk
+  provider call id stays absent in replay and tool results even when runtime
+  dispatch needs a synthetic id. Unsigned calls keep their runtime id on both
+  the call and its result. Signed parts, including empty text and signature-only
+  parts, stay separate in replay data. Signatures do not change answer text or
+  public deltas. Text continues across chunks, and separate text parts in one chunk
   keep their newline. The tool runtime removes this private context from log
   copies.
 - inline `inlineData` parts for shared base64 image and video user content

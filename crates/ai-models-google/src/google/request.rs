@@ -1,8 +1,10 @@
 //! Google Gemini request and continuation mapping.
 
+use std::collections::BTreeMap;
+
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, GoogleAssistantPart,
-    GoogleFunctionCallContext, ModelRequest, ProviderConversationItem, ToolDefinition,
+    GoogleFunctionCallContext, ModelRequest, ProviderConversationItem, ToolCall, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 
@@ -75,14 +77,20 @@ fn generation_config(
 
 fn google_contents(messages: &[ConversationMessage]) -> Vec<GoogleContent> {
     let mut output = Vec::new();
+    let mut sent_ids = BTreeMap::new();
     for message in messages {
         match message.role {
             ConversationRole::User => append_parts(&mut output, "user", user_parts(message)),
             ConversationRole::Assistant => {
-                if let Some(parts) = message.provider_context.iter().find_map(|item| match item {
+                let replay_parts = message.provider_context.iter().find_map(|item| match item {
                     ProviderConversationItem::GoogleAssistantMessage { parts } => Some(parts),
                     _ => None,
-                }) {
+                });
+                sent_ids.extend(tool_call_ids(
+                    &message.tool_calls,
+                    replay_parts.map(Vec::as_slice),
+                ));
+                if let Some(parts) = replay_parts {
                     output.push(GoogleContent {
                         role: "model".to_owned(),
                         parts: parts.iter().cloned().map(GooglePart::Assistant).collect(),
@@ -96,7 +104,11 @@ fn google_contents(messages: &[ConversationMessage]) -> Vec<GoogleContent> {
                 parts.extend(message.tool_calls.iter().map(|call| {
                     GooglePart::Assistant(GoogleAssistantPart {
                         function_call: Some(GoogleFunctionCallContext {
-                            id: Some(call.id.clone()),
+                            id: sent_ids
+                                .get(call.id.as_str())
+                                .copied()
+                                .flatten()
+                                .map(str::to_owned),
                             name: call.name.clone(),
                             args: Some(call.input.clone()),
                         }),
@@ -110,7 +122,11 @@ fn google_contents(messages: &[ConversationMessage]) -> Vec<GoogleContent> {
                 "user",
                 vec![GooglePart::FunctionResponse {
                     function_response: GoogleFunctionResponse {
-                        id: message.tool_call_id.clone(),
+                        id: message
+                            .tool_call_id
+                            .as_deref()
+                            .and_then(|id| sent_ids.get(id).copied().unwrap_or(Some(id)))
+                            .map(str::to_owned),
                         name: message.name.clone(),
                         response: GoogleFunctionResult {
                             result: message.content.clone(),
@@ -121,6 +137,26 @@ fn google_contents(messages: &[ConversationMessage]) -> Vec<GoogleContent> {
         }
     }
     output
+}
+
+/// Maps runtime call ids to the optional ids sent in this assistant message.
+fn tool_call_ids<'a>(
+    calls: &'a [ToolCall],
+    replay_parts: Option<&'a [GoogleAssistantPart]>,
+) -> BTreeMap<&'a str, Option<&'a str>> {
+    if let Some(parts) = replay_parts {
+        let provider_calls = parts.iter().filter_map(|part| part.function_call.as_ref());
+        calls
+            .iter()
+            .zip(provider_calls)
+            .map(|(runtime, provider)| (runtime.id.as_str(), provider.id.as_deref()))
+            .collect()
+    } else {
+        calls
+            .iter()
+            .map(|call| (call.id.as_str(), Some(call.id.as_str())))
+            .collect()
+    }
 }
 
 fn user_parts(message: &ConversationMessage) -> Vec<GooglePart> {
