@@ -1,5 +1,6 @@
 //! Typed Google generate-content stream chunks and failures.
 
+use ai_interface::GoogleAssistantPart;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use thiserror::Error;
@@ -27,26 +28,7 @@ pub(super) struct GoogleStreamCandidate {
 #[derive(Debug, Deserialize)]
 pub(super) struct GoogleStreamContent {
     #[serde(default)]
-    pub(super) parts: Vec<GoogleStreamPart>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct GoogleStreamPart {
-    #[serde(default)]
-    pub(super) text: Option<String>,
-    #[serde(default)]
-    pub(super) thought: Option<bool>,
-    #[serde(default, rename = "functionCall")]
-    pub(super) function_call: Option<GoogleFunctionCall>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct GoogleFunctionCall {
-    #[serde(default)]
-    pub(super) id: Option<String>,
-    pub(super) name: String,
-    #[serde(default)]
-    pub(super) args: Option<Value>,
+    pub(super) parts: Vec<GoogleAssistantPart>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

@@ -1,7 +1,8 @@
 //! Google Gemini response parsing.
 
 use ai_interface::{
-    FinishReason, ModelError, ModelResponse, ModelUsage, StructuredOutputSchema, ToolCall,
+    FinishReason, GoogleAssistantPart, GoogleFunctionCallContext, ModelError, ModelResponse,
+    ModelUsage, ProviderConversationItem, StructuredOutputSchema, ToolCall,
 };
 use ai_models_core::{ThinkingLevel, parse_structured_output, synthetic_tool_call_id};
 use serde::Deserialize;
@@ -53,6 +54,17 @@ pub(super) fn parse_response(
         }
     };
     let content = candidate.content.unwrap_or_default();
+    let provider_context = if content
+        .parts
+        .iter()
+        .any(|part| part.thought_signature.is_some())
+    {
+        vec![ProviderConversationItem::GoogleAssistantMessage {
+            parts: content.parts.clone(),
+        }]
+    } else {
+        Vec::new()
+    };
     let mut assistant_parts = Vec::new();
     let mut parsed_tool_calls = Vec::new();
 
@@ -65,7 +77,7 @@ pub(super) fn parse_response(
         }
         if let Some(function_call) = part.function_call {
             let call_index = parsed_tool_calls.len();
-            let GoogleFunctionCall { id, name, args } = function_call;
+            let GoogleFunctionCallContext { id, name, args } = function_call;
             let input = args.unwrap_or_else(|| Value::Object(Map::new()));
             let (id, operation_id) = match id {
                 Some(id) => (id, None),
@@ -127,7 +139,7 @@ pub(super) fn parse_response(
         finish_reason,
         tool_calls,
         structured_output,
-        provider_context: Vec::new(),
+        provider_context,
         usage: model_usage(usage),
     })
 }
@@ -159,26 +171,7 @@ struct GoogleCandidate {
 #[derive(Debug, Default, Deserialize)]
 struct GoogleContent {
     #[serde(default)]
-    parts: Vec<GooglePart>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GooglePart {
-    #[serde(default)]
-    text: Option<String>,
-    #[serde(default)]
-    thought: Option<bool>,
-    #[serde(default, rename = "functionCall")]
-    function_call: Option<GoogleFunctionCall>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GoogleFunctionCall {
-    #[serde(default)]
-    id: Option<String>,
-    name: String,
-    #[serde(default)]
-    args: Option<Value>,
+    parts: Vec<GoogleAssistantPart>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

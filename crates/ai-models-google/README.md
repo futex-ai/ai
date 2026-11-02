@@ -32,6 +32,12 @@ neighboring crates.
 - complete function schemas through `parametersJsonSchema`, kept separate
   from structured response schemas in `responseJsonSchema`
 - function call and function response content parts
+- full ordered model content in `ProviderConversationItem::GoogleAssistantMessage`
+  when any part has a `thoughtSignature`. Replay preserves the original text,
+  thought flags, function-call ids and arguments, and signatures. A missing
+  provider call id stays absent in replay even when runtime dispatch needs a
+  synthetic id. Signed parts, including empty text and signature-only parts,
+  stay separate. The tool runtime removes this private context from log copies.
 - inline `inlineData` parts for shared base64 image and video user content
 - Gemini `finishReason` normalization into `ai_interface::FinishReason`,
   including deriving normal tool-call completion from parsed `functionCall`
@@ -146,7 +152,8 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 - `src/google/mod.rs` - `Model` implementation and request dispatch
 - `src/catalog.rs` - known Google model ids and routing metadata
-- `src/google/request.rs` - Google request DTO mapping
+- `src/google/request.rs` - Google request and continuation mapping
+- `src/google/request_types.rs` - typed Gemini request bodies
 - `src/google/response.rs` - Google response parsing
 - `src/google/stream/` - public fragment emission, terminal accumulation, and
   stream failure mapping
@@ -161,6 +168,7 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [Latest Gemini models](https://ai.google.dev/gemini-api/docs/latest-model)
+- [Gemini thought signatures](https://ai.google.dev/gemini-api/docs/generate-content/thought-signatures)
 - [Gemini generate-content API](https://ai.google.dev/api/generate-content)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/live-image-api-tests.md`](../../docs/protocol/live-image-api-tests.md)

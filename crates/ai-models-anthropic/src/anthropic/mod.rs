@@ -233,3 +233,7 @@ mod thinking_tool_choice_tests;
 #[cfg(test)]
 #[path = "_tests_/output_limit_tests.rs"]
 mod output_limit_tests;
+
+#[cfg(test)]
+#[path = "_tests_/replay_tests.rs"]
+mod replay_tests;

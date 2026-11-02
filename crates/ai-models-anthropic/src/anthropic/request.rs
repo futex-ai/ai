@@ -2,7 +2,7 @@
 
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, ModelControl, ModelError,
-    ModelRequest, ModelResult, ModelToolChoice, ToolDefinition,
+    ModelRequest, ModelResult, ModelToolChoice, ProviderConversationItem, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
 
@@ -124,6 +124,16 @@ fn anthropic_messages(
                 append_blocks(&mut output, "user", user_blocks(model_id, message)?);
             }
             ConversationRole::Assistant => {
+                if let Some(blocks) = message.provider_context.iter().find_map(|item| match item {
+                    ProviderConversationItem::AnthropicAssistantMessage { blocks } => Some(blocks),
+                    _ => None,
+                }) {
+                    output.push(AnthropicMessage {
+                        role: "assistant".to_owned(),
+                        content: blocks.iter().cloned().map(AnthropicBlock::from).collect(),
+                    });
+                    continue;
+                }
                 let mut blocks = Vec::new();
                 if !message.content.is_empty() {
                     blocks.push(AnthropicBlock::Text {
@@ -198,6 +208,7 @@ fn append_blocks(messages: &mut Vec<AnthropicMessage>, role: &str, blocks: Vec<A
     }
     if let Some(existing) = messages.last_mut()
         && existing.role == role
+        && role == "user"
     {
         existing.content.extend(blocks);
         return;

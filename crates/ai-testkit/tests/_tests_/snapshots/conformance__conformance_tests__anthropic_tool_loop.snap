@@ -23,6 +23,26 @@ expression: outcome
           }
         ],
         "finish_reason": "ToolCalls",
+        "provider_context": [
+          {
+            "type": "anthropic_assistant_message",
+            "blocks": [
+              {
+                "type": "thinking",
+                "thinking": "Use lookup.",
+                "signature": "synthetic-signature"
+              },
+              {
+                "type": "tool_use",
+                "id": "call_1",
+                "name": "lookup",
+                "input": {
+                  "id": 7
+                }
+              }
+            ]
+          }
+        ],
         "usage": {
           "input_tokens": 22,
           "output_tokens": 9,

@@ -148,7 +148,7 @@ The MCP crates change only after the MCP decision of Milestone 11.
 The user gave every answer on 2026-11-01. The user gave no reason for the
 answers that differ from the recommendation.
 
-- Item 1, [Claude and Gemini drop replay data](follow-ups/claude-gemini-drop-replay-data.md):
+- Item 1, Claude and Gemini drop replay data, applied in Milestone 3:
   option A. Add Anthropic thinking-block and Gemini thought-signature
   variants to `ProviderConversationItem`, replay them, and add mock
   regression tests. The alternatives were a live two-turn probe in
@@ -361,7 +361,7 @@ Depends on: 2
 
 Apply the answers to items 1 to 4 on today's types.
 
-- [ ] Item 1, option A: add Anthropic thinking-block and Gemini
+- [x] Item 1, option A: add Anthropic thinking-block and Gemini
       thought-signature variants to `ProviderConversationItem`. Replay them
       in their adapters. Handle the new variants in every other adapter, in
       the synthetic tool-call id hasher, and in the log redaction list. Add
@@ -375,9 +375,10 @@ Apply the answers to items 1 to 4 on today's types.
       Update the matrix in `provider-call-controls.md`.
 - [x] Item 4, option B: add a `Truncated` variant to `StepOutcome` and
       `RunOutcome`. Mark that requirement implemented in `agent-loop.md`.
-- [ ] Delete each follow-up item in the commit that applies it.
-- [ ] Re-record the affected scenarios, and update their snapshots.
-- [ ] Run `cargo xtask check`, then commit and push.
+- [x] Delete each follow-up item in the commit that applies it.
+- [x] Re-record the affected scenarios, and update their snapshots.
+- [x] Run `cargo xtask check`, then commit. The orchestrator handles the
+      push.
 - [ ] Run the ship steps for pull request 2.
 
 ## Milestone 4: Chat Completions engine

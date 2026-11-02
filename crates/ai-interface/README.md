@@ -12,7 +12,7 @@ dependency on a stateful runtime implementation.
   transcription, image generation/editing, video generation, typed judgment,
   routing, logging, and usage metering.
 - Represent provider identity and provider-owned replay state, including
-  DeepSeek, Kimi, MiniMax, and Qwen reasoning context that remains separate
+  Anthropic, Google, DeepSeek, Kimi, MiniMax, and Qwen reasoning context that remains separate
   from visible assistant text.
 - Own the model-visible tool output DTOs used by universal output management:
   opaque output ids, inline envelopes, window envelopes, read requests, and
@@ -40,6 +40,12 @@ dependency on a stateful runtime implementation.
   reasoning, and ordered raw tool calls so a later tool continuation can
   reproduce the original assistant message exactly. Kimi and Qwen have
   equivalent provider-owned replay shapes with nullable content.
+- Defines `AnthropicAssistantMessage` replay items with the complete ordered
+  text, thinking, redacted-thinking, and tool-use blocks from signed responses.
+  `GoogleAssistantMessage` keeps every original model part when any part has a
+  thought signature, including thought flags and optional raw function-call ids.
+  Their serde tags are `anthropic_assistant_message` and
+  `google_assistant_message`. Each adapter replays only its own context.
 - Defines `ProviderKind::DeepSeek` with the stable deployment and serde value
   `deepseek`.
 - Defines `ProviderKind::MiniMax` with the stable deployment and serde value
@@ -104,8 +110,8 @@ returns the raw JSON value it produced. Runtime crates can inspect that value in
 current-run execution records, but they serialize only `ToolOutputEnvelope`
 values into conversation tool messages and logger success entries.
 
-Provider replay context follows the same separation. DeepSeek, Kimi, MiniMax,
-and Qwen reasoning content is retained as provider-owned context for
+Provider replay context follows the same separation. Anthropic, Google,
+DeepSeek, Kimi, MiniMax, and Qwen reasoning content is retained as provider-owned context for
 continuation requests, but it is never copied into normalized assistant text
 or exposed as tool output. Other model providers ignore replay items they do
 not own.
@@ -239,8 +245,9 @@ tool dispatch live in `ai-tool-calling`.
 
 ### Key Code
 
-- `src/messages.rs` - conversation DTOs, DeepSeek/Kimi/Qwen raw tool replay,
-  MiniMax reasoning details, and provider replay context.
+- `src/messages/` - conversation DTOs, typed Anthropic blocks and Google parts,
+  DeepSeek/Kimi/Qwen raw tool replay, MiniMax reasoning details, and provider
+  replay context.
 - `src/model.rs` - model trait, request/response DTOs, finish reasons, and
   typed model errors.
 - `src/model_completion_events.rs` - public incremental events, sink trait,

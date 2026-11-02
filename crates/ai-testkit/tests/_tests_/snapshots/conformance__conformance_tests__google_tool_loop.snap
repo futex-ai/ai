@@ -24,6 +24,26 @@ expression: outcome
           }
         ],
         "finish_reason": "ToolCalls",
+        "provider_context": [
+          {
+            "type": "google_assistant_message",
+            "parts": [
+              {
+                "text": "Use lookup.",
+                "thought": true
+              },
+              {
+                "functionCall": {
+                  "name": "lookup",
+                  "args": {
+                    "id": 7
+                  }
+                },
+                "thoughtSignature": "synthetic-thought-signature"
+              }
+            ]
+          }
+        ],
         "usage": {
           "input_tokens": 15,
           "output_tokens": 9,

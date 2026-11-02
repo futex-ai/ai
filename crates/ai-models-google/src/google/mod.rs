@@ -2,6 +2,7 @@
 
 mod image_generation;
 mod request;
+mod request_types;
 mod response;
 mod stream;
 mod thinking;

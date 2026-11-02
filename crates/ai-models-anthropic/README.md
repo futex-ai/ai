@@ -63,10 +63,15 @@ custom mapping can use `with_catalog_auth`.
 adaptive thinking, sets `output_config.effort` to `max`, and requests omitted
 thinking display. All existing Sonnet 4.6, Opus 4.7, and Haiku 4.5 entries
 remain available for pinned deployments.
-Reasoning/thinking content blocks in provider responses are ignored and are not
-surfaced as assistant text. Event-observing callers receive their text through
-`ReasoningTextDelta`; buffered callers still see only the reconstructed terminal
-response. Schema-constrained calls suppress all public deltas in version one.
+When a response has `thinking` or `redacted_thinking` blocks, the adapter keeps
+its full ordered content in `ProviderConversationItem::AnthropicAssistantMessage`.
+This includes text, tool uses, empty thinking text with its signature, and
+redacted thinking data. An assistant message with this context replays those
+blocks exactly, with their original order and message boundary.
+Thinking stays separate from visible assistant text. Event-observing callers
+receive thinking text through `ReasoningTextDelta`. Schema-constrained calls
+suppress all public deltas in version one. The tool runtime removes private
+replay context from logger copies while retaining it in conversation history.
 
 ## Quick Start
 
@@ -113,6 +118,7 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [Anthropic model overview](https://platform.claude.com/docs/en/about-claude/models/overview)
+- [Anthropic thinking and replay](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)
 - [Anthropic streaming messages](https://platform.claude.com/docs/en/build-with-claude/streaming)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

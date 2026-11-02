@@ -57,7 +57,9 @@ fn remove_private_replay_context(context: &mut Vec<ProviderConversationItem>) {
     context.retain(|item| {
         !matches!(
             item,
-            ProviderConversationItem::DeepSeekAssistantMessage { .. }
+            ProviderConversationItem::AnthropicAssistantMessage { .. }
+                | ProviderConversationItem::GoogleAssistantMessage { .. }
+                | ProviderConversationItem::DeepSeekAssistantMessage { .. }
                 | ProviderConversationItem::KimiAssistantMessage { .. }
                 | ProviderConversationItem::MiniMaxAssistant { .. }
                 | ProviderConversationItem::QwenAssistantMessage { .. }

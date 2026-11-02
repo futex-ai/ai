@@ -2,10 +2,22 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::{anthropic::AnthropicAssistantBlock, google::GoogleAssistantPart};
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 /// Provider-specific conversation item retained for model-specific replay.
 pub enum ProviderConversationItem {
+    /// Full ordered Anthropic assistant content when thinking blocks were returned.
+    AnthropicAssistantMessage {
+        /// Complete original content, including signed and redacted thinking blocks.
+        blocks: Vec<AnthropicAssistantBlock>,
+    },
+    /// Full ordered Gemini model content when a thought signature was returned.
+    GoogleAssistantMessage {
+        /// Complete original parts with every thought flag and signature.
+        parts: Vec<GoogleAssistantPart>,
+    },
     /// OpenAI Responses assistant message metadata used for stateless replay.
     #[serde(rename = "openai_message")]
     OpenAiMessage {

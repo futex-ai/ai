@@ -1,7 +1,8 @@
 //! Anthropic messages response parsing.
 
 use ai_interface::{
-    FinishReason, ModelError, ModelResponse, ModelUsage, StructuredOutputSchema, ToolCall,
+    AnthropicAssistantBlock, FinishReason, ModelError, ModelResponse, ModelUsage,
+    ProviderConversationItem, StructuredOutputSchema, ToolCall,
 };
 use ai_models_core::{ThinkingLevel, parse_structured_output};
 use serde::Deserialize;
@@ -25,26 +26,52 @@ pub(super) fn parse_response(
     })?;
     let mut assistant_parts = Vec::new();
     let mut parsed_tool_calls = Vec::new();
+    let mut blocks = Vec::new();
 
     for block in parsed.content {
         match block {
             AnthropicContentBlock::Text { text } => {
                 if !text.trim().is_empty() {
-                    assistant_parts.push(text);
+                    assistant_parts.push(text.clone());
                 }
+                blocks.push(AnthropicAssistantBlock::Text { text });
             }
             AnthropicContentBlock::ToolUse { id, name, input } => {
                 parsed_tool_calls.push(ToolCall {
-                    id,
-                    name,
-                    input,
+                    id: id.clone(),
+                    name: name.clone(),
+                    input: input.clone(),
                     operation_id: None,
                 });
+                blocks.push(AnthropicAssistantBlock::ToolUse { id, name, input });
+            }
+            AnthropicContentBlock::Thinking {
+                thinking,
+                signature,
+            } => {
+                blocks.push(AnthropicAssistantBlock::Thinking {
+                    thinking,
+                    signature,
+                });
+            }
+            AnthropicContentBlock::RedactedThinking { data } => {
+                blocks.push(AnthropicAssistantBlock::RedactedThinking { data });
             }
             AnthropicContentBlock::Ignored => {}
         }
     }
 
+    let provider_context = if blocks.iter().any(|block| {
+        matches!(
+            block,
+            AnthropicAssistantBlock::Thinking { .. }
+                | AnthropicAssistantBlock::RedactedThinking { .. }
+        )
+    }) {
+        vec![ProviderConversationItem::AnthropicAssistantMessage { blocks }]
+    } else {
+        Vec::new()
+    };
     let assistant_message = assistant_parts.join("\n");
     let finish_reason = finish_reason(parsed.stop_reason.as_deref());
     let tool_calls = if matches!(finish_reason, FinishReason::ToolCalls) {
@@ -84,7 +111,7 @@ pub(super) fn parse_response(
         tool_calls,
         finish_reason,
         structured_output,
-        provider_context: Vec::new(),
+        provider_context,
         usage: ModelUsage {
             input_tokens,
             output_tokens,
@@ -131,6 +158,10 @@ enum AnthropicContentBlock {
         name: String,
         input: Value,
     },
+    #[serde(rename = "thinking")]
+    Thinking { thinking: String, signature: String },
+    #[serde(rename = "redacted_thinking")]
+    RedactedThinking { data: String },
     #[serde(other)]
     Ignored,
 }

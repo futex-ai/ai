@@ -44,9 +44,9 @@ pub use logger::{
     TurnOutcome, TurnOutcomeLogEntry,
 };
 pub use messages::{
-    ConversationContentPart, ConversationMessage, ConversationRole, DeepSeekToolCallContext,
-    KimiToolCallContext, MiniMaxReasoningDetail, OpenAiReasoningSummary, ProviderConversationItem,
-    QwenToolCallContext,
+    AnthropicAssistantBlock, ConversationContentPart, ConversationMessage, ConversationRole,
+    DeepSeekToolCallContext, GoogleAssistantPart, GoogleFunctionCallContext, KimiToolCallContext,
+    MiniMaxReasoningDetail, OpenAiReasoningSummary, ProviderConversationItem, QwenToolCallContext,
 };
 pub use mock_audio_transcriber::MockAudioTranscriber;
 pub use mock_image_generator::MockImageGenerator;

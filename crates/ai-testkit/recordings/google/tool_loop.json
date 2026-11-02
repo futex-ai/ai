@@ -104,13 +104,17 @@
               {
                 "parts": [
                   {
+                    "text": "Use lookup.",
+                    "thought": true
+                  },
+                  {
                     "functionCall": {
                       "args": {
                         "id": 7
                       },
-                      "id": "google_function_call:c763611175a29ef4",
                       "name": "lookup"
-                    }
+                    },
+                    "thoughtSignature": "synthetic-thought-signature"
                   }
                 ],
                 "role": "model"

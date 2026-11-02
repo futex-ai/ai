@@ -1,5 +1,6 @@
 //! Typed Anthropic Messages request bodies.
 
+use ai_interface::AnthropicAssistantBlock;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -36,6 +37,10 @@ pub(super) struct AnthropicMessage {
 #[derive(Debug, Serialize)]
 #[serde(tag = "type")]
 pub(super) enum AnthropicBlock {
+    #[serde(rename = "thinking")]
+    Thinking { thinking: String, signature: String },
+    #[serde(rename = "redacted_thinking")]
+    RedactedThinking { data: String },
     #[serde(rename = "text")]
     Text { text: String },
     #[serde(rename = "image")]
@@ -87,4 +92,23 @@ pub(super) struct AnthropicToolChoice {
     pub(super) kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) name: Option<String>,
+}
+
+impl From<AnthropicAssistantBlock> for AnthropicBlock {
+    fn from(block: AnthropicAssistantBlock) -> Self {
+        match block {
+            AnthropicAssistantBlock::Thinking {
+                thinking,
+                signature,
+            } => Self::Thinking {
+                thinking,
+                signature,
+            },
+            AnthropicAssistantBlock::RedactedThinking { data } => Self::RedactedThinking { data },
+            AnthropicAssistantBlock::Text { text } => Self::Text { text },
+            AnthropicAssistantBlock::ToolUse { id, name, input } => {
+                Self::ToolUse { id, name, input }
+            }
+        }
+    }
 }

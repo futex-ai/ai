@@ -45,11 +45,14 @@ DeepSeek and the first Qwen model reject image input before transport.
 Their image recordings therefore contain no HTTP exchanges.
 
 File snapshots live under `tests/_tests_/snapshots/`.
-They preserve current defects as well as successful responses.
-The tool snapshots show that Anthropic drops thinking replay blocks and
-Google drops thought signatures. Their second recorded requests also lack
-these fields. MiniMax and xAI currently lose their HTTP 429 message details.
-These observations are baselines for later adapter changes.
+They preserve successful responses and remaining defects.
+The Anthropic and Google tool snapshots retain complete ordered replay context.
+Their second recorded requests replay Anthropic thinking blocks and Gemini
+thought signatures. Anthropic requests use the catalog output limit.
+MiniMax and xAI currently lose their HTTP 429 message details.
+Synthetic fixtures can be refreshed offline by wrapping their replay transport
+with the recording transport and running the production adapter. This keeps
+`source: "synthetic"` and does not prove live provider acceptance.
 
 The rate-limit fixtures use these official error references.
 Messages and request ids are synthetic examples, without account details.
@@ -101,7 +104,7 @@ INSTA_UPDATE=always cargo test -p ai-testkit --test conformance
 ```
 
 Snapshots describe the supplied recordings. A synthetic two-turn success
-does not prove that the live provider accepts missing replay state.
+does not prove that the live provider accepts the replay state.
 Recorded SSE events contain only the events consumed by the adapter.
 See `json-http` for the transport boundary's status and failure limits.
 

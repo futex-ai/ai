@@ -13,6 +13,7 @@ mod event_tests;
 mod finish_reason_tests;
 mod multimodal_tests;
 mod operation_id_tests;
+mod replay_tests;
 mod request_tests;
 mod stream_error_tests;
 mod stream_support;

@@ -222,7 +222,9 @@ fn legacy_function_call(message: &ConversationMessage) -> Option<LegacyFunctionC
                 arguments: arguments.clone(),
             })
         }
-        ProviderConversationItem::DeepSeekAssistantMessage { .. }
+        ProviderConversationItem::AnthropicAssistantMessage { .. }
+        | ProviderConversationItem::GoogleAssistantMessage { .. }
+        | ProviderConversationItem::DeepSeekAssistantMessage { .. }
         | ProviderConversationItem::OpenAiMessage { .. }
         | ProviderConversationItem::OpenAiReasoning { .. }
         | ProviderConversationItem::OpenAiFunctionCall { .. }

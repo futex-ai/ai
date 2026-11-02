@@ -142,6 +142,11 @@
               {
                 "content": [
                   {
+                    "signature": "synthetic-signature",
+                    "thinking": "Use lookup.",
+                    "type": "thinking"
+                  },
+                  {
                     "id": "call_1",
                     "input": {
                       "id": 7

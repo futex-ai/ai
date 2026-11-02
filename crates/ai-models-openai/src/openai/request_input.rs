@@ -73,7 +73,9 @@ fn assistant_items(
                     items.push(provider_item);
                 }
             }
-            ProviderConversationItem::DeepSeekAssistantMessage { .. }
+            ProviderConversationItem::AnthropicAssistantMessage { .. }
+            | ProviderConversationItem::GoogleAssistantMessage { .. }
+            | ProviderConversationItem::DeepSeekAssistantMessage { .. }
             | ProviderConversationItem::KimiAssistantMessage { .. }
             | ProviderConversationItem::MiniMaxAssistant { .. }
             | ProviderConversationItem::QwenAssistantMessage { .. }
@@ -100,7 +102,9 @@ fn assistant_items(
 
 fn provider_context_item(item: &ProviderConversationItem) -> Option<ResponsesInputItem> {
     match item {
-        ProviderConversationItem::DeepSeekAssistantMessage { .. }
+        ProviderConversationItem::AnthropicAssistantMessage { .. }
+        | ProviderConversationItem::GoogleAssistantMessage { .. }
+        | ProviderConversationItem::DeepSeekAssistantMessage { .. }
         | ProviderConversationItem::OpenAiMessage { .. }
         | ProviderConversationItem::KimiAssistantMessage { .. }
         | ProviderConversationItem::MiniMaxAssistant { .. }
