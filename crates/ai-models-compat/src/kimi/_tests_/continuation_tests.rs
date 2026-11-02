@@ -5,7 +5,7 @@ use ai_interface::{
 };
 use serde_json::{Value, json};
 
-use crate::KIMI_K3;
+use crate::kimi::KIMI_K3;
 
 use super::{client::KimiReasoningEffort, request::build_request};
 

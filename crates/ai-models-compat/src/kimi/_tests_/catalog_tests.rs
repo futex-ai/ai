@@ -9,6 +9,7 @@ use super::{KIMI_K3, KIMI_K3_THINKING_HIGH, KIMI_K3_THINKING_LOW, known_models};
 #[test]
 fn catalog_exposes_exact_kimi_k3_variants() {
     let models = known_models();
+    assert!(known_models().iter().any(|model| model.id == KIMI_K3));
 
     assert_eq!(
         models.iter().map(|model| model.id).collect::<Vec<_>>(),

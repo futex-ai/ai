@@ -6,7 +6,7 @@ use ai_interface::{Model, ProviderKind};
 use ai_models_core::ThinkingLevel;
 use json_http::StaticHeaderAuth;
 
-use crate::{KIMI_K3, KimiConfigurationError};
+use crate::kimi::{KIMI_K3, KimiConfigurationError};
 
 use super::{
     KimiModel,

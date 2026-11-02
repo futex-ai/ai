@@ -13,8 +13,8 @@ credentials and an injected `json-http` client.
 
 ## What This Crate Does
 
-One engine serves provider dialects. The `deepseek` public module exports the
-DeepSeek model, configuration errors, catalog constants, and `known_models()`.
+One engine serves provider dialects. The public `deepseek` and `kimi` modules
+export their models, configuration errors, catalog constants, and `known_models()`.
 The engine keeps the current buffered `complete` and opt-in
 `complete_with_events` methods. Schema calls suppress public text events.
 Stream failures after progress return `ModelError::Interrupted`.
@@ -51,7 +51,7 @@ stream, response, validation, and usage code. Put dialect tests in its
 
 - `src/engine/` owns request mapping, dispatch, SSE consumption, and responses.
 - `src/chat_completions/` owns the typed chunk accumulator and its errors.
-- `src/deepseek/` owns DeepSeek construction, catalog, and dialect settings.
+- `src/deepseek/` and `src/kimi/` own construction, catalogs, and dialect settings.
 
 ### Related Docs
 

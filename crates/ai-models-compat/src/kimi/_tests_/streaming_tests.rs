@@ -9,7 +9,7 @@ use ai_models_core::{
 };
 use serde_json::{Value, json};
 
-use crate::{KIMI_K3, KimiModel};
+use crate::kimi::{KIMI_K3, KimiModel};
 
 use super::{response, test_support::simple_request};
 

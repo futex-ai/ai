@@ -4,7 +4,7 @@ use ai_interface::{FinishReason, ModelError, StructuredOutputSchema};
 use ai_models_core::ThinkingLevel;
 use serde_json::json;
 
-use crate::KIMI_K3;
+use crate::kimi::KIMI_K3;
 
 use super::{
     client::KimiReasoningEffort, request::build_request, response::parse_response,

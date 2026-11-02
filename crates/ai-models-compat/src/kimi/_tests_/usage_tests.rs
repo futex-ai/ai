@@ -3,7 +3,7 @@
 use ai_models_core::ThinkingLevel;
 use serde_json::{Value, json};
 
-use crate::KIMI_K3;
+use crate::kimi::KIMI_K3;
 
 use super::response::parse_response;
 

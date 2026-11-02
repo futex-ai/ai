@@ -6,6 +6,7 @@ mod chat_completions;
 mod engine;
 
 pub mod deepseek;
+pub mod kimi;
 
 pub use chat_completions::{
     ChatCompletionsAccumulator, ChatCompletionsChoice, ChatCompletionsCompletionTokenDetails,

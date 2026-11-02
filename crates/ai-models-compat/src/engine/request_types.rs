@@ -13,7 +13,8 @@ pub(crate) struct ChatCompletionsRequest {
     pub(crate) tool_choice: Option<ChatCompletionsToolChoice>,
     pub(crate) stream: bool,
     pub(crate) stream_options: ChatCompletionsStreamOptions,
-    pub(crate) thinking: ChatCompletionsThinking,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) thinking: Option<ChatCompletionsThinking>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) reasoning_effort: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -24,6 +25,8 @@ pub(crate) struct ChatCompletionsRequest {
     pub(crate) top_p: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) max_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) max_completion_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) stop: Vec<String>,
 }
@@ -43,7 +46,7 @@ pub(crate) enum ChatCompletionsToolChoice {
 #[derive(Debug, Serialize)]
 pub(crate) struct ChatCompletionsNamedToolChoice {
     #[serde(rename = "type")]
-    pub(crate) kind: String,
+    pub(crate) kind: &'static str,
     pub(crate) function: ChatCompletionsNamedFunction,
 }
 
@@ -54,8 +57,8 @@ pub(crate) struct ChatCompletionsNamedFunction {
 
 #[derive(Debug, Serialize)]
 pub(crate) struct ChatCompletionsMessage {
-    pub(crate) role: String,
-    pub(crate) content: String,
+    pub(crate) role: &'static str,
+    pub(crate) content: Option<ChatCompletionsContent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -67,16 +70,37 @@ pub(crate) struct ChatCompletionsMessage {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub(crate) enum ChatCompletionsContent {
+    Text(String),
+    Parts(Vec<ChatCompletionsContentPart>),
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
+pub(crate) enum ChatCompletionsContentPart {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "image_url")]
+    ImageUrl { image_url: ChatCompletionsImageUrl },
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ChatCompletionsImageUrl {
+    pub(crate) url: String,
+}
+
+#[derive(Debug, Serialize)]
 pub(crate) struct ChatCompletionsThinking {
     #[serde(rename = "type")]
-    pub(crate) kind: String,
+    pub(crate) kind: &'static str,
 }
 
 #[derive(Debug, Serialize)]
 pub(crate) struct ChatCompletionsToolCall {
     pub(crate) id: String,
     #[serde(rename = "type")]
-    pub(crate) kind: String,
+    pub(crate) kind: &'static str,
     pub(crate) function: ChatCompletionsToolFunction,
 }
 
@@ -89,7 +113,7 @@ pub(crate) struct ChatCompletionsToolFunction {
 #[derive(Debug, Serialize)]
 pub(crate) struct ChatCompletionsTool {
     #[serde(rename = "type")]
-    pub(crate) kind: String,
+    pub(crate) kind: &'static str,
     pub(crate) function: ChatCompletionsToolDefinition,
 }
 
@@ -101,7 +125,19 @@ pub(crate) struct ChatCompletionsToolDefinition {
 }
 
 #[derive(Debug, Serialize)]
-pub(crate) struct ChatCompletionsResponseFormat {
-    #[serde(rename = "type")]
-    pub(crate) kind: String,
+#[serde(tag = "type")]
+pub(crate) enum ChatCompletionsResponseFormat {
+    #[serde(rename = "json_object")]
+    JsonObject,
+    #[serde(rename = "json_schema")]
+    JsonSchema {
+        json_schema: ChatCompletionsJsonSchema,
+    },
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ChatCompletionsJsonSchema {
+    pub(crate) name: String,
+    pub(crate) schema: Value,
+    pub(crate) strict: bool,
 }

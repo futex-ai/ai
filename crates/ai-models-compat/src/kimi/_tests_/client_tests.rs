@@ -5,7 +5,7 @@ use json_http::{JsonHttpAuth, JsonHttpAuthMock, JsonHttpResponse, StaticHeaderAu
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
-use crate::{KIMI_K3, KimiModel};
+use crate::kimi::{KIMI_K3, KimiModel};
 
 use super::{
     client::request_error,

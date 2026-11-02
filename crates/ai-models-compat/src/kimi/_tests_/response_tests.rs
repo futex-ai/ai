@@ -4,7 +4,7 @@ use ai_interface::{FinishReason, ModelError, ProviderConversationItem};
 use ai_models_core::ThinkingLevel;
 use serde_json::{Value, json};
 
-use crate::{KIMI_K3, KIMI_K3_THINKING_HIGH};
+use crate::kimi::{KIMI_K3, KIMI_K3_THINKING_HIGH};
 
 use super::response::parse_response;
 

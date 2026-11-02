@@ -65,7 +65,3 @@ fn kimi_k3_spec(
         features: KIMI_K3_FEATURES,
     }
 }
-
-#[cfg(test)]
-#[path = "_tests_/catalog_tests.rs"]
-mod catalog_tests;
