@@ -2,7 +2,8 @@
 
 use super::{super::dialect::ReplayRule, types::ChatCompletionsToolCall};
 use ai_interface::{
-    DeepSeekToolCallContext, KimiToolCallContext, ProviderConversationItem, QwenToolCallContext,
+    DeepSeekToolCallContext, KimiToolCallContext, MiniMaxReasoningDetail, ProviderConversationItem,
+    QwenToolCallContext,
 };
 
 pub(super) fn provider_context(
@@ -11,8 +12,16 @@ pub(super) fn provider_context(
     content: Option<String>,
     reasoning_content: Option<String>,
     calls: &[ChatCompletionsToolCall],
+    reasoning_details: Vec<MiniMaxReasoningDetail>,
 ) -> Vec<ProviderConversationItem> {
     match rule {
+        ReplayRule::MiniMax if reasoning_content.is_none() && reasoning_details.is_empty() => {
+            Vec::new()
+        }
+        ReplayRule::MiniMax => vec![ProviderConversationItem::MiniMaxAssistant {
+            reasoning_content,
+            reasoning_details,
+        }],
         ReplayRule::DeepSeek if dispatchable => {
             vec![ProviderConversationItem::DeepSeekAssistantMessage {
                 content: content.unwrap_or_default(),

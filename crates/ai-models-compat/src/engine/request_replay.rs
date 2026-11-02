@@ -1,6 +1,8 @@
 //! Lossless replay of each dialect's own assistant state.
 
-use ai_interface::{ConversationMessage, ProviderConversationItem};
+use ai_interface::{
+    ConversationMessage, ConversationRole, MiniMaxReasoningDetail, ProviderConversationItem,
+};
 
 use super::{
     dialect::ReplayRule,
@@ -65,11 +67,32 @@ pub(super) fn replay_message(
         };
         Some(ChatCompletionsMessage {
             role: "assistant",
-            content: content.map(ChatCompletionsContent::Text),
+            content: Some(content.map(ChatCompletionsContent::Text)),
             name: None,
             tool_call_id: None,
             reasoning_content,
+            reasoning_details: Vec::new(),
             tool_calls,
         })
     })
+}
+
+pub(super) fn reasoning_context(
+    rule: ReplayRule,
+    message: &ConversationMessage,
+) -> (Option<String>, Vec<MiniMaxReasoningDetail>) {
+    if rule != ReplayRule::MiniMax || message.role != ConversationRole::Assistant {
+        return (None, Vec::new());
+    }
+    message
+        .provider_context
+        .iter()
+        .find_map(|item| match item {
+            ProviderConversationItem::MiniMaxAssistant {
+                reasoning_content,
+                reasoning_details,
+            } => Some((reasoning_content.clone(), reasoning_details.clone())),
+            _ => None,
+        })
+        .unwrap_or_default()
 }

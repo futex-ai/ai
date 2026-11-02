@@ -6,6 +6,7 @@ use serde_json::Value;
 
 use super::{
     super::dialect::{CompletionContext, ReplayRule},
+    eager,
     mapping::{dispatchable_tool_calls, finish_reason, parse_tool_calls},
     replay::provider_context,
     types::{ChatCompletionsAssistantMessage, ChatCompletionsResponse},
@@ -42,7 +43,11 @@ pub(crate) fn parse_response(
             "invalid Kimi response payload",
         ));
     }
-    let parsed: ChatCompletionsResponse = match serde_json::from_value(body.take()) {
+    let parsed: ChatCompletionsResponse = match if dialect.replay == ReplayRule::MiniMax {
+        eager::decode(body.take())
+    } else {
+        serde_json::from_value(body.take())
+    } {
         Ok(parsed) => parsed,
         Err(source) => return Err(parse_error(source)),
     };
@@ -50,6 +55,12 @@ pub(crate) fn parse_response(
         Ok(usage) => usage,
         Err(source) => return Err(parse_error(source)),
     };
+    if let Some(error) = dialect
+        .base_error
+        .and_then(|classify| classify(provider_model_id, parsed.base_resp.as_ref()))
+    {
+        return Err(error);
+    }
     let Some(choice) = parsed.choices.into_iter().next() else {
         return Err(ModelError::provider(
             dialect.provider,
@@ -62,6 +73,8 @@ pub(crate) fn parse_response(
         content,
         reasoning_content,
         tool_calls: raw,
+        parsed_tool_calls: eager_calls,
+        reasoning_details,
     } = choice.message;
     let mut assistant_message = assistant_text(content.clone());
     let dispatchable = matches!(finish_reason, FinishReason::ToolCalls);
@@ -79,10 +92,19 @@ pub(crate) fn parse_response(
             ),
         ));
     }
-    let parsed_calls = dispatchable_tool_calls(dialect, provider_model_id, raw, dispatchable)?;
+    let has_raw_calls = eager_calls.as_ref().is_some_and(|calls| !calls.is_empty());
+    let parsed_calls = match eager_calls {
+        Some(calls) if dispatchable => calls,
+        Some(_) => Vec::new(),
+        None => dispatchable_tool_calls(dialect, provider_model_id, raw, dispatchable)?,
+    };
     let tool_calls = parse_tool_calls(dialect, provider_model_id, &parsed_calls)?;
     let structured_output = response_schema
-        .filter(|_| matches!(finish_reason, FinishReason::Stop) && tool_calls.is_empty())
+        .filter(|_| {
+            matches!(finish_reason, FinishReason::Stop)
+                && tool_calls.is_empty()
+                && !(dialect.replay == ReplayRule::MiniMax && has_raw_calls)
+        })
         .map(|schema| {
             parse_structured_output(
                 dialect.provider,
@@ -119,6 +141,7 @@ pub(crate) fn parse_response(
             content,
             reasoning_content,
             &parsed_calls,
+            reasoning_details,
         ),
         usage,
     })

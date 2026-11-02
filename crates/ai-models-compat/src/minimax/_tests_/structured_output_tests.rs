@@ -5,7 +5,7 @@ use ai_models_core::ThinkingLevel;
 use json_http::JsonHttpResponse;
 use serde_json::{Value, json};
 
-use crate::MINIMAX_M3;
+use crate::minimax::MINIMAX_M3;
 
 use super::{MiniMaxModel, response, support::recording_http_client};
 

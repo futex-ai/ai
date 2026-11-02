@@ -94,7 +94,3 @@ pub fn known_models() -> Vec<KnownModelSpec> {
         },
     ]
 }
-
-#[cfg(test)]
-#[path = "_tests_/catalog_tests.rs"]
-mod catalog_tests;

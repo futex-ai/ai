@@ -9,7 +9,7 @@ pub(crate) mod request;
 mod request_replay;
 pub(crate) mod request_types;
 pub(crate) mod response;
-mod stream;
+pub(crate) mod stream;
 mod thinking;
 mod tools;
 

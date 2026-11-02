@@ -55,6 +55,20 @@ struct QwenUsage {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+struct NativeUsage {
+    #[serde(default)]
+    prompt_tokens: u64,
+    #[serde(default)]
+    completion_tokens: u64,
+    #[serde(default)]
+    total_tokens: Option<u64>,
+    #[serde(default)]
+    prompt_tokens_details: PromptTokenDetails,
+    #[serde(default)]
+    completion_tokens_details: ChatCompletionsCompletionTokenDetails,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
 struct PromptTokenDetails {
     #[serde(default)]
     cached_tokens: u64,
@@ -106,6 +120,20 @@ pub(super) fn normalize(
                 usage.prompt_tokens_details.cached_tokens,
                 None,
                 0,
+                usage.total_tokens,
+            )
+        }
+        ReplayRule::MiniMax => {
+            let usage: NativeUsage = match raw {
+                Some(raw) => serde_json::from_value(raw)?,
+                None => NativeUsage::default(),
+            };
+            (
+                usage.prompt_tokens,
+                usage.completion_tokens,
+                usage.prompt_tokens_details.cached_tokens,
+                None,
+                usage.completion_tokens_details.reasoning_tokens,
                 usage.total_tokens,
             )
         }

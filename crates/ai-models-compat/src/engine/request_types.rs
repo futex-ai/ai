@@ -1,5 +1,6 @@
 //! Shared Chat Completions request DTOs.
 
+use ai_interface::MiniMaxReasoningDetail;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -21,6 +22,8 @@ pub(crate) struct ChatCompletionsRequest {
     pub(crate) stream_options: ChatCompletionsStreamOptions,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) thinking: Option<ChatCompletionsThinking>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) reasoning_split: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) reasoning_effort: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -64,13 +67,16 @@ pub(crate) struct ChatCompletionsNamedFunction {
 #[derive(Debug, Serialize)]
 pub(crate) struct ChatCompletionsMessage {
     pub(crate) role: &'static str,
-    pub(crate) content: Option<ChatCompletionsContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) content: Option<Option<ChatCompletionsContent>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) tool_call_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) reasoning_content: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) reasoning_details: Vec<MiniMaxReasoningDetail>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) tool_calls: Vec<ChatCompletionsToolCall>,
 }
@@ -89,6 +95,8 @@ pub(crate) enum ChatCompletionsContentPart {
     Text { text: String },
     #[serde(rename = "image_url")]
     ImageUrl { image_url: ChatCompletionsImageUrl },
+    #[serde(rename = "video_url")]
+    VideoUrl { video_url: ChatCompletionsImageUrl },
 }
 
 #[derive(Debug, Serialize)]

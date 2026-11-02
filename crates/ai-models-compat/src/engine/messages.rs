@@ -7,7 +7,7 @@ use ai_interface::{
 
 use super::{
     dialect::{Dialect, InputParts, ReplayRule},
-    request_replay::replay_message,
+    request_replay::{reasoning_context, replay_message},
     request_types::{
         ChatCompletionsContent, ChatCompletionsContentPart, ChatCompletionsImageUrl,
         ChatCompletionsMessage,
@@ -18,10 +18,11 @@ use super::{
 pub(super) fn system_message(content: String) -> ChatCompletionsMessage {
     ChatCompletionsMessage {
         role: "system",
-        content: Some(ChatCompletionsContent::Text(content)),
+        content: Some(Some(ChatCompletionsContent::Text(content))),
         name: None,
         tool_call_id: None,
         reasoning_content: None,
+        reasoning_details: Vec::new(),
         tool_calls: Vec::new(),
     }
 }
@@ -80,13 +81,20 @@ pub(super) fn message(
     {
         return Ok(replay);
     }
+    let (reasoning_content, reasoning_details) = reasoning_context(dialect.replay, message);
+    let content = message_content(dialect, model_id, message)?;
+    let content = if dialect.replay == ReplayRule::MiniMax {
+        content.map(Some)
+    } else {
+        Some(content)
+    };
     Ok(ChatCompletionsMessage {
         role: match message.role {
             ConversationRole::User => "user",
             ConversationRole::Assistant => "assistant",
             ConversationRole::Tool => "tool",
         },
-        content: message_content(dialect, model_id, message)?,
+        content,
         name: if dialect.names && message.role != ConversationRole::Tool {
             message.name.clone()
         } else {
@@ -99,8 +107,11 @@ pub(super) fn message(
         } else {
             None
         },
-        reasoning_content: None,
-        tool_calls: if message.role == ConversationRole::Assistant {
+        reasoning_content,
+        reasoning_details,
+        tool_calls: if message.role == ConversationRole::Assistant
+            || dialect.replay == ReplayRule::MiniMax
+        {
             message.tool_calls.iter().map(tool_call).collect()
         } else {
             Vec::new()
@@ -121,6 +132,12 @@ fn message_content(
                 .map(|part| content_part(dialect, model_id, part))
                 .collect::<ModelResult<Vec<_>>>()?,
         )));
+    }
+    if dialect.replay == ReplayRule::MiniMax
+        && message.role != ConversationRole::Tool
+        && message.content.is_empty()
+    {
+        return Ok(None);
     }
     if message.role == ConversationRole::Assistant
         && message.content.is_empty()
@@ -150,6 +167,16 @@ fn content_part(
                 url: format!("data:{mime_type};base64,{data_base64}"),
             },
         }),
+        ConversationContentPart::Video {
+            mime_type,
+            data_base64,
+        } if matches!(dialect.input, InputParts::TextImageVideo) => {
+            Ok(ChatCompletionsContentPart::VideoUrl {
+                video_url: ChatCompletionsImageUrl {
+                    url: format!("data:{mime_type};base64,{data_base64}"),
+                },
+            })
+        }
         ConversationContentPart::Video { .. } => Err(ModelError::provider(
             dialect.provider,
             model_id,

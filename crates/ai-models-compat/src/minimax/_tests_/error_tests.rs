@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use json_http::JsonHttpAuth;
 use serde_json::json;
 
-use crate::MINIMAX_M3;
+use crate::minimax::MINIMAX_M3;
 
 use super::{
     MiniMaxModel, response,

@@ -7,6 +7,7 @@ mod engine;
 
 pub mod deepseek;
 pub mod kimi;
+pub mod minimax;
 pub mod qwen;
 
 pub use chat_completions::{

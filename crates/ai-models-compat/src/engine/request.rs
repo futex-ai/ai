@@ -43,13 +43,14 @@ pub(crate) fn build_request(
     let sampling = match dialect.sampling {
         Sampling::WithoutThinking => !thinking_level.is_enabled(),
         Sampling::Fixed => false,
+        Sampling::Any => true,
     };
     let max_output = request.controls.generation.max_output_tokens;
     Ok(ChatCompletionsRequest {
         model: model_id.to_owned(),
         messages,
         tools,
-        tool_choice: tool_choice(dialect, thinking_level, request),
+        tool_choice: tool_choice(dialect, model_id, thinking_level, request),
         parallel_tool_calls: (dialect.parallel_tools && !request.tools.is_empty()).then_some(true),
         enable_thinking: matches!(dialect.thinking, ThinkingFormat::Flags)
             .then_some(thinking_level.is_enabled()),
@@ -59,6 +60,7 @@ pub(crate) fn build_request(
         stream_options: ChatCompletionsStreamOptions {
             include_usage: true,
         },
+        reasoning_split: matches!(dialect.thinking, ThinkingFormat::Adaptive).then_some(true),
         thinking,
         reasoning_effort,
         response_format: response_format(dialect, model_id, thinking_level, request),
@@ -79,6 +81,14 @@ pub(crate) fn build_request(
 }
 
 fn system_prompt(dialect: &Dialect, request: &ModelRequest) -> String {
+    if matches!(dialect.structured_output, StructuredOutput::Prompt)
+        && let Some(schema) = request.response_schema.as_ref()
+    {
+        return format!(
+            "{}\n\nReturn only raw JSON that validates against the following JSON Schema. Do not use Markdown fences or include additional prose.\nSchema name: {}\nJSON Schema:\n{}",
+            request.system_prompt, schema.name, schema.schema
+        );
+    }
     let Some(schema) = request.response_schema.as_ref().filter(|_| {
         matches!(
             dialect.structured_output,
@@ -108,7 +118,7 @@ fn response_format(
         {
             ChatCompletionsResponseFormat::JsonObject
         }
-        StructuredOutput::JsonObjectWhenDisabled(_) => return None,
+        StructuredOutput::JsonObjectWhenDisabled(_) | StructuredOutput::Prompt => return None,
         StructuredOutput::JsonSchema => ChatCompletionsResponseFormat::JsonSchema {
             json_schema: ChatCompletionsJsonSchema {
                 name: schema.name.clone(),

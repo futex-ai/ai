@@ -16,6 +16,27 @@ pub(super) fn validate_controls(
     thinking: ThinkingLevel,
     request: &ModelRequest,
 ) -> ModelResult<()> {
+    if let ToolChoiceRule::RequiredFor(required_model) = dialect.tool_choice {
+        if !request.controls.generation.stop_sequences.is_empty() {
+            return Err(ModelError::unsupported_control(
+                dialect.provider,
+                model_id,
+                ModelControl::StopSequences,
+            ));
+        }
+        if matches!(
+            request.controls.generation.tool_choice,
+            Some(ModelToolChoice::Function(_))
+        ) || request.controls.generation.tool_choice == Some(ModelToolChoice::Required)
+            && model_id != required_model
+        {
+            return Err(ModelError::unsupported_control(
+                dialect.provider,
+                model_id,
+                ModelControl::ToolChoice,
+            ));
+        }
+    }
     if matches!(
         dialect.tool_choice,
         ToolChoiceRule::OmitWhileThinking | ToolChoiceRule::AutoWhileThinking
@@ -36,6 +57,7 @@ pub(super) fn validate_controls(
 
 pub(super) fn tool_choice(
     dialect: &Dialect,
+    model_id: &str,
     thinking: ThinkingLevel,
     request: &ModelRequest,
 ) -> Option<ChatCompletionsToolChoice> {
@@ -45,6 +67,9 @@ pub(super) fn tool_choice(
     let mode = match request.controls.generation.tool_choice.as_ref() {
         Some(ModelToolChoice::None) => "none",
         Some(ModelToolChoice::Auto) => "auto",
+        Some(ModelToolChoice::RequiredOrAuto) if matches!(dialect.tool_choice, ToolChoiceRule::RequiredFor(required_model) if required_model != model_id) => {
+            "auto"
+        }
         Some(ModelToolChoice::RequiredOrAuto)
             if thinking.is_enabled()
                 && matches!(dialect.tool_choice, ToolChoiceRule::AutoWhileThinking) =>
@@ -63,7 +88,9 @@ pub(super) fn tool_choice(
         None if !request.tools.is_empty()
             && matches!(
                 dialect.tool_choice,
-                ToolChoiceRule::Standard | ToolChoiceRule::AutoWhileThinking
+                ToolChoiceRule::Standard
+                    | ToolChoiceRule::AutoWhileThinking
+                    | ToolChoiceRule::RequiredFor(_)
             ) =>
         {
             "auto"

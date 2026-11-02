@@ -7,7 +7,7 @@ use ai_models_core::ThinkingLevel;
 use json_http::{JsonHttpResponse, StaticHeaderAuth};
 use serde_json::json;
 
-use crate::{MINIMAX_M2_7, MINIMAX_M2_7_HIGHSPEED, known_models};
+use crate::minimax::{MINIMAX_M2_7, MINIMAX_M2_7_HIGHSPEED, known_models};
 
 use super::{MiniMaxModel, support::recording_http_client};
 

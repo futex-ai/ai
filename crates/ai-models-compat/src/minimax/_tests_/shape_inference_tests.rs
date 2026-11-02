@@ -10,7 +10,7 @@ use ai_models_core::{
 };
 use serde_json::{Value, json};
 
-use crate::{MINIMAX_M2_7, MiniMaxModel};
+use crate::minimax::{MINIMAX_M2_7, MiniMaxModel};
 
 use super::{response, support::simple_request};
 
