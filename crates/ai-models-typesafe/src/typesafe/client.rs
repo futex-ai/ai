@@ -4,11 +4,14 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use ai_interface::{
     ErrorKind, JudgmentError, JudgmentModel, JudgmentRequest, JudgmentResponse, JudgmentResult,
+    ModelSpec,
 };
-use ai_models_core::{Clock, ErrorContext, SystemClock};
+use ai_models_core::{ApiKeyScheme, Clock, ErrorContext, ProviderConfig, SystemClock};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use serde_json::Value;
+
+use crate::{CUSTOM_DEFAULTS, PROVIDER_ID};
 
 use super::{
     error::{AUTH_HOOK_FAILED, classify_request_error, classify_status, http_status_message},
@@ -18,7 +21,7 @@ use super::{
 };
 
 const PROVIDER: &str = "typesafe";
-const TYPESAFE_SYSTEM_ONE_URL: &str = "https://api.typesafe.ai/v1/systemone";
+const TYPESAFE_BASE_URL: &str = "https://api.typesafe.ai";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 const REQUEST_ID_HEADERS: &[&str] = &["x-request-id", "request-id"];
 
@@ -28,6 +31,7 @@ pub struct TypeSafeJudgmentModel {
     http_client: DynJsonHttpClient,
     model_id: String,
     auth: DynJsonHttpAuth,
+    config: ProviderConfig,
     redaction_secrets: Vec<String>,
     endpoint: String,
     timeout: Duration,
@@ -35,6 +39,24 @@ pub struct TypeSafeJudgmentModel {
 }
 
 impl TypeSafeJudgmentModel {
+    /// Builds a TypeSafe judgment model from shared provider settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self {
+            http_client,
+            model_id: spec.provider_model_id.into_owned(),
+            auth: config.auth(ApiKeyScheme::Bearer),
+            redaction_secrets: Vec::new(),
+            endpoint: config.endpoint(TYPESAFE_BASE_URL, "/v1/systemone"),
+            timeout: config.timeouts.total_timeout.unwrap_or(DEFAULT_TIMEOUT),
+            config,
+            clock: Arc::new(SystemClock),
+        }
+    }
+
     /// Builds a TypeSafe judgment model from an injected client, model id, and API key.
     pub fn new(
         http_client: DynJsonHttpClient,
@@ -42,10 +64,10 @@ impl TypeSafeJudgmentModel {
         api_key: impl Into<String>,
     ) -> Self {
         let api_key = api_key.into();
-        let mut model = Self::with_auth(
+        let mut model = Self::from_config(
             http_client,
-            model_id,
-            Arc::new(StaticHeaderAuth::bearer_token(api_key.clone())),
+            ModelSpec::custom(PROVIDER_ID, model_id.into(), &CUSTOM_DEFAULTS),
+            ProviderConfig::new(PROVIDER_ID, api_key.clone()),
         );
         model.redaction_secrets.push(api_key);
         model
@@ -57,15 +79,11 @@ impl TypeSafeJudgmentModel {
         model_id: impl Into<String>,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        Self {
+        Self::from_config(
             http_client,
-            model_id: model_id.into(),
-            auth,
-            redaction_secrets: Vec::new(),
-            endpoint: TYPESAFE_SYSTEM_ONE_URL.to_owned(),
-            timeout: DEFAULT_TIMEOUT,
-            clock: Arc::new(SystemClock),
-        }
+            ModelSpec::custom(PROVIDER_ID, model_id.into(), &CUSTOM_DEFAULTS),
+            ProviderConfig::with_auth(PROVIDER_ID, auth),
+        )
     }
 
     /// Overrides the System One endpoint.
@@ -96,28 +114,39 @@ impl JudgmentModel for TypeSafeJudgmentModel {
             REQUEST_ID_HEADERS,
             self.clock.clone(),
         );
-        for secret in secrets_from_headers(&self.redaction_secrets, &BTreeMap::new()) {
-            context.add_secret(secret);
+        self.config.capture_secrets(&context);
+        let initial_secrets =
+            secrets_from_headers(&self.redaction_secrets, &self.config.extra_headers);
+        for secret in &initial_secrets {
+            context.add_secret(secret.clone());
         }
         if let Err(error) = request.validate() {
             return Err(context.apply_judgment_error(error.with_identity(PROVIDER, &self.model_id)));
         }
         let mut headers = BTreeMap::new();
-        if self.auth.apply_headers(&mut headers).await.is_err() {
+        if context
+            .capture_auth(self.auth.clone())
+            .apply_headers(&mut headers)
+            .await
+            .is_err()
+        {
             return Err(JudgmentError::new(
                 context.core(ErrorKind::Transient, AUTH_HOOK_FAILED),
             ));
         }
-        let secrets = secrets_from_headers(&self.redaction_secrets, &headers);
+        let secrets = secrets_from_headers(&initial_secrets, &headers);
         for secret in &secrets {
             context.add_secret(secret.clone());
         }
         let body = build_request(&self.model_id, request);
         let http_request = match self
-            .http_client
-            .post(&self.endpoint)
-            .headers(headers.clone())
-            .timeout(self.timeout)
+            .config
+            .apply_headers(
+                self.http_client
+                    .post(&self.endpoint)
+                    .auth(Arc::new(StaticHeaderAuth::new(headers)))
+                    .timeout(self.timeout),
+            )
             .json(body)
         {
             Ok(request) => request,
@@ -192,3 +221,11 @@ mod error_context_tests;
 #[cfg(test)]
 #[path = "_tests_/auth_context_tests.rs"]
 mod auth_context_tests;
+
+#[cfg(test)]
+#[path = "_tests_/config_tests.rs"]
+mod config_tests;
+
+#[cfg(test)]
+#[path = "_tests_/config_auth_tests.rs"]
+mod config_auth_tests;
