@@ -255,6 +255,10 @@ It is one-way: no function writes version 1.
 - When one message holds items of more than one provider, the provider of
   the first item sets the order of the parts. The items of the other
   providers attach as their provider state, as the table says.
+- In a mixed message, order selection skips full content items that stay
+  whole and items without an installed converter. The provider of the
+  first remaining item sets the order. With no remaining item, the generic
+  order applies.
 - Decision: the converter keeps the items of a provider that the registry
   does not include. The rejected alternatives dropped those items, which
   loses replay data for good, or failed the read, which adds a rejection.

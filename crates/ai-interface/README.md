@@ -83,6 +83,9 @@ runtime implementation.
   `compose_legacy_message` applies a list of converters. In a message with
   items from several providers, it keeps each full content item whole on
   one reasoning part with its converter's provider id.
+  Order selection skips these whole items and items without an installed
+  converter. The first remaining item's converter sets the order. With no
+  remaining item, the generic order applies.
 - Defines `ProviderId`, the stable lowercase name of a provider, such as
   `deepseek`, `minimax`, or `qwen`. It serializes as that plain string. Each
   provider crate exports the constant of its provider. This crate defines

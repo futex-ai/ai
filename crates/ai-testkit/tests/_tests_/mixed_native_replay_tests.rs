@@ -72,6 +72,55 @@ async fn mixed_messages_keep_openai_order_when_full_content_is_first() {
         }
     }
     assert_eq!(actual, expected);
+
+    let message = json!({"type": "openai_message", "phase": "commentary"});
+    let call = json!({"type": "openai_function_call", "id": "function", "call_id": "call", "name": "lookup", "arguments": "{\"id\":7}"});
+    let reasoning =
+        json!({"type": "openai_reasoning", "id": "r1", "encrypted_content": "encrypted"});
+    let later = json!({"type": "openai_reasoning", "id": "r2"});
+    let native_message = json!({"role": "assistant", "content": "visible", "phase": "commentary"});
+    let native_call = json!({"type": "function_call", "id": "function", "call_id": "call", "name": "lookup", "arguments": "{\"id\":7}"});
+    let native_reasoning =
+        json!({"type": "reasoning", "id": "r1", "summary": [], "encrypted_content": "encrypted"});
+    let native_later = json!({"type": "reasoning", "id": "r2", "summary": []});
+    for (items, expected) in [
+        (
+            vec![message.clone(), call.clone(), reasoning.clone()],
+            json!([native_message, native_call, native_reasoning]),
+        ),
+        (
+            vec![reasoning, message, later, call],
+            json!([native_reasoning, native_message, native_later, native_call]),
+        ),
+    ] {
+        for provider in [Provider::Anthropic, Provider::Google] {
+            for native_installed in [false, true] {
+                let (item, _) = native_item(provider, NativeCase::RepeatedNativeCall);
+                let mut context = vec![item];
+                context.extend(items.clone());
+                let converter = if native_installed {
+                    converter()
+                } else {
+                    LegacyMessageConverter::new(vec![Arc::new(
+                        ai_models_openai::OpenAiLegacyConverter,
+                    )])
+                };
+                let message = converter
+                    .read(json!({
+                        "role": "assistant", "content": "visible", "tool_calls": portable_calls(),
+                        "provider_context": context
+                    }))
+                    .unwrap();
+                let body = request_body(Provider::Openai, message).await;
+                assert_eq!(
+                    body["input"],
+                    expected,
+                    "{} native converter installed: {native_installed}",
+                    provider.name()
+                );
+            }
+        }
+    }
 }
 
 async fn assert_native_replay(case: NativeCase) {

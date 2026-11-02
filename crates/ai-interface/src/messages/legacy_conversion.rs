@@ -34,10 +34,6 @@ pub fn compose_legacy_message(
             })
         })
         .collect::<Vec<_>>();
-    let primary = converted
-        .first()
-        .and_then(Option::as_ref)
-        .map(|(converter, _)| *converter);
     let mut providers = message
         .provider_context
         .iter()
@@ -56,6 +52,15 @@ pub fn compose_legacy_message(
     let mixed = providers
         .next()
         .is_some_and(|first| providers.any(|provider| provider != first));
+    let primary = if mixed {
+        converted
+            .iter()
+            .flatten()
+            .find(|(converter, _)| converter.convert_message(message).is_none())
+    } else {
+        converted.first().and_then(Option::as_ref)
+    }
+    .map(|(converter, _)| *converter);
     let order = primary
         .map(|converter| converter.order())
         .unwrap_or_default();
