@@ -43,14 +43,16 @@ pub(in crate::google) async fn complete(
                         ));
                     }
                 };
-                return response::parse_response(
+                let mut response = response::parse_response(
                     catalog_model_id,
                     provider_model_id,
                     thinking_level,
                     synthetic_tool_call_scope,
                     body,
                     response_schema,
-                );
+                )?;
+                response.provider_context = accumulator.provider_context();
+                return Ok(response);
             }
             Err(source) => {
                 return Err(classify_json_http_stream_error(

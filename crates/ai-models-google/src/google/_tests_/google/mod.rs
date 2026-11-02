@@ -15,6 +15,9 @@ mod multimodal_tests;
 mod operation_id_tests;
 mod replay_tests;
 mod request_tests;
+#[cfg(test)]
+#[path = "signed_text_tests.rs"]
+mod signed_text_tests;
 mod stream_error_tests;
 mod stream_support;
 mod streaming_tests;

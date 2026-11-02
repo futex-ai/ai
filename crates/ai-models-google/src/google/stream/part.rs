@@ -1,4 +1,4 @@
-//! Gemini content parts and unsigned text-fragment accumulation.
+//! Visible Gemini content accumulation without replay signature boundaries.
 
 use ai_interface::GoogleAssistantPart;
 use serde_json::{Value, json};
@@ -14,15 +14,17 @@ pub(super) struct AccumulatedPart {
 impl AccumulatedPart {
     pub(super) fn append(
         parts: &mut Vec<Self>,
-        part: GoogleAssistantPart,
+        mut part: GoogleAssistantPart,
         merge_with_previous: bool,
     ) -> Option<GoogleStreamDelta> {
+        if part.thought_signature.is_some() && part.text.is_none() && part.function_call.is_none() {
+            return None;
+        }
+        part.thought_signature = None;
         if merge_with_previous
-            && part.thought_signature.is_none()
             && part.function_call.is_none()
             && let Some(text) = &part.text
             && let Some(previous) = parts.last_mut()
-            && previous.part.thought_signature.is_none()
             && previous.part.function_call.is_none()
             && previous.part.text.is_some()
             && previous.part.thought == part.thought

@@ -37,7 +37,10 @@ neighboring crates.
   thought flags, function-call ids and arguments, and signatures. A missing
   provider call id stays absent in replay even when runtime dispatch needs a
   synthetic id. Signed parts, including empty text and signature-only parts,
-  stay separate. The tool runtime removes this private context from log copies.
+  stay separate in replay data. Signatures do not change answer text or public
+  deltas. Text continues across chunks, and separate text parts in one chunk
+  keep their newline. The tool runtime removes this private context from log
+  copies.
 - inline `inlineData` parts for shared base64 image and video user content
 - Gemini `finishReason` normalization into `ai_interface::FinishReason`,
   including deriving normal tool-call completion from parsed `functionCall`
