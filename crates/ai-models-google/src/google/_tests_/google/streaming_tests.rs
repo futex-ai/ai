@@ -234,7 +234,13 @@ async fn same_chunk_text_parts_preserve_buffered_boundaries() {
     let mut buffered =
         expected_response("First\nSecond", FinishReason::Stop, ModelUsage::default());
     buffered.parts = vec![
-        ConversationPart::text("First"),
+        ConversationPart::text("First").with_provider_state(
+            serde_json::from_value(json!({
+                "provider": "google", "model": "gemini-3.6-flash", "version": 1,
+                "payload": {"scope": "normalized_text", "parts": []}
+            }))
+            .unwrap(),
+        ),
         ConversationPart::text("\nSecond"),
     ];
 

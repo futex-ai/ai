@@ -39,6 +39,12 @@ async fn emits_thought_and_assistant_fragments_with_part_boundary_parity() {
             assistant_delta(1, "First"),
             assistant_delta(1, "Second"),
             assistant_delta(2, "\nThird"),
+            json!({"TextDelta": {
+                "part_index": 1, "delta": "", "provider_state": {
+                    "provider": "google", "model": "gemini-3.6-flash", "version": 1,
+                    "payload": {"scope": "normalized_text", "parts": []}
+                }
+            }}),
             usage_event(4, 3, 7),
             finish_event(None),
         ]
