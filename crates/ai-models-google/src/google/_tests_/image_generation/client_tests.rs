@@ -51,9 +51,9 @@ async fn client_uses_v1_endpoint_auth_and_supports_override() {
     assert_eq!(generator.timeout, Duration::from_secs(3));
 }
 
-type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
+pub(super) type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 
-fn recording_http_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
+pub(super) fn recording_http_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
     let requests = Arc::new(Mutex::new(Vec::new()));
     let responses = Arc::new(Mutex::new(VecDeque::from([JsonHttpResponse {
         headers: Default::default(),

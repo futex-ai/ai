@@ -105,7 +105,18 @@ against the spec before transport. The adapter handles:
 - status, transport, and structured-output validation failure mapping onto
   `ai_interface::ModelError`
 
-This crate does not load config, read environment variables, or resolve
+All three adapters expose `from_config(http_client, spec, config)`.
+`ProviderConfig` from `ai-models-core` supplies the base URL, API key or auth
+hook, extra headers, and timeout overrides. A base URL can include a path
+prefix. Each adapter appends its API path and keeps that prefix. A trailing
+slash changes no request URL. Adapter and auth headers take precedence over
+extra headers without regard to case. Auth hooks run for each request.
+Model calls use configured idle and total timeouts. Image calls use the total
+timeout. Video calls also use the poll interval. A model request's total
+timeout replaces the configured total timeout for that call.
+The existing constructors and their builder methods remain available.
+
+This crate does not load config files, read environment variables, or resolve
 credentials on its own. It exports one `ModelSpec` constant for each catalog
 model: `GEMINI_3_6_FLASH`, `GEMINI_3_5_FLASH_LITE`,
 `GEMINI_3_1_FLASH_IMAGE`, and `VEO_3_1_GENERATE_PREVIEW`. `CATALOG` lists
@@ -151,21 +162,23 @@ the id to pass.
 
 `GoogleVideoGenerator` submits text or one inline first frame to Veo's
 `predictLongRunning` endpoint, polls the returned operation, and downloads the
-first generated MP4 with the same API-key auth. The
-`VEO_3_1_GENERATE_PREVIEW` spec identifies the video catalog model, and its
+first generated MP4. The `VEO_3_1_GENERATE_PREVIEW` spec identifies the video catalog model, and its
 `provider_model_id` is the id to pass. The adapter maps portable
 landscape/portrait, four/eight-second, and 720p controls, enforces one
-ten-minute total deadline through an injected polling runtime, rejects download
-URIs outside the configured API origin with the `InvalidOutput` error kind,
-and gives content-policy, timed-out, rate-limited, transient, and other
+ten-minute total deadline through an injected polling runtime, and downloads
+only HTTPS sample URIs on the configured host. An invalid sample URI has the
+`InvalidOutput` error kind. A sample on another port of that host can still
+download. Credentials go only to the configured scheme, host, and port.
+The adapter gives content-policy, timed-out, rate-limited, transient, and other
 failures their precise error kinds.
 
 ## Quick Start
 
 ```rust
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use ai_interface::{ImageGenerator, ModelSpec, VideoGenerator};
+use ai_interface::ModelSpec;
+use ai_models_core::ProviderConfig;
 use ai_models_google::{
     CUSTOM_DEFAULTS, GEMINI_2_5_PRO, GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, PROVIDER_ID,
     VEO_3_1_GENERATE_PREVIEW, GoogleImageGenerator, GoogleModel, GoogleVideoGenerator,
@@ -174,10 +187,10 @@ use ai_models_google::{
 use json_http::ReqwestJsonHttpClient;
 
 fn build_model() -> GoogleModel {
-    GoogleModel::new(
+    GoogleModel::from_config(
         Arc::new(ReqwestJsonHttpClient::new()),
         GEMINI_3_6_FLASH,
-        "google-demo",
+        google_config(),
     )
 }
 
@@ -194,19 +207,26 @@ fn known_model_count() -> usize {
 }
 
 fn build_image_generator() -> GoogleImageGenerator {
-    GoogleImageGenerator::new(
+    GoogleImageGenerator::from_config(
         Arc::new(ReqwestJsonHttpClient::new()),
-        GEMINI_3_1_FLASH_IMAGE.provider_model_id,
-        "google-demo",
+        GEMINI_3_1_FLASH_IMAGE,
+        google_config(),
     )
 }
 
 fn build_video_generator() -> GoogleVideoGenerator {
-    GoogleVideoGenerator::new(
+    GoogleVideoGenerator::from_config(
         Arc::new(ReqwestJsonHttpClient::new()),
-        VEO_3_1_GENERATE_PREVIEW.provider_model_id,
-        "google-demo",
+        VEO_3_1_GENERATE_PREVIEW,
+        google_config(),
     )
+}
+
+fn google_config() -> ProviderConfig {
+    ProviderConfig::new(PROVIDER_ID, "google-demo")
+        .with_base_url("https://proxy.example/google")
+        .with_header("x-route", "west")
+        .with_total_timeout(Duration::from_secs(90))
 }
 ```
 
@@ -219,7 +239,8 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 ### Key Code
 
-- `src/google/mod.rs` - `Model::stream` implementation and request dispatch
+- `src/google/mod.rs` - `GoogleModel::from_config`, model construction,
+  `Model::stream`, and request dispatch
 - `src/catalog.rs` - Google provider id, model spec constants, `CATALOG`,
   custom defaults, and the retained Gemini 2.5 provider model ids
 - `src/google/request.rs` - Google request mapping
@@ -233,13 +254,16 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - `src/google/response.rs` - typed terminal metadata and output checks
 - `src/google/stream/` - typed Gemini chunks, model event mapping, replay
   parts, and stream failure mapping
-- `src/google/image_generation/` - Google image request, response, and error mapping
+- `src/google/image_generation/` - `GoogleImageGenerator::from_config`,
+  Google image request, response, and error mapping
 - `src/google/video_generation/` - Google long-running video submission,
-  polling, download, request, response, and error mapping
+  `GoogleVideoGenerator::from_config`, polling, sample validation and download,
+  request, response, and error mapping
 
 ### Related Docs
 
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
+- [`../../docs/protocol/provider-registry.md`](../../docs/protocol/provider-registry.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)
 - [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)

@@ -1,60 +1,61 @@
 //! Google video generation transport client.
 
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-    time::{Duration, Instant},
+use std::{sync::Arc, time::Duration};
+
+use ai_interface::ModelSpec;
+use ai_models_core::{
+    Clock, DynPollingRuntime, ErrorContext, ProviderConfig, SystemClock, TokioPollingRuntime,
+};
+use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
+
+use crate::{
+    PROVIDER_ID,
+    google::{GOOGLE_API_BASE_URL, error_context},
 };
 
-use ai_interface::{
-    ErrorKind, VideoGenerationError, VideoGenerationRequest, VideoGenerationResult,
-};
-use ai_models_core::{Clock, DynPollingRuntime, ErrorContext, SystemClock, TokioPollingRuntime};
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient, JsonHttpResponse, StaticHeaderAuth};
-
-use crate::google::error_context;
-
-use super::{
-    error::{classify_request_error, classify_status},
-    request::build_request,
-};
-
-const GOOGLE_API_BASE_URL: &str = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(10);
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 /// Google-backed `ai_interface::VideoGenerator` implementation.
 #[derive(Clone)]
 pub struct GoogleVideoGenerator {
-    http_client: DynJsonHttpClient,
+    pub(super) http_client: DynJsonHttpClient,
     pub(super) model_id: String,
-    auth: DynJsonHttpAuth,
+    pub(super) config: ProviderConfig,
     pub(super) runtime: DynPollingRuntime,
     pub(super) base_url: String,
     pub(super) poll_interval: Duration,
     pub(super) timeout: Duration,
     clock: Arc<dyn Clock>,
-    initial_secrets: Vec<String>,
 }
 
 impl GoogleVideoGenerator {
+    /// Builds a Google video generator from shared provider settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self::with_config(
+            http_client,
+            spec.provider_model_id.into_owned(),
+            config,
+            Arc::new(TokioPollingRuntime),
+        )
+    }
+
     /// Builds a Google video generator from an injected client, model id, and API key.
     pub fn new(
         http_client: DynJsonHttpClient,
         model_id: impl Into<String>,
         api_key: impl Into<String>,
     ) -> Self {
-        let api_key = api_key.into();
-        let mut model = Self::with_auth(
+        Self::with_config(
             http_client,
-            model_id,
-            Arc::new(StaticHeaderAuth::new(BTreeMap::from([(
-                "x-goog-api-key".to_owned(),
-                api_key.clone(),
-            )]))),
-        );
-        model.initial_secrets.push(api_key);
-        model
+            model_id.into(),
+            ProviderConfig::new(PROVIDER_ID, api_key),
+            Arc::new(TokioPollingRuntime),
+        )
     }
 
     /// Builds a Google video generator from an injected client and auth hook.
@@ -73,16 +74,32 @@ impl GoogleVideoGenerator {
         auth: DynJsonHttpAuth,
         runtime: DynPollingRuntime,
     ) -> Self {
+        Self::with_config(
+            http_client,
+            model_id.into(),
+            ProviderConfig::with_auth(PROVIDER_ID, auth),
+            runtime,
+        )
+    }
+
+    fn with_config(
+        http_client: DynJsonHttpClient,
+        model_id: String,
+        config: ProviderConfig,
+        runtime: DynPollingRuntime,
+    ) -> Self {
         Self {
             http_client,
-            model_id: model_id.into(),
-            auth,
+            model_id,
             runtime,
-            base_url: GOOGLE_API_BASE_URL.to_owned(),
-            poll_interval: DEFAULT_POLL_INTERVAL,
-            timeout: DEFAULT_TIMEOUT,
+            base_url: config.endpoint(GOOGLE_API_BASE_URL, "/v1beta"),
+            poll_interval: config
+                .timeouts
+                .poll_interval
+                .unwrap_or(DEFAULT_POLL_INTERVAL),
+            timeout: config.timeouts.total_timeout.unwrap_or(DEFAULT_TIMEOUT),
             clock: Arc::new(SystemClock),
-            initial_secrets: Vec::new(),
+            config,
         }
     }
 
@@ -94,12 +111,7 @@ impl GoogleVideoGenerator {
 
     pub(super) fn context(&self) -> ErrorContext {
         let context = error_context::new(&self.model_id, self.clock.clone());
-        for secret in &self.initial_secrets {
-            context.add_secret(secret);
-            if let Some(token) = secret.split_whitespace().last() {
-                context.add_secret(token);
-            }
-        }
+        self.config.capture_secrets(&context);
         context
     }
 
@@ -115,140 +127,4 @@ impl GoogleVideoGenerator {
         self.timeout = timeout;
         self
     }
-
-    async fn send_json(
-        &self,
-        context: &ErrorContext,
-        request: json_http::JsonHttpRequestBuilder,
-    ) -> VideoGenerationResult<JsonHttpResponse<serde_json::Value>> {
-        let response = match request.send_value().await {
-            Ok(response) => response,
-            Err(source) => return Err(classify_request_error(context, source)),
-        };
-        if response.status >= 400 {
-            return Err(classify_status(
-                context,
-                response.status,
-                &response.headers,
-                &response.body,
-            ));
-        }
-        Ok(response)
-    }
-
-    pub(super) async fn submit(
-        &self,
-        context: &ErrorContext,
-        request: &VideoGenerationRequest,
-        timeout: Duration,
-    ) -> VideoGenerationResult<JsonHttpResponse<serde_json::Value>> {
-        let endpoint = format!(
-            "{}/models/{}:predictLongRunning",
-            self.base_url, self.model_id
-        );
-        let builder = match self
-            .http_client
-            .post(&endpoint)
-            .auth(context.capture_auth(self.auth.clone()))
-            .timeout(timeout)
-            .json(build_request(context, request)?)
-        {
-            Ok(builder) => builder,
-            Err(source) => return Err(classify_request_error(context, source)),
-        };
-        self.send_json(context, builder).await
-    }
-
-    pub(super) async fn retrieve(
-        &self,
-        context: &ErrorContext,
-        operation: &str,
-        timeout: Duration,
-    ) -> VideoGenerationResult<JsonHttpResponse<serde_json::Value>> {
-        self.send_json(
-            context,
-            self.http_client
-                .get(&format!("{}/{}", self.base_url, operation))
-                .auth(context.capture_auth(self.auth.clone()))
-                .timeout(timeout),
-        )
-        .await
-    }
-
-    pub(super) async fn download(
-        &self,
-        context: &ErrorContext,
-        uri: &str,
-        timeout: Duration,
-    ) -> VideoGenerationResult<Vec<u8>> {
-        if !allowed_download_uri(&self.base_url, uri) {
-            return Err(VideoGenerationError::new(context.core(
-                ErrorKind::InvalidOutput,
-                "provider returned a download URI outside the configured API origin",
-            )));
-        }
-        let response = self
-            .http_client
-            .get(uri)
-            .auth(context.capture_auth(self.auth.clone()))
-            .timeout(timeout)
-            .send_bytes()
-            .await;
-        let response = match response {
-            Ok(response) => response,
-            Err(source) => return Err(classify_request_error(context, source)),
-        };
-        if response.status >= 400 {
-            return Err(classify_status(
-                context,
-                response.status,
-                &response.headers,
-                &serde_json::Value::String(String::from_utf8_lossy(&response.body).into_owned()),
-            ));
-        }
-        let context = context.for_response(&response.headers);
-        if response.body.is_empty() {
-            return Err(VideoGenerationError::NoVideo {
-                core: Box::new(context.core(ErrorKind::InvalidOutput, "no video returned")),
-            });
-        }
-        Ok(response.body)
-    }
-
-    pub(super) fn remaining(
-        &self,
-        context: &ErrorContext,
-        started_at: Instant,
-    ) -> VideoGenerationResult<Duration> {
-        let remaining = self
-            .timeout
-            .saturating_sub(self.runtime.now().saturating_duration_since(started_at));
-        if remaining.is_zero() {
-            return Err(VideoGenerationError::new(
-                context.core(ErrorKind::TimedOut, "generation timed out"),
-            ));
-        }
-        Ok(remaining)
-    }
-}
-
-fn allowed_download_uri(base_url: &str, uri: &str) -> bool {
-    let Some(base_authority) = https_authority(base_url) else {
-        return false;
-    };
-    https_authority(uri) == Some(base_authority)
-        && uri
-            .strip_prefix("https://")
-            .is_some_and(|rest| rest.contains('/'))
-        && !uri.bytes().any(|byte| byte.is_ascii_whitespace())
-}
-
-fn https_authority(url: &str) -> Option<&str> {
-    let rest = url.strip_prefix("https://")?;
-    let authority_end = rest.find('/').unwrap_or(rest.len());
-    let authority = &rest[..authority_end];
-    if authority.is_empty() || authority.contains('@') || authority.contains('#') {
-        return None;
-    }
-    Some(authority)
 }

@@ -17,20 +17,21 @@ pub use image_generation::GoogleImageGenerator;
 pub use legacy::GoogleLegacyProviderConverter;
 pub use video_generation::GoogleVideoGenerator;
 
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
     DynModelEventStream, ErrorKind, Model, ModelError, ModelRequest, ModelResult, ModelSpec,
 };
 use ai_models_core::{
-    Clock, SystemClock, classify_json_http_stream_error, resolve_controls,
-    synthetic_tool_call_scope,
+    ApiKeyScheme, Clock, ProviderConfig, SystemClock, classify_json_http_stream_error,
+    resolve_controls, synthetic_tool_call_scope,
 };
 use async_trait::async_trait;
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
 
-const GOOGLE_GENERATE_CONTENT_URL_PREFIX: &str =
-    "https://generativelanguage.googleapis.com/v1beta/models";
+use crate::PROVIDER_ID;
+
+const GOOGLE_API_BASE_URL: &str = "https://generativelanguage.googleapis.com";
 const COMPLETION_TIMEOUT: Duration = Duration::from_secs(3_600);
 const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -39,29 +40,32 @@ const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 pub struct GoogleModel {
     http_client: DynJsonHttpClient,
     spec: ModelSpec,
-    auth: DynJsonHttpAuth,
+    config: ProviderConfig,
     clock: Arc<dyn Clock>,
-    initial_secrets: Vec<String>,
 }
 
 impl GoogleModel {
+    /// Builds a Google model from shared provider settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self {
+            http_client,
+            spec,
+            config,
+            clock: Arc::new(SystemClock),
+        }
+    }
+
     /// Builds a Google model from an explicit API key.
     pub fn new(
         http_client: DynJsonHttpClient,
         spec: ModelSpec,
         api_key: impl Into<String>,
     ) -> Self {
-        let api_key = api_key.into();
-        let mut model = Self::with_auth(
-            http_client,
-            spec,
-            Arc::new(StaticHeaderAuth::new(BTreeMap::from([(
-                "x-goog-api-key".to_owned(),
-                api_key.clone(),
-            )]))),
-        );
-        model.initial_secrets.push(api_key);
-        model
+        Self::from_config(http_client, spec, ProviderConfig::new(PROVIDER_ID, api_key))
     }
 
     /// Builds a Google model from an explicit auth hook.
@@ -79,13 +83,11 @@ impl GoogleModel {
         spec: ModelSpec,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        Self {
+        Self::from_config(
             http_client,
             spec,
-            auth,
-            clock: Arc::new(SystemClock),
-            initial_secrets: Vec::new(),
-        }
+            ProviderConfig::with_auth(PROVIDER_ID, auth),
+        )
     }
 
     /// Uses an injected wall clock for response retry dates.
@@ -95,9 +97,12 @@ impl GoogleModel {
     }
 
     fn endpoint(&self) -> String {
-        format!(
-            "{GOOGLE_GENERATE_CONTENT_URL_PREFIX}/{}:streamGenerateContent?alt=sse",
-            self.spec.provider_model_id
+        self.config.endpoint(
+            GOOGLE_API_BASE_URL,
+            &format!(
+                "/v1beta/models/{}:streamGenerateContent?alt=sse",
+                self.spec.provider_model_id
+            ),
         )
     }
 }
@@ -106,24 +111,32 @@ impl GoogleModel {
 impl Model for GoogleModel {
     async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
         let context = error_context::new(&self.spec.provider_model_id, self.clock.clone());
-        for secret in &self.initial_secrets {
-            context.add_secret(secret);
-            if let Some(token) = secret.split_whitespace().last() {
-                context.add_secret(token);
-            }
-        }
+        self.config.capture_secrets(&context);
         let controls = match resolve_controls(request, &self.spec) {
             Ok(controls) => controls,
             Err(error) => return Err(context.apply_model_error(error)),
         };
         let response_schema = request.response_schema.as_ref();
         let synthetic_tool_call_scope = synthetic_tool_call_scope(request);
-        let builder = self
-            .http_client
-            .post(&self.endpoint())
-            .auth(context.capture_auth(self.auth.clone()))
-            .timeout(controls.total_timeout.unwrap_or(COMPLETION_TIMEOUT))
-            .idle_timeout(STREAM_IDLE_TIMEOUT);
+        let builder = self.config.apply_headers(
+            self.http_client
+                .post(&self.endpoint())
+                .auth(
+                    context.capture_auth(self.config.auth(ApiKeyScheme::Header("x-goog-api-key"))),
+                )
+                .timeout(
+                    controls
+                        .total_timeout
+                        .or(self.config.timeouts.total_timeout)
+                        .unwrap_or(COMPLETION_TIMEOUT),
+                )
+                .idle_timeout(
+                    self.config
+                        .timeouts
+                        .idle_timeout
+                        .unwrap_or(STREAM_IDLE_TIMEOUT),
+                ),
+        );
         let builder = match builder.json(request::build_request(
             &context,
             &self.spec.provider_model_id,
