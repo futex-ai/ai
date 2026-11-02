@@ -35,12 +35,20 @@ in-memory tool-calling runtime behavior.
   spec, and typed errors
 - TypeSafe Jev judgment evaluation through a provider-neutral typed boundary
   for condition, choice, and score questions over shared text or JSON state
-- Provider-agnostic stream wrappers for retry, concurrency, and usage pricing,
-  plus structured output validation and stream failure classification
-- Ordered fallback model composition through `ai-models-multi`, with a
-  fallback event for each failed model
+- One error core for every model, image, video, transcription, and judgment
+  error: a precise kind that says whether another model can succeed, the
+  provider, the model, a credential-free message, the provider's
+  retry-after, and its request id
+- Provider-agnostic policy layers in `ai-models-policy`: retry with jitter
+  that honours retry-after and covers rate limits, ordered fallback with a
+  required policy and a fallback event for each failed model, concurrency
+  limits, and usage pricing
+- Shared adapter helpers in `ai-models-core` for structured output
+  validation and HTTP and stream failure classification
 - Trait-backed buffered and incremental SSE HTTP client support through
-  `json-http`, with connect, idle, and overall timeout controls
+  `json-http`, with connect, idle, and overall timeout controls, response
+  headers on responses, streams, and failures, and typed request bodies
+  serialized straight to bytes
 - In-memory tool-calling runtime through `ai-tool-calling`, including
   universal tool output management with inline envelopes, stored output ids,
   UTF-8-safe windows, and degraded-window fallbacks
@@ -71,10 +79,8 @@ in-memory tool-calling runtime behavior.
   implemented) defines provider config, base URLs, auth, headers, timeouts,
   the adapters that a spec builds, and the converter for stored
   conversations.
-- [Model policies](docs/protocol/model-policies.md) (approved, not
-  implemented) defines the error core and kinds, retry, fallback policies,
-  concurrency, and pricing. It also holds the error, retry, and fallback
-  rules in force until those layers are implemented.
+- [Model policies](docs/protocol/model-policies.md) defines the error core
+  and kinds, retry, fallback policies, concurrency, and pricing.
 - [Agent loop](docs/protocol/agent-loop.md) (approved, not implemented)
   defines turns over a caller-owned conversation, agent events, parallel
   tools, outcomes, observers, and the output reader.
@@ -138,15 +144,15 @@ boundary they need:
   event stream and its fold, conversation parts and provider state, the
   stored message reader, model specs, provider ids, efforts, the combined
   model catalog, and model-visible tool output envelopes
-- `ai-models-core`: reusable stream wrappers, the shared capability check,
-  and provider helper logic
+- `ai-models-core`: the shared capability check, error classification with
+  response metadata, and provider helper logic
 - `ai-models-anthropic`: Anthropic model adapter
 - `ai-models-compat`: one Chat Completions engine with public `deepseek`,
   `kimi`, `qwen`, `minimax`, and `xai` dialect modules and their model specs
 - `ai-models-google`: Google Gemini chat/image and Veo video adapters
 - `ai-models-openai`: OpenAI model, transcription, image, and video adapters
 - `ai-models-typesafe`: TypeSafe Jev judgment adapter and its model specs
-- `ai-models-multi`: ordered fallback model adapter
+- `ai-models-policy`: retry, fallback, concurrency, and pricing layers
 - `ai-tool-calling`: in-memory tool-calling runtime with output policy, output
   store integration, and the intrinsic `tool_output_read` reader
 - `ai-mcp`: MCP 2025-06-18/2025-03-26 streamable HTTP client and
@@ -297,13 +303,16 @@ cargo xtask review
   `src/model_event.rs`, `src/model_stream.rs`, the
   `src/model_response_fold/` fold, the `src/messages/` conversation parts,
   provider state, and stored format, and `src/output/` envelope DTOs
-- `crates/ai-models-core`: provider-agnostic model wrappers and helpers,
-  including the shared capability check in `src/capabilities.rs`
+- `crates/ai-models-core`: provider-agnostic adapter helpers, including the
+  shared capability check in `src/capabilities.rs` and the per-call error
+  context in `src/error_context.rs`
+- `crates/ai-models-policy`: retry, fallback, concurrency, and pricing
+  layers
 - `crates/ai-models-compat`: shared request mapping, streaming, response,
   usage, and errors, with DeepSeek, Kimi, Qwen, MiniMax, and xAI dialects
 - `crates/ai-models-typesafe`: TypeSafe Jev catalog, judgment request/response
   mapping, validation, usage, authentication, and provider-error translation
-- `crates/ai-models-*`: concrete provider and fallback adapters. Each
+- `crates/ai-models-*`: concrete provider adapters. Each
   provider crate keeps its provider id, model specs, and custom defaults in
   a `catalog.rs`
 - `crates/ai-tool-calling`: in-memory tool-calling runtime, including
@@ -338,8 +347,8 @@ cargo xtask review
   the policy layers on the stream
 - `docs/protocol/conversation-parts.md`: implemented conversation parts,
   provider state, stored format, version 1 converter, and log copy contract
-- `docs/protocol/model-policies.md`: approved error and policy contract,
-  with the error, retry, and fallback rules in force today
+- `docs/protocol/model-policies.md`: implemented error core, error kinds,
+  retry, fallback, concurrency, and pricing contract
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
   contract
 - `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract

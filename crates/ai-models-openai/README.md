@@ -79,12 +79,12 @@ against the spec before transport. The adapter handles:
 - `response.incomplete` ends the attempt with its partial output: the
   truncated finish reason for `max_output_tokens`, the filtered finish reason
   for `content_filter`, and the other finish reason otherwise
-- typed classification of completion failures before stream progress as
-  retryable or provider errors and failures after progress as
-  the `Interrupted` error kind
+- typed classification of completion failures before stream progress by
+  their precise error kind, and of failures after progress as the
+  `Interrupted` error kind
 - status, transport, and structured-output validation failure mapping onto
   `ai_interface::ModelError`, with retryable `408`, `409`, `425`, and `5xx`
-  transcription statuses mapped to transient provider failures
+  transcription statuses mapped to the `Transient` error kind
 
 This crate does not load config, read environment variables, or resolve
 credentials on its own. It exports one `ModelSpec` constant for each catalog
@@ -159,8 +159,9 @@ downloads the completed MP4 through the authenticated binary transport path.
 The `SORA_2` spec identifies the 720p video catalog model, and its
 `provider_model_id` is the id to pass. The adapter supports portable
 landscape/portrait and four/eight-second controls, enforces one ten-minute total
-deadline with an injected polling runtime, and keeps policy, timeout, rate
-limit, transient, and terminal failures typed. This upstream API is currently
+deadline with an injected polling runtime, and gives content-policy,
+timed-out, rate-limited, transient, and other failures their precise error
+kinds. This upstream API is currently
 scheduled to shut down on September 24, 2026, so consumers should treat the
 adapter as a time-bounded compatibility integration.
 
@@ -250,6 +251,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)
 - [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
 - [`../../docs/protocol/conversation-parts.md`](../../docs/protocol/conversation-parts.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)

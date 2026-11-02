@@ -26,7 +26,8 @@ shared engine that serves this provider.
   transport dispatch, the private MiniMax replay state and its version 1
   conversion, provider error handling, and response normalization.
 - `ai-models-core` continues to own provider-agnostic HTTP classification,
-  the capability check, structured-output validation, and pricing wrappers.
+  the capability check, and structured-output validation. `ai-models-policy`
+  owns the pricing layer.
 - Composition roots own credential lookup, retry/concurrency/pricing wrappers,
   route ordering, and selection of a model spec.
 

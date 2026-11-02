@@ -53,6 +53,15 @@ metadata. Auth hooks apply once per request and diagnostics redact captured
 credentials. Each model offers `with_clock` for HTTP-date retry hints.
 MiniMax uses `Trace-Id` first; other request-id names are optional aliases.
 
+Before progress, a standard provider error event takes the kind of its known
+code: rate-limit codes give `RateLimited`, context codes
+`ContextLimitExceeded`, server and overload codes `Transient`, key and quota
+codes `RejectedKey`, model codes `UnknownModel`, unsupported-input codes
+`UnsupportedInput`, and invalid-output codes `InvalidOutput`. An unknown or
+absent code gives `InvalidRequest`, and a provider error event after
+progress gives `Interrupted`. MiniMax `base_resp` codes follow the
+[MiniMax response protocol](../../docs/protocol/minimax-responses.md).
+
 MiniMax retains M2.x snapshot recovery, M3 deltas, reasoning details, numeric
 provider errors, and structurally validated clean EOF. It emits the inferred
 M2.x text as one text delta after terminal validation.
@@ -86,7 +95,8 @@ their separate accumulation.
 
 A dialect supplies its endpoint, usage fields, replay rule, and wire settings.
 Model wrappers hold the spec and delegate execution to the engine. Callers
-supply credentials and apply retry, concurrency, and pricing wrappers at the
+supply credentials and apply the retry, fallback, concurrency, and pricing
+layers of [`ai-models-policy`](../ai-models-policy/README.md) at the
 composition root.
 
 ## Quick Start
@@ -148,6 +158,7 @@ stream, response, validation, and usage code. Put dialect tests in its
 - [Model stream](../../docs/protocol/model-stream.md)
 - [Conversation parts](../../docs/protocol/conversation-parts.md)
 - [Model capabilities](../../docs/protocol/model-capabilities.md)
+- [Model policies](../../docs/protocol/model-policies.md)
 - [Provider controls](../../docs/protocol/provider-call-controls.md)
 - [DeepSeek](../../docs/protocol/deepseek-model-provider.md)
 - [Kimi](../../docs/protocol/kimi-model-provider.md)

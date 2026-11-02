@@ -199,6 +199,7 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)
 - [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
 - [`../../docs/protocol/conversation-parts.md`](../../docs/protocol/conversation-parts.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)

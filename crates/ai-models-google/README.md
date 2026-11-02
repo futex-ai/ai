@@ -100,8 +100,8 @@ against the spec before transport. The adapter handles:
   input, and thinking token counts
 - the last finish reason and the last usage metadata of the stream as those
   of the call. The stream must end after a finish reason or a prompt block
-- typed classification of failures before stream progress as retryable or
-  provider errors and failures after progress as the `Interrupted` error kind
+- typed classification of failures before stream progress by their precise
+  error kind, and of failures after progress as the `Interrupted` error kind
 - status, transport, and structured-output validation failure mapping onto
   `ai_interface::ModelError`
 
@@ -156,8 +156,9 @@ first generated MP4 with the same API-key auth. The
 `provider_model_id` is the id to pass. The adapter maps portable
 landscape/portrait, four/eight-second, and 720p controls, enforces one
 ten-minute total deadline through an injected polling runtime, rejects download
-URIs outside the configured API origin, and keeps policy, timeout, rate-limit,
-transient, and terminal failures typed.
+URIs outside the configured API origin with the `InvalidOutput` error kind,
+and gives content-policy, timed-out, rate-limited, transient, and other
+failures their precise error kinds.
 
 ## Quick Start
 
@@ -240,6 +241,7 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)
 - [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
 - [`../../docs/protocol/conversation-parts.md`](../../docs/protocol/conversation-parts.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)

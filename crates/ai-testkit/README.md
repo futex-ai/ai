@@ -171,4 +171,5 @@ See `json-http` for the transport boundary's status and failure limits.
 - [json-http](../json-http/README.md)
 - [xtask recorder](../../xtask/README.md)
 - [Model stream](../../docs/protocol/model-stream.md)
+- [Model policies](../../docs/protocol/model-policies.md)
 - [Conversation parts](../../docs/protocol/conversation-parts.md)

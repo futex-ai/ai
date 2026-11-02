@@ -114,11 +114,12 @@ the matching `tool_call_id` and omit `name`.
 Plus and Flash map shared text and image parts to OpenAI-compatible `text` and
 `image_url` content parts. Base64 images use
 `data:<mime-type>;base64,<data>`. Max rejects every message with an image or
-video part before authentication or transport. All models reject image and
-video parts on assistant and tool messages, because the role table of the
+video part with the unsupported input kind before authentication or
+transport. All models reject image and video parts on assistant and tool
+messages with the invalid request kind, because the role table of the
 [conversation parts protocol](conversation-parts.md) does not allow them. All
 models also reject shared video parts defined by the
-[video input protocol](video-input.md) with a typed provider error before
+[video input protocol](video-input.md) with the unsupported input kind before
 transport.
 
 Provider state owned by another adapter is never serialized as Qwen state.
@@ -149,9 +150,8 @@ Each tool-call part keeps its raw call id, name, and JSON argument string, in
 provider order. Qwen requests prefer this state over the portable parts.
 Null replay content remains null only when raw tool calls are present; without
 calls it becomes an empty string so the next request remains a valid assistant
-message. An enabled-thinking tool-call finish without `reasoning_content` is a
-non-retryable provider failure because exact continuation cannot be
-guaranteed.
+message. An enabled-thinking tool-call finish without `reasoning_content` has
+the invalid output kind because exact continuation cannot be guaranteed.
 
 Reasoning is private provider state. It never enters the response text or
 structured output. Model-call log copies drop the provider state and the
@@ -168,7 +168,7 @@ and `parallel_tool_calls: true`; empty tool lists omit both fields. A thinking
 Calls are dispatchable only for a `tool_calls` finish. Each call must include
 an id, function name, and arguments that parse as JSON. Provider order, ids,
 and raw argument strings survive parallel calls and replay. Missing, empty,
-whitespace-only, or malformed dispatchable calls are provider failures.
+whitespace-only, or malformed dispatchable calls have the invalid output kind.
 
 Tool payloads attached to stop, truncated, filtered, unknown, or missing
 finish reasons are ignored and not retained. Tool results send string content

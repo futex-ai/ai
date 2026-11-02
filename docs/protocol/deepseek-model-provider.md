@@ -102,9 +102,9 @@ remains an empty string. User and assistant names are sent only when present;
 tool messages omit `name` and include the matching `tool_call_id`.
 
 DeepSeek V4 is text-only at this boundary. It sends text parts. A message
-with an image or video part fails locally with a typed provider error before
-authentication or transport is invoked. The adapter must not drop an image or
-video part, or claim vision support.
+with an image or video part fails locally with the unsupported input kind
+before authentication or transport is invoked. The adapter must not drop an
+image or video part, or claim vision support.
 
 Portable output limits map to `max_tokens` and ordered stops map to `stop` at
 every effort. With thinking disabled, temperature, top-p, and all
@@ -151,8 +151,8 @@ DeepSeek provider state, as the
 Null assistant content becomes an empty string so replay always sends
 non-null `content`.
 
-An enabled-thinking tool-call response without `reasoning_content` is a
-non-retryable provider failure because it cannot be continued correctly. A
+An enabled-thinking tool-call response without `reasoning_content` has the
+invalid output kind because it cannot be continued correctly. A
 disabled-thinking tool call may omit reasoning.
 
 On continuation, the adapter sends the raw values of its own state. It uses
@@ -174,7 +174,7 @@ name, and JSON arguments; provider order, ids, and raw arguments survive
 parallel calls and replay.
 
 A `tool_calls` finish with an absent, null, empty, or malformed tool-call
-collection is a non-retryable provider failure. Tool payloads attached to
+collection has the invalid output kind. Tool payloads attached to
 terminal, truncated, filtered, unknown, or missing finish reasons are neither
 parsed, dispatched, nor retained for replay.
 

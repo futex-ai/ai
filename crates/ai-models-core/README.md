@@ -12,6 +12,8 @@ for retry, fallback, concurrency, and usage pricing.
 - Offer a boundary-neutral HTTP failure classifier and provider-agnostic
   JSON/error helpers shared by model crates
 - Classify stream failures by provider-event progress
+- Build safe error cores with per-call identity, response metadata, and
+  credential redaction
 - Resolve every portable request control against its `ModelSpec` before
   transport, with one capability check that every chat adapter shares
 

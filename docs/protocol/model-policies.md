@@ -1,17 +1,13 @@
 # Model Policies Protocol
 
-Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
-
-When implemented, this protocol replaces the wrapper contract of
-[provider-call-controls.md](provider-call-controls.md). Until then, the
-section [Rules in force until Milestone 8](#rules-in-force-until-milestone-8)
-gives the errors, retry, and fallback rules that apply where they differ
-from the target rules.
+Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
 This protocol defines the error core, the scope of each error kind, and the
 retry, fallback, concurrency, and pricing layers. The
 [model stream protocol](model-stream.md) defines how each layer keeps the
 event stream.
+
+<a id="rules-in-force-until-milestone-8"></a>
 
 ## Error core
 
@@ -58,9 +54,27 @@ generation, video generation, audio transcription, and judgment.
 - Each kind answers whether another model can succeed, as the table says.
 - A context-limit code in an HTTP 400 body gives the context limit exceeded
   kind.
+- An unexpected HTTP status below 400 breaks the response contract and
+  gives the invalid output kind.
+- Before progress, a provider error event with a known code takes the
+  precise kind of that code, for example the rejected key kind for an
+  authentication code. An event with an unknown code gives the invalid
+  request kind.
 - The provider docs map the error codes of their providers to kinds.
 - Only image and video adapters give the content policy kind. Only video
   adapters give the timed out kind.
+- Exception: when the total timeout of an xAI deferred call ends after xAI
+  accepted the job, the error has the transient kind, not the timed out
+  kind. The retry layer can therefore retry the call, and each retry
+  submits a new deferred job that xAI can bill.
+- Decision: the xAI exception keeps this billing behaviour until the user
+  answers
+  [xAI deferred timeout can bill twice](../../plans/follow-ups/xai-deferred-timeout-rebills.md).
+- Exception: the DeepSeek finish reason `insufficient_system_resource` has
+  the transient kind also after progress, as the
+  [DeepSeek response protocol](deepseek-responses.md#error-contract) says.
+  [DeepSeek resource error can bill twice](../../plans/follow-ups/deepseek-resource-error-rebills.md)
+  holds the open question.
 - The typed errors of the other modalities map to kinds:
 
 | Modality error | Kind |
@@ -78,6 +92,9 @@ generation, video generation, audio transcription, and judgment.
 - It retries the rate limited and transient kinds only.
 - It never retries the interrupted kind, because the provider can bill the
   partial generation twice.
+- It never retries an error whose earlier attempts include the interrupted
+  kind or an attempt that emitted events, because a retry repeats those
+  attempts too.
 - It makes at most three attempts by default: the first call and two
   retries.
 - The base delays of the two retries are 100 ms and 250 ms.
@@ -89,6 +106,8 @@ generation, video generation, audio transcription, and judgment.
   retry and returns the error. The default maximum wait is 30 s.
 - The caller can set the number of attempts, the base delays, and the
   maximum wait.
+- Each base delay allows one retry. When the base delays run out, the layer
+  stops retrying, also when the number of attempts allows more.
 - Each attempt gets the full total timeout of the request. A wait does not
   count against it.
 - Decision: retry backs off with jitter, honours retry-after, and covers
@@ -103,8 +122,8 @@ generation, video generation, audio transcription, and judgment.
 - The preset "any error" moves on after every error kind.
 - The preset "only when another model can succeed" moves on only after a
   kind whose table entry says yes.
-- A custom policy is a rule of the caller that decides from the error of
-  the failed attempt.
+- A custom policy is a rule of the caller that decides from the kind of
+  the error of the failed attempt.
 - After a failed attempt, the layer asks its policy. When the policy moves
   on and a model remains, the layer sends the unchanged request to the next
   model.
@@ -127,72 +146,6 @@ generation, video generation, audio transcription, and judgment.
   - A required policy with presets on classes that keep one undivided
     provider error.
   - No fallback in the library.
-
-## Rules in force until Milestone 8
-
-Milestone 8 of the plan implements the error core, the error kinds, retry,
-and fallback of this protocol. Until then, the rules of this section apply
-where they differ from the sections above. The concurrency, pricing, and
-composition rules below are in force.
-
-### Errors
-
-- The error core is not in force. A model error carries no retry-after and
-  no provider request id.
-- A model error is one of the current errors in this table. A kind that the
-  [model stream protocol](model-stream.md) or a provider doc names stands for
-  its current error.
-
-| Kind | Current error |
-| --- | --- |
-| Rate limited | `RateLimited` |
-| Transient | `TransientProvider` |
-| Interrupted | `Interrupted` |
-| Context limit exceeded | `ContextLimitExceeded` |
-| Unsupported control | `UnsupportedControl` |
-| Internal | `Internal` |
-| Invalid request, rejected key, unknown model, unsupported input, or invalid output | `Provider` |
-
-- `UnsupportedControl` carries the provider, the model id, and the control.
-  `Internal` carries its source. Each other current error carries the
-  provider, the model id, and a message.
-- An HTTP failure status gives a current error:
-  - 429 gives `RateLimited`.
-  - 408, 409, 425, and each status from 500 to 599 give
-    `TransientProvider`.
-  - 400 with a context-limit code in its body gives `ContextLimitExceeded`.
-  - Each other status from 400 to 499 gives `Provider`.
-- The image, video, transcription, and judgment adapters keep their own
-  typed errors.
-
-### Retry
-
-- The retry layer retries only `TransientProvider`. It does not retry
-  `RateLimited` or `Interrupted`.
-- The standard schedule makes at most three attempts: the first call and
-  two retries. The waits before the two retries are 100 ms and 250 ms.
-- A wait has no jitter. The layer ignores the retry-after of the provider.
-- A caller can set the list of waits. Each wait of the list allows one
-  retry.
-- The retry layer keeps the stream rules of the
-  [model stream protocol](model-stream.md#policy-layers-on-the-stream).
-
-### Fallback
-
-- The fallback layer has no policy. It moves to the next model after every
-  error, as the preset "any error" does.
-- It moves on also after `Interrupted`, so the interrupted attempt and the
-  next attempt can both bill. The README of the fallback crate must warn
-  callers about this.
-- When the last model fails, the layer returns the error of that model. That
-  error does not list the earlier attempts.
-- A successful response lists every failed attempt before it. An attempt
-  record holds a copy of the error of the failed attempt. It does not record
-  whether the attempt emitted events.
-- A fallback layer with no models fails every call with `Internal`.
-- The fallback layer keeps the stream rules of the
-  [model stream protocol](model-stream.md#policy-layers-on-the-stream). It
-  emits one fallback event for each failed model.
 
 ## Concurrency
 

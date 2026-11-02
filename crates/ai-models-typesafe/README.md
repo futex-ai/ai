@@ -106,7 +106,8 @@ credentials or network access are required.
 - `src/typesafe/client.rs` - construction, local validation, and HTTP dispatch.
 - `src/typesafe/request.rs` - shared-to-TypeSafe request mapping.
 - `src/typesafe/response.rs` - answer, score-key, and usage normalization.
-- `src/typesafe/error.rs` - status, transport, and auth error classification.
+- `src/typesafe/error.rs` - status, transport, and auth error classification
+  through the shared `json_http_error_core` helper of `ai-models-core`.
 - `src/typesafe/redaction.rs` - transmitted-auth secret derivation and
   longest-first diagnostic redaction.
 - `src/typesafe/unique_map.rs` - duplicate-rejecting provider map decoding.
@@ -117,6 +118,7 @@ credentials or network access are required.
 - [`../../docs/protocol/judgment-boundary.md`](../../docs/protocol/judgment-boundary.md)
 - [`../../docs/protocol/live-judgment-api-tests.md`](../../docs/protocol/live-judgment-api-tests.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
+- [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

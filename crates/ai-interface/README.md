@@ -55,7 +55,7 @@ runtime implementation.
   and fails with the `InvalidRequest` error kind. `ModelFeature::Vision` and
   `ModelFeature::VideoInput` are the stable routing capabilities for image
   and video inputs; providers without a video wire contract reject video
-  parts with a typed provider error.
+  parts with the `UnsupportedInput` error kind.
 - Defines `ProviderState { provider, model, version, payload }`. The payload
   is a JSON object that only the adapter of `provider` reads, and each
   adapter keeps its payload types private.
@@ -135,6 +135,10 @@ runtime implementation.
   and judgment errors. Each error owns one core. `core()` and `core_mut()`
   expose its kind, adapter identity, safe message, retry-after, and provider
   request id. `UnsupportedControl` carries its typed `ModelControl`.
+  `ErrorKind::can_succeed_with_another_model()` says whether another model
+  can succeed after a kind. `ModelError::Failure` and `ModelError::Internal`
+  differ only in whether the error keeps its source, so read the category
+  from the core kind.
   `ModelError::attempts()` returns earlier failed attempts in order.
   Each `ModelAttempt` holds the provider, model, kind, message, and whether
   that attempt emitted model events. Internal errors retain their sources.
@@ -349,6 +353,8 @@ back into it.
   DTOs, and typed generation errors.
 - `src/video_generator.rs` - one-video generation trait, portable controls,
   downloaded MP4 response DTO, and typed lifecycle errors.
+- `src/image_generation_error.rs` and `src/video_generation_error.rs` - the
+  core accessors and typed constructors of the image and video errors.
 - `src/judgment/` - judgment content, questions, answers, validation, errors,
   response DTOs, and the provider-agnostic trait.
 - `src/tools.rs` - tool trait, tool DTOs, invocation context, and tool errors.

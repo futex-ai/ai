@@ -21,8 +21,9 @@ When `ModelRequest.response_schema` is present, the adapter:
    `ai-models-core` JSON Schema boundary.
 
 DeepSeek guarantees JSON syntax, not arbitrary schema conformance. Local
-validation is mandatory; empty or invalid output, an invalid schema, and a
-schema mismatch are typed provider failures.
+validation is mandatory; empty or invalid output and a schema mismatch have
+the invalid output kind, and an invalid caller schema has the invalid
+request kind.
 
 Structured-output parsing runs only for `FinishReason::Stop` with no
 dispatchable tool calls. Reasoning content is never part of the structured
@@ -33,8 +34,8 @@ finishes do not attempt parsing.
 
 The first response choice maps to `ModelResponse`. A stream without a
 choice is a stream failure under the progress rule, as the
-[dialect protocol](chat-completions-dialects.md) says. Typed wire deserialization failures are
-internal errors that retain their source.
+[dialect protocol](chat-completions-dialects.md) says. A typed response that
+does not deserialize has the invalid output kind and retains its source.
 
 Finish reasons map as follows:
 
@@ -44,7 +45,7 @@ Finish reasons map as follows:
 | `tool_calls` | `FinishReason::ToolCalls` |
 | `length` | `FinishReason::Truncated` |
 | `content_filter` | `FinishReason::Filtered` |
-| `insufficient_system_resource` | transient `ModelError` |
+| `insufficient_system_resource` | transient error kind |
 | any other string | `FinishReason::Other(raw)` |
 | missing or null | `FinishReason::Other("missing")` |
 
@@ -73,20 +74,22 @@ zero or the documented fallback calculations.
 
 ## Error Contract
 
-HTTP failures use the shared classifier: `429` is rate limited; `408`, `409`,
-`425`, and `5xx` are transient; recognized context-limit codes are
-context-limit failures; and other statuses, including `400`, `401`, `402`,
-and `422`, are non-retryable provider failures.
+HTTP failures take their kinds from the shared status classification of
+[model policies](model-policies.md#error-kinds). Recognized context-limit
+codes in a `400` body give the context limit exceeded kind.
 
-Transport and auth-hook failures are transient. Local serialization and typed
-deserialization failures are internal. Invalid calls, missing required
-reasoning, malformed arguments, and invalid structured output are provider
-failures. Credentials never enter errors or diagnostics.
+Transport and auth-hook failures are transient. Local serialization failures
+are internal. Typed deserialization failures, invalid calls, missing
+required reasoning, malformed arguments, and invalid structured output in a
+generated response have the invalid output kind. Invalid authored roles or
+replay state fail before transport with the invalid request kind.
+Credentials never enter errors or diagnostics.
 
 The final empty-choice usage event must precede `[DONE]`. Stream failures and
-provider error events before progress retain retryable/provider
-classification; after any event they become `ModelError::Interrupted`.
+provider error events before progress keep the kind of their cause; after
+any event they have the interrupted kind.
 
 An HTTP-success response with `finish_reason:
-"insufficient_system_resource"` returns `ModelError::TransientProvider`
-rather than a terminal response.
+"insufficient_system_resource"` fails with the transient kind rather than a
+terminal response, also after progress. This is an exception of
+[model policies](model-policies.md#error-kinds).

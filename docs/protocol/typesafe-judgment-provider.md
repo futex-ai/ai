@@ -23,8 +23,8 @@ parallel over the same state and prices the state once.
 
 Out of scope: image, audio, or video state (Jev is text only), token counting,
 automatic question fan-out across requests, model listing through
-`GET /v1/models`, retry, concurrency, and pricing wrappers, request-id
-capture, and confidence-threshold policy. Composition roots own those.
+`GET /v1/models`, retry, concurrency, and pricing wrappers, and
+confidence-threshold policy. Composition roots own those.
 
 ## Ownership
 
@@ -173,8 +173,8 @@ JSON fragments until their id is matched to a requested question, so
 unrequested ids are ignored even when their fragments would not decode.
 
 A body that fails to deserialize, including a non-decimal or duplicate score
-level key, is a non-retryable `Provider` error whose message is the fixed
-text `malformed provider payload` followed by the decoder's own diagnostic.
+level key, has the invalid output kind. Its message is the fixed text
+`malformed provider payload` followed by the decoder's own diagnostic.
 After mapping, the adapter applies the shared `validate_against`
 postconditions, so a missing answer, a kind mismatch, an unknown or missing
 option or level, an out-of-range probability, confidence, or expectation, a
@@ -189,35 +189,41 @@ typed `InvalidAnswer` error.
 the cached and reasoning buckets remain zero. Missing usage is
 `ModelUsage::default()`. TypeSafe documents each counter as nullable, so an
 absent or `null` counter maps to zero rather than failing the response. Cost lines remain empty until a composition root
-applies `ai_models_core::price_usage`; TypeSafe currently bills input tokens
+applies `ai_models_policy::price_usage`; TypeSafe currently bills input tokens
 only.
 
 ## Error Contract
 
-`JudgmentError` derives the shared `ErrorContract` and uses the
-`[ai_interface/judgment]` display prefix:
+Every `JudgmentError` carries one error core of the
+[model policies protocol](model-policies.md#error-core) and uses the
+`[ai_interface/judgment]` display prefix. The core kind, not the variant,
+gives the failure category. The kind decides retry and fallback, as the
+[error kinds table](model-policies.md#error-kinds) says.
 
-| Variant | Meaning | Retry/fallback behavior |
-| --- | --- | --- |
-| `UnsupportedContent { json_type }` | local null, boolean, or number JSON content, with a typed `Null`, `Boolean`, or `Number` value | fix request; do not retry |
-| `EmptyState` | local blank or empty state | fix request; do not retry |
-| `NoQuestions` | local empty question map | fix request; do not retry |
-| `InvalidQuestion` | local typed question problem | fix request; do not retry |
-| `InvalidAnswer` | a provider answer failed the shared `validate_against` postconditions; carries provider, model id, answer id, and a typed `JudgmentAnswerProblem` | terminal |
-| `RateLimited` | HTTP 429 | retry with backoff |
-| `TransientProvider` | transport or auth-hook failure, HTTP 408/409/425, or 5xx including 529 overloaded | retry with backoff |
-| `Provider` | HTTP 401/403 authentication, 422 validation, other statuses, or invalid response semantics | terminal |
-| `Internal` | local serialization or invariant failure | internal failure |
+| Cause | Kind |
+| --- | --- |
+| `UnsupportedContent { json_type }`: local null, boolean, or number JSON content, with a typed `Null`, `Boolean`, or `Number` value | invalid request |
+| `EmptyState`: local blank or empty state | invalid request |
+| `NoQuestions`: local empty question map | invalid request |
+| `InvalidQuestion`: local typed question problem | invalid request |
+| `InvalidAnswer`: a provider answer failed the shared `validate_against` postconditions; carries the answer id and a typed `JudgmentAnswerProblem` | invalid output |
+| HTTP 429 | rate limited |
+| transport or auth-hook failure, HTTP 408/409/425, or 5xx including 529 overloaded | transient |
+| HTTP 401, 402, or 403 authentication | rejected key |
+| HTTP 404 | unknown model |
+| HTTP 400 with a recognized context-limit code in `detail.error_type` | context limit exceeded |
+| HTTP 422 validation, or another 4xx status that no row above names | invalid request |
+| invalid response semantics, a malformed payload, or an unexpected status below 400 | invalid output |
+| local serialization or invariant failure | internal |
 
-All provider variants retain the provider, the configured model id, and the
-available provider message. `Internal` uses the shared tracked
-`InternalError` carrier.
+The typed variants keep their detail fields. `Failure` holds every other
+classified failure. `Internal` holds a failure with the shared tracked
+`InternalError` source, such as a serialization failure. Every core holds
+the provider, the configured model id, and the available provider message.
 
-Status classification uses `ai_models_core::classify_http_status`, a new
-boundary-neutral helper introduced by this change. It returns
-`Option<HttpFailureClass>`: `None` for statuses below 400 and otherwise
-`RateLimited` (429), `Transient` (408, 409, 425, 5xx), or `Terminal`, so the
-image, video, and judgment boundaries stop duplicating the same status table.
+Status classification uses the shared status classification of
+[model policies](model-policies.md#error-kinds), as the image and video
+boundaries do.
 Error bodies are decoded best-effort: a `detail` object supplies its
 `message`; a `detail` string is used directly; any other body, including JSON
 `null`, is retained as compact JSON or text; an empty body falls back to
@@ -234,10 +240,11 @@ malformed-payload diagnostic passes through a redaction step that replaces
 each secret with `[redacted]` before the error is built. Secrets are applied
 longest first so a shorter secret that is a substring of a longer one cannot
 leave the longer credential partially exposed. `InvalidAnswer`
-problems that carry provider-controlled labels are redacted the same way. A
+problems that carry provider-controlled labels, and the question and answer
+ids of typed errors, are redacted the same way. A
 failing auth hook cannot be sanitized because its credentials were never
-discovered, so it is reported as `TransientProvider` with the fixed message
-`authentication hook failed` and its own diagnostic is discarded.
+discovered, so it has the transient kind with the fixed message
+`authentication hook failed`, and its own diagnostic is discarded.
 
 ## Required Verification
 

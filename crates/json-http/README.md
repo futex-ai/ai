@@ -171,3 +171,5 @@ server and requires no external network or credentials.
 - [`../ai-testkit/README.md`](../ai-testkit/README.md)
 - [`../ai-models-openai/README.md`](../ai-models-openai/README.md)
 - [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
+- [`../../docs/protocol/model-stream-adapters.md`](../../docs/protocol/model-stream-adapters.md)
+- [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)

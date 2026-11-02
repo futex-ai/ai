@@ -48,8 +48,8 @@ their finish reason and do not attempt structured-output parsing.
 
 The first response choice maps to `ModelResponse`. A stream without a
 choice is a stream failure under the progress rule, as the
-[dialect protocol](chat-completions-dialects.md) says. An invalid provider payload is a typed
-non-retryable provider failure.
+[dialect protocol](chat-completions-dialects.md) says. An invalid provider
+payload has the invalid output kind.
 
 Finish reasons map as follows:
 
@@ -86,17 +86,17 @@ usage chunk fails, as the [dialect protocol](chat-completions-dialects.md) says.
 
 ## Error Contract
 
-HTTP failures use the shared status classifier: `429` is rate limited;
-`408`, `409`, `425`, and `5xx` are transient; known typed context-limit codes
-are context-limit failures; other statuses are non-retryable provider
-failures. Provider error messages may be retained, but API keys and auth
-headers must never appear in errors or diagnostics.
+HTTP failures take their kinds from the shared status classification of
+[model policies](model-policies.md#error-kinds), and known typed
+context-limit codes in a `400` body give the context limit exceeded kind.
+Provider error messages may be retained, but API keys and auth headers must
+never appear in errors or diagnostics.
 
-Transport and authentication-hook failures are transient provider failures.
-Local request serialization and response deserialization failures are
-internal errors. Invalid provider choices, tool arguments, or structured
-output are non-retryable provider failures.
+Transport and authentication-hook failures are transient. Local request
+serialization failures are internal errors. Response deserialization
+failures and invalid provider choices, tool arguments, or structured output
+have the invalid output kind.
 
-Malformed, incomplete, or provider-error streams before progress preserve
-their retryable/provider class. The same failures after progress become
-`ModelError::Interrupted` and are not blindly replayed.
+Malformed, incomplete, or provider-error streams before progress keep the
+kind of their cause. The same failures after progress have the interrupted
+kind and are not blindly replayed.

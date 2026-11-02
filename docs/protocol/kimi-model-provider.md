@@ -32,7 +32,7 @@ video or file upload, dynamic or official Kimi tools, `prompt_cache_key`, or
 `safety_identifier`. Those capabilities require
 separate contracts rather than silent partial support. Shared video content
 parts defined by the [video input protocol](video-input.md) are rejected with
-a typed provider error before transport.
+the unsupported input kind before transport.
 
 ## Ownership
 
@@ -107,8 +107,8 @@ K3 request mapping must:
   `UnsupportedControl`;
 - serialize a user message with one text part as a string, and other user
   messages as content arrays of text and image parts, using base64 data URLs
-  for images; reject shared video parts with a typed provider error before
-  transport; empty user and tool content remains an empty string, while
+  for images; reject shared video parts with the unsupported input kind
+  before transport; empty user and tool content remains an empty string, while
   unavailable assistant content may be null;
 - serialize user and assistant names only when present and supported;
 - ignore provider state owned by other providers;

@@ -17,17 +17,17 @@ enforcement. When `ModelRequest.response_schema` is present, the adapter:
    `ai-models-core`.
 4. Populates `structured_output` only for a natural stop with no tool calls.
 
-Invalid JSON, an invalid requested schema, or a schema mismatch returns a
-typed model-boundary error. Structured-output parsing must never run on a
-filtered, truncated, tool-calling, missing, or unknown finish.
+Invalid JSON or a schema mismatch has the invalid output kind, and an invalid
+requested schema has the invalid request kind. Structured-output parsing must
+never run on a filtered, truncated, tool-calling, missing, or unknown finish.
 
 ## Response Mapping
 
 The adapter consumes the first response choice. A stream without a choice
 is a stream failure under the progress rule, as the
 [dialect protocol](chat-completions-dialects.md) says. Wire fields that cannot be
-decoded into the typed response DTO are internal deserialization failures, as
-defined under Error Handling.
+decoded into the typed response DTO are deserialization failures with the
+invalid output kind, as defined under Error Handling.
 
 Finish reasons normalize as follows:
 
@@ -43,7 +43,8 @@ Finish reasons normalize as follows:
 Tool calls are exposed only when the normalized finish reason is `ToolCalls`.
 Terminal, filtered, truncated, missing, and unknown responses must not dispatch
 tool-call payloads. Function arguments are parsed as JSON; malformed arguments
-return a provider error instead of reaching the tool runtime.
+return an error of the invalid output kind instead of reaching the tool
+runtime.
 
 The normalized response records:
 
@@ -76,23 +77,29 @@ composition roots may apply `UsagePricingModel`.
 
 ## Error Handling
 
-HTTP failures use the shared status classifier: rate limits are retryable,
-timeouts and conflict/early-data/server statuses are transient, recognized
-context overflows are context-limit errors, and other statuses are provider
-errors. Transport and authentication-hook failures are transient; local
-request serialization and response deserialization failures are internal.
+HTTP failures take their kinds from the shared status classification of
+[model policies](model-policies.md#error-kinds), also when the body holds a
+`base_resp` code. An HTTP 400 body with `base_resp` status code `1039` gives
+the context limit exceeded kind, as a recognized context code does.
+Transport and authentication-hook failures are transient; local request
+serialization failures are internal, and response deserialization failures
+have the invalid output kind.
 
 MiniMax may also report failure through a non-zero `base_resp.status_code`,
 including on an HTTP-success response. The adapter must check this before
 accepting choices:
 
 - `1002`, `1041`, `2045`, and `2056` -> rate-limited
-- `1000`, `1001`, `1013`, `1024`, and `1033` -> transient provider failure
+- `1000`, `1001`, `1013`, `1024`, and `1033` -> transient
 - `1039` -> context-limit exceeded
-- Every other non-zero code, including `1004`, `1008`, `1026`, `1027`, `2013`,
-  and `2049` -> non-retryable provider failure
+- `1004`, `1008`, and `2049` -> rejected key
+- `2022` -> unknown model
+- `1027` -> invalid output, because a chat adapter never gives the content
+  policy kind
+- Every other non-zero code, including `1026` and `2013` -> invalid request
 
 The provider's numeric code and `status_msg` must be retained in the error
-message. Missing `base_resp` or status code zero means no provider-level error.
+message, also when an HTTP failure body holds `base_resp`. Missing
+`base_resp` or status code zero means no provider-level error.
 Before stream progress those numeric codes retain the classifications above;
-after progress they become `ModelError::Interrupted`.
+after progress they have the interrupted kind.

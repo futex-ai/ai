@@ -23,15 +23,17 @@ shared boundary. Native JSON mode guarantees JSON syntax, not arbitrary schema
 conformance, so local validation is mandatory.
 
 Structured parsing runs only for `FinishReason::Stop` with no dispatchable
-tool calls. Reasoning content is never parsed as output. Invalid JSON, an
-invalid schema, and schema mismatch are provider failures.
+tool calls. Reasoning content is never parsed as output. Invalid JSON and
+schema mismatch have the invalid output kind. An invalid caller schema has
+the invalid request kind.
 
 ## Response And Usage
 
 The first choice maps to `ModelResponse`. A stream without a choice is a
 stream failure under the progress rule, as the [dialect protocol](chat-completions-dialects.md)
 says.
-Wire deserialization failures are internal errors retaining their source.
+A typed response that does not deserialize has the invalid output kind and
+retains its source.
 Nullable visible content becomes an empty string.
 
 | Qwen value | Shared outcome |
@@ -59,16 +61,17 @@ Missing usage fields and detail objects are valid and normalize to zero.
 
 ## Error Contract
 
-HTTP `429` is rate limited; `408`, `409`, `425`, and `5xx` are transient;
-documented input-length failures are context-limit errors; and other statuses
-are non-retryable provider failures. Transport and authentication-hook
-failures are transient. Request serialization and response deserialization
-failures are internal.
+HTTP failures take their kinds from the shared status classification of
+[model policies](model-policies.md#error-kinds), and documented input-length
+failures are context-limit errors. Transport and authentication-hook
+failures are transient. Request serialization failures are internal, and
+response deserialization failures have the invalid output kind.
 
-Invalid calls, missing required reasoning, and invalid structured output
-are non-retryable provider failures. Errors and diagnostics
-must never contain credentials or authorization headers.
+Invalid calls, missing required reasoning, and invalid structured output in
+a generated response have the invalid output kind. Invalid authored roles
+or replay state fail before transport with the invalid request kind. Errors
+and diagnostics must never contain credentials or authorization headers.
 
 The final empty-choice usage event and `[DONE]` are required. Stream failures
-before progress remain retryable, while failures after progress become
-`ModelError::Interrupted`.
+before progress are transient, while failures after progress have the
+interrupted kind.

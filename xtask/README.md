@@ -42,9 +42,10 @@ require real credentials.
 Each ignored provider test reads one explicit `LIVE_MODEL_API_KEY` and takes
 every chat-capable spec returned by that provider's `known_models()`. It runs
 one probe for each effort that the spec lists, with the default effort first.
-Each probe builds the adapter from the spec, erases it behind `DynModel`,
-sets the probe effort in the request controls, and sends real one-step turns
-through `ToolCallingRuntime`.
+Each probe builds the adapter from the spec, wraps it in the standard retry
+layer of `ai-models-policy`, erases it behind `DynModel`, sets the probe
+effort in the request controls, and sends real one-step turns through
+`ToolCallingRuntime`.
 A test-only model wrapper forwards the events of the inner model's
 `Model::stream` and records them in order. The runtime folds the same events
 through its ordinary `complete` call and terminal checkpoint. Every provider
@@ -76,10 +77,11 @@ the TypeSafe credential is provisioned and that opt-in is enabled.
 `tests/live_images/mod.rs` is the corresponding ignored image suite. It selects
 every Google and OpenAI catalog spec advertising `ImageGeneration`, constructs
 the production adapter behind `DynImageGenerator`, and runs the same safe
-square, low-quality request through each entry sequentially. Transient and
-rate-limit failures use the shared 100ms/250ms retry schedule, for no more than
-three attempts. Successful responses must contain matching PNG, JPEG, or WebP
-bytes and the expected provider/model identity. Credential-free tests enforce
+square, low-quality request through each entry sequentially. Failures whose
+error core has the transient or rate limited kind use the shared 100ms/250ms
+retry schedule of `ai-models-policy`, for no more than three attempts.
+Successful responses must contain matching PNG, JPEG, or WebP bytes and the
+expected provider/model identity. Credential-free tests enforce
 catalog registration, adapter construction, retry classes, response
 validation, and workflow secret/event boundaries.
 
@@ -96,10 +98,11 @@ construction, request shape, response validation, and workflow boundaries.
 `tests/live_judgments/mod.rs` is the corresponding ignored judgment suite. It
 selects every TypeSafe catalog spec advertising `Judgment`, constructs the
 production adapter behind `DynJudgmentModel`, and evaluates a short support
-message against condition, choice, and score questions. Transient and
-rate-limit failures use the shared retry schedule for no more than three
-attempts. Credential-free guards cover catalog registration, construction,
-probe shape, retry behavior, normalized validation, and workflow boundaries.
+message against condition, choice, and score questions. Failures whose error
+core has the transient or rate limited kind use the shared retry schedule of
+`ai-models-policy` for no more than three attempts. Credential-free guards
+cover catalog registration, construction, probe shape, retry behavior,
+normalized validation, and workflow boundaries.
 None of the four live suites makes provider calls during `check` or
 `smoke-test`.
 
