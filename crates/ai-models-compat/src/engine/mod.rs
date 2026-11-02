@@ -59,3 +59,7 @@ mod error_context_tests;
 #[cfg(test)]
 #[path = "_tests_/auth_context_tests.rs"]
 mod auth_context_tests;
+
+#[cfg(test)]
+#[path = "_tests_/config/mod.rs"]
+mod config_tests;

@@ -3,16 +3,17 @@
 use std::{sync::Arc, time::Duration};
 
 use ai_interface::{ErrorKind, ModelError, ModelResult};
-use ai_models_core::{ErrorContext, classify_json_http_error};
+use ai_models_core::{ApiKeyScheme, ErrorContext, ProviderConfig, classify_json_http_error};
 use async_trait::async_trait;
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient, JsonHttpResponse};
+use json_http::{DynJsonHttpClient, JsonHttpResponse};
 use serde::Deserialize;
 use serde_json::Value;
 
 use crate::engine::{lifecycle::DeferredCompletion, request_types::ChatCompletionsRequest};
 
-const CHAT_COMPLETIONS_URL: &str = "https://api.x.ai/v1/chat/completions";
-const DEFERRED_COMPLETION_URL: &str = "https://api.x.ai/v1/chat/deferred-completion";
+use super::dialect::DIALECT;
+
+const DEFERRED_COMPLETION_PATH: &str = "/v1/chat/deferred-completion";
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
 const POLL_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -42,19 +43,19 @@ impl DeferredRuntime for TokioDeferredRuntime {
 
 pub(super) struct XaiDeferredCompletion {
     http_client: DynJsonHttpClient,
-    auth: DynJsonHttpAuth,
+    config: ProviderConfig,
     runtime: DynDeferredRuntime,
 }
 
 impl XaiDeferredCompletion {
     pub(super) fn new(
         http_client: DynJsonHttpClient,
-        auth: DynJsonHttpAuth,
+        config: ProviderConfig,
         runtime: DynDeferredRuntime,
     ) -> Self {
         Self {
             http_client,
-            auth,
+            config,
             runtime,
         }
     }
@@ -65,10 +66,11 @@ impl XaiDeferredCompletion {
         request: ChatCompletionsRequest,
         total_timeout: Duration,
     ) -> ModelResult<String> {
+        let endpoint = self.config.endpoint(DIALECT.base_url, DIALECT.path);
         let builder = self
-            .http_client
-            .post(CHAT_COMPLETIONS_URL)
-            .auth(context.capture_auth(self.auth.clone()))
+            .config
+            .apply_headers(self.http_client.post(&endpoint))
+            .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
             .timeout(total_timeout);
         let request = match builder.json(request) {
             Ok(request) => request,
@@ -115,11 +117,12 @@ impl XaiDeferredCompletion {
         request_id: &str,
         timeout: Duration,
     ) -> ModelResult<Retrieval> {
-        let url = format!("{DEFERRED_COMPLETION_URL}/{request_id}");
+        let path = format!("{DEFERRED_COMPLETION_PATH}/{request_id}");
+        let url = self.config.endpoint(DIALECT.base_url, &path);
         let response = self
-            .http_client
-            .get(&url)
-            .auth(context.capture_auth(self.auth.clone()))
+            .config
+            .apply_headers(self.http_client.get(&url))
+            .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
             .timeout(timeout)
             .send_value()
             .await;
@@ -184,7 +187,8 @@ impl DeferredCompletion for XaiDeferredCompletion {
                 Retrieval::Complete(body) => return Ok(body),
                 Retrieval::Retry => {
                     let remaining = self.remaining(context, started_at, total_timeout)?;
-                    self.runtime.sleep(remaining.min(POLL_INTERVAL)).await;
+                    let interval = self.config.timeouts.poll_interval.unwrap_or(POLL_INTERVAL);
+                    self.runtime.sleep(remaining.min(interval)).await;
                 }
             }
         }

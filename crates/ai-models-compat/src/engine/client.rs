@@ -4,10 +4,11 @@ use std::{sync::Arc, time::Duration};
 
 use ai_interface::{DynModelEventStream, Model, ModelError, ModelRequest, ModelResult, ModelSpec};
 use ai_models_core::{
-    Clock, ErrorContext, SystemClock, resolve_controls, synthetic_tool_call_scope,
+    ApiKeyScheme, Clock, ErrorContext, ProviderConfig, SystemClock, resolve_controls,
+    synthetic_tool_call_scope,
 };
 use async_trait::async_trait;
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
+use json_http::DynJsonHttpClient;
 
 use super::{
     Dialect, deferred_stream,
@@ -27,24 +28,24 @@ pub(crate) struct CompatModel {
     http_client: DynJsonHttpClient,
     catalog_model_id: String,
     spec: ModelSpec,
-    auth: DynJsonHttpAuth,
+    config: ProviderConfig,
     clock: Arc<dyn Clock>,
     deferred_completion: Option<DynDeferredCompletion>,
 }
 
 impl CompatModel {
-    pub(crate) fn new(
+    pub(crate) fn from_config(
         dialect: &'static Dialect,
         http_client: DynJsonHttpClient,
         spec: ModelSpec,
-        auth: DynJsonHttpAuth,
+        config: ProviderConfig,
     ) -> Self {
         Self {
             dialect,
             http_client,
             catalog_model_id: spec.text_id(),
             spec,
-            auth,
+            config,
             clock: Arc::new(SystemClock),
             deferred_completion: None,
         }
@@ -67,6 +68,7 @@ impl CompatModel {
             self.dialect.request_id_headers,
             self.clock.clone(),
         );
+        self.config.capture_secrets(&context);
         let controls = match resolve_controls(model_request, &self.spec) {
             Ok(controls) => controls,
             Err(error) => return Err(context.apply_model_error(error)),
@@ -98,6 +100,7 @@ impl CompatModel {
         {
             let timeout = controls
                 .total_timeout
+                .or(self.config.timeouts.total_timeout)
                 .or(self.dialect.deferred_timeout)
                 .unwrap_or_default();
             let body = completion.complete(&context, request_body, timeout).await?;
@@ -107,12 +110,25 @@ impl CompatModel {
                 model_request.response_schema.clone(),
             ));
         }
+        let endpoint = self
+            .config
+            .endpoint(self.dialect.base_url, self.dialect.path);
         let builder = self
-            .http_client
-            .post(self.dialect.endpoint)
-            .auth(context.capture_auth(self.auth.clone()))
-            .timeout(controls.total_timeout.unwrap_or(STREAM_TIMEOUT))
-            .idle_timeout(STREAM_IDLE_TIMEOUT);
+            .config
+            .apply_headers(self.http_client.post(&endpoint))
+            .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
+            .timeout(
+                controls
+                    .total_timeout
+                    .or(self.config.timeouts.total_timeout)
+                    .unwrap_or(STREAM_TIMEOUT),
+            )
+            .idle_timeout(
+                self.config
+                    .timeouts
+                    .idle_timeout
+                    .unwrap_or(STREAM_IDLE_TIMEOUT),
+            );
         let request = match builder.json(request_body) {
             Ok(request) => request,
             Err(source) => {

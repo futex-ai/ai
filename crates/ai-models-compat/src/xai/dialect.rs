@@ -11,7 +11,8 @@ pub(super) static DIALECT: Dialect = Dialect {
     provider: "xai",
     request_id_headers: &["x-request-id", "request-id"],
     label: "xAI",
-    endpoint: "https://api.x.ai/v1/chat/completions",
+    base_url: "https://api.x.ai",
+    path: "/v1/chat/completions",
     usage: UsageFields::BoundedCachedAndReasoning,
     replay: ReplayRule::Xai,
     thinking: ThinkingFormat::GrokEffort {

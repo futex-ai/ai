@@ -14,6 +14,7 @@ credentials and an injected `json-http` client.
 - Convert the stored version 1 replay items of each dialect.
 - Export each dialect's provider id, model specs, catalog, custom defaults,
   and model constructors.
+- Apply shared provider connection settings to streams and deferred requests.
 
 ## What This Crate Does
 
@@ -28,6 +29,23 @@ default spec of their provider in `new` and `with_auth`: DeepSeek V4 Pro,
 Kimi K3, and Qwen3.7 Plus. Their `with_catalog_auth` takes a catalog or
 custom spec. A model that a catalog does not list uses
 `ModelSpec::custom(PROVIDER_ID, model_id, &CUSTOM_DEFAULTS)` of its dialect.
+
+Each model also offers `from_config(http, spec, config)` with a
+`ai_models_core::ProviderConfig`. This constructor uses the default effort
+of its spec. The existing constructors retain their defaults.
+Every request uses the config's base URL and keeps its optional path prefix.
+A trailing slash changes no endpoint. The default Qwen base URL includes
+`/compatible-mode`. API keys use Bearer auth. Auth hooks run once for each
+stream opening, deferred submission, or poll. Extra headers have lower
+precedence than adapter and auth headers, without regard to name case.
+
+Streams default to a 120-second idle timeout and a 3,600-second total timeout.
+xAI deferred calls default to a 60-second total timeout and a 5-second poll
+interval. Each poll keeps its 30-second HTTP cap. Config timeout values
+replace the relevant defaults. A request's total timeout replaces the config
+total timeout and keeps the idle timeout. Polls and sleeps stay within the
+remaining deferred deadline. Construction reads no environment variable and
+sends no request.
 
 Each request carries its effort. The engine runs the shared capability check
 of `ai-models-core` against the spec before transport, so efforts, output
@@ -109,9 +127,16 @@ use ai_models_compat::{
     deepseek::{self, DeepSeekModel},
     minimax::{MINIMAX_M3, MiniMaxModel},
 };
+use ai_models_core::ProviderConfig;
 use json_http::{ReqwestJsonHttpClient, StaticHeaderAuth};
 
 let deepseek_default = DeepSeekModel::new(Arc::new(ReqwestJsonHttpClient::new()), "api-key");
+let deepseek_gateway = DeepSeekModel::from_config(
+    Arc::new(ReqwestJsonHttpClient::new()),
+    deepseek::DEEPSEEK_V4_FLASH,
+    ProviderConfig::new(deepseek::PROVIDER_ID, "api-key")
+        .with_base_url("https://gateway.example/provider"),
+);
 let deepseek_custom = DeepSeekModel::with_catalog_auth(
     Arc::new(ReqwestJsonHttpClient::new()),
     ModelSpec::custom(
@@ -142,6 +167,9 @@ stream, response, validation, and usage code. Put dialect tests in its
 
 - `src/engine/` owns request mapping, dispatch, SSE consumption, model event
   mapping, the deferred event stream, and response validation.
+- `src/engine/client.rs` applies shared provider config and request timeout
+  precedence before stream or deferred dispatch.
+- `src/xai/deferred.rs` applies config to submission and every bounded poll.
 - `src/engine/replay_state.rs` holds the private, versioned part state, and
   `src/engine/request_replay.rs` decodes own state before transport.
 - `src/chat_completions/` owns the typed chunks, their indexed accumulation
@@ -160,6 +188,7 @@ stream, response, validation, and usage code. Put dialect tests in its
 - [Model capabilities](../../docs/protocol/model-capabilities.md)
 - [Model policies](../../docs/protocol/model-policies.md)
 - [Provider controls](../../docs/protocol/provider-call-controls.md)
+- [Provider configuration](../../docs/protocol/provider-registry.md)
 - [DeepSeek](../../docs/protocol/deepseek-model-provider.md)
 - [Kimi](../../docs/protocol/kimi-model-provider.md)
 - [Qwen](../../docs/protocol/qwen-model-provider.md)

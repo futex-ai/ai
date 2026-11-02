@@ -3,13 +3,13 @@
 use std::sync::Arc;
 
 use ai_interface::{DynModelEventStream, Model, ModelRequest, ModelResult, ModelSpec};
-use ai_models_core::Clock;
+use ai_models_core::{Clock, ProviderConfig};
 use async_trait::async_trait;
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
 
 use crate::engine::CompatModel;
 
-use super::dialect::DIALECT;
+use super::{PROVIDER_ID, dialect::DIALECT};
 
 #[derive(Clone)]
 /// MiniMax-backed `ai_interface::Model` implementation.
@@ -18,17 +18,24 @@ pub struct MiniMaxModel {
 }
 
 impl MiniMaxModel {
+    /// Builds a model from a spec and shared provider connection settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self {
+            inner: CompatModel::from_config(&DIALECT, http_client, spec, config),
+        }
+    }
+
     /// Builds a MiniMax model from its spec and an API key.
     pub fn new(
         http_client: DynJsonHttpClient,
         spec: ModelSpec,
         api_key: impl Into<String>,
     ) -> Self {
-        Self::with_auth(
-            http_client,
-            spec,
-            Arc::new(StaticHeaderAuth::bearer_token(api_key)),
-        )
+        Self::from_config(http_client, spec, ProviderConfig::new(PROVIDER_ID, api_key))
     }
 
     /// Builds a MiniMax model from its spec and an auth hook.
@@ -46,9 +53,11 @@ impl MiniMaxModel {
         spec: ModelSpec,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        Self {
-            inner: CompatModel::new(&DIALECT, http_client, spec, auth),
-        }
+        Self::from_config(
+            http_client,
+            spec,
+            ProviderConfig::with_auth(PROVIDER_ID, auth),
+        )
     }
 
     /// Uses an injected wall clock to evaluate response retry dates.

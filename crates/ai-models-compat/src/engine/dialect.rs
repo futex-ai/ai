@@ -18,7 +18,8 @@ pub(crate) struct Dialect {
     /// Provider-owned request-id names in lookup order.
     pub(crate) request_id_headers: &'static [&'static str],
     pub(crate) label: &'static str,
-    pub(crate) endpoint: &'static str,
+    pub(crate) base_url: &'static str,
+    pub(crate) path: &'static str,
     pub(crate) replay: ReplayRule,
     pub(crate) usage: UsageFields,
     pub(crate) thinking: ThinkingFormat,

@@ -3,9 +3,9 @@
 use std::sync::Arc;
 
 use ai_interface::{DynModelEventStream, Model, ModelRequest, ModelResult, ModelSpec};
-use ai_models_core::Clock;
+use ai_models_core::{Clock, ProviderConfig};
 use async_trait::async_trait;
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
 
 #[cfg(test)]
 use ai_interface::ModelError;
@@ -14,7 +14,7 @@ use ai_models_core::{ErrorContext, SystemClock};
 
 use crate::engine::CompatModel;
 
-use super::{DEEPSEEK_V4_PRO, dialect::DIALECT};
+use super::{DEEPSEEK_V4_PRO, PROVIDER_ID, dialect::DIALECT};
 
 #[cfg(test)]
 const PROVIDER: &str = "deepseek";
@@ -26,11 +26,23 @@ pub struct DeepSeekModel {
 }
 
 impl DeepSeekModel {
+    /// Builds a model from a spec and shared provider connection settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self {
+            inner: CompatModel::from_config(&DIALECT, http_client, spec, config),
+        }
+    }
+
     /// Builds the default DeepSeek model from an API key.
     pub fn new(http_client: DynJsonHttpClient, api_key: impl Into<String>) -> Self {
-        Self::with_auth(
+        Self::from_config(
             http_client,
-            Arc::new(StaticHeaderAuth::bearer_token(api_key)),
+            DEEPSEEK_V4_PRO,
+            ProviderConfig::new(PROVIDER_ID, api_key),
         )
     }
 
@@ -45,9 +57,11 @@ impl DeepSeekModel {
         spec: ModelSpec,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        Self {
-            inner: CompatModel::new(&DIALECT, http_client, spec, auth),
-        }
+        Self::from_config(
+            http_client,
+            spec,
+            ProviderConfig::with_auth(PROVIDER_ID, auth),
+        )
     }
 
     /// Uses an injected wall clock to evaluate response retry dates.

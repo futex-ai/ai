@@ -86,3 +86,7 @@ mod deferred_support;
 #[cfg(test)]
 #[path = "_tests_/deferred_error_context_tests.rs"]
 mod deferred_error_context_tests;
+
+#[cfg(test)]
+#[path = "_tests_/config_tests.rs"]
+mod config_tests;
