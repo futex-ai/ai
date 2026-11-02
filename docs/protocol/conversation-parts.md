@@ -118,7 +118,7 @@ for the old format, and log copies.
   Version 1 has the fields `content`, `content_parts`, `name`,
   `tool_call_id`, `tool_calls`, and `provider_context`.
 - Reading accepts versions 1 and 2. Reading a version 1 message applies the
-  converter.
+  converter that the registry exposes.
 - Writing produces version 2 only.
 - Reading a message with another version fails with a typed error.
 - A version 2 message has the fields `format_version`, `role`, `parts`, and
@@ -158,29 +158,43 @@ only:
 The converter reads a version 1 message and returns a version 2 message.
 It is one-way: no function writes version 1.
 
+- Decision: a one-way converter reads the old format, so that stored
+  conversations survive. The rejected alternative dropped the old format,
+  which loses every stored conversation.
+- The registry exposes the converter that hosts call and composes it, as
+  the [provider registry protocol](provider-registry.md) says.
+- Each provider crate converts the version 1 items of its own provider. It
+  writes their provider state, and it orders the parts of their message
+  with its own order rule.
+- Decision: each provider crate converts its own items, so that a converted
+  message gives the provider of its items the same request as the
+  version 1 message. The registry composes the conversions, because only
+  the registry names every provider. The rejected alternative was one order
+  rule for every provider. Parts grouped by kind change the OpenAI request,
+  and parts in the order of `provider_context` change the Google request.
 - The role does not change.
 - The `name` of a user or assistant message becomes its participant name.
 - A user message with `content_parts` gets those parts in order. A user
   message without them gets one text part from a non-empty `content`.
 - A tool message gets one tool result part. Its call id is `tool_call_id`,
   its tool name is `name`, and its content is `content`.
-- An assistant message gets its parts in this order:
-  1. The new reasoning parts that the table below gives, in the order of
-     `provider_context`.
-  2. One text part from a non-empty `content`.
-  3. One tool-call part for each entry of `tool_calls`.
+- An assistant message gets one text part from a non-empty `content`, one
+  tool-call part for each entry of `tool_calls`, and the new reasoning
+  parts that the table below gives. The order rules below give the order
+  of these parts.
 - A tool-call part keeps the id, the name, the input, and the operation id
   of its `tool_calls` entry.
 - When an assistant or tool message has `content_parts`, the converter
   drops them and writes a `tracing` warning.
-- Each provider item becomes provider state with version 1, an empty model,
-  and the fields of the item as the payload.
+- Each provider item becomes provider state with the provider id of its
+  provider crate, version 1, an empty model, and the fields of the item as
+  the payload.
 - Version 1 of each provider payload is the shape of its old provider item.
   Each adapter reads version 1.
 
 | Old item | Provider | Part that carries the state |
 | --- | --- | --- |
-| `openai_message` | `openai` | The first text part |
+| `openai_message` | `openai` | The text part, for the first `openai_message` item only |
 | `openai_reasoning` | `openai` | A new reasoning part with empty text |
 | `openai_function_call` | `openai` | The tool-call part whose call id is the item's `call_id` |
 | `minimax_assistant` | `minimax` | A new reasoning part with the item's `reasoning_content` as text |
@@ -194,9 +208,36 @@ It is one-way: no function writes version 1.
   for one tool call attaches to that tool-call part.
 - When the part for an item does not exist, the converter drops the item and
   writes a `tracing` warning.
-- Decision: a one-way converter reads the old format, so that stored
-  conversations survive. The rejected alternative dropped the old format,
-  which loses every stored conversation.
+- When the registry does not include the provider of an item, the converter
+  keeps the item as provider state of that provider, with version 1 and the
+  fields of the item as the payload. The state goes on the part that the
+  table gives, or on a new reasoning part with empty text when that part
+  does not exist.
+- When one message holds items of more than one provider, the provider of
+  the first item sets the order of the parts. The items of the other
+  providers attach as their provider state, as the table says.
+- Decision: the converter keeps the items of a provider that the registry
+  does not include. The rejected alternatives dropped those items, which
+  loses replay data for good, or failed the read, which adds a rejection.
+
+These order rules give the order of the parts of an assistant message:
+
+- A message without provider items gets the text part, then the tool-call
+  parts in the order of `tool_calls`.
+- The OpenAI conversion keeps the order of `provider_context`:
+  - Each `openai_reasoning` item gives a reasoning part at its position.
+  - The text part takes the position of the first `openai_message` item.
+  - Each tool-call part takes the position of its `openai_function_call`
+    item.
+  - A text part without an `openai_message` item, and the tool-call parts
+    without an `openai_function_call` item, come after the parts of the
+    items. The text part comes first.
+- The OpenAI text part takes the phase of the first `openai_message` item.
+  Later `openai_message` items add nothing.
+- Every other provider conversion gives the reasoning parts of its items
+  first, in the order of `provider_context`. Then comes the text part, then
+  the tool-call parts in the order of `tool_calls`. For Google, the text
+  thus comes before the function calls.
 
 ## Log copies
 

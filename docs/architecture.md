@@ -14,13 +14,13 @@ boundary.
 
 | Component | Crate | Responsibility |
 | --- | --- | --- |
-| Contracts | `ai-interface` | The traits and the data that cross every other boundary. |
+| Contracts | `ai-interface` | The traits and the data that cross every other boundary, and the fold from model events to a response. |
 | HTTP | `json-http` | Requests, Server-Sent Events (SSE) streams, response headers, typed bodies, and record-and-replay for tests. |
-| Adapter helpers | `ai-models-core` | Shared adapter logic: the fold from model events to a response, the capability check, error classification, schema checks, and synthetic tool-call ids. |
+| Adapter helpers | `ai-models-core` | Shared adapter logic: the capability check, error classification, schema checks, and synthetic tool-call ids. |
 | Native adapters | `ai-models-anthropic`, `ai-models-openai`, `ai-models-google`, `ai-models-typesafe` | One adapter for each native provider protocol. |
 | Compatible engine | `ai-models-compat` | One Chat Completions engine, with one dialect each for DeepSeek, Kimi, Qwen, MiniMax, and xAI. |
 | Policies | `ai-models-policy` | The retry, fallback, concurrency, and pricing layers. |
-| Registry | `ai-models-registry` | Provider configs, the combined catalog, and one factory for every model spec. |
+| Registry | `ai-models-registry` | Provider configs, the combined catalog, one factory for every model spec, and the converter of the old stored format. |
 | Agent loop | `ai-tool-calling` | Turns over a caller-owned conversation, parallel tool calls, outcomes, observers, and tool output windows. |
 | MCP | `ai-mcp`, `ai-mcp-oauth` | The Model Context Protocol (MCP) client, its tool adapter, and its OAuth flow. |
 | Test kit | `ai-testkit` | Scenarios, provider stream recordings, and the conformance runner. |
@@ -34,6 +34,11 @@ parts, provider state, model specs, efforts, provider ids, usage, and the
 error core with its error kinds. The contracts name no provider. A provider
 id is a value that the provider crate defines. The contracts do no I/O.
 
+The contracts also hold the fold from model events to a response, beside
+`Model`. The provided `Model::complete` and the agent loop share this one
+fold. The contracts depend on no other component, so the fold must live in
+the contracts for `Model::complete` to use it without a dependency cycle.
+
 ### HTTP
 
 The HTTP component sends requests and opens SSE streams through an injected
@@ -43,11 +48,10 @@ headers, and a typed body. It never reads a provider payload.
 
 ### Adapter helpers
 
-The adapter helpers hold the logic that every adapter shares. They fold
-model events into a response. They check each request against its model
-spec. They map HTTP and stream failures to error kinds, check tool-call
-arguments and structured output, and make synthetic tool-call ids. They name
-no provider and do no I/O of their own.
+The adapter helpers hold the logic that every adapter shares. They check
+each request against its model spec. They map HTTP and stream failures to
+error kinds, check tool-call arguments and structured output, and make
+synthetic tool-call ids. They name no provider and do no I/O of their own.
 
 ### Native adapters and the compatible engine
 
@@ -55,7 +59,10 @@ An adapter maps the shared request and the conversation parts to the wire
 format of its provider. It replays its own provider state and skips the
 state of other providers. It maps the provider stream to model events, and
 it maps provider failures to error kinds. Each provider crate exports its
-provider id and the model specs of its catalog.
+provider id and the model specs of its catalog. It also exports the
+conversion of the replay items of its own provider in the old stored
+format, as the [conversation parts protocol](protocol/conversation-parts.md)
+says.
 
 The compatible engine is one adapter for the Chat Completions protocol. The
 engine owns all the behavior that the five Chat Completions providers share.
@@ -74,16 +81,20 @@ from error text.
 
 The registry is the one component that names every provider. It holds one
 provider config for each provider. It builds the adapter of each modality
-from a model spec, and it combines the catalogs of all providers. One Cargo
-feature for each provider selects the providers that the registry includes.
-The other library components do not depend on the registry.
+from a model spec, and it combines the catalogs of all providers. It also
+composes the conversions of its providers into the one converter of the old
+stored format that hosts call. One Cargo feature for each provider selects
+the providers that the registry includes. The other library components do
+not depend on the registry.
 
 ### Agent loop
 
 The agent loop runs one turn over a conversation that the caller owns. It
-calls the model, runs tool calls in parallel up to a limit, bounds tool
-output, and reports the outcome. It knows `Model` and `Tool` only. It does
-not know which provider serves a model or which policy layers wrap it.
+streams each model call and builds the response of each step with the fold
+of the contracts, the same fold that `Model::complete` uses. It runs tool
+calls in parallel up to a limit, bounds tool output, and reports the
+outcome. It knows `Model` and `Tool` only. It does not know which provider
+serves a model or which policy layers wrap it.
 
 ### MCP
 
@@ -153,13 +164,17 @@ results. No product code depends on the test kit.
 2. Each step builds a model request from the system prompt, the
    conversation, the tool definitions, and the controls. The loop forwards
    each model event as an agent event.
-3. The loop folds the events into a response and calls the checkpoints.
-4. When the finish reason is tool calls, the loop runs the calls in
+3. The loop builds the response of the step with the fold of the
+   contracts, the same fold that `Model::complete` uses. Then it calls the
+   response checkpoint.
+4. The loop appends the assistant message to the conversation.
+5. When the finish reason is tool calls, the loop runs the calls in
    parallel up to its limit. It bounds each output with the output store.
-5. The loop appends the assistant message and the tool results, in call
-   order, to the conversation. Then the next step starts.
+   It appends the tool results in call order as the calls complete. Then
+   the next step starts.
 6. The turn ends with an outcome: completed, truncated, or capped. A model
-   error or a checkpoint error ends it with that error.
+   error or a checkpoint error ends it with that error. A stopped turn keeps
+   every completed tool result, so its final step can be incomplete.
 7. Observers receive log copies during the turn. Their errors go to
    `tracing`.
 

@@ -44,9 +44,9 @@ Contract owners:
 
 | Component | Crate | Responsibility |
 | --- | --- | --- |
-| Contracts | `ai-interface` | Model, tool, and modality traits, stream events, conversation parts, provider state, model specs, efforts, and errors. It names no provider. |
+| Contracts | `ai-interface` | Model, tool, and modality traits, stream events, the fold from events to a response, conversation parts, provider state, model specs, efforts, and errors. It names no provider. |
 | HTTP | `json-http` | Requests, SSE, response headers, typed bodies, and record-and-replay for tests. |
-| Adapter helpers | `ai-models-core` | The fold from events to a response, the capability check, error classification, schema checks, and synthetic tool-call ids. |
+| Adapter helpers | `ai-models-core` | The capability check, error classification, schema checks, and synthetic tool-call ids. |
 | Native adapters | `ai-models-anthropic`, `ai-models-openai`, `ai-models-google`, `ai-models-typesafe` | One adapter for each native protocol. |
 | Compatible engine | `ai-models-compat` | One Chat Completions engine, with a dialect for DeepSeek, Kimi, Qwen, MiniMax, and xAI. |
 | Policies | `ai-models-policy` | Retry, fallback, concurrency, and pricing layers. |
@@ -130,6 +130,8 @@ milestone keeps all behavior that this list does not name.
 - The shared mutable conversation API of `ToolCallingRuntime`, such as
   `replace_conversation` and `push_user_message`: replaced by the
   caller-owned conversation.
+- `Turn`, `ActiveTurn::step`, `StepOutcome`, and
+  `Turn::successful_tool_calls`: replaced by the agent events and outcomes.
 - The 4,096-token ceiling of Anthropic requests: replaced by the max output
   of each catalog entry, as item 2 says.
 - Forced tool choice for Anthropic with thinking on: replaced by
@@ -253,11 +255,22 @@ All calls are mine, made on 2026-11-01.
     waits from half to all of the base delay, and a maximum wait of 30 s.
   - The registry holds one config per provider. Adapter and auth headers
     win over extra headers.
-  - The agent loop runs four tool calls at a time by default and appends
-    whole steps only, so a filtered step adds no message. The turn and
-    response checkpoints stay.
+  - The agent loop runs four tool calls at a time by default. A filtered
+    step adds no message. The turn and response checkpoints stay.
   - The loop offers the output reader only when the output store holds a
     stored output. It still runs a reader call that it did not offer.
+- Review round 1 of pull request 1, 2026-11-02:
+  - Finding 11: completed tool results stay in the conversation, and the
+    host closes unfinished calls. Options B and D, which close every call
+    inside the library, wait for the user in
+    `plans/follow-ups/stopped-step-calls.md`.
+  - Finding 12: each provider crate converts its own version 1 items, and
+    the registry composes the conversions.
+  - Finding 13: the fold lives in the contracts, and the agent loop uses
+    it.
+  - The converter keeps the items of a provider that the registry does not
+    include, and the first item's provider sets the order of a mixed
+    message. Every tool event names its call id.
 - The plan has about 520 lines, above the 300-line target, because it
   covers eight pull requests. A split would scatter the shared decisions.
 
@@ -412,8 +425,8 @@ Make streaming the single model entry point.
 
 - [ ] Replace `complete` and `complete_with_events` on `Model` with
       `stream` and a provided `complete` fold.
-- [ ] Add the event types to `ai-interface` and the fold to
-      `ai-models-core`.
+- [ ] Add the event types and the fold to `ai-interface`, beside `Model`,
+      so that `complete` and the agent loop share one fold.
 - [ ] Emit events directly in the Anthropic, OpenAI, and Google adapters
       and in the engine. Remove the JSON round trip.
 - [ ] Move the retry, concurrency, pricing, and fallback wrappers to
@@ -439,7 +452,7 @@ Replace the closed replay enum with opaque provider state.
 - [ ] Move the replay payload of each provider into its adapter as a
       private typed struct. This includes the Anthropic and Gemini variants
       of item 1.
-- [ ] Add the converter for the old stored format.
+- [ ] Add each provider crate's conversion of its version 1 items.
 - [ ] Redact provider state in log copies.
 - [ ] Mark `conversation-parts.md` implemented.
 - [ ] Run `cargo xtask check`, then commit and push.
@@ -478,6 +491,8 @@ Build any catalog entry from one config shape.
 - [ ] Add `ProviderConfig`. Make every adapter honor its base URL.
 - [ ] Build chat, image, video, transcription, and judgment adapters from
       specs.
+- [ ] Compose the provider conversions into the converter that the
+      registry exposes.
 - [ ] Replace the provider match in
       `xtask/tests/live_models/provider_tests.rs` and in the smoke test
       with the registry.
@@ -493,9 +508,16 @@ Depends on: 9
 Rebuild the tool loop on the stream and the caller-owned conversation.
 
 - [ ] Change `run` to take the caller's conversation and the request.
-- [ ] Stream agent events, including tool and fallback events.
+- [ ] Stream agent events, including tool and fallback events. The tool
+      finished event carries the tool execution record, and the step
+      finished event carries the messages that the step appended.
+- [ ] Build each step response with the shared fold of `ai-interface`,
+      the same fold that `Model::complete` uses.
 - [ ] Run tool calls in parallel up to a limit, and append the results in
       call order.
+- [ ] Append the assistant message before the tool calls of its step run,
+      and each tool result as its call completes, so that a stopped turn
+      keeps every completed tool result.
 - [ ] Send observer errors to `tracing`. Never fail a turn on them.
 - [ ] Keep the `Truncated` outcome of item 4 in the new loop.
 - [ ] Accept a schema for the final answer.

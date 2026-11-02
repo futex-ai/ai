@@ -57,7 +57,8 @@ in-memory tool-calling runtime behavior.
   the settings of its DeepSeek, Kimi, Qwen, MiniMax, and xAI dialects.
 - [Provider registry](docs/protocol/provider-registry.md) (approved, not
   implemented) defines provider config, base URLs, auth, headers, timeouts,
-  and the adapters that a spec builds.
+  the adapters that a spec builds, and the converter for stored
+  conversations.
 - [Model policies](docs/protocol/model-policies.md) (approved, not
   implemented) defines the error core and kinds, retry, fallback policies,
   concurrency, and pricing.

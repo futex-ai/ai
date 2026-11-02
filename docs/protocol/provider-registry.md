@@ -7,7 +7,8 @@ When implemented, this protocol replaces the constructor rules of `new`,
 [provider-call-controls.md](provider-call-controls.md).
 
 This protocol defines the provider config, base URLs, auth, extra headers,
-timeouts, and the adapters that the registry builds from a model spec.
+timeouts, the adapters that the registry builds from a model spec, and the
+converter that the registry exposes.
 [Model capabilities](model-capabilities.md) defines model specs and the
 combined catalog.
 
@@ -129,3 +130,13 @@ regional endpoint covered only part of a provider.
   config. The rejected alternative kept constructors such as `new`,
   `with_auth`, and `with_catalog_auth` in each provider crate. Each host and
   each test then repeated a match over providers.
+
+## Converter
+
+- The registry exposes the one converter that hosts call to read stored
+  messages of format version 1.
+- The converter composes the version 1 conversions of the providers that
+  the registry includes.
+- [Conversation parts](conversation-parts.md) defines the converter, the
+  conversion of each provider, and the decision that places the
+  composition in the registry.

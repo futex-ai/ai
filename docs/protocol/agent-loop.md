@@ -15,6 +15,8 @@ reader.
 
 - **Turn:** one call of `run`. It ends with an outcome or an error.
 - **Step:** one model call and the tool calls of its response.
+- **Completed call:** a tool call whose output or tool error the loop
+  received.
 - **Agent event:** one item of the event stream of a turn.
 - **Outcome:** the result of a turn that ends without an error: completed,
   truncated, or capped.
@@ -50,12 +52,28 @@ reader.
 - The loop runs the tool calls of the last allowed step before the turn ends
   as capped.
 - A request without a step limit has no cap.
-- The loop appends the assistant message of a step together with the tool
-  results of the step, after the last tool call of the step finishes.
-- The loop appends no assistant message that has no parts.
-- At any point, the conversation holds complete steps only. A dropped
-  stream or a failed turn leaves out the step that was running.
+- The loop appends the assistant message of a step directly after the
+  response checkpoint, before any tool call of the step starts.
+- The loop appends no assistant message that has no parts. It appends no
+  assistant message for a response that finishes with the reason filtered
+  or other.
+- The loop appends the tool result of a call when the call completes. A
+  result waits only while an earlier call of the step still runs, so that
+  the results keep call order among the completed calls, whatever the
+  order in which the calls finish.
 - Dropping the event stream cancels the turn and the running tool calls.
+- A turn can stop with an error, such as a checkpoint error, or with a
+  dropped event stream. The loop appends each waiting result before the
+  error returns or the drop ends. The conversation then holds every
+  completed tool result.
+- The loop appends synchronously, so that a dropped event stream also keeps
+  every completed tool result.
+- The final step of a stopped turn can therefore be incomplete. A tool call
+  that did not complete has no tool result.
+- Before the next turn, the host closes each tool call that has no tool
+  result. It appends a tool result for that call.
+- Decision: a stopped turn keeps every completed tool result. The rejected
+  alternative appended whole steps only, which lost completed tool actions.
 
 ## Agent events
 
@@ -63,15 +81,26 @@ reader.
 | --- | --- |
 | Model | A model event of the current step, unchanged. Fallback events are model events. |
 | Response | The response of a step, after the checkpoints, before any tool call of the step starts. |
-| Tool started | A tool call starts. |
-| Tool finished | A tool call finishes, with its model-visible result or its error. |
-| Step finished | The messages of the step are in the conversation. |
+| Tool started | A tool call starts, with its call id and tool name. |
+| Tool finished | A tool call completes, with its call id and its tool execution record or its tool error. |
+| Step finished | The step is complete, with the messages that the step appended. |
 | Finished | The turn ended with its outcome. This is the last event. |
 
 - In each step, the model events come first, then the response event, then
   the tool events, then the step finished event.
 - Tool events follow the order in which the calls start and finish. With
   parallel calls, they interleave.
+- The tool execution record of a successful call holds the call id, the
+  operation id, the tool name, the output id of a stored output, the raw
+  output, and the model-visible output.
+  [Tool output management](tool-output-management.md) defines the output
+  fields and requires the record for current-run consumers.
+- The step finished event carries the messages that the step appended, in
+  conversation order. A host can therefore save the conversation step by
+  step while the turn runs.
+- The step finished event tells the host that a step is complete. When a
+  turn stops before the step finished event of its last step, that step
+  can be incomplete.
 - After an error, the stream returns no further event.
 - [Model stream](model-stream.md) defines the model events and the rule that
   a fallback event voids the events of the failed attempt.
@@ -103,8 +132,8 @@ reader.
   the tool-call limit of the agent running at a time. The default limit is
   four.
 - The loop starts the calls in call order.
-- The loop appends exactly one tool result for each call, in call order,
-  whatever the order in which the calls finish.
+- The loop appends exactly one tool result for each completed call. The
+  turns and steps section gives the order and the time of each append.
 - A tool error becomes the tool result of its call, and the turn continues
   with the next step. Unknown tools, invalid arguments, and failed
   executions are tool errors.
