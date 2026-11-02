@@ -1,7 +1,8 @@
 # AI library redesign
 
 Status: Active. [PR #24](https://github.com/futex-ai/ai/pull/24) is open for
-the first pull request. The work spans eight stacked pull requests. Each earlier pull request keeps
+the first pull request, and [PR #25](https://github.com/futex-ai/ai/pull/25)
+for the second. The work spans eight stacked pull requests. Each earlier pull request keeps
 this plan. The last one deletes it, as the final milestone says.
 
 The workspace puts nine AI providers behind one interface, with a
@@ -405,7 +406,7 @@ Apply the answers to items 1 to 4 on today's types.
 - [x] Delete each follow-up item in the commit that applies it.
 - [x] Re-record the affected scenarios, and update their snapshots.
 - [x] Run `cargo xtask check`, then commit and push.
-- [ ] Run the ship steps for pull request 2.
+- [x] Run the ship steps for pull request 2.
 
 ## Milestone 4: Chat Completions engine
 
