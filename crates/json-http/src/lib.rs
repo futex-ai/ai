@@ -3,8 +3,10 @@
 #![warn(unreachable_pub)]
 
 mod auth;
+mod canonical;
 mod client;
 mod error;
+mod headers;
 mod request;
 mod reqwest_sse;
 mod reqwest_transport;
@@ -30,6 +32,7 @@ pub use client::{
     ReqwestJsonHttpClient, TransportBackedJsonHttpClient,
 };
 pub use error::{Error, Result};
+pub use headers::JsonHttpHeaders;
 pub use request::{
     JsonHttpBody, JsonHttpMethod, JsonHttpMultipart, JsonHttpMultipartField, JsonHttpRequest,
     JsonHttpRequestBuilder, JsonHttpResponse,

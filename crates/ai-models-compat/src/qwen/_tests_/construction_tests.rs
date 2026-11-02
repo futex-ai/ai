@@ -24,10 +24,15 @@ async fn custom_provider_model_reaches_transport_without_catalog_validation() {
         .expect("custom response");
     assert_eq!(response.model_id, "qwen-custom");
     assert_eq!(
-        requests.lock().expect("requests lock")[0]
-            .body
-            .as_ref()
-            .expect("body")["model"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests.lock().expect("requests lock")[0]
+                .body
+                .as_ref()
+                .expect("body")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["model"],
         "qwen-custom"
     );
 }
@@ -58,7 +63,12 @@ async fn downgrades_unsupported_request_efforts() {
         let body = requests[0]
             .body
             .as_ref()
-            .and_then(|body| body.as_json())
+            .and_then(|body| {
+                body.as_json_bytes().map(|bytes| {
+                    serde_json::from_slice::<serde_json::Value>(bytes)
+                        .expect("valid JSON request body")
+                })
+            })
             .expect("JSON request body");
 
         assert_eq!(body["enable_thinking"], enabled);
@@ -107,7 +117,11 @@ async fn default_uses_plus_high_thinking_endpoint_and_injected_auth() {
     let body = requests[0]
         .body
         .as_ref()
-        .and_then(|body| body.as_json())
+        .and_then(|body| {
+            body.as_json_bytes().map(|bytes| {
+                serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+            })
+        })
         .expect("JSON request body");
 
     assert_eq!(response.provider, "qwen");

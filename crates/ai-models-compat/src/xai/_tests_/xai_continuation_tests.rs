@@ -40,7 +40,15 @@ async fn omits_name_from_tool_role_continuation_messages() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     let messages = body["messages"].as_array().expect("messages array");
     let tool_message = messages
         .iter()
@@ -91,7 +99,15 @@ async fn serializes_legacy_function_call_continuation_messages() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     let messages = body["messages"].as_array().expect("messages array");
     let assistant_message = messages
         .iter()
@@ -117,24 +133,13 @@ async fn serializes_legacy_function_call_continuation_messages() {
     assert_eq!(function_message["name"], "memory_read");
     assert_eq!(function_message["content"], "{\"ok\":true}");
     assert!(!function_object.contains_key("tool_call_id"));
-    assert!(
-        !body
-            .as_json()
-            .expect("JSON body should be present")
-            .to_string()
-            .contains("DeepSeek-owned")
-    );
-    assert!(
-        !body
-            .as_json()
-            .expect("JSON body should be present")
-            .to_string()
-            .contains("Qwen-owned")
-    );
+    assert!(!body.to_string().contains("DeepSeek-owned"));
+    assert!(!body.to_string().contains("Qwen-owned"));
 }
 
 fn xai_text_response(text: &str) -> JsonHttpResponse<Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{

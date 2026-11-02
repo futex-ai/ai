@@ -63,6 +63,7 @@ fn preserves_http_status_classification_for_stream_open_failures() {
         "gpt",
         0,
         json_http::Error::HttpStatus {
+            headers: Default::default(),
             status: 429,
             body: json!({"error": {"message": "slow down"}}),
         },

@@ -51,6 +51,7 @@ async fn bearer_key_is_redacted_from_provider_bodies() {
 #[tokio::test]
 async fn malformed_payload_diagnostics_are_redacted() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: br#"{
             "model":"jev-1.13.0",

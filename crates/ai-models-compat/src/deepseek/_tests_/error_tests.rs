@@ -33,6 +33,7 @@ async fn classifies_the_complete_http_status_matrix() {
 
     for (status, expected) in cases {
         let (http_client, _) = recording_http_client(JsonHttpResponse {
+            headers: Default::default(),
             status,
             body: json!({"error": {"message": "request rejected"}}),
         });
@@ -50,6 +51,7 @@ async fn classifies_the_complete_http_status_matrix() {
 #[tokio::test]
 async fn recognizes_structured_context_overflow_codes() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 400,
         body: json!({
             "error": {
@@ -113,6 +115,7 @@ fn request_serialization_and_response_deserialization_errors_are_internal() {
 #[tokio::test]
 async fn completed_stream_without_choices_is_an_interruption() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({"choices": []}),
     });

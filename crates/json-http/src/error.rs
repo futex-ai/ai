@@ -5,7 +5,7 @@ use std::{sync::Arc, time::Duration};
 use serde_json::Value;
 use thiserror::Error;
 
-use crate::sse::JsonHttpSseDecodeError;
+use crate::{JsonHttpHeaders, sse::JsonHttpSseDecodeError};
 
 #[derive(Debug, Error)]
 /// Errors returned by the JSON HTTP boundary.
@@ -56,6 +56,8 @@ pub enum Error {
     HttpStatus {
         /// HTTP status code returned by the server.
         status: u16,
+        /// Response headers returned by the server.
+        headers: Box<JsonHttpHeaders>,
         /// Bounded JSON or textual diagnostic body.
         body: Value,
     },
@@ -100,6 +102,14 @@ pub enum Error {
 }
 
 impl Error {
+    /// Reports request or stream transport failures, excluding auth and local errors.
+    pub fn is_transport_failure(&self) -> bool {
+        matches!(
+            self,
+            Self::Transport { .. } | Self::ReqwestTransport { .. } | Self::SseTransport { .. }
+        )
+    }
+
     /// Builds a transport error from a message.
     pub fn transport(message: impl Into<String>) -> Self {
         Self::Transport {

@@ -118,6 +118,7 @@ pub fn done_event() -> StreamItem {
 fn buffered_fixture(response: JsonHttpResponse<Value>) -> SseFixture {
     if response.status >= 400 {
         return SseFixture::OpeningError(json_http::Error::HttpStatus {
+            headers: Default::default(),
             status: response.status,
             body: response.body,
         });

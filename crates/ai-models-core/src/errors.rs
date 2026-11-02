@@ -54,7 +54,7 @@ pub fn classify_json_http_stream_error(
 ) -> ModelError {
     let events_received = events_received.max(stream_error_progress(&source));
     match source {
-        JsonHttpError::HttpStatus { status, body } => {
+        JsonHttpError::HttpStatus { status, body, .. } => {
             classify_json_http_error(provider, model_id, status, &body)
         }
         source @ (JsonHttpError::ClientInitialization { .. }

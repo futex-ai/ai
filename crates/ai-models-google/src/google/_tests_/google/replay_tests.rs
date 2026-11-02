@@ -60,7 +60,15 @@ async fn signed_google_parts_replay_without_merging_or_synthetic_ids() {
     model.complete(&request).await.unwrap();
     let requests = requests.lock().unwrap();
     assert_eq!(
-        requests[1].body.as_ref().unwrap()["contents"][1]["parts"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[1]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["contents"][1]["parts"],
         parts
     );
 }
@@ -95,7 +103,15 @@ async fn streamed_google_signature_chunks_keep_their_own_parts() {
     model.complete(&request).await.unwrap();
     let requests = requests.lock().unwrap();
     assert_eq!(
-        requests[1].body.as_ref().unwrap()["contents"][1]["parts"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[1]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["contents"][1]["parts"],
         parts
     );
 }
@@ -234,7 +250,7 @@ async fn unsigned_google_continuations_join_text_before_calls() {
         let requests = requests.lock().unwrap();
         actual.push(json!({
             "source":parts,"finish":finish,"text":response.text(),"calls":response.tool_calls().len(),
-            "replay":requests[1].body.as_ref().unwrap()["contents"][1]["parts"]
+            "replay":serde_json::from_slice::<serde_json::Value>(requests[1].body.as_ref().unwrap().as_json_bytes().expect("JSON request body")).expect("valid JSON request body")["contents"][1]["parts"]
         }));
         expected.push(
             json!({"source":parts,"finish":finish,"text":text,"calls":calls,"replay":replay}),
@@ -264,10 +280,9 @@ async fn tool_follow_up(parts: Value) -> (Value, Vec<ToolCall>) {
     }
     model.complete(&request).await.unwrap();
     let requests = requests.lock().unwrap();
-    (
-        requests[1].body.as_ref().unwrap()["contents"].clone(),
-        calls,
-    )
+    let body = requests[1].body.as_ref().unwrap().as_json_bytes().unwrap();
+    let body: Value = serde_json::from_slice(body).unwrap();
+    (body["contents"].clone(), calls)
 }
 
 fn thinking_model(client: DynJsonHttpClient) -> GoogleModel {

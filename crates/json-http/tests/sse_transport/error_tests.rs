@@ -24,7 +24,7 @@ async fn non_success_status_retains_a_bounded_json_body() {
 
     assert!(matches!(
         result,
-        Err(Error::HttpStatus { status: 429, body })
+        Err(Error::HttpStatus { status: 429, body, .. })
             if body == json!({ "error": { "message": "slow down" } })
     ));
     server.request().await;
@@ -49,7 +49,7 @@ async fn non_success_text_body_is_capped_at_sixty_four_kibibytes() {
 
     assert!(matches!(
         result,
-        Err(Error::HttpStatus { status: 500, body })
+        Err(Error::HttpStatus { status: 500, body, .. })
             if body.as_str().is_some_and(|body| body.len() == 64 * 1024)
     ));
     server.request().await;

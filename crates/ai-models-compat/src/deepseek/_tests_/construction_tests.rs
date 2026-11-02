@@ -48,10 +48,15 @@ async fn accepts_every_supported_provider_and_request_effort_combination() {
             );
             assert_eq!(response.effort().map(Effort::as_str), Some(effort.as_str()));
             assert_eq!(
-                requests.lock().expect("requests lock")[0]
-                    .body
-                    .as_ref()
-                    .expect("body")["model"],
+                serde_json::from_slice::<serde_json::Value>(
+                    requests.lock().expect("requests lock")[0]
+                        .body
+                        .as_ref()
+                        .expect("body")
+                        .as_json_bytes()
+                        .expect("JSON request body")
+                )
+                .expect("valid JSON request body")["model"],
                 spec.provider_model_id.as_ref()
             );
         }
@@ -74,10 +79,15 @@ async fn custom_provider_model_reaches_transport_without_catalog_validation() {
         Some("deepseek/deepseek-custom")
     );
     assert_eq!(
-        requests.lock().expect("requests lock")[0]
-            .body
-            .as_ref()
-            .expect("body")["model"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests.lock().expect("requests lock")[0]
+                .body
+                .as_ref()
+                .expect("body")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["model"],
         "deepseek-custom"
     );
 }

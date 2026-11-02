@@ -1,11 +1,14 @@
 //! Request builder and request/response DTOs for JSON HTTP calls.
 
-use std::{collections::BTreeMap, ops::Index, time::Duration};
+use std::{collections::BTreeMap, time::Duration};
 
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
-use crate::{DynJsonHttpAuth, DynJsonHttpSseStream, DynJsonHttpTransport, Error, Result};
+use crate::canonical::CanonicalSerializer;
+use crate::{
+    DynJsonHttpAuth, DynJsonHttpSseStream, DynJsonHttpTransport, Error, JsonHttpHeaders, Result,
+};
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(600);
 
@@ -28,35 +31,17 @@ pub enum JsonHttpMethod {
 /// Serialized request body passed to the transport.
 pub enum JsonHttpBody {
     /// JSON request body.
-    Json(Value),
+    Json(Vec<u8>),
     /// Multipart form request body.
     Multipart(JsonHttpMultipart),
 }
 
-static JSON_NULL: Value = Value::Null;
-
 impl JsonHttpBody {
-    /// Returns the JSON value when this body is JSON.
-    pub fn as_json(&self) -> Option<&Value> {
+    /// Returns encoded JSON bytes when this body is JSON.
+    pub fn as_json_bytes(&self) -> Option<&[u8]> {
         match self {
-            Self::Json(value) => Some(value),
+            Self::Json(bytes) => Some(bytes),
             Self::Multipart(_) => None,
-        }
-    }
-
-    /// Returns a field from the JSON object body.
-    pub fn get(&self, key: &str) -> Option<&Value> {
-        self.as_json().and_then(|value| value.get(key))
-    }
-}
-
-impl Index<&str> for JsonHttpBody {
-    type Output = Value;
-
-    fn index(&self, index: &str) -> &Self::Output {
-        match self {
-            Self::Json(value) => &value[index],
-            Self::Multipart(_) => &JSON_NULL,
         }
     }
 }
@@ -127,6 +112,8 @@ pub struct JsonHttpRequest {
 pub struct JsonHttpResponse<T> {
     /// HTTP status code.
     pub status: u16,
+    /// Response headers received before body consumption.
+    pub headers: JsonHttpHeaders,
     /// Parsed JSON body.
     pub body: T,
 }
@@ -195,7 +182,7 @@ impl JsonHttpRequestBuilder {
     where
         T: Serialize,
     {
-        let body = match serde_json::to_value(body) {
+        let body = match body.serialize(CanonicalSerializer) {
             Ok(body) => body,
             Err(source) => return Err(Error::SerializeRequest { source }),
         };
@@ -247,6 +234,7 @@ impl JsonHttpRequestBuilder {
         };
         Ok(JsonHttpResponse {
             status: response.status,
+            headers: response.headers,
             body,
         })
     }

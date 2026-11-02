@@ -97,6 +97,7 @@ async fn complete_result(
             .next_call(matching!(_))
             .answers(&|_, _| {
                 Ok(JsonHttpResponse {
+                    headers: Default::default(),
                     status: 200,
                     body: json!({"request_id": "accepted"}),
                 })
@@ -105,6 +106,7 @@ async fn complete_result(
             .next_call(matching!(_))
             .answers_arc(Arc::new(move |_, _| {
                 Ok(JsonHttpResponse {
+                    headers: Default::default(),
                     status: 200,
                     body: body.clone(),
                 })

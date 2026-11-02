@@ -37,7 +37,15 @@ async fn sends_bearer_auth_to_exact_moonshot_endpoint() {
         Some("Bearer moonshot-secret")
     );
     assert_eq!(
-        requests[0].body.as_ref().expect("body")["model"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["model"],
         KIMI_K3.provider_model_id.as_ref()
     );
 }
@@ -57,6 +65,7 @@ async fn classifies_rate_transient_and_ordinary_statuses() {
 
     for (status, expected) in cases {
         let (http_client, _) = recording_http_client(JsonHttpResponse {
+            headers: Default::default(),
             status,
             body: json!({"error": {"message": "request rejected"}}),
         });

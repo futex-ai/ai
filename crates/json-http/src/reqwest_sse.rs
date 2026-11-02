@@ -5,7 +5,9 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::time::{Instant, timeout};
 
-use crate::{Error, JsonHttpSseDecoder, JsonHttpSseEvent, JsonHttpSseStream, Result};
+use crate::{
+    Error, JsonHttpHeaders, JsonHttpSseDecoder, JsonHttpSseEvent, JsonHttpSseStream, Result,
+};
 
 #[derive(Clone, Copy)]
 pub(crate) enum TimeoutKind {
@@ -86,6 +88,10 @@ impl ReqwestJsonHttpSseStream {
 
 #[async_trait]
 impl JsonHttpSseStream for ReqwestJsonHttpSseStream {
+    fn headers(&self) -> &JsonHttpHeaders {
+        self.response.headers()
+    }
+
     async fn next(&mut self) -> Result<Option<JsonHttpSseEvent>> {
         loop {
             let event = match self.decoder.next_event(self.eof) {

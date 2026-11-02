@@ -76,7 +76,10 @@ async fn client_uses_injected_transport_auth_timeout_and_endpoints() {
     let generation = requests[0]
         .body
         .as_ref()
-        .and_then(JsonHttpBody::as_json)
+        .and_then(JsonHttpBody::as_json_bytes)
+        .map(|bytes| {
+            serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+        })
         .expect("generation body should be JSON");
     assert_eq!(generation["model"], "gpt-image-2");
     assert_eq!(generation["prompt"], "A blue circle");
@@ -107,6 +110,7 @@ async fn client_uses_injected_transport_auth_timeout_and_endpoints() {
 #[tokio::test]
 async fn client_classifies_injected_status_and_transport_failures() {
     let (http_client, _) = recording_http_client(VecDeque::from([JsonHttpResponse {
+        headers: Default::default(),
         status: 429,
         body: json!({"error": {"message": "slow down"}}),
     }]));
@@ -176,6 +180,7 @@ fn recording_http_client(
 
 fn successful_response() -> JsonHttpResponse<serde_json::Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "data": [{"b64_json": "iVBORw0KGgo="}],

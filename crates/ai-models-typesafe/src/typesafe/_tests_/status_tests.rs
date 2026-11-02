@@ -72,6 +72,7 @@ async fn message_extraction_retains_null_and_falls_back_only_for_empty_bytes() {
         (json_response(400, json!(null)), "null"),
         (
             JsonHttpResponse {
+                headers: Default::default(),
                 status: 400,
                 body: Vec::new(),
             },

@@ -24,10 +24,19 @@ pub(super) async fn request_body(provider: Provider, message: ConversationMessag
                     move |_,
                           request: &JsonHttpRequest|
                           -> json_http::Result<DynJsonHttpSseStream> {
-                        requests
-                            .lock()
-                            .unwrap()
-                            .push(request.body.as_ref().unwrap().as_json().unwrap().clone());
+                        requests.lock().unwrap().push(
+                            request
+                                .body
+                                .as_ref()
+                                .unwrap()
+                                .as_json_bytes()
+                                .map(|bytes| {
+                                    serde_json::from_slice::<serde_json::Value>(bytes)
+                                        .expect("valid JSON request body")
+                                })
+                                .unwrap()
+                                .clone(),
+                        );
                         Ok(Box::new(Unimock::new(())))
                     },
                 )

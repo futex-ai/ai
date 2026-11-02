@@ -40,7 +40,15 @@ async fn maps_controls_bounds_output_and_keeps_thinking_sampling_fixed() {
         .expect("thinking response should parse");
 
     let requests = requests.lock().expect("request lock should be available");
-    let plain = requests[0].body.as_ref().expect("plain body");
+    let plain = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("plain body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(requests[0].timeout, Duration::from_secs(75));
     assert!(plain.get("system").is_none());
     assert_eq!(plain["temperature"], 0.3);
@@ -49,7 +57,15 @@ async fn maps_controls_bounds_output_and_keeps_thinking_sampling_fixed() {
     assert_eq!(plain["stop_sequences"], json!(["first", "second"]));
     assert_eq!(plain["tool_choice"]["type"], "tool");
     assert_eq!(plain["tool_choice"]["name"], "lookup");
-    let thinking = requests[1].body.as_ref().expect("thinking body");
+    let thinking = serde_json::from_slice::<serde_json::Value>(
+        requests[1]
+            .body
+            .as_ref()
+            .expect("thinking body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert!(thinking.get("temperature").is_none());
     assert!(thinking.get("top_p").is_none());
     assert_eq!(thinking["max_tokens"], 9000);
@@ -68,7 +84,15 @@ async fn known_fable_constructor_omits_temperature_for_adaptive_thinking() {
         .expect("Fable adaptive-thinking response should parse");
 
     let requests = requests.lock().expect("request lock should be available");
-    let body = requests[0].body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["model"], CLAUDE_FABLE_5.provider_model_id.as_ref());
     assert_eq!(body["thinking"]["type"], "adaptive");
     assert_eq!(body["output_config"]["effort"], "high");
@@ -88,7 +112,15 @@ async fn catalog_spec_uses_provider_model_and_requested_effort() {
         .expect("Opus max-thinking response should parse");
 
     let requests = requests.lock().expect("request lock should be available");
-    let body = requests[0].body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["model"], CLAUDE_OPUS_5.provider_model_id.as_ref());
     assert_eq!(body["thinking"]["type"], "adaptive");
     assert_eq!(body["output_config"]["effort"], "max");
@@ -107,7 +139,15 @@ async fn unknown_model_constructor_remains_direct_with_thinking_disabled() {
         .expect("custom model response should parse");
 
     let requests = requests.lock().expect("request lock should be available");
-    let body = requests[0].body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["model"], "custom-claude");
     assert!(body.get("thinking").is_none());
     assert_eq!(body["temperature"], 0.0);
@@ -147,7 +187,15 @@ async fn required_or_auto_uses_forced_required_semantics() {
 
     let requests = requests.lock().expect("request lock should be available");
     assert_eq!(
-        requests[0].body.as_ref().expect("request body")["tool_choice"]["type"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("request body")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["tool_choice"]["type"],
         "any"
     );
 }
@@ -166,7 +214,15 @@ async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
             .expect("response should parse");
 
         let requests = requests.lock().expect("request lock should be available");
-        let body = requests[0].body.as_ref().expect("request body");
+        let body = serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("request body")
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body");
         match expected {
             Some(expected) => assert_eq!(body["system"], expected),
             None => assert!(body.get("system").is_none()),

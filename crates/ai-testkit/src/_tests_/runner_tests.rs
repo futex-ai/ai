@@ -21,6 +21,7 @@ fn body_difference_names_provider_scenario_and_exchange() {
             body: Some(RecordedBody::Json(json!({"tool_choice": "none"}))),
         },
         response: RecordedResponse::Json {
+            headers: Default::default(),
             status: 200,
             body: json!({}),
         },

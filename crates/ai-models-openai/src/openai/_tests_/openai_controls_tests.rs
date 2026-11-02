@@ -29,7 +29,15 @@ async fn maps_non_reasoning_controls_and_timeout_to_the_final_request() {
 
     let requests = requests.lock().expect("request lock should be available");
     let request = &requests[0];
-    let body = request.body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        request
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(request.timeout, Duration::from_secs(90));
     assert!(body.get("instructions").is_none());
     assert_eq!(body["temperature"], 0.2);
@@ -56,7 +64,15 @@ async fn reasoning_models_keep_sampling_provider_fixed() {
         .expect("reasoning response should parse");
 
     let requests = requests.lock().expect("request lock should be available");
-    let body = requests[0].body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert!(body.get("temperature").is_none());
     assert!(body.get("top_p").is_none());
     assert_eq!(body["max_output_tokens"], 700);
@@ -76,7 +92,15 @@ async fn required_or_auto_uses_forced_required_semantics() {
 
     let requests = requests.lock().expect("request lock should be available");
     assert_eq!(
-        requests[0].body.as_ref().expect("request body")["tool_choice"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("request body")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["tool_choice"],
         "required"
     );
 }
@@ -95,7 +119,15 @@ async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
             .expect("response should parse");
 
         let requests = requests.lock().expect("request lock should be available");
-        let body = requests[0].body.as_ref().expect("request body");
+        let body = serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("request body")
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body");
         match expected {
             Some(expected) => assert_eq!(body["instructions"], expected),
             None => assert!(body.get("instructions").is_none()),

@@ -37,6 +37,7 @@ async fn submits_polls_and_downloads_one_authenticated_video() {
             })),
         ],
         vec![Ok(JsonHttpResponse {
+            headers: Default::default(),
             status: 200,
             body: mp4(),
         })],
@@ -122,6 +123,7 @@ async fn initial_completed_operation_downloads_without_polling() {
             ]}}
         }))],
         vec![Ok(JsonHttpResponse {
+            headers: Default::default(),
             status: 200,
             body: mp4(),
         })],
@@ -240,7 +242,11 @@ fn stationary_runtime() -> Arc<dyn PollingRuntime> {
 }
 
 fn ok_json(body: Value) -> JsonResult {
-    Ok(JsonHttpResponse { status: 200, body })
+    Ok(JsonHttpResponse {
+        headers: Default::default(),
+        status: 200,
+        body,
+    })
 }
 
 fn request() -> VideoGenerationRequest {

@@ -34,6 +34,7 @@ async fn classifies_the_complete_http_status_matrix() {
 
     for (status, expected) in cases {
         let (http_client, _) = recording_http_client(JsonHttpResponse {
+            headers: Default::default(),
             status,
             body: json!({"error": {"message": "request rejected"}}),
         });

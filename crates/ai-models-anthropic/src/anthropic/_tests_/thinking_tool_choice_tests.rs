@@ -51,7 +51,15 @@ async fn thinking_tool_choice_required_or_auto_keeps_tools_and_sends_auto() {
         .await
         .unwrap();
     let requests = requests.lock().unwrap();
-    let body = requests[0].body.as_ref().unwrap();
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .unwrap()
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["tool_choice"], json!({"type": "auto"}));
     assert_eq!(body["tools"][0]["name"], "lookup");
     assert_eq!(body["thinking"]["type"], "adaptive");

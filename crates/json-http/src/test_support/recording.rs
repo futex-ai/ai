@@ -7,8 +7,8 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use serde_json::Value;
 
 use crate::{
-    DynJsonHttpSseStream, DynJsonHttpTransport, Error, JsonHttpRequest, JsonHttpResponse,
-    JsonHttpSseEvent, JsonHttpSseStream, JsonHttpTransport, Result,
+    DynJsonHttpSseStream, DynJsonHttpTransport, Error, JsonHttpHeaders, JsonHttpRequest,
+    JsonHttpResponse, JsonHttpSseEvent, JsonHttpSseStream, JsonHttpTransport, Result,
     reqwest_transport::ReqwestJsonHttpTransport,
 };
 
@@ -38,7 +38,12 @@ impl RecordingTransport {
 
     fn failed(&self, index: usize, error: &Error, redactor: &Redactor) {
         let response = match error {
-            Error::HttpStatus { status, body } => RecordedResponse::Json {
+            Error::HttpStatus {
+                status,
+                headers,
+                body,
+            } => RecordedResponse::Json {
+                headers: redactor.headers(headers),
                 status: *status,
                 body: redactor.value(body),
             },
@@ -59,6 +64,7 @@ impl JsonHttpTransport for RecordingTransport {
             Ok(response) => self.log.response(
                 index,
                 RecordedResponse::Json {
+                    headers: redactor.headers(&response.headers),
                     status: response.status,
                     body: redactor.value(&response.body),
                 },
@@ -75,6 +81,7 @@ impl JsonHttpTransport for RecordingTransport {
             Ok(response) => self.log.response(
                 index,
                 RecordedResponse::Bytes {
+                    headers: redactor.headers(&response.headers),
                     status: response.status,
                     body_base64: BASE64_STANDARD.encode(redactor.bytes(&response.body)),
                 },
@@ -91,6 +98,7 @@ impl JsonHttpTransport for RecordingTransport {
                 self.log.response(
                     index,
                     RecordedResponse::Sse {
+                        headers: redactor.headers(inner.headers()),
                         status: 200,
                         events: Vec::new(),
                         end: StreamEnd::Done,
@@ -122,6 +130,10 @@ struct RecordingStream {
 
 #[async_trait]
 impl JsonHttpSseStream for RecordingStream {
+    fn headers(&self) -> &JsonHttpHeaders {
+        self.inner.headers()
+    }
+
     async fn next(&mut self) -> Result<Option<JsonHttpSseEvent>> {
         let result = self.inner.next().await;
         match &result {

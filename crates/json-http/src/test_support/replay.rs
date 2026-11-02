@@ -7,8 +7,8 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use serde_json::Value;
 
 use crate::{
-    DynJsonHttpSseStream, Error, JsonHttpRequest, JsonHttpResponse, JsonHttpSseEvent,
-    JsonHttpSseStream, JsonHttpTransport, Result,
+    DynJsonHttpSseStream, Error, JsonHttpHeaders, JsonHttpRequest, JsonHttpResponse,
+    JsonHttpSseEvent, JsonHttpSseStream, JsonHttpTransport, Result,
 };
 
 use super::{RecordedResponse, Recording, Redactor, StreamEnd};
@@ -105,7 +105,15 @@ impl ReplayControl for ReplayTransport {
 impl JsonHttpTransport for ReplayTransport {
     async fn execute(&self, request: &JsonHttpRequest) -> Result<JsonHttpResponse<Value>> {
         match self.response(request)? {
-            RecordedResponse::Json { status, body } => Ok(JsonHttpResponse { status, body }),
+            RecordedResponse::Json {
+                status,
+                headers,
+                body,
+            } => Ok(JsonHttpResponse {
+                headers,
+                status,
+                body,
+            }),
             RecordedResponse::Failure { failure } => Err(failure.error(0)),
             _ => Err(ReplayError::ResponseMismatch.http()),
         }
@@ -116,8 +124,13 @@ impl JsonHttpTransport for ReplayTransport {
             RecordedResponse::Bytes {
                 status,
                 body_base64,
+                headers,
             } => match BASE64_STANDARD.decode(body_base64) {
-                Ok(body) => Ok(JsonHttpResponse { status, body }),
+                Ok(body) => Ok(JsonHttpResponse {
+                    headers,
+                    status,
+                    body,
+                }),
                 Err(source) => Err(ReplayError::InvalidBase64 { source }.http()),
             },
             RecordedResponse::Failure { failure } => Err(failure.error(0)),
@@ -131,14 +144,22 @@ impl JsonHttpTransport for ReplayTransport {
                 status,
                 events,
                 end,
+                headers,
             } if (200..300).contains(&status) => Ok(Box::new(ReplayStream {
                 events: events.into(),
                 end: Some(end),
                 events_received: 0,
+                headers,
             })),
-            RecordedResponse::Json { status, body } if status >= 400 => {
-                Err(Error::HttpStatus { status, body })
-            }
+            RecordedResponse::Json {
+                status,
+                headers,
+                body,
+            } if status >= 400 => Err(Error::HttpStatus {
+                status,
+                headers: Box::new(headers),
+                body,
+            }),
             RecordedResponse::Failure { failure } => Err(failure.error(0)),
             _ => Err(ReplayError::ResponseMismatch.http()),
         }
@@ -149,10 +170,15 @@ struct ReplayStream {
     events: VecDeque<super::RecordedEvent>,
     end: Option<StreamEnd>,
     events_received: u64,
+    headers: JsonHttpHeaders,
 }
 
 #[async_trait]
 impl JsonHttpSseStream for ReplayStream {
+    fn headers(&self) -> &JsonHttpHeaders {
+        &self.headers
+    }
+
     async fn next(&mut self) -> Result<Option<JsonHttpSseEvent>> {
         if let Some(StreamEnd::Failure { after_events, .. }) = &self.end
             && self.events_received >= *after_events

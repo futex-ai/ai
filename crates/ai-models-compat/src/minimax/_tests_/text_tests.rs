@@ -15,6 +15,7 @@ use super::{MINIMAX_M3, MiniMaxModel, support::recording_http_client};
 #[tokio::test]
 async fn builds_text_request_and_parses_stopped_response() {
     let (http_client, requests) = recording_http_client([JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{
@@ -70,8 +71,10 @@ async fn builds_text_request_and_parses_stopped_response() {
             .body
             .as_ref()
             .expect("body should be present")
-            .as_json(),
-        Some(&json!({
+            .as_json_bytes()
+            .map(|bytes| serde_json::from_slice::<serde_json::Value>(bytes)
+                .expect("valid JSON request body")),
+        Some(json!({
             "model": "MiniMax-M3",
             "messages": [
                 {"role": "system", "content": "You are concise."},
@@ -157,6 +160,7 @@ fn simple_request() -> ModelRequest {
 
 fn stopped_response() -> JsonHttpResponse<serde_json::Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{

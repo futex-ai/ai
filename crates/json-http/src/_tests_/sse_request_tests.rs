@@ -46,6 +46,7 @@ async fn request_defaults_match_the_documented_timeout_contract() {
                 assert_eq!(request.timeout, Duration::from_secs(600));
                 assert_eq!(request.idle_timeout, None);
                 Ok(JsonHttpResponse {
+                    headers: Default::default(),
                     status: 200,
                     body: json!({}),
                 })
@@ -73,8 +74,11 @@ async fn sse_builder_applies_auth_body_and_timeout_controls() {
                     Some("Bearer token")
                 );
                 assert_eq!(
-                    request.body.as_ref().and_then(|body| body.get("stream")),
-                    Some(&json!(true))
+                    serde_json::from_slice::<Value>(
+                        request.body.as_ref().unwrap().as_json_bytes().unwrap()
+                    )
+                    .unwrap()["stream"],
+                    json!(true)
                 );
                 Ok(Box::new(EmptyStream) as DynJsonHttpSseStream)
             }),

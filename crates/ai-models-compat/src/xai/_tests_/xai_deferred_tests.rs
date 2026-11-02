@@ -63,23 +63,18 @@ async fn polls_one_accepted_completion_and_emits_result_events() {
         1
     );
     assert_eq!(requests.len(), 6);
-    assert!(requests[0].body.as_ref().expect("submit body")["deferred"] == true);
-    assert!(
+    let body = serde_json::from_slice::<Value>(
         requests[0]
             .body
             .as_ref()
             .expect("submit body")
-            .get("stream")
-            .is_none()
-    );
-    assert!(
-        requests[0]
-            .body
-            .as_ref()
-            .expect("submit body")
-            .get("stream_options")
-            .is_none()
-    );
+            .as_json_bytes()
+            .expect("JSON body"),
+    )
+    .expect("valid JSON request body");
+    assert!(body["deferred"] == true);
+    assert!(body.get("stream").is_none());
+    assert!(body.get("stream_options").is_none());
     assert_eq!(
         requests[0].headers.get("Authorization").map(String::as_str),
         Some("Bearer xai-key")
@@ -277,7 +272,11 @@ fn stationary_runtime() -> Arc<dyn DeferredRuntime> {
 }
 
 fn response(status: u16, body: Value) -> ScriptedResponse {
-    Ok(JsonHttpResponse { status, body })
+    Ok(JsonHttpResponse {
+        headers: Default::default(),
+        status,
+        body,
+    })
 }
 
 fn completed_body() -> Value {

@@ -16,6 +16,7 @@ use super::{XaiModel, response, test_support::recording_http_client};
 #[tokio::test]
 async fn builds_xai_tool_requests_and_parses_response() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{
@@ -78,11 +79,27 @@ async fn builds_xai_tool_requests_and_parses_response() {
         Some(&"Bearer xai-key".to_owned())
     );
     assert_eq!(
-        requests[0].body.as_ref().expect("body present")["model"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body present")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["model"],
         "grok-4"
     );
     assert_eq!(
-        requests[0].body.as_ref().expect("body present")["tools"][0]["function"]["name"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body present")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["tools"][0]["function"]["name"],
         "memory_read"
     );
 
@@ -99,6 +116,7 @@ async fn builds_xai_tool_requests_and_parses_response() {
 #[tokio::test]
 async fn builds_xai_structured_output_requests_and_parses_response() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{
@@ -142,11 +160,27 @@ async fn builds_xai_structured_output_requests_and_parses_response() {
         .lock()
         .expect("requests lock should not be poisoned");
     assert_eq!(
-        requests[0].body.as_ref().expect("body present")["response_format"]["type"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body present")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["response_format"]["type"],
         "json_schema"
     );
     assert_eq!(
-        requests[0].body.as_ref().expect("body present")["response_format"]["json_schema"]["strict"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body present")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["response_format"]["json_schema"]["strict"],
         false
     );
     assert_eq!(
@@ -176,6 +210,7 @@ async fn maps_xai_finish_reasons() {
 
     for (raw_reason, expected, include_tool) in cases {
         let (http_client, _) = recording_http_client(JsonHttpResponse {
+            headers: Default::default(),
             status: 200,
             body: xai_response_body(raw_reason, include_tool),
         });

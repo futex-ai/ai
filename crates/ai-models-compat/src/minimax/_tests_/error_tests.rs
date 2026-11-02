@@ -19,6 +19,7 @@ use super::{
 async fn classifies_http_and_transport_failures() {
     let (http_client, _) = recording_streaming_client(vec![SseFixture::OpeningError(
         json_http::Error::HttpStatus {
+            headers: Default::default(),
             status: 429,
             body: json!({"error": {"message": "slow down"}}),
         },

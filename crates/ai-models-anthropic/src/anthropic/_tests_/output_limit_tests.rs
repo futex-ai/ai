@@ -36,7 +36,15 @@ async fn output_limits_use_catalog_defaults_ceilings_and_unknown_fallback() {
         model.complete(&request).await.unwrap();
         let requests = requests.lock().unwrap();
         assert_eq!(
-            requests[0].body.as_ref().unwrap()["max_tokens"],
+            serde_json::from_slice::<serde_json::Value>(
+                requests[0]
+                    .body
+                    .as_ref()
+                    .unwrap()
+                    .as_json_bytes()
+                    .expect("JSON request body")
+            )
+            .expect("valid JSON request body")["max_tokens"],
             expected,
             "{text_id}, requested {requested:?}"
         );

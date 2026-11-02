@@ -81,6 +81,7 @@ async fn preserves_provider_total_and_reconstructs_missing_total_safely() {
 #[tokio::test]
 async fn missing_usage_maps_to_unpriced_zeroes() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: response_body(None),
     });
@@ -95,6 +96,7 @@ async fn missing_usage_maps_to_unpriced_zeroes() {
 
 async fn complete_with_usage(usage: serde_json::Value) -> ModelUsage {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: response_body(Some(usage)),
     });

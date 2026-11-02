@@ -11,6 +11,7 @@ use super::{GROK_4_5, GROK_4_20_REASONING, XaiModel, test_support::recording_htt
 #[tokio::test]
 async fn builds_xai_thinking_variant_requests() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{
@@ -36,7 +37,15 @@ async fn builds_xai_thinking_variant_requests() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["model"], "grok-4.5");
     assert_eq!(body["reasoning_effort"], "high");
     assert_eq!(response.catalog_model_id.as_deref(), Some("xai/grok-4.5"));
@@ -47,6 +56,7 @@ async fn builds_xai_thinking_variant_requests() {
 #[tokio::test]
 async fn downgrades_max_to_grok_high() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{
@@ -71,7 +81,15 @@ async fn downgrades_max_to_grok_high() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["reasoning_effort"], "high");
     assert_eq!(response.effort().map(Effort::as_str), Some("high"));
 }
@@ -79,6 +97,7 @@ async fn downgrades_max_to_grok_high() {
 #[tokio::test]
 async fn omits_reasoning_effort_for_grok_4_20() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{
@@ -104,7 +123,15 @@ async fn omits_reasoning_effort_for_grok_4_20() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["model"], "grok-4.20-reasoning");
     assert!(body.get("reasoning_effort").is_none());
 }

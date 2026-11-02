@@ -28,7 +28,15 @@ async fn maps_supported_controls_and_blank_system_to_the_final_request() {
 
     let requests = requests.lock().expect("request lock should be available");
     let request = &requests[0];
-    let body = request.body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        request
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(request.timeout, Duration::from_secs(110));
     assert_eq!(body["messages"][0]["role"], "user");
     assert_eq!(body["temperature"], 0.3);
@@ -103,7 +111,15 @@ async fn minimax_m3_serializes_strict_and_fallback_required_as_required() {
     let requests = requests.lock().expect("request lock should be available");
     assert_eq!(requests.len(), 2);
     for request in requests.iter() {
-        let body = request.body.as_ref().expect("request body");
+        let body = serde_json::from_slice::<serde_json::Value>(
+            request
+                .body
+                .as_ref()
+                .expect("request body")
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body");
         assert_eq!(body["tool_choice"], "required");
         assert_eq!(body["tools"][0]["function"]["name"], "lookup");
     }
@@ -123,7 +139,15 @@ async fn fallback_uses_auto_for_minimax_models_without_verified_required_support
         .expect("fallback should use documented automatic semantics");
 
     let requests = requests.lock().expect("request lock should be available");
-    let body = requests[0].body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["tool_choice"], "auto");
     assert_eq!(body["tools"][0]["function"]["name"], "lookup");
 }
@@ -162,7 +186,15 @@ async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
             .expect("response should parse");
 
         let requests = requests.lock().expect("request lock should be available");
-        let messages = &requests[0].body.as_ref().expect("request body")["messages"];
+        let messages = &serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("request body")
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body")["messages"];
         match expected {
             Some(expected) => assert_eq!(messages[0]["content"], expected),
             None => assert_eq!(messages[0]["role"], "user"),
@@ -216,6 +248,7 @@ fn unused_http_client() -> Arc<dyn JsonHttpClient> {
 
 fn successful_response() -> JsonHttpResponse<Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{

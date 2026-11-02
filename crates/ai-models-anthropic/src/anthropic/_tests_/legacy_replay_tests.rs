@@ -53,7 +53,15 @@ async fn converts_full_v1_block_order_and_preserves_portable_operation_id() {
         .await
         .unwrap();
     assert_eq!(
-        requests.lock().unwrap()[0].body.as_ref().unwrap()["messages"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests.lock().unwrap()[0]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["messages"],
         json!([{"role": "assistant", "content": blocks}])
     );
 }
@@ -88,7 +96,15 @@ async fn legacy_raw_blocks_override_portable_text_and_keep_empty_message_boundar
             .await
             .unwrap();
         assert_eq!(
-            requests.lock().unwrap()[0].body.as_ref().unwrap()["messages"],
+            serde_json::from_slice::<serde_json::Value>(
+                requests.lock().unwrap()[0]
+                    .body
+                    .as_ref()
+                    .unwrap()
+                    .as_json_bytes()
+                    .expect("JSON request body")
+            )
+            .expect("valid JSON request body")["messages"],
             json!([{"role": "assistant", "content": blocks}])
         );
     }
@@ -137,7 +153,15 @@ async fn unconverted_v1_full_message_replays_once_after_v2_round_trip() {
             .await
             .unwrap();
         assert_eq!(
-            requests.lock().unwrap()[0].body.as_ref().unwrap()["messages"],
+            serde_json::from_slice::<serde_json::Value>(
+                requests.lock().unwrap()[0]
+                    .body
+                    .as_ref()
+                    .unwrap()
+                    .as_json_bytes()
+                    .expect("JSON request body")
+            )
+            .expect("valid JSON request body")["messages"],
             json!([
                 {"role": "user", "content": [{"type": "text", "text": "look up 7"}]},
                 {"role": "assistant", "content": blocks},

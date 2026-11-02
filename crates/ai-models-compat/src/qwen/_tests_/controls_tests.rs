@@ -38,7 +38,15 @@ async fn maps_non_thinking_controls_to_the_final_request() {
 
     let requests = requests.lock().expect("request lock should be available");
     let request = &requests[0];
-    let body = request.body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        request
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(request.timeout, Duration::from_secs(100));
     assert_eq!(body["messages"][0]["role"], "user");
     assert_eq!(body["temperature"], 0.25);
@@ -59,7 +67,15 @@ async fn thinking_keeps_sampling_fixed_and_preserves_auto_tool_choice() {
         .expect("thinking response should parse");
 
     let requests = requests.lock().expect("request lock should be available");
-    let body = requests[0].body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert!(body.get("temperature").is_none());
     assert!(body.get("top_p").is_none());
     assert_eq!(body["max_completion_tokens"], 800);
@@ -80,7 +96,15 @@ async fn thinking_required_or_auto_preserves_tools_and_uses_auto() {
         .expect("fallback tool choice should be supported");
 
     let requests = requests.lock().expect("request lock should be available");
-    let body = requests[0].body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["tool_choice"], "auto");
     assert_eq!(body["tools"][0]["function"]["name"], "lookup");
 }
@@ -110,7 +134,15 @@ async fn disabled_thinking_required_choices_force_tool_use() {
     assert_eq!(requests.len(), 2);
     for request in requests.iter() {
         assert_eq!(
-            request.body.as_ref().expect("request body")["tool_choice"],
+            serde_json::from_slice::<serde_json::Value>(
+                request
+                    .body
+                    .as_ref()
+                    .expect("request body")
+                    .as_json_bytes()
+                    .expect("JSON request body")
+            )
+            .expect("valid JSON request body")["tool_choice"],
             "required"
         );
     }
@@ -130,7 +162,15 @@ async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
             .expect("response should parse");
 
         let requests = requests.lock().expect("request lock should be available");
-        let messages = &requests[0].body.as_ref().expect("request body")["messages"];
+        let messages = &serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("request body")
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body")["messages"];
         match expected {
             Some(expected) => assert_eq!(messages[0]["content"], expected),
             None => assert_eq!(messages[0]["role"], "user"),

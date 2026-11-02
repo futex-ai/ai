@@ -2,9 +2,10 @@
 
 use std::collections::BTreeMap;
 
+use reqwest::header::HeaderValue;
 use serde_json::Value;
 
-use crate::{JsonHttpBody, JsonHttpRequest};
+use crate::{JsonHttpBody, JsonHttpHeaders, JsonHttpRequest};
 
 use super::types::{MultipartSummary, RecordedBody, RecordedMethod, RecordedRequest};
 
@@ -48,8 +49,10 @@ impl Redactor {
                 secrets.push(password.to_owned());
             }
         }
-        if let Some(body) = request.body.as_ref().and_then(JsonHttpBody::as_json) {
-            collect_secrets(body, &mut secrets);
+        if let Some(bytes) = request.body.as_ref().and_then(JsonHttpBody::as_json_bytes)
+            && let Ok(body) = serde_json::from_slice::<Value>(bytes)
+        {
+            collect_secrets(&body, &mut secrets);
         }
         Self::new(secrets)
     }
@@ -108,6 +111,21 @@ impl Redactor {
         bytes
     }
 
+    pub(super) fn headers(&self, headers: &JsonHttpHeaders) -> JsonHttpHeaders {
+        let mut sanitized = JsonHttpHeaders::new();
+        for (name, value) in headers {
+            let bytes = if sensitive(name.as_str()) {
+                REDACTED.as_bytes().to_vec()
+            } else {
+                self.bytes(value.as_bytes())
+            };
+            let value = HeaderValue::from_bytes(&bytes)
+                .unwrap_or_else(|_| HeaderValue::from_static(REDACTED));
+            sanitized.append(name.clone(), value);
+        }
+        sanitized
+    }
+
     pub(super) fn request(&self, request: &JsonHttpRequest) -> RecordedRequest {
         let headers = request
             .headers
@@ -122,7 +140,11 @@ impl Redactor {
             })
             .collect::<BTreeMap<_, _>>();
         let body = request.body.as_ref().map(|body| match body {
-            JsonHttpBody::Json(value) => RecordedBody::Json(self.value(value)),
+            JsonHttpBody::Json(bytes) => {
+                let value = serde_json::from_slice(bytes)
+                    .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(bytes).into_owned()));
+                RecordedBody::Json(self.value(&value))
+            }
             JsonHttpBody::Multipart(form) => RecordedBody::Multipart(
                 form.fields
                     .iter()

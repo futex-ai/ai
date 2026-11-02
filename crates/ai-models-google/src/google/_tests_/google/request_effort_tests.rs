@@ -31,8 +31,24 @@ async fn request_effort_overrides_default_and_caps_output_for_each_call() {
     assert_eq!(default.effort().map(Effort::as_str), Some("medium"));
 
     let requests = requests.lock().unwrap();
-    let explicit = &requests[0].body.as_ref().unwrap()["generationConfig"];
-    let default = &requests[1].body.as_ref().unwrap()["generationConfig"];
+    let explicit = &serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .unwrap()
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body")["generationConfig"];
+    let default = &serde_json::from_slice::<serde_json::Value>(
+        requests[1]
+            .body
+            .as_ref()
+            .unwrap()
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body")["generationConfig"];
     assert_eq!(explicit["thinkingConfig"]["thinkingLevel"], "high");
     assert_eq!(default["thinkingConfig"]["thinkingLevel"], "medium");
     assert_eq!(explicit["maxOutputTokens"], 65_536);
@@ -58,16 +74,20 @@ async fn flash_3_6_low_matches_legacy_wire_request() {
             .iter()
             .map(|request| request.body.clone())
             .collect::<Vec<_>>(),
-        vec![Some(JsonHttpBody::Json(json!({
-            "systemInstruction": {"parts": [{"text": "system"}]},
-            "contents": [{"role": "user", "parts": [{"text": "hello"}]}],
-            "generationConfig": {
-                "thinkingConfig": {"thinkingLevel": "low"},
-                "maxOutputTokens": 256,
-                "temperature": 0.4,
-                "topP": 0.8
-            }
-        })))],
+        vec![Some(JsonHttpBody::Json(
+            json!({
+                "systemInstruction": {"parts": [{"text": "system"}]},
+                "contents": [{"role": "user", "parts": [{"text": "hello"}]}],
+                "generationConfig": {
+                    "thinkingConfig": {"thinkingLevel": "low"},
+                    "maxOutputTokens": 256,
+                    "temperature": 0.4,
+                    "topP": 0.8
+                }
+            })
+            .to_string()
+            .into_bytes()
+        ))],
         "gemini-3.6-flash/low: {response:?}"
     );
     assert_eq!(response.unwrap().effort(), Some(Effort::Low));

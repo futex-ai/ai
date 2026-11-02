@@ -57,7 +57,15 @@ async fn serializes_image_context_message() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let messages = &requests[0].body.as_ref().expect("body present")["messages"];
+    let messages = &serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body")["messages"];
     assert_eq!(messages[0]["role"], "system");
     assert_eq!(messages[2]["role"], "tool");
     assert_eq!(messages[3]["content"][0]["type"], "text");
@@ -105,6 +113,7 @@ async fn rejects_video_content_parts_before_transport() {
 
 fn successful_response() -> JsonHttpResponse<serde_json::Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{

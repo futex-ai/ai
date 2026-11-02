@@ -55,7 +55,15 @@ async fn serializes_multimodal_messages_and_tool_history() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let input = &requests[0].body.as_ref().expect("body present")["input"];
+    let input = &serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body")["input"];
     assert_eq!(input[0]["content"][0]["type"], "input_text");
     assert_eq!(input[0]["content"][0]["text"], "look");
     assert_eq!(input[0]["content"][1]["type"], "input_image");

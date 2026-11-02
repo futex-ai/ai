@@ -21,6 +21,14 @@ SSE streams without embedding reqwest boilerplate in each caller.
 or attached as multipart byte fields, and responses can be read as raw bytes,
 `serde_json::Value`, or deserialized into typed response DTOs.
 
+Typed request bodies serialize directly into JSON bytes. Object keys keep
+their sorted wire order. Buffered responses expose `headers`, and successful
+SSE streams expose `headers()`. Both use `JsonHttpHeaders`, a case-insensitive
+header map that keeps repeated and binary values. SSE status errors carry the
+same headers with their status and bounded body. `Error::is_transport_failure`
+identifies network failures without classifying auth or local errors as network
+failures.
+
 The crate ships with:
 
 - `ReqwestJsonHttpClient` for real transport
@@ -48,6 +56,9 @@ text diagnostics for status-aware provider classification.
 Test support records JSON bodies, base64 response bytes, and decoded SSE
 events with their terminal failure class and event count. Multipart requests
 store field metadata and byte counts. They do not store uploaded bytes.
+Response recordings also keep sanitized headers. Header values use byte arrays
+so that repeated and binary values survive replay. Existing recordings without
+response headers remain readable and replay with an empty header map.
 Credential header names are case-insensitive. The values of `authorization`,
 `x-api-key`, `x-goog-api-key`, and `api-key` become `[redacted]`.
 The recorder also removes credential URL fields, named JSON credentials,
@@ -138,6 +149,8 @@ server and requires no external network or credentials.
 
 - `src/client.rs` - trait-backed client and transport boundaries
 - `src/request.rs` - request builder, request DTOs, and typed response helpers
+- `src/canonical/` - typed JSON serialization with sorted object fields
+- `src/headers.rs` - common buffered and streaming response header type
 - `src/sse.rs` - pure incremental SSE framing and stream boundary
 - `src/reqwest_sse.rs` - idle/deadline-aware reqwest stream consumption
 - `src/reqwest_transport.rs` - buffered and streaming reqwest execution

@@ -33,6 +33,7 @@ async fn submits_polls_and_downloads_one_authenticated_video() {
             ok_json(json!({"id": "video_1", "status": "completed"})),
         ],
         vec![Ok(JsonHttpResponse {
+            headers: Default::default(),
             status: 200,
             body: mp4(),
         })],
@@ -97,6 +98,7 @@ async fn deadline_stops_pending_jobs_and_empty_download_is_no_video() {
     let (client, _) = scripted_client(
         vec![ok_json(json!({"id": "video_1", "status": "completed"}))],
         vec![Ok(JsonHttpResponse {
+            headers: Default::default(),
             status: 200,
             body: Vec::new(),
         })],
@@ -113,6 +115,7 @@ async fn initial_completed_job_downloads_without_polling() {
     let (client, requests) = scripted_client(
         vec![ok_json(json!({"id": "video_1", "status": "completed"}))],
         vec![Ok(JsonHttpResponse {
+            headers: Default::default(),
             status: 200,
             body: mp4(),
         })],
@@ -230,7 +233,11 @@ fn stationary_runtime() -> Arc<dyn PollingRuntime> {
 }
 
 fn ok_json(body: Value) -> JsonResult {
-    Ok(JsonHttpResponse { status: 200, body })
+    Ok(JsonHttpResponse {
+        headers: Default::default(),
+        status: 200,
+        body,
+    })
 }
 
 fn request() -> VideoGenerationRequest {

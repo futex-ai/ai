@@ -1,6 +1,7 @@
 //! Credential-free exchange recording and ordered transport replay.
 
 mod failure;
+mod headers;
 mod log;
 mod recording;
 mod redaction;
@@ -17,6 +18,9 @@ pub use types::{
     RecordedResponse, Recording, StreamEnd,
 };
 
+#[cfg(test)]
+#[path = "_tests_/headers_tests.rs"]
+mod headers_tests;
 #[cfg(test)]
 #[path = "_tests_/recording_tests.rs"]
 mod recording_tests;

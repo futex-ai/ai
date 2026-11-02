@@ -31,6 +31,7 @@ struct TypedRequest {
 #[tokio::test]
 async fn builder_serializes_typed_body_and_applies_auth_headers() {
     let (client, requests) = recording_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({ "ok": true }),
     });
@@ -70,15 +71,20 @@ async fn builder_serializes_typed_body_and_applies_auth_headers() {
     );
     assert_eq!(
         requests[0].body,
-        Some(JsonHttpBody::Json(json!({
-            "prompt": "hello"
-        })))
+        Some(JsonHttpBody::Json(
+            json!({
+                "prompt": "hello"
+            })
+            .to_string()
+            .into_bytes()
+        ))
     );
 }
 
 #[tokio::test]
 async fn builder_attaches_multipart_body_and_applies_auth_headers() {
     let (client, requests) = recording_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({ "ok": true }),
     });
@@ -121,6 +127,7 @@ async fn builder_attaches_multipart_body_and_applies_auth_headers() {
 #[tokio::test]
 async fn builder_can_return_raw_json_value_response() {
     let (client, _) = recording_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 202,
         body: json!({ "queued": true }),
     });
@@ -138,6 +145,7 @@ async fn builder_can_return_raw_json_value_response() {
 #[tokio::test]
 async fn builder_attaches_custom_timeout_to_request() {
     let (client, requests) = recording_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({ "ok": true }),
     });
@@ -169,6 +177,7 @@ async fn builder_can_return_authenticated_raw_bytes() {
                         .expect("requests lock should not be poisoned")
                         .push(request.clone());
                     Ok(JsonHttpResponse {
+                        headers: Default::default(),
                         status: 200,
                         body: b"video-bytes".to_vec(),
                     })

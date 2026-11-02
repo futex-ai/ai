@@ -29,6 +29,7 @@ async fn legacy_function_calls_get_request_scoped_operation_ids() {
 
 async fn complete_legacy_tool_call(content: &str) -> ai_interface::ModelResponse {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{

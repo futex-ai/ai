@@ -50,7 +50,15 @@ async fn replays_own_state_from_another_google_model_and_skips_foreign_reasoning
     model.complete(&request).await.unwrap();
 
     assert_eq!(
-        requests.lock().unwrap()[0].body.as_ref().unwrap()["contents"][1]["parts"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests.lock().unwrap()[0]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["contents"][1]["parts"],
         json!([
             {"text": "saved thought", "thought": true},
             {"text": "portable"},

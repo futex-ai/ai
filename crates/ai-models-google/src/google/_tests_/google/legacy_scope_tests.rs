@@ -108,7 +108,10 @@ async fn replay_request(message: ConversationMessage) -> Value {
         .body
         .as_ref()
         .unwrap()
-        .as_json()
+        .as_json_bytes()
+        .map(|bytes| {
+            serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+        })
         .unwrap()
         .clone()
 }

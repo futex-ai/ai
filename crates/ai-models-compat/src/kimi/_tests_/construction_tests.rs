@@ -24,10 +24,15 @@ async fn custom_provider_model_reaches_transport_without_catalog_validation() {
         .expect("custom response");
     assert_eq!(response.model_id, "kimi-custom");
     assert_eq!(
-        requests.lock().expect("requests lock")[0]
-            .body
-            .as_ref()
-            .expect("body")["model"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests.lock().expect("requests lock")[0]
+                .body
+                .as_ref()
+                .expect("body")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["model"],
         "kimi-custom"
     );
 }

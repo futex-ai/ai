@@ -7,9 +7,9 @@ use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{
-    Error, JsonHttpBody, JsonHttpMethod, JsonHttpMultipart, JsonHttpMultipartField,
-    JsonHttpRequest, JsonHttpResponse, JsonHttpSseEvent, JsonHttpSseStreamMock, JsonHttpTransport,
-    JsonHttpTransportMock,
+    Error, JsonHttpBody, JsonHttpHeaders, JsonHttpMethod, JsonHttpMultipart,
+    JsonHttpMultipartField, JsonHttpRequest, JsonHttpResponse, JsonHttpSseEvent,
+    JsonHttpSseStreamMock, JsonHttpTransport, JsonHttpTransportMock,
 };
 
 use super::{
@@ -26,7 +26,9 @@ pub(super) fn request() -> JsonHttpRequest {
             "Authorization".to_owned(),
             "Bearer sentinel-private-key".to_owned(),
         )]),
-        body: Some(JsonHttpBody::Json(json!({"prompt": "hello"}))),
+        body: Some(JsonHttpBody::Json(
+            json!({"prompt": "hello"}).to_string().into_bytes(),
+        )),
         timeout: Duration::from_secs(60),
         idle_timeout: Some(Duration::from_secs(10)),
     }
@@ -45,12 +47,14 @@ async fn forwards_original_json_and_records_no_credentials() {
         ("api-key".to_owned(), "sentinel-api-key".to_owned()),
     ]);
     request.body = Some(JsonHttpBody::Json(
-        json!({"prompt": "sentinel-private-key", "api_key": "body-only-secret"}),
+        json!({"prompt": "sentinel-private-key", "api_key": "body-only-secret"})
+            .to_string()
+            .into_bytes(),
     ));
     let original = request.clone();
     let upstream = Unimock::new(JsonHttpTransportMock::execute.some_call(matching!(_)).answers_arc(Arc::new(move |_, request| {
         assert_eq!(request, &original);
-        Ok(JsonHttpResponse { status: 201, body: json!({"echo": "sentinel-private-key", "body_echo": "body-only-secret", "authorization": "response-secret"}) })
+        Ok(JsonHttpResponse { headers: Default::default(), status: 201, body: json!({"echo": "sentinel-private-key", "body_echo": "body-only-secret", "authorization": "response-secret"}) })
     })));
     let log: Arc<dyn RecordingLog + Send + Sync> = Arc::new(MemoryRecordingLog::default());
     let transport = RecordingTransport::new(Arc::new(upstream), log.clone());
@@ -67,6 +71,7 @@ async fn forwards_original_json_and_records_no_credentials() {
     assert_eq!(
         recordings[0].response,
         RecordedResponse::Json {
+            headers: Default::default(),
             status: 201,
             body: json!({"echo": "[redacted]", "body_echo": "[redacted]", "authorization": "[redacted]"})
         }
@@ -102,6 +107,7 @@ async fn stores_multipart_metadata_and_base64_without_upload_bytes() {
         JsonHttpTransportMock::execute_bytes
             .some_call(matching!(_))
             .returns(Ok(JsonHttpResponse {
+                headers: Default::default(),
                 status: 200,
                 body: original_bytes.clone(),
             })),
@@ -122,6 +128,7 @@ async fn stores_multipart_metadata_and_base64_without_upload_bytes() {
     assert_eq!(
         recordings[0].response,
         RecordedResponse::Bytes {
+            headers: Default::default(),
             status: 200,
             body_base64: "AP8qW3JlZGFjdGVkXQ==".to_owned()
         }
@@ -141,24 +148,29 @@ async fn stores_multipart_metadata_and_base64_without_upload_bytes() {
 
 #[tokio::test]
 async fn records_consumed_sse_events_and_failure_without_error_text() {
-    let stream = Unimock::new(JsonHttpSseStreamMock::next.stub(|calls| {
-        calls
-            .call(matching!())
-            .answers(&|_| {
-                Ok(Some(JsonHttpSseEvent {
-                    event: Some("delta".to_owned()),
-                    data: "sentinel-private-key".to_owned(),
-                }))
-            })
-            .once()
-            .then()
-            .answers(&|_| {
-                Err(Error::IdleTimeout {
-                    idle: Duration::from_secs(10),
-                    events_received: 1,
+    let stream = Unimock::new((
+        JsonHttpSseStreamMock::headers
+            .each_call(matching!())
+            .returns(JsonHttpHeaders::new()),
+        JsonHttpSseStreamMock::next.stub(|calls| {
+            calls
+                .call(matching!())
+                .answers(&|_| {
+                    Ok(Some(JsonHttpSseEvent {
+                        event: Some("delta".to_owned()),
+                        data: "sentinel-private-key".to_owned(),
+                    }))
                 })
-            });
-    }));
+                .once()
+                .then()
+                .answers(&|_| {
+                    Err(Error::IdleTimeout {
+                        idle: Duration::from_secs(10),
+                        events_received: 1,
+                    })
+                });
+        }),
+    ));
     let stream = std::sync::Mutex::new(Some(stream));
     let upstream = Unimock::new(
         JsonHttpTransportMock::execute_sse
@@ -207,6 +219,7 @@ async fn records_rejected_stream_openings_and_continues_in_call_order() {
             .some_call(matching!(_))
             .answers(&|_, _| {
                 Err(Error::HttpStatus {
+                    headers: Default::default(),
                     status: 429,
                     body: json!({"message": "sentinel-private-key"}),
                 })
@@ -214,6 +227,7 @@ async fn records_rejected_stream_openings_and_continues_in_call_order() {
         JsonHttpTransportMock::execute
             .some_call(matching!(_))
             .returns(Ok(JsonHttpResponse {
+                headers: Default::default(),
                 status: 200,
                 body: json!({"ok": true}),
             })),
@@ -234,6 +248,7 @@ async fn records_rejected_stream_openings_and_continues_in_call_order() {
     assert_eq!(
         recordings[0].response,
         RecordedResponse::Json {
+            headers: Default::default(),
             status: 429,
             body: json!({"message": "[redacted]"})
         }
@@ -241,6 +256,7 @@ async fn records_rejected_stream_openings_and_continues_in_call_order() {
     assert_eq!(
         recordings[1].response,
         RecordedResponse::Json {
+            headers: Default::default(),
             status: 200,
             body: json!({"ok": true})
         }

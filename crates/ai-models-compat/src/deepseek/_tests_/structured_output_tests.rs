@@ -10,6 +10,7 @@ use super::{DeepSeekModel, test_support::recording_http_client};
 async fn prompts_for_json_object_and_validates_the_requested_schema_locally() {
     let schema = status_schema();
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: stopped_response(
             json!({
@@ -30,7 +31,11 @@ async fn prompts_for_json_object_and_validates_the_requested_schema_locally() {
     let body = requests[0]
         .body
         .as_ref()
-        .and_then(|body| body.as_json())
+        .and_then(|body| {
+            body.as_json_bytes().map(|bytes| {
+                serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+            })
+        })
         .expect("JSON body should be present");
     let system_prompt = body["messages"][0]["content"]
         .as_str()
@@ -112,7 +117,11 @@ async fn complete_with_schema(
     body: Value,
     schema: StructuredOutputSchema,
 ) -> std::result::Result<ModelResponse, ModelError> {
-    let (http_client, _) = recording_http_client(JsonHttpResponse { status: 200, body });
+    let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
+        status: 200,
+        body,
+    });
     DeepSeekModel::new(http_client, "deepseek-key")
         .complete(&request_with_schema(schema))
         .await

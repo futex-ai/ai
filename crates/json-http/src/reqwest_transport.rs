@@ -62,7 +62,16 @@ impl ReqwestJsonHttpTransport {
         }
         if let Some(body) = &request.body {
             builder = match body {
-                JsonHttpBody::Json(body) => builder.json(body),
+                JsonHttpBody::Json(body) => {
+                    if !request
+                        .headers
+                        .keys()
+                        .any(|name| name.eq_ignore_ascii_case("content-type"))
+                    {
+                        builder = builder.header(CONTENT_TYPE, "application/json");
+                    }
+                    builder.body(body.clone())
+                }
                 JsonHttpBody::Multipart(multipart) => {
                     builder.multipart(reqwest_multipart_form(&multipart.fields)?)
                 }
@@ -88,22 +97,32 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
     async fn execute(&self, request: &JsonHttpRequest) -> Result<JsonHttpResponse<Value>> {
         let response = self.execute_buffered_request(request).await?;
         let status = response.status().as_u16();
+        let headers = response.headers().clone();
         let text = match response.text().await {
             Ok(text) => text,
             Err(source) => return Err(Error::ReqwestTransport { source }),
         };
         let body = serde_json::from_str(&text).unwrap_or(Value::String(text));
-        Ok(JsonHttpResponse { status, body })
+        Ok(JsonHttpResponse {
+            headers,
+            status,
+            body,
+        })
     }
 
     async fn execute_bytes(&self, request: &JsonHttpRequest) -> Result<JsonHttpResponse<Vec<u8>>> {
         let response = self.execute_buffered_request(request).await?;
         let status = response.status().as_u16();
+        let headers = response.headers().clone();
         let body = match response.bytes().await {
             Ok(body) => body.to_vec(),
             Err(source) => return Err(Error::ReqwestTransport { source }),
         };
-        Ok(JsonHttpResponse { status, body })
+        Ok(JsonHttpResponse {
+            headers,
+            status,
+            body,
+        })
     }
 
     async fn execute_sse(&self, request: &JsonHttpRequest) -> Result<DynJsonHttpSseStream> {
@@ -126,8 +145,13 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
 
         if !response.status().is_success() {
             let status = response.status().as_u16();
+            let headers = response.headers().clone();
             let body = read_error_body(&mut response, &timer).await?;
-            return Err(Error::HttpStatus { status, body });
+            return Err(Error::HttpStatus {
+                status,
+                headers: Box::new(headers),
+                body,
+            });
         }
         let content_type = response
             .headers()

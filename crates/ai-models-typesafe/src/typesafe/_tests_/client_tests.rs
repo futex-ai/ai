@@ -43,9 +43,11 @@ async fn sends_the_exact_bearer_authenticated_request() {
         requests[0]
             .body
             .as_ref()
-            .and_then(JsonHttpBody::as_json)
+            .and_then(JsonHttpBody::as_json_bytes)
+            .map(|bytes| serde_json::from_slice::<serde_json::Value>(bytes)
+                .expect("valid JSON request body"))
             .expect("request body should be JSON"),
-        &json!({
+        json!({
             "state": "A payout has been delayed for three days.",
             "model": "jev-latest",
             "questions": {
@@ -68,6 +70,7 @@ async fn duplicate_score_keys_are_rejected_through_judge() {
         )]),
     };
     let response = JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: br#"{
             "model":"jev-1.13.0",
@@ -95,6 +98,7 @@ async fn duplicate_score_keys_are_rejected_through_judge() {
 #[tokio::test]
 async fn malformed_success_body_retains_the_decoder_diagnostic() {
     let response = JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: br#"{"model":"jev-1.13.0"}"#.to_vec(),
     };

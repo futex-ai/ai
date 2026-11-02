@@ -55,6 +55,7 @@ async fn saturates_buckets_and_reconstructs_missing_total() {
 
 async fn complete_with_usage(usage: serde_json::Value) -> ModelUsage {
     let (http_client, _) = recording_http_client([JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{

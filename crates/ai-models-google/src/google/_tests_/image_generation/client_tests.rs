@@ -56,6 +56,7 @@ type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 fn recording_http_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
     let requests = Arc::new(Mutex::new(Vec::new()));
     let responses = Arc::new(Mutex::new(VecDeque::from([JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({"candidates": [{"content": {"parts": [{
             "inlineData": {"mimeType": "image/png", "data": "AQ=="}

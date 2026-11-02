@@ -41,7 +41,15 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let input = &requests[0].body.as_ref().expect("body present")["input"];
+    let input = &serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body")["input"];
     assert_eq!(input[1]["type"], "reasoning");
     assert_eq!(input[1]["id"], "rs_1");
     assert_eq!(input[1]["summary"][0]["type"], "summary_text");
@@ -84,7 +92,15 @@ async fn replays_assistant_message_phase_before_function_call_context() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let input = &requests[0].body.as_ref().expect("body present")["input"];
+    let input = &serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body")["input"];
     assert_eq!(input[1]["role"], "assistant");
     assert_eq!(input[1]["phase"], "commentary");
     assert_eq!(input[1]["content"], "I'll inspect memory.");
@@ -121,7 +137,15 @@ async fn replays_phase_less_assistant_message_before_function_call_context() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let input = &requests[0].body.as_ref().expect("body present")["input"];
+    let input = &serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body")["input"];
     let assistant_message = input[1]
         .as_object()
         .expect("assistant message should serialize as an object");

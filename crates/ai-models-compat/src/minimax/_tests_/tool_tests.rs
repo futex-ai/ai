@@ -62,7 +62,11 @@ async fn serializes_modern_tool_definitions_and_continuation_messages() {
     let body = requests[0]
         .body
         .as_ref()
-        .and_then(|body| body.as_json())
+        .and_then(|body| {
+            body.as_json_bytes().map(|bytes| {
+                serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+            })
+        })
         .expect("JSON body should be present");
     assert_eq!(
         body["tools"],
@@ -157,7 +161,11 @@ async fn omits_unavailable_assistant_content() {
     let assistant_message = &requests[0]
         .body
         .as_ref()
-        .and_then(|body| body.as_json())
+        .and_then(|body| {
+            body.as_json_bytes().map(|bytes| {
+                serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+            })
+        })
         .expect("JSON body should be present")["messages"][1];
     assert!(assistant_message.get("content").is_none());
     assert_eq!(assistant_message["tool_calls"][0]["id"], "call_1");
@@ -183,7 +191,11 @@ async fn preserves_empty_tool_result_content() {
     let tool_message = &requests[0]
         .body
         .as_ref()
-        .and_then(|body| body.as_json())
+        .and_then(|body| {
+            body.as_json_bytes().map(|bytes| {
+                serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+            })
+        })
         .expect("JSON body should be present")["messages"][1];
     assert_eq!(
         tool_message,
@@ -198,6 +210,7 @@ async fn preserves_empty_tool_result_content() {
 #[tokio::test]
 async fn rejects_malformed_tool_arguments() {
     let (http_client, _) = recording_http_client([JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{
@@ -248,6 +261,7 @@ fn simple_request() -> ModelRequest {
 
 fn tool_response() -> JsonHttpResponse<serde_json::Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{

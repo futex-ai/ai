@@ -59,7 +59,15 @@ async fn serializes_image_context_message() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let messages = &requests[0].body.as_ref().expect("body present")["messages"];
+    let messages = &serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body")["messages"];
     assert_eq!(messages[1]["content"][0]["type"], "tool_result");
     assert_eq!(messages[1]["content"][0]["tool_use_id"], "call-view");
     assert_eq!(messages[1]["content"][1]["type"], "text");

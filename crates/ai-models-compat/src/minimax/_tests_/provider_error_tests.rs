@@ -41,7 +41,11 @@ async fn accepts_missing_or_zero_base_response() {
         if let Some(base_resp) = base_resp {
             body["base_resp"] = base_resp;
         }
-        let (http_client, _) = recording_http_client([JsonHttpResponse { status: 200, body }]);
+        let (http_client, _) = recording_http_client([JsonHttpResponse {
+            headers: Default::default(),
+            status: 200,
+            body,
+        }]);
         MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
             .complete(&simple_request())
             .await
@@ -51,6 +55,7 @@ async fn accepts_missing_or_zero_base_response() {
 
 async fn assert_code_matches(code: i64, predicate: impl FnOnce(&ModelError) -> bool) {
     let (http_client, _) = recording_http_client([JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "base_resp": {

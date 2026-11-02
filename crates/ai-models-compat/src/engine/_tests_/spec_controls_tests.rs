@@ -12,6 +12,7 @@ use crate::deepseek::{CUSTOM_DEFAULTS, DeepSeekModel, PROVIDER_ID};
 #[tokio::test]
 async fn request_effort_and_custom_output_ceiling_reach_transport() {
     let response = JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({"choices": [{"finish_reason": "stop", "message": {"content": "Done"}}]}),
     };
@@ -38,8 +39,24 @@ async fn request_effort_and_custom_output_ceiling_reach_transport() {
     }
     let requests = requests.lock().expect("requests lock");
     assert_eq!(requests.len(), 2);
-    let disabled = requests[0].body.as_ref().expect("disabled body");
-    let enabled = requests[1].body.as_ref().expect("enabled body");
+    let disabled = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("disabled body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
+    let enabled = serde_json::from_slice::<serde_json::Value>(
+        requests[1]
+            .body
+            .as_ref()
+            .expect("enabled body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(disabled["model"], "deepseek-custom");
     assert_eq!(disabled["thinking"], json!({"type": "disabled"}));
     assert_eq!(disabled["temperature"], 0.4);

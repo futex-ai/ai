@@ -34,10 +34,30 @@ async fn request_effort_overrides_default_for_each_call() {
 
     let requests = requests.lock().unwrap();
     assert_eq!(
-        requests[0].body.as_ref().unwrap()["output_config"]["effort"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["output_config"]["effort"],
         "max"
     );
-    assert!(requests[1].body.as_ref().unwrap().get("thinking").is_none());
+    assert!(
+        serde_json::from_slice::<serde_json::Value>(
+            requests[1]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")
+        .get("thinking")
+        .is_none()
+    );
 }
 
 #[tokio::test]
@@ -101,15 +121,19 @@ async fn assert_legacy_wire_request(
             .iter()
             .map(|request| request.body.clone())
             .collect::<Vec<_>>(),
-        vec![Some(JsonHttpBody::Json(json!({
-            "stream": true,
-            "model": model_id,
-            "max_tokens": 256,
-            "system": "system",
-            "messages": [{"role": "user", "content": [{"type": "text", "text": "hello"}]}],
-            "thinking": {"type": "adaptive", "display": "omitted"},
-            "output_config": {"effort": wire_effort}
-        })))],
+        vec![Some(JsonHttpBody::Json(
+            json!({
+                "stream": true,
+                "model": model_id,
+                "max_tokens": 256,
+                "system": "system",
+                "messages": [{"role": "user", "content": [{"type": "text", "text": "hello"}]}],
+                "thinking": {"type": "adaptive", "display": "omitted"},
+                "output_config": {"effort": wire_effort}
+            })
+            .to_string()
+            .into_bytes()
+        ))],
         "{model_id}/{wire_effort}: {response:?}"
     );
     assert_eq!(response.unwrap().effort(), Some(effort));

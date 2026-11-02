@@ -65,6 +65,7 @@ pub(super) fn transport_failure_http_client(message: &'static str) -> DynJsonHtt
 /// Builds a byte response from one JSON fixture.
 pub(super) fn json_response(status: u16, body: Value) -> JsonHttpResponse<Vec<u8>> {
     JsonHttpResponse {
+        headers: Default::default(),
         status,
         body: serde_json::to_vec(&body).expect("JSON fixture should serialize"),
     }

@@ -35,7 +35,15 @@ async fn unsigned_multiblock_continuation_keeps_normalized_v1_request() {
         .push(ConversationMessage::tool("7", "lookup", "call"));
     model.complete(&request).await.unwrap();
     assert_eq!(
-        requests.lock().unwrap()[1].body.as_ref().unwrap()["messages"][1]["content"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests.lock().unwrap()[1]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["messages"][1]["content"],
         json!([
             {"type": "text", "text": "First\nSecond"},
             {"type": "tool_use", "id": "call", "name": "lookup", "input": {"id": 7}}
@@ -79,7 +87,15 @@ async fn foreign_state_replays_portable_parts_and_skips_foreign_or_absent_reason
     );
     model.complete(&request(vec![message])).await.unwrap();
     assert_eq!(
-        requests.lock().unwrap()[0].body.as_ref().unwrap()["messages"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests.lock().unwrap()[0]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["messages"],
         json!([{"role": "assistant", "content": [
             {"type": "thinking", "thinking": "own reasoning", "signature": "signed"},
             {"type": "text", "text": "Visible"},

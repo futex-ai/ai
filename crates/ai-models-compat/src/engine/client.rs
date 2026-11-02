@@ -99,7 +99,7 @@ impl CompatModel {
         };
         let event_stream = match request.send_sse().await {
             Ok(event_stream) => event_stream,
-            Err(json_http::Error::HttpStatus { status, body }) => {
+            Err(json_http::Error::HttpStatus { status, body, .. }) => {
                 return Err(match self.dialect.http_error {
                     Some(classify) => classify(self.spec.provider_model_id.as_ref(), status, &body),
                     None => classify_json_http_error(
