@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's minimax adapter result for tool_loop using minimax/MiniMax-M3 synthetic recordings."
 expression: outcome
 ---
@@ -7,6 +8,79 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Checking "
+          }
+        },
+        {
+          "ToolCallStart": {
+            "part_index": 1,
+            "id": "call_1",
+            "name": "lookup"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 1,
+            "delta": "{\"id\":"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "now"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 1,
+            "delta": "7}"
+          }
+        },
+        {
+          "ToolCallEnd": {
+            "part_index": 1
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "ToolCalls",
+            "provider": "minimax",
+            "model_id": "MiniMax-M3",
+            "catalog_model_id": "minimax/MiniMax-M3",
+            "effort": "medium",
+            "provider_context": [
+              {
+                "type": "minimax_assistant",
+                "reasoning_details": [
+                  {
+                    "type": "reasoning.text",
+                    "id": "reasoning-1",
+                    "format": "MiniMax-response-v1",
+                    "index": 0,
+                    "text": "Use lookup."
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
       "response": {
         "provider": "minimax",
         "model_id": "MiniMax-M3",
@@ -49,6 +123,41 @@ expression: outcome
     },
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "ne"
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "minimax",
+            "model_id": "MiniMax-M3",
+            "catalog_model_id": "minimax/MiniMax-M3",
+            "effort": "medium"
+          }
+        }
+      ],
       "response": {
         "provider": "minimax",
         "model_id": "MiniMax-M3",

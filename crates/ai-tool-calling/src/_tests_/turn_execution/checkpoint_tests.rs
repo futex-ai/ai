@@ -1,3 +1,7 @@
+//! Runtime tests through the model stream contract.
+
+use crate::tests::support::stream_result;
+use ai_interface::test_support::model_response_stream;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -16,9 +20,9 @@ use super::super::support::{TypedEchoTool, runtime, user_message};
 #[tokio::test]
 async fn checkpoint_runs_before_each_tool_and_after_completed_tools() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(two_tool_response())),
+            .answers_arc(stream_result(Ok(two_tool_response()))),
     ));
     let tool = TypedEchoTool::succeeding();
     let runtime = runtime(model, vec![tool.tool()]).expect("runtime should build");
@@ -94,11 +98,14 @@ async fn checkpoint_error_before_model_call_stops_without_model_request() {
 async fn checkpoint_error_after_terminal_model_call_stops_before_assistant_message() {
     let model_calls = Arc::new(AtomicUsize::new(0));
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete.each_call(matching!(_)).answers_arc({
+        ModelMock::stream.each_call(matching!(_)).answers_arc({
             let model_calls = model_calls.clone();
             Arc::new(move |_, _| {
-                model_calls.fetch_add(1, Ordering::SeqCst);
-                Ok(terminal_response())
+                {
+                    model_calls.fetch_add(1, Ordering::SeqCst);
+                    Ok(terminal_response())
+                }
+                .map(model_response_stream)
             })
         }),
     ));
@@ -132,6 +139,7 @@ async fn checkpoint_error_after_terminal_model_call_stops_before_assistant_messa
 
 fn two_tool_response() -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "mock".to_owned(),
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
@@ -160,6 +168,7 @@ fn two_tool_response() -> ModelResponse {
 
 fn terminal_response() -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "mock".to_owned(),
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,

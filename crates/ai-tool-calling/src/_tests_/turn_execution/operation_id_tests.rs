@@ -1,3 +1,6 @@
+//! Runtime tests through the model stream contract.
+
+use crate::tests::support::stream_result;
 use std::sync::Arc;
 
 use ai_interface::{
@@ -16,9 +19,10 @@ use super::super::support::user_message;
 async fn tool_dispatch_passes_operation_id_to_tool_boundary() {
     let captured_operation_ids = Arc::new(Mutex::new(Vec::<String>::new()));
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(ModelResponse {
+            .answers_arc(stream_result(Ok(ModelResponse {
+                attempts: Vec::new(),
                 provider: "mock".to_owned(),
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
@@ -34,7 +38,7 @@ async fn tool_dispatch_passes_operation_id_to_tool_boundary() {
                 structured_output: None,
                 provider_context: Vec::new(),
                 usage: ModelUsage::default(),
-            })),
+            }))),
     ));
     let runtime = ToolCallingRuntime::new(
         "system prompt",

@@ -45,12 +45,15 @@ one probe for each effort that the spec lists, with the default effort first.
 Each probe builds the adapter from the spec, erases it behind `DynModel`,
 sets the probe effort in the request controls, and sends real one-step turns
 through `ToolCallingRuntime`.
-A test-only model wrapper routes those runtime calls through
-`complete_with_events`, records ordered deltas, and retains the ordinary
-terminal checkpoint. Every provider first gets a synchronous assistant-parity
-probe. The catalog then uses portable no-tools, ten-minute, `PreferDeferred`
-controls: seven providers retain event parity on their synchronous fallback,
-while xAI's deferred lifecycle must remain silent. The suite also validates
+A test-only model wrapper forwards the events of the inner model's
+`Model::stream` and records them in order. The runtime folds the same events
+through its ordinary `complete` call and terminal checkpoint. Every provider
+first gets a synchronous text-parity probe. The catalog then uses portable
+no-tools, ten-minute, `PreferDeferred` controls: seven providers fall back to
+their synchronous lifecycle, and xAI uses its deferred lifecycle. Every probe,
+also an xAI deferred probe, must emit text deltas. The text parts of those
+deltas, joined in part position order, must equal the response text. The
+suite also validates
 normalized provider, text id, model, effort, finish, text, tool, and usage
 fields. A successfully completed synchronous probe or catalog probe gets one
 bounded retry only when the response misses the requested marker and has no

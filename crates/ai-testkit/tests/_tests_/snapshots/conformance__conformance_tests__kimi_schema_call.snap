@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's kimi adapter result for schema_call using kimi/kimi-k3 synthetic recordings."
 expression: outcome
 ---
@@ -7,6 +8,50 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "{\"ok\""
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": ":true}"
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 9,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 0,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "kimi",
+            "model_id": "kimi-k3",
+            "catalog_model_id": "kimi/kimi-k3",
+            "effort": "max",
+            "structured_output": {
+              "ok": true
+            },
+            "provider_context": [
+              {
+                "type": "kimi_assistant_message",
+                "content": "{\"ok\":true}"
+              }
+            ]
+          }
+        }
+      ],
       "response": {
         "provider": "kimi",
         "model_id": "kimi-k3",

@@ -3,11 +3,12 @@
 use std::{env, sync::Arc, time::Duration};
 
 use ai_interface::{
-    ConversationMessage, DynModel, Effort, ModelCallControls, ModelCompletionEvent,
-    ModelCompletionMode, ModelExecutionControls, ModelGenerationControls, ModelResponse, ModelSpec,
-    ModelToolChoice, NoopLogger,
+    ConversationMessage, DynModel, Effort, ModelCallControls, ModelCompletionMode,
+    ModelExecutionControls, ModelGenerationControls, ModelResponse, ModelSpec, ModelToolChoice,
+    NoopLogger,
 };
 use ai_models_core::RetryingModel;
+use ai_testkit::event_snapshot::ModelEventSnapshot;
 use ai_tool_calling::{
     InMemoryToolOutputStore, ModelResponseCheckpoint, NoopTurnCheckpoint, StepOutcome,
     ToolCallingRuntime, ToolOutputPolicy,
@@ -199,7 +200,7 @@ pub(super) async fn complete_through_runtime(
 
 pub(super) struct ObservedCompletion {
     pub(super) response: ModelResponse,
-    pub(super) events: Vec<ModelCompletionEvent>,
+    pub(super) events: Vec<ModelEventSnapshot>,
 }
 
 pub(super) fn probe_controls(

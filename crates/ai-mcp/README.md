@@ -174,7 +174,9 @@ cargo xtask smoke-test
 The integration tests start credential-free Axum servers on ephemeral loopback
 ports and exercise the production reqwest transport. No stable public
 OAuth-enabled MCP test server is currently required or assumed, so there is no
-environment-gated live test.
+environment-gated live test. `tests/tool_runtime_smoke.rs` runs MCP tools
+through `ToolCallingRuntime` with a fixture model that implements only
+`Model::stream`, so each step uses the provided `complete` fold.
 
 ### Key Code
 

@@ -1,3 +1,7 @@
+//! Runtime tests through the model stream contract.
+
+use crate::tests::support::stream_result;
+use ai_interface::test_support::model_response_stream;
 use std::sync::Arc;
 
 use ai_interface::{
@@ -16,9 +20,10 @@ use super::super::support::{TypedEchoTool, runtime, runtime_with_logger, user_me
 #[tokio::test]
 async fn retained_conversation_is_used_across_future_sends() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new((
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(ModelResponse {
+            .answers_arc(stream_result(Ok(ModelResponse {
+                attempts: Vec::new(),
                 provider: "mock".to_owned(),
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
@@ -29,26 +34,30 @@ async fn retained_conversation_is_used_across_future_sends() {
                 structured_output: None,
                 provider_context: Vec::new(),
                 usage: ModelUsage::default(),
-            })),
-        ModelMock::complete
+            }))),
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                assert!(request.messages.iter().any(|message| {
-                    message.role == ConversationRole::Assistant
-                        && message.content == "first response"
-                }));
-                Ok(ModelResponse {
-                    provider: "mock".to_owned(),
-                    model_id: "mock-model".to_owned(),
-                    catalog_model_id: None,
-                    thinking_level: None,
-                    assistant_message: "second response".to_owned(),
-                    tool_calls: Vec::new(),
-                    finish_reason: FinishReason::Stop,
-                    structured_output: None,
-                    provider_context: Vec::new(),
-                    usage: ModelUsage::default(),
-                })
+                {
+                    assert!(request.messages.iter().any(|message| {
+                        message.role == ConversationRole::Assistant
+                            && message.content == "first response"
+                    }));
+                    Ok(ModelResponse {
+                        attempts: Vec::new(),
+                        provider: "mock".to_owned(),
+                        model_id: "mock-model".to_owned(),
+                        catalog_model_id: None,
+                        thinking_level: None,
+                        assistant_message: "second response".to_owned(),
+                        tool_calls: Vec::new(),
+                        finish_reason: FinishReason::Stop,
+                        structured_output: None,
+                        provider_context: Vec::new(),
+                        usage: ModelUsage::default(),
+                    })
+                }
+                .map(model_response_stream)
             }),
     )));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
@@ -78,9 +87,10 @@ async fn provider_context_is_retained_with_assistant_tool_calls() {
         encrypted_content: Some("encrypted-reasoning".to_owned()),
     }];
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(ModelResponse {
+            .answers_arc(stream_result(Ok(ModelResponse {
+                attempts: Vec::new(),
                 provider: "openai".to_owned(),
                 model_id: "gpt-5.5".to_owned(),
                 catalog_model_id: None,
@@ -96,7 +106,7 @@ async fn provider_context_is_retained_with_assistant_tool_calls() {
                 structured_output: None,
                 provider_context: provider_context.clone(),
                 usage: ModelUsage::default(),
-            })),
+            }))),
     ));
     let tool = TypedEchoTool::succeeding();
     let runtime = runtime(model, vec![tool.tool()]).expect("runtime should build");
@@ -125,9 +135,10 @@ async fn kimi_reasoning_is_retained_without_becoming_visible_output() {
         }],
     }];
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(ModelResponse {
+            .answers_arc(stream_result(Ok(ModelResponse {
+                attempts: Vec::new(),
                 provider: "kimi".to_owned(),
                 model_id: "kimi-k3".to_owned(),
                 catalog_model_id: Some("kimi-k3".to_owned()),
@@ -143,7 +154,7 @@ async fn kimi_reasoning_is_retained_without_becoming_visible_output() {
                 structured_output: None,
                 provider_context: provider_context.clone(),
                 usage: ModelUsage::default(),
-            })),
+            }))),
     ));
     let tool = TypedEchoTool::succeeding();
     let runtime = runtime(model, vec![tool.tool()]).expect("runtime should build");
@@ -169,9 +180,10 @@ async fn kimi_reasoning_is_retained_without_becoming_visible_output() {
 #[tokio::test]
 async fn step_and_run_handle_tool_rounds_and_logger_callbacks() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new((
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(ModelResponse {
+            .answers_arc(stream_result(Ok(ModelResponse {
+                attempts: Vec::new(),
                 provider: "mock".to_owned(),
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
@@ -187,32 +199,36 @@ async fn step_and_run_handle_tool_rounds_and_logger_callbacks() {
                 structured_output: None,
                 provider_context: Vec::new(),
                 usage: ModelUsage::default(),
-            })),
-        ModelMock::complete
+            }))),
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                assert!(request.messages.iter().any(|message| {
-                    message.role == ConversationRole::Assistant
-                        && message.content == "calling tool"
-                        && message.tool_calls.iter().any(|call| call.id == "call-1")
-                }));
-                assert!(request.messages.iter().any(|message| {
-                    message.role == ConversationRole::Tool
-                        && message.name.as_deref() == Some("echo")
-                        && message.content.contains("\"hello\"")
-                }));
-                Ok(ModelResponse {
-                    provider: "mock".to_owned(),
-                    model_id: "mock-model".to_owned(),
-                    catalog_model_id: None,
-                    thinking_level: None,
-                    assistant_message: "all done".to_owned(),
-                    tool_calls: Vec::new(),
-                    finish_reason: FinishReason::Stop,
-                    structured_output: None,
-                    provider_context: Vec::new(),
-                    usage: ModelUsage::default(),
-                })
+                {
+                    assert!(request.messages.iter().any(|message| {
+                        message.role == ConversationRole::Assistant
+                            && message.content == "calling tool"
+                            && message.tool_calls.iter().any(|call| call.id == "call-1")
+                    }));
+                    assert!(request.messages.iter().any(|message| {
+                        message.role == ConversationRole::Tool
+                            && message.name.as_deref() == Some("echo")
+                            && message.content.contains("\"hello\"")
+                    }));
+                    Ok(ModelResponse {
+                        attempts: Vec::new(),
+                        provider: "mock".to_owned(),
+                        model_id: "mock-model".to_owned(),
+                        catalog_model_id: None,
+                        thinking_level: None,
+                        assistant_message: "all done".to_owned(),
+                        tool_calls: Vec::new(),
+                        finish_reason: FinishReason::Stop,
+                        structured_output: None,
+                        provider_context: Vec::new(),
+                        usage: ModelUsage::default(),
+                    })
+                }
+                .map(model_response_stream)
             }),
     )));
     let logger: Arc<dyn Logger> = Arc::new(Unimock::new((

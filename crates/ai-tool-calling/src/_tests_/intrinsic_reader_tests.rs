@@ -1,3 +1,7 @@
+//! Runtime tests through the model stream contract.
+
+use crate::tests::support::stream_result;
+use ai_interface::test_support::model_response_stream;
 use std::sync::Arc;
 
 use ai_interface::{
@@ -92,14 +96,14 @@ async fn intrinsic_reader_reads_requested_id_without_recursive_wrapping() {
         .unwrap();
     let output_id = written.output_id.clone();
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(tool_call_response(ToolCall {
+            .answers_arc(stream_result(Ok(tool_call_response(ToolCall {
                 id: "read-call".to_owned(),
                 name: "tool_output_read".to_owned(),
                 input: json!({ "output_id": output_id.clone(), "offset": 5 }),
                 operation_id: Some("read-operation".to_owned()),
-            }))),
+            })))),
     ));
     let logger: Arc<dyn Logger> = Arc::new(Unimock::new((
         LoggerMock::log_model_call
@@ -164,32 +168,35 @@ async fn replaced_output_store_makes_previous_ids_unavailable_and_run_recovers()
         .unwrap();
     let output_id = written.output_id.clone();
     let model: Arc<dyn Model> = Arc::new(Unimock::new((
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(tool_call_response(ToolCall {
+            .answers_arc(stream_result(Ok(tool_call_response(ToolCall {
                 id: "read-call".to_owned(),
                 name: "tool_output_read".to_owned(),
                 input: json!({ "output_id": output_id }),
                 operation_id: None,
-            }))),
-        ModelMock::complete
+            })))),
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                let content = request
-                    .messages
-                    .iter()
-                    .find(|message| message.role == ConversationRole::Tool)
-                    .expect("tool error should be retained")
-                    .content
-                    .clone();
-                assert!(content.contains("\"ok\":false"));
-                assert!(content.contains("no longer available"));
-                assert!(content.contains("the original tool call itself succeeded"));
-                assert!(content.contains("confirm with the user"));
-                assert!(!content.contains("original tool call failed"));
-                assert!(!content.contains("[ai_interface/tool]"));
-                assert!(!content.contains("[ai_tool_calling/output_store]"));
-                Ok(stop_response("recovered"))
+                {
+                    let content = request
+                        .messages
+                        .iter()
+                        .find(|message| message.role == ConversationRole::Tool)
+                        .expect("tool error should be retained")
+                        .content
+                        .clone();
+                    assert!(content.contains("\"ok\":false"));
+                    assert!(content.contains("no longer available"));
+                    assert!(content.contains("the original tool call itself succeeded"));
+                    assert!(content.contains("confirm with the user"));
+                    assert!(!content.contains("original tool call failed"));
+                    assert!(!content.contains("[ai_interface/tool]"));
+                    assert!(!content.contains("[ai_tool_calling/output_store]"));
+                    Ok(stop_response("recovered"))
+                }
+                .map(model_response_stream)
             }),
     )));
     let logger: Arc<dyn Logger> = Arc::new(Unimock::new((
@@ -253,6 +260,7 @@ fn assert_reader_definition(definitions: Vec<ToolDefinition>) {
 
 fn tool_call_response(call: ToolCall) -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "mock".to_owned(),
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
@@ -268,6 +276,7 @@ fn tool_call_response(call: ToolCall) -> ModelResponse {
 
 fn stop_response(message: &str) -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "mock".to_owned(),
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,

@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's xai adapter result for stream_cut using xai/grok-4.5 synthetic recordings."
 expression: outcome
 ---
@@ -7,6 +8,14 @@ expression: outcome
   "steps": [
     {
       "kind": "error",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        }
+      ],
       "error": {
         "variant": "Interrupted",
         "provider": "xai",

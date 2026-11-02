@@ -28,7 +28,10 @@ output, and exposes explicit mutation APIs for embedding services.
   text and the steps taken. Truncation ends the turn without dispatching tools
   or requesting a continuation. Turn logs use `TurnOutcome` for these states.
 - Calls an injected model with the active system prompt, conversation, and tool
-  definitions.
+  definitions. Each step calls `Model::complete`, which folds the event stream
+  of the model into one response. The runtime does not forward model events.
+  The model-call logger copy and the response checkpoint keep the failed
+  fallback attempts of `ModelResponse::attempts`.
 - Lets callers apply `ModelCallControls`, including the request effort, to a
   turn with `ActiveTurn::with_controls(...)`; every model step receives the
   controls unchanged. The model resolves the effort against its own spec on
@@ -188,6 +191,7 @@ cargo clippy -p ai-tool-calling --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)

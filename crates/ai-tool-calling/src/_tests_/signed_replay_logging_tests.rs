@@ -1,5 +1,8 @@
 //! Signed replay payloads stay in model history and out of logger copies.
 
+use crate::tests::support::stream_result;
+use ai_interface::test_support::model_response_stream;
+
 use std::sync::Arc;
 
 use ai_interface::{
@@ -19,22 +22,25 @@ async fn signed_replay_context_survives_turns_but_not_success_logs() {
     let context = signed_context();
     let expected = context.clone();
     let model = Arc::new(Unimock::new((
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(response(context))),
-        ModelMock::complete
+            .answers_arc(stream_result(Ok(response(context)))),
+        ModelMock::stream
             .next_call(matching!(_))
             .answers_arc(Arc::new(move |_, request: &ModelRequest| {
-                let assistant = request
-                    .messages
-                    .iter()
-                    .find(|m| m.role == ConversationRole::Assistant)
-                    .unwrap();
-                assert_eq!(assistant.provider_context, expected);
-                let mut response = response(Vec::new());
-                response.finish_reason = FinishReason::Stop;
-                response.tool_calls.clear();
-                Ok(response)
+                {
+                    let assistant = request
+                        .messages
+                        .iter()
+                        .find(|m| m.role == ConversationRole::Assistant)
+                        .unwrap();
+                    assert_eq!(assistant.provider_context, expected);
+                    let mut response = response(Vec::new());
+                    response.finish_reason = FinishReason::Stop;
+                    response.tool_calls.clear();
+                    Ok(response)
+                }
+                .map(model_response_stream)
             })),
     )));
     let logger = Arc::new(Unimock::new((
@@ -87,11 +93,14 @@ async fn signed_replay_context_is_removed_from_failed_request_logs() {
     let context = signed_context();
     let expected = context.clone();
     let model = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .some_call(matching!(_))
             .answers_arc(Arc::new(move |_, request: &ModelRequest| {
-                assert_eq!(request.messages[0].provider_context, expected);
-                Err(ModelError::provider("mock", "mock", "failed"))
+                {
+                    assert_eq!(request.messages[0].provider_context, expected);
+                    Err(ModelError::provider("mock", "mock", "failed"))
+                }
+                .map(model_response_stream)
             })),
     ));
     let logger = Arc::new(Unimock::new(
@@ -130,6 +139,7 @@ fn signed_context() -> Vec<ProviderConversationItem> {
 
 fn response(provider_context: Vec<ProviderConversationItem>) -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "mock".to_owned(),
         model_id: "mock".to_owned(),
         catalog_model_id: None,

@@ -1,5 +1,8 @@
 //! Kimi model-call logging redaction regression tests.
 
+use crate::tests::support::stream_result;
+use ai_interface::test_support::model_response_stream;
+
 use std::sync::Arc;
 
 use ai_interface::{
@@ -23,19 +26,22 @@ async fn kimi_reasoning_is_replayed_but_redacted_from_success_logs() {
     let provider_context = kimi_context();
     let replay_context = provider_context.clone();
     let model: Arc<dyn Model> = Arc::new(Unimock::new((
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(tool_response(provider_context))),
-        ModelMock::complete
+            .answers_arc(stream_result(Ok(tool_response(provider_context)))),
+        ModelMock::stream
             .next_call(matching!(_))
             .answers_arc(Arc::new(move |_, request: &ModelRequest| {
-                let assistant = request
-                    .messages
-                    .iter()
-                    .find(|message| message.role == ConversationRole::Assistant)
-                    .expect("assistant replay message should be present");
-                assert_eq!(assistant.provider_context, replay_context);
-                Ok(stop_response())
+                {
+                    let assistant = request
+                        .messages
+                        .iter()
+                        .find(|message| message.role == ConversationRole::Assistant)
+                        .expect("assistant replay message should be present");
+                    assert_eq!(assistant.provider_context, replay_context);
+                    Ok(stop_response())
+                }
+                .map(model_response_stream)
             })),
     )));
     let logger: Arc<dyn Logger> = Arc::new(Unimock::new((
@@ -83,16 +89,19 @@ async fn kimi_reasoning_is_redacted_from_failed_request_logs() {
     let provider_context = kimi_context();
     let replay_context = provider_context.clone();
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
             .answers_arc(Arc::new(move |_, request: &ModelRequest| {
-                assert!(
-                    request
-                        .messages
-                        .iter()
-                        .any(|message| message.provider_context == replay_context)
-                );
-                Err(ModelError::internal(FixtureModelError))
+                {
+                    assert!(
+                        request
+                            .messages
+                            .iter()
+                            .any(|message| message.provider_context == replay_context)
+                    );
+                    Err(ModelError::internal(FixtureModelError))
+                }
+                .map(model_response_stream)
             })),
     ));
     let logger: Arc<dyn Logger> = Arc::new(Unimock::new(
@@ -131,6 +140,7 @@ fn kimi_context() -> Vec<ProviderConversationItem> {
 
 fn tool_response(provider_context: Vec<ProviderConversationItem>) -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "kimi".to_owned(),
         model_id: "kimi-k3".to_owned(),
         catalog_model_id: Some("kimi-k3".to_owned()),
@@ -151,6 +161,7 @@ fn tool_response(provider_context: Vec<ProviderConversationItem>) -> ModelRespon
 
 fn stop_response() -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "kimi".to_owned(),
         model_id: "kimi-k3".to_owned(),
         catalog_model_id: Some("kimi-k3".to_owned()),

@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's deepseek adapter result for tool_loop using deepseek/deepseek-v4-pro synthetic recordings."
 expression: outcome
 ---
@@ -7,6 +8,91 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "ReasoningDelta": {
+            "part_index": 0,
+            "delta": "Use "
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 1,
+            "delta": "Checking "
+          }
+        },
+        {
+          "ToolCallStart": {
+            "part_index": 2,
+            "id": "call_1",
+            "name": "lookup"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 2,
+            "delta": "{\"id\":"
+          }
+        },
+        {
+          "ReasoningDelta": {
+            "part_index": 0,
+            "delta": "lookup."
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 1,
+            "delta": "now"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 2,
+            "delta": "7}"
+          }
+        },
+        {
+          "ToolCallEnd": {
+            "part_index": 2
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "ToolCalls",
+            "provider": "deepseek",
+            "model_id": "deepseek-v4-pro",
+            "catalog_model_id": "deepseek/deepseek-v4-pro",
+            "effort": "high",
+            "provider_context": [
+              {
+                "type": "deep_seek_assistant_message",
+                "content": "Checking now",
+                "reasoning_content": "Use lookup.",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "name": "lookup",
+                    "arguments": "{\"id\":7}"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
       "response": {
         "provider": "deepseek",
         "model_id": "deepseek-v4-pro",
@@ -49,6 +135,41 @@ expression: outcome
     },
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "ne"
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "deepseek",
+            "model_id": "deepseek-v4-pro",
+            "catalog_model_id": "deepseek/deepseek-v4-pro",
+            "effort": "high"
+          }
+        }
+      ],
       "response": {
         "provider": "deepseek",
         "model_id": "deepseek-v4-pro",

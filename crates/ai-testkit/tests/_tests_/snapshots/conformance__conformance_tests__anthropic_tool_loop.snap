@@ -8,6 +8,73 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "ToolCallStart": {
+            "part_index": 0,
+            "id": "call_1",
+            "name": "lookup"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 0,
+            "delta": "{\"id"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 0,
+            "delta": "\":7}"
+          }
+        },
+        {
+          "ToolCallEnd": {
+            "part_index": 0
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 22,
+              "output_tokens": 9,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 0,
+              "total_tokens": 36,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "ToolCalls",
+            "provider": "anthropic",
+            "model_id": "claude-sonnet-5",
+            "catalog_model_id": "anthropic/claude-sonnet-5",
+            "effort": "high",
+            "provider_context": [
+              {
+                "type": "anthropic_assistant_message",
+                "blocks": [
+                  {
+                    "type": "thinking",
+                    "thinking": "",
+                    "signature": "synthetic-signature"
+                  },
+                  {
+                    "type": "tool_use",
+                    "id": "call_1",
+                    "name": "lookup",
+                    "input": {
+                      "id": 7
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
       "response": {
         "provider": "anthropic",
         "model_id": "claude-sonnet-5",
@@ -56,6 +123,41 @@ expression: outcome
     },
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "ne"
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 22,
+              "output_tokens": 9,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 0,
+              "total_tokens": 36,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "anthropic",
+            "model_id": "claude-sonnet-5",
+            "catalog_model_id": "anthropic/claude-sonnet-5",
+            "effort": "high"
+          }
+        }
+      ],
       "response": {
         "provider": "anthropic",
         "model_id": "claude-sonnet-5",

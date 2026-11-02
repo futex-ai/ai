@@ -21,7 +21,7 @@ path = "tests/live_videos/mod.rs"
 [dependencies]
 ai-models-compat = { workspace = true }
 ai-testkit = { workspace = true }
-ai-interface.workspace = true
+ai-interface = { workspace = true, features = ["test-support"] }
 ai-mcp.workspace = true
 ai-mcp-oauth.workspace = true
 ai-models-anthropic.workspace = true

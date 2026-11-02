@@ -1,17 +1,35 @@
+//! Runtime fixtures and model stream return adapters.
+
 use std::sync::{
-    Arc,
+    Arc, Mutex,
     atomic::{AtomicUsize, Ordering},
 };
 
 use ai_interface::{
-    ConversationMessage, ConversationRole, DynLogger, DynModel, DynTool, NoopLogger,
-    ToolDefinition, ToolError, ToolMock,
+    ConversationMessage, ConversationRole, DynLogger, DynModel, DynModelEventStream, DynTool,
+    ModelRequest, ModelResponse, ModelResult, NoopLogger, ToolDefinition, ToolError, ToolMock,
+    test_support::model_response_stream,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{InMemoryToolOutputStore, ToolCallingRuntime, ToolOutputPolicy};
+
+type ModelStreamAnswer =
+    dyn Fn(&Unimock, &ModelRequest) -> ModelResult<DynModelEventStream> + Send + Sync;
+
+pub(crate) fn stream_result(result: ModelResult<ModelResponse>) -> Arc<ModelStreamAnswer> {
+    let result = Mutex::new(Some(result));
+    Arc::new(move |_, _| {
+        result
+            .lock()
+            .expect("fixture result lock")
+            .take()
+            .expect("one fixture call")
+            .map(model_response_stream)
+    })
+}
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]

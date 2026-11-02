@@ -31,6 +31,7 @@ fn tool_follow_up_preserves_assistant_context_and_matches_tool_results() {
         structured_output: None,
         provider_context: context.clone(),
         usage: Default::default(),
+        attempts: Vec::new(),
     };
     let request = Scenario::ToolLoop
         .follow_up(&response)

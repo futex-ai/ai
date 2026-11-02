@@ -1,3 +1,7 @@
+//! Runtime tests through the model stream contract.
+
+use crate::tests::support::stream_result;
+use ai_interface::test_support::model_response_stream;
 use std::sync::Arc;
 
 use ai_interface::{
@@ -13,9 +17,10 @@ use super::support::{runtime, user_message};
 #[tokio::test]
 async fn conversation_mutation_and_send_flow_work() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(ModelResponse {
+            .answers_arc(stream_result(Ok(ModelResponse {
+                attempts: Vec::new(),
                 provider: "mock".to_owned(),
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
@@ -26,7 +31,7 @@ async fn conversation_mutation_and_send_flow_work() {
                 structured_output: None,
                 provider_context: Vec::new(),
                 usage: ModelUsage::default(),
-            })),
+            }))),
     ));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
@@ -63,23 +68,27 @@ async fn conversation_mutation_and_send_flow_work() {
 #[tokio::test]
 async fn resume_starts_turn_without_appending_user_message() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request| {
-                assert_eq!(request.messages.len(), 1);
-                assert_eq!(request.messages[0].content, "already retained");
-                Ok(ModelResponse {
-                    provider: "mock".to_owned(),
-                    model_id: "mock-model".to_owned(),
-                    catalog_model_id: None,
-                    thinking_level: None,
-                    assistant_message: "done".to_owned(),
-                    tool_calls: Vec::new(),
-                    finish_reason: FinishReason::Stop,
-                    structured_output: None,
-                    provider_context: Vec::new(),
-                    usage: ModelUsage::default(),
-                })
+                {
+                    assert_eq!(request.messages.len(), 1);
+                    assert_eq!(request.messages[0].content, "already retained");
+                    Ok(ModelResponse {
+                        attempts: Vec::new(),
+                        provider: "mock".to_owned(),
+                        model_id: "mock-model".to_owned(),
+                        catalog_model_id: None,
+                        thinking_level: None,
+                        assistant_message: "done".to_owned(),
+                        tool_calls: Vec::new(),
+                        finish_reason: FinishReason::Stop,
+                        structured_output: None,
+                        provider_context: Vec::new(),
+                        usage: ModelUsage::default(),
+                    })
+                }
+                .map(model_response_stream)
             }),
     ));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");

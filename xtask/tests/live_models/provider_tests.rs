@@ -30,7 +30,6 @@ pub(super) enum LiveProvider {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum CompletionEventExpectation {
     AssistantTextParity,
-    Silent,
 }
 
 #[derive(Clone, Debug)]
@@ -113,16 +112,7 @@ impl LiveProvider {
     }
 
     pub(super) fn preferred_mode_event_expectation(self) -> CompletionEventExpectation {
-        match self {
-            Self::Xai => CompletionEventExpectation::Silent,
-            Self::Anthropic
-            | Self::DeepSeek
-            | Self::Google
-            | Self::Kimi
-            | Self::MiniMax
-            | Self::OpenAi
-            | Self::Qwen => CompletionEventExpectation::AssistantTextParity,
-        }
+        self.synchronous_event_expectation()
     }
 
     pub(super) fn catalog(self) -> Vec<ModelSpec> {

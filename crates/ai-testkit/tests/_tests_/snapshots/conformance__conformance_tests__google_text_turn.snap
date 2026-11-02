@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's google adapter result for text_turn using google/gemini-3.6-flash synthetic recordings."
 expression: outcome
 ---
@@ -7,6 +8,41 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "ne"
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 9,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 33,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "google",
+            "model_id": "gemini-3.6-flash",
+            "catalog_model_id": "google/gemini-3.6-flash",
+            "effort": "medium"
+          }
+        }
+      ],
       "response": {
         "provider": "google",
         "model_id": "gemini-3.6-flash",

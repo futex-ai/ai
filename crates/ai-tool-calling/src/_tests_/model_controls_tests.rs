@@ -1,5 +1,7 @@
 //! Tool-calling model-control propagation tests.
 
+use ai_interface::test_support::model_response_stream;
+
 use std::sync::Arc;
 
 use ai_interface::{
@@ -31,11 +33,14 @@ async fn active_turn_forwards_controls_to_every_model_step() {
     };
     let expected = controls.clone();
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
             .answers_arc(Arc::new(move |_, request: &ModelRequest| {
-                assert_eq!(request.controls, expected);
-                Ok(response())
+                {
+                    assert_eq!(request.controls, expected);
+                    Ok(response())
+                }
+                .map(model_response_stream)
             })),
     ));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
@@ -52,6 +57,7 @@ async fn active_turn_forwards_controls_to_every_model_step() {
 
 fn response() -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "test".to_owned(),
         model_id: "test-model".to_owned(),
         catalog_model_id: None,

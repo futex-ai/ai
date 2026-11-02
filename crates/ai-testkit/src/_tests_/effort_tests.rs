@@ -2,6 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{Effort, FinishReason, ModelMock, ModelRequest, ModelResponse, ToolCall};
 use json_http::test_support::Redactor;
 use serde_json::json;
@@ -33,16 +34,17 @@ async fn execute_keeps_effort_on_the_initial_and_follow_up_requests() {
         structured_output: None,
         provider_context: Vec::new(),
         usage: Default::default(),
+        attempts: Vec::new(),
     };
     let model = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .each_call(matching!(_))
             .answers_arc(Arc::new(move |_, request: &ModelRequest| {
                 captured
                     .lock()
                     .expect("capture lock")
                     .push(request.controls.generation.effort);
-                Ok(response.clone())
+                Ok(model_response_stream(response.clone()))
             })),
     ));
     let runner = ScenarioRunner::new(Arc::new(ProviderModelFactory));

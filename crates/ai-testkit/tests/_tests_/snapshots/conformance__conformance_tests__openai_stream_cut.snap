@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's openai adapter result for stream_cut using openai/gpt-5.6-sol synthetic recordings."
 expression: outcome
 ---
@@ -7,6 +8,14 @@ expression: outcome
   "steps": [
     {
       "kind": "error",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Done"
+          }
+        }
+      ],
       "error": {
         "variant": "Interrupted",
         "provider": "openai",

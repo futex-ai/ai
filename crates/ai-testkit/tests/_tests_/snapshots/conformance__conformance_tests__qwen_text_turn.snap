@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's qwen adapter result for text_turn using qwen/qwen3.7-max synthetic recordings."
 expression: outcome
 ---
@@ -7,6 +8,47 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "ne"
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 9,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 0,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "qwen",
+            "model_id": "qwen3.7-max",
+            "catalog_model_id": "qwen/qwen3.7-max",
+            "effort": "high",
+            "provider_context": [
+              {
+                "type": "qwen_assistant_message",
+                "content": "Done"
+              }
+            ]
+          }
+        }
+      ],
       "response": {
         "provider": "qwen",
         "model_id": "qwen3.7-max",

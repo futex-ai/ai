@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's anthropic adapter result for text_turn using anthropic/claude-sonnet-5 synthetic recordings."
 expression: outcome
 ---
@@ -7,6 +8,41 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "ne"
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 22,
+              "output_tokens": 9,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 0,
+              "total_tokens": 36,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "anthropic",
+            "model_id": "claude-sonnet-5",
+            "catalog_model_id": "anthropic/claude-sonnet-5",
+            "effort": "high"
+          }
+        }
+      ],
       "response": {
         "provider": "anthropic",
         "model_id": "claude-sonnet-5",

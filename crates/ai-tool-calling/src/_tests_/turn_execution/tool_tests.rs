@@ -1,3 +1,7 @@
+//! Runtime tests through the model stream contract.
+
+use crate::tests::support::stream_result;
+use ai_interface::test_support::model_response_stream;
 use std::sync::Arc;
 
 use ai_interface::{
@@ -13,9 +17,10 @@ use super::super::support::{TypedEchoTool, runtime, user_message};
 #[tokio::test]
 async fn tool_errors_surface_on_step_and_are_reused_by_run() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new((
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(ModelResponse {
+            .answers_arc(stream_result(Ok(ModelResponse {
+                attempts: Vec::new(),
                 provider: "mock".to_owned(),
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
@@ -31,28 +36,32 @@ async fn tool_errors_surface_on_step_and_are_reused_by_run() {
                 structured_output: None,
                 provider_context: Vec::new(),
                 usage: ModelUsage::default(),
-            })),
-        ModelMock::complete
+            }))),
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                let tool_message = request
-                    .messages
-                    .iter()
-                    .find(|message| message.role == ai_interface::ConversationRole::Tool)
-                    .expect("tool error should be retained");
-                assert!(tool_message.content.contains("typed tool execution failed"));
-                Ok(ModelResponse {
-                    provider: "mock".to_owned(),
-                    model_id: "mock-model".to_owned(),
-                    catalog_model_id: None,
-                    thinking_level: None,
-                    assistant_message: "recovered".to_owned(),
-                    tool_calls: Vec::new(),
-                    finish_reason: FinishReason::Stop,
-                    structured_output: None,
-                    provider_context: Vec::new(),
-                    usage: ModelUsage::default(),
-                })
+                {
+                    let tool_message = request
+                        .messages
+                        .iter()
+                        .find(|message| message.role == ai_interface::ConversationRole::Tool)
+                        .expect("tool error should be retained");
+                    assert!(tool_message.content.contains("typed tool execution failed"));
+                    Ok(ModelResponse {
+                        attempts: Vec::new(),
+                        provider: "mock".to_owned(),
+                        model_id: "mock-model".to_owned(),
+                        catalog_model_id: None,
+                        thinking_level: None,
+                        assistant_message: "recovered".to_owned(),
+                        tool_calls: Vec::new(),
+                        finish_reason: FinishReason::Stop,
+                        structured_output: None,
+                        provider_context: Vec::new(),
+                        usage: ModelUsage::default(),
+                    })
+                }
+                .map(model_response_stream)
             }),
     )));
     let tool = TypedEchoTool::fail_once();
@@ -75,9 +84,10 @@ async fn tool_errors_surface_on_step_and_are_reused_by_run() {
 #[tokio::test]
 async fn step_limit_is_reported_as_capped() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(ModelResponse {
+            .answers_arc(stream_result(Ok(ModelResponse {
+                attempts: Vec::new(),
                 provider: "mock".to_owned(),
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
@@ -93,7 +103,7 @@ async fn step_limit_is_reported_as_capped() {
                 structured_output: None,
                 provider_context: Vec::new(),
                 usage: ModelUsage::default(),
-            })),
+            }))),
     ));
     let runtime =
         runtime(model, vec![TypedEchoTool::succeeding().tool()]).expect("runtime should build");
@@ -119,9 +129,10 @@ async fn step_limit_is_reported_as_capped() {
 #[tokio::test]
 async fn invalid_tool_arguments_surface_once_and_are_retained() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new((
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(ModelResponse {
+            .answers_arc(stream_result(Ok(ModelResponse {
+                attempts: Vec::new(),
                 provider: "mock".to_owned(),
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
@@ -137,28 +148,32 @@ async fn invalid_tool_arguments_surface_once_and_are_retained() {
                 structured_output: None,
                 provider_context: Vec::new(),
                 usage: ModelUsage::default(),
-            })),
-        ModelMock::complete
+            }))),
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                let tool_message = request
-                    .messages
-                    .iter()
-                    .find(|message| message.role == ai_interface::ConversationRole::Tool)
-                    .expect("tool error should be retained");
-                assert!(tool_message.content.contains("invalid arguments"));
-                Ok(ModelResponse {
-                    provider: "mock".to_owned(),
-                    model_id: "mock-model".to_owned(),
-                    catalog_model_id: None,
-                    thinking_level: None,
-                    assistant_message: "after parse failure".to_owned(),
-                    tool_calls: Vec::new(),
-                    finish_reason: FinishReason::Stop,
-                    structured_output: None,
-                    provider_context: Vec::new(),
-                    usage: ModelUsage::default(),
-                })
+                {
+                    let tool_message = request
+                        .messages
+                        .iter()
+                        .find(|message| message.role == ai_interface::ConversationRole::Tool)
+                        .expect("tool error should be retained");
+                    assert!(tool_message.content.contains("invalid arguments"));
+                    Ok(ModelResponse {
+                        attempts: Vec::new(),
+                        provider: "mock".to_owned(),
+                        model_id: "mock-model".to_owned(),
+                        catalog_model_id: None,
+                        thinking_level: None,
+                        assistant_message: "after parse failure".to_owned(),
+                        tool_calls: Vec::new(),
+                        finish_reason: FinishReason::Stop,
+                        structured_output: None,
+                        provider_context: Vec::new(),
+                        usage: ModelUsage::default(),
+                    })
+                }
+                .map(model_response_stream)
             }),
     )));
     let tool = TypedEchoTool::succeeding();
@@ -188,9 +203,10 @@ async fn invalid_tool_arguments_surface_once_and_are_retained() {
 #[tokio::test]
 async fn failed_tool_calls_still_append_messages_for_later_calls_in_the_same_batch() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new((
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(ModelResponse {
+            .answers_arc(stream_result(Ok(ModelResponse {
+                attempts: Vec::new(),
                 provider: "mock".to_owned(),
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
@@ -214,33 +230,37 @@ async fn failed_tool_calls_still_append_messages_for_later_calls_in_the_same_bat
                 structured_output: None,
                 provider_context: Vec::new(),
                 usage: ModelUsage::default(),
-            })),
-        ModelMock::complete
+            }))),
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                let tool_messages = request
-                    .messages
-                    .iter()
-                    .filter(|message| message.role == ai_interface::ConversationRole::Tool)
-                    .cloned()
-                    .collect::<Vec<_>>();
-                assert_eq!(tool_messages.len(), 2);
-                assert_eq!(tool_messages[0].tool_call_id.as_deref(), Some("call-1"),);
-                assert_eq!(tool_messages[1].tool_call_id.as_deref(), Some("call-2"),);
-                assert!(tool_messages[0].content.contains("\"ok\":false"));
-                assert!(tool_messages[1].content.contains("\"echo\":\"second\""));
-                Ok(ModelResponse {
-                    provider: "mock".to_owned(),
-                    model_id: "mock-model".to_owned(),
-                    catalog_model_id: None,
-                    thinking_level: None,
-                    assistant_message: "recovered".to_owned(),
-                    tool_calls: Vec::new(),
-                    finish_reason: FinishReason::Stop,
-                    structured_output: None,
-                    provider_context: Vec::new(),
-                    usage: ModelUsage::default(),
-                })
+                {
+                    let tool_messages = request
+                        .messages
+                        .iter()
+                        .filter(|message| message.role == ai_interface::ConversationRole::Tool)
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    assert_eq!(tool_messages.len(), 2);
+                    assert_eq!(tool_messages[0].tool_call_id.as_deref(), Some("call-1"),);
+                    assert_eq!(tool_messages[1].tool_call_id.as_deref(), Some("call-2"),);
+                    assert!(tool_messages[0].content.contains("\"ok\":false"));
+                    assert!(tool_messages[1].content.contains("\"echo\":\"second\""));
+                    Ok(ModelResponse {
+                        attempts: Vec::new(),
+                        provider: "mock".to_owned(),
+                        model_id: "mock-model".to_owned(),
+                        catalog_model_id: None,
+                        thinking_level: None,
+                        assistant_message: "recovered".to_owned(),
+                        tool_calls: Vec::new(),
+                        finish_reason: FinishReason::Stop,
+                        structured_output: None,
+                        provider_context: Vec::new(),
+                        usage: ModelUsage::default(),
+                    })
+                }
+                .map(model_response_stream)
             }),
     )));
     let tool = TypedEchoTool::fail_once();

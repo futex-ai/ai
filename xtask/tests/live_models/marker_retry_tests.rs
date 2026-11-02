@@ -9,11 +9,11 @@ use std::{
 };
 
 use ai_interface::{
-    DynModel, Effort, FinishReason, MockModel, Model, ModelCompletionEvent,
-    ModelCompletionEventSink, ModelCompletionMode, ModelRequest, ModelResponse, ModelResult,
-    ModelSpec, ModelToolChoice, ModelUsage,
+    DynModel, DynModelEventStream, Effort, FinishReason, MockModel, Model, ModelCompletionMode,
+    ModelRequest, ModelResponse, ModelResult, ModelSpec, ModelToolChoice, ModelUsage,
 };
 
+use ai_interface::test_support::model_response_stream;
 use async_trait::async_trait;
 
 use super::{
@@ -169,7 +169,7 @@ async fn generic_runtime_executes_a_dynamic_model() {
 
     assert_eq!(response.response.provider, "mock");
     assert_eq!(response.response.model_id, "live-probe");
-    assert!(response.events.is_empty());
+    assert!(!response.events.is_empty());
 }
 
 struct ScriptedModel {
@@ -190,22 +190,8 @@ impl ScriptedModel {
 
 #[async_trait]
 impl Model for ScriptedModel {
-    async fn complete(&self, _request: &ModelRequest) -> ModelResult<ModelResponse> {
-        Ok(self.next_response())
-    }
-
-    async fn complete_with_events(
-        &self,
-        _request: &ModelRequest,
-        event_sink: &dyn ModelCompletionEventSink,
-    ) -> ModelResult<ModelResponse> {
-        let response = self.next_response();
-        event_sink
-            .emit(ModelCompletionEvent::AssistantTextDelta {
-                delta: response.assistant_message.clone(),
-            })
-            .await;
-        Ok(response)
+    async fn stream(&self, _request: &ModelRequest) -> ModelResult<DynModelEventStream> {
+        Ok(model_response_stream(self.next_response()))
     }
 }
 
@@ -235,6 +221,7 @@ fn valid_response(spec: &ModelSpec, assistant_message: &str) -> ModelResponse {
         finish_reason: FinishReason::Stop,
         structured_output: None,
         provider_context: Vec::new(),
+        attempts: Vec::new(),
         usage: ModelUsage {
             input_tokens: 1,
             output_tokens: 1,

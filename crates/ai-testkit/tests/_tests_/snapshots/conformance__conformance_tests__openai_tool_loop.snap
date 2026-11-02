@@ -8,6 +8,71 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Checking now"
+          }
+        },
+        {
+          "ToolCallStart": {
+            "part_index": 1,
+            "id": "call_1",
+            "name": "lookup"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 1,
+            "delta": "{\"id\":7}"
+          }
+        },
+        {
+          "ToolCallEnd": {
+            "part_index": 1
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "ToolCalls",
+            "provider": "openai",
+            "model_id": "gpt-5.6-sol",
+            "catalog_model_id": "openai/gpt-5.6-sol",
+            "effort": "medium",
+            "provider_context": [
+              {
+                "type": "openai_reasoning",
+                "id": "rs_1",
+                "encrypted_content": "synthetic-encrypted-reasoning"
+              },
+              {
+                "type": "openai_message",
+                "phase": "commentary"
+              },
+              {
+                "type": "openai_function_call",
+                "id": "fc_1",
+                "call_id": "call_1",
+                "name": "lookup",
+                "arguments": "{\"id\":7}"
+              }
+            ]
+          }
+        }
+      ],
       "response": {
         "provider": "openai",
         "model_id": "gpt-5.6-sol",
@@ -54,6 +119,41 @@ expression: outcome
     },
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Done"
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "openai",
+            "model_id": "gpt-5.6-sol",
+            "catalog_model_id": "openai/gpt-5.6-sol",
+            "effort": "medium",
+            "provider_context": [
+              {
+                "type": "openai_message",
+                "phase": "final_answer"
+              }
+            ]
+          }
+        }
+      ],
       "response": {
         "provider": "openai",
         "model_id": "gpt-5.6-sol",

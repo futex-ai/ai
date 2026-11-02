@@ -3,6 +3,7 @@
 #![warn(unreachable_pub)]
 
 pub mod error;
+pub mod event_snapshot;
 pub mod outcome;
 pub mod provider;
 pub mod runner;

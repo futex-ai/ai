@@ -2,7 +2,9 @@
 
 use std::sync::Arc;
 
-use ai_interface::{DynModel, Effort, ModelResponse};
+use ai_interface::{
+    DynModel, Effort, Model, ModelRequest, ModelResponse, ModelResponseFold, ModelResult,
+};
 use async_trait::async_trait;
 use json_http::{
     TransportBackedJsonHttpClient,
@@ -14,6 +16,7 @@ use json_http::{
 
 use crate::{
     error::{Error, ErrorResultExt, Result},
+    event_snapshot::ModelEventSnapshot,
     outcome::{ErrorOutcome, ScenarioOutcome, StepOutcome},
     provider::{ModelFactory, Provider},
     scenario::Scenario,
@@ -49,6 +52,32 @@ impl ScenarioRunner {
     /// Injects the adapter construction boundary.
     pub fn new(factory: Arc<dyn ModelFactory + Send + Sync>) -> Self {
         Self { factory }
+    }
+
+    async fn execute_step(
+        &self,
+        model: &dyn Model,
+        request: &ModelRequest,
+        redactor: &Redactor,
+    ) -> Result<(ModelResult<ModelResponse>, Vec<ModelEventSnapshot>)> {
+        let mut events = Vec::new();
+        let mut stream = match model.stream(request).await {
+            Ok(stream) => stream,
+            Err(error) => return Ok((Err(error), events)),
+        };
+        let mut fold = ModelResponseFold::new();
+        loop {
+            match stream.next().await {
+                Ok(Some(event)) => {
+                    events.push(ModelEventSnapshot::capture(&event, redactor)?);
+                    if let Err(error) = fold.push(event) {
+                        return Ok((Err(error), events));
+                    }
+                }
+                Ok(None) => return Ok((fold.finish(), events)),
+                Err(error) => return Ok((Err(error), events)),
+            }
+        }
     }
 }
 
@@ -92,7 +121,10 @@ impl ConformanceRunner for ScenarioRunner {
         let mut steps = Vec::new();
         let step_count = if scenario == Scenario::ToolLoop { 2 } else { 1 };
         for step in 0..step_count {
-            match model.complete(&request).await {
+            let (result, events) = self
+                .execute_step(model.as_ref(), &request, redactor)
+                .await?;
+            match result {
                 Ok(response) => {
                     if scenario == Scenario::ToolLoop && step == 0 {
                         match scenario.follow_up(&response) {
@@ -102,6 +134,7 @@ impl ConformanceRunner for ScenarioRunner {
                             }
                             Err(_) => {
                                 steps.push(StepOutcome::Response {
+                                    events,
                                     response: Box::new(sanitized_response(response, redactor)?),
                                 });
                                 steps.push(StepOutcome::MissingToolCall);
@@ -110,11 +143,13 @@ impl ConformanceRunner for ScenarioRunner {
                         }
                     }
                     steps.push(StepOutcome::Response {
+                        events,
                         response: Box::new(sanitized_response(response, redactor)?),
                     });
                 }
                 Err(error) => {
                     steps.push(StepOutcome::Error {
+                        events,
                         error: ErrorOutcome::capture(error, redactor),
                     });
                     break;
@@ -166,3 +201,7 @@ mod runner_tests;
 #[cfg(test)]
 #[path = "_tests_/effort_tests.rs"]
 mod effort_tests;
+
+#[cfg(test)]
+#[path = "_tests_/stream_runner_tests.rs"]
+mod stream_runner_tests;

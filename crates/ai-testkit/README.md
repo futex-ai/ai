@@ -11,13 +11,15 @@ Product libraries do not depend on this crate.
   spec, and the request effort.
 - Run production adapters against ordered replay transports.
 - Compare every sanitized outbound request with its recorded exchange.
-- Snapshot complete responses and typed errors without provider credentials.
+- Snapshot the ordered model events of each scenario, then its folded
+  response or typed error, without provider credentials.
 
 ## What This Crate Does
 
 The providers are Anthropic, OpenAI, Google, DeepSeek, Kimi, Qwen,
-MiniMax, and xAI. The runner uses today's `Model::complete` contract.
-xAI uses its synchronous path. No scenario uses a video adapter.
+MiniMax, and xAI. The runner records every event of `Model::stream` and
+folds the events with the fold of `Model::complete`. xAI uses its
+synchronous path. No scenario uses a video adapter.
 
 Each provider starts with its first chat spec. The tool loop uses the first
 spec whose default effort enables thinking, when the catalog has one. Each
@@ -57,7 +59,10 @@ DeepSeek and the first Qwen spec reject image input before transport.
 Their image recordings therefore contain no HTTP exchanges.
 
 File snapshots live under `tests/_tests_/snapshots/`.
-They preserve successful responses and remaining defects.
+Each snapshot shows the event sequence of a scenario, then its folded
+response or its error. They preserve successful responses and remaining
+defects. The schema scenarios show text deltas, because a call with a
+response schema emits text deltas like any other call.
 The Anthropic and Google tool snapshots retain complete ordered replay context.
 Their second recorded requests replay Anthropic thinking blocks and Gemini
 thought signatures. Anthropic requests use the max output of the spec.
@@ -128,7 +133,8 @@ See `json-http` for the transport boundary's status and failure limits.
 - `src/storage.rs` defines `ScenarioRecording`, `RecordingStorage`, and its JSON
   filesystem implementation.
 - `src/runner.rs` implements `ConformanceRunner` with injected adapters and replay.
-- `src/outcome.rs` defines the serializable response and error results.
+- `src/event_snapshot.rs` captures typed, sanitized model events for snapshots.
+- `src/outcome.rs` defines the event sequences and response or error results.
 - `tests/_tests_/conformance_tests.rs` snapshots every available provider scenario.
 - `recordings/` holds the sanitized exchange files.
 
@@ -138,4 +144,4 @@ See `json-http` for the transport boundary's status and failure limits.
 - [Model capabilities](../../docs/protocol/model-capabilities.md)
 - [json-http](../json-http/README.md)
 - [xtask recorder](../../xtask/README.md)
-- [Model completion streaming](../../docs/protocol/model-completion-streaming.md)
+- [Model stream](../../docs/protocol/model-stream.md)

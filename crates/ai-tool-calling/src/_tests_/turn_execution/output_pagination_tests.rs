@@ -1,3 +1,7 @@
+//! Runtime tests through the model stream contract.
+
+use crate::tests::support::stream_result;
+use ai_interface::test_support::model_response_stream;
 use std::sync::Arc;
 
 use ai_interface::{
@@ -15,51 +19,60 @@ use super::super::support::{runtime_with_store_and_policy, user_message};
 async fn multi_window_output_can_be_followed_to_completion() {
     let policy = ToolOutputPolicy::new(5, 5, 100, 100).unwrap();
     let model: DynModel = Arc::new(Unimock::new((
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(tool_call_response(tool_call(
+            .answers_arc(stream_result(Ok(tool_call_response(tool_call(
                 "call-big",
                 "big_output",
                 json!({}),
-            )))),
-        ModelMock::complete
+            ))))),
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                let window = last_tool_window(request);
-                assert_eq!(window.content(), "\"abcd");
-                assert_eq!(window.next_offset(), Some(5));
-                assert_first_window_does_not_expose_full_raw_output(request);
-                Ok(tool_call_response(tool_call(
-                    "call-read-1",
-                    "tool_output_read",
-                    json!({
-                        "output_id": window.output_id().unwrap(),
-                        "offset": window.next_offset().unwrap()
-                    }),
-                )))
+                {
+                    let window = last_tool_window(request);
+                    assert_eq!(window.content(), "\"abcd");
+                    assert_eq!(window.next_offset(), Some(5));
+                    assert_first_window_does_not_expose_full_raw_output(request);
+                    Ok(tool_call_response(tool_call(
+                        "call-read-1",
+                        "tool_output_read",
+                        json!({
+                            "output_id": window.output_id().unwrap(),
+                            "offset": window.next_offset().unwrap()
+                        }),
+                    )))
+                }
+                .map(model_response_stream)
             }),
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                let window = last_tool_window(request);
-                assert_eq!(window.content(), "efghi");
-                assert_eq!(window.next_offset(), Some(10));
-                Ok(tool_call_response(tool_call(
-                    "call-read-2",
-                    "tool_output_read",
-                    json!({
-                        "output_id": window.output_id().unwrap(),
-                        "offset": window.next_offset().unwrap()
-                    }),
-                )))
+                {
+                    let window = last_tool_window(request);
+                    assert_eq!(window.content(), "efghi");
+                    assert_eq!(window.next_offset(), Some(10));
+                    Ok(tool_call_response(tool_call(
+                        "call-read-2",
+                        "tool_output_read",
+                        json!({
+                            "output_id": window.output_id().unwrap(),
+                            "offset": window.next_offset().unwrap()
+                        }),
+                    )))
+                }
+                .map(model_response_stream)
             }),
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                let window = last_tool_window(request);
-                assert_eq!(window.content(), "j\"");
-                assert!(!window.truncated());
-                Ok(stop_response())
+                {
+                    let window = last_tool_window(request);
+                    assert_eq!(window.content(), "j\"");
+                    assert!(!window.truncated());
+                    Ok(stop_response())
+                }
+                .map(model_response_stream)
             }),
     )));
     let runtime = runtime_with_store_and_policy(
@@ -149,6 +162,7 @@ fn tool_call(id: &str, name: &str, input: Value) -> ToolCall {
 
 fn tool_call_response(call: ToolCall) -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "mock".to_owned(),
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
@@ -164,6 +178,7 @@ fn tool_call_response(call: ToolCall) -> ModelResponse {
 
 fn stop_response() -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "mock".to_owned(),
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,

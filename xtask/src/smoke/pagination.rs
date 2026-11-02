@@ -2,9 +2,10 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
-    ConversationRole, FinishReason, Model, ModelRequest, ModelResponse, ModelResult, ModelUsage,
-    Tool, ToolCall, ToolDefinition, ToolOutputEnvelope,
+    ConversationRole, DynModelEventStream, FinishReason, Model, ModelRequest, ModelResponse,
+    ModelResult, ModelUsage, Tool, ToolCall, ToolDefinition, ToolOutputEnvelope,
 };
 use async_trait::async_trait;
 use serde_json::{Value, json};
@@ -24,7 +25,13 @@ impl SmokePaginationModel {
 
 #[async_trait]
 impl Model for SmokePaginationModel {
-    async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
+    async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
+        Ok(model_response_stream(self.response(request)?))
+    }
+}
+
+impl SmokePaginationModel {
+    fn response(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
         if !request
             .tools
             .iter()
@@ -98,6 +105,7 @@ impl SmokePaginationModel {
             structured_output: None,
             provider_context: Vec::new(),
             usage: ModelUsage::default(),
+            attempts: Vec::new(),
         })
     }
 }
@@ -183,6 +191,7 @@ fn tool_call_response(call: ToolCall) -> ModelResponse {
         structured_output: None,
         provider_context: Vec::new(),
         usage: ModelUsage::default(),
+        attempts: Vec::new(),
     }
 }
 

@@ -1,3 +1,6 @@
+//! Runtime tests through the model stream contract.
+
+use crate::tests::support::stream_result;
 use std::sync::Arc;
 
 use ai_interface::{
@@ -19,9 +22,9 @@ async fn model_errors_are_logged_before_the_turn_aborts() {
     struct FixtureModelError;
 
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Err(ModelError::internal(FixtureModelError))),
+            .answers_arc(stream_result(Err(ModelError::internal(FixtureModelError)))),
     ));
     let logger: Arc<dyn Logger> = Arc::new(Unimock::new(
         LoggerMock::log_model_call.next_call(matching!(_)).answers(
@@ -46,9 +49,10 @@ async fn model_errors_are_logged_before_the_turn_aborts() {
 #[tokio::test]
 async fn tool_errors_include_debug_details_in_logger_callbacks() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(ModelResponse {
+            .answers_arc(stream_result(Ok(ModelResponse {
+                attempts: Vec::new(),
                 provider: "mock".to_owned(),
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
@@ -64,7 +68,7 @@ async fn tool_errors_include_debug_details_in_logger_callbacks() {
                 structured_output: None,
                 provider_context: Vec::new(),
                 usage: ModelUsage::default(),
-            })),
+            }))),
     ));
     let logger: Arc<dyn Logger> = Arc::new(Unimock::new((
         LoggerMock::log_model_call
