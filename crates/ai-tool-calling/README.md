@@ -22,6 +22,11 @@ output, and exposes explicit mutation APIs for embedding services.
 
 - Starts turns with `send(...)` or resumes from retained history with
   `resume(...)`.
+- Returns `Completed` when the model stops normally, `Truncated` when a token
+  or context limit cuts off the answer, and `Capped` when the step budget ends.
+  Both `StepOutcome` and `RunOutcome` preserve the latest non-empty assistant
+  text and the steps taken. Truncation ends the turn without dispatching tools
+  or requesting a continuation. Turn logs use `TurnOutcome` for these states.
 - Calls an injected model with the active system prompt, conversation, and tool
   definitions.
 - Lets callers apply `ModelCallControls` to a turn with

@@ -94,6 +94,8 @@ dependency on a stateful runtime implementation.
   strings.
 - Defines `ToolOutputReadRequest`, the argument DTO used by runtimes that expose
   the intrinsic `tool_output_read` tool.
+- Defines `TurnOutcomeLogEntry::outcome` with `TurnOutcome::Completed`,
+  `Truncated`, and `Capped` so turn logs retain the reason a turn ended.
 - Defines `ToolCallLogResult::Success` with a `ToolOutputEnvelope` payload.
   Normal logs and conversation state carry only bounded model-visible output.
 

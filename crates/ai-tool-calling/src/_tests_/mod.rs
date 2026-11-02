@@ -11,3 +11,4 @@ mod qwen_logging_redaction_tests;
 mod support;
 mod turn_error_logging_tests;
 mod turn_execution;
+mod turn_outcome_tests;

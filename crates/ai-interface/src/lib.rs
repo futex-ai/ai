@@ -41,7 +41,7 @@ pub use judgment::{
 pub use logger::{
     DynLogger, Logger, LoggerError, LoggerResult, ModelCallLogEntry, ModelCallLogResult,
     NoopLogger, ToolActivityLogEntry, ToolActivityPhase, ToolCallLogEntry, ToolCallLogResult,
-    TurnOutcomeLogEntry,
+    TurnOutcome, TurnOutcomeLogEntry,
 };
 pub use messages::{
     ConversationContentPart, ConversationMessage, ConversationRole, DeepSeekToolCallContext,

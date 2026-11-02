@@ -21,6 +21,6 @@
 - **Left out:** Changing nothing fails the goal, because long answers stay cut off.
 - **Wider fix:** B. Catalog data gives each adapter a correct ceiling.
 - **Previous examples:** None found.
-- **Related:** `plans/follow-ups/tool-loop-hides-truncation.md`: the tool loop hides truncation from the caller.
+- **Related:** `crates/ai-tool-calling/README.md`: the tool loop reports truncation as a distinct outcome.
 - **Recommendation:** A. It is a one-line change that removes the common failure now. B best protects the codebase.
 - **Action:** fix after merge, apply B, because the user chose B on 2026-11-01.

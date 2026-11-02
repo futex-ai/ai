@@ -1,7 +1,8 @@
 //! Concrete turn state machine for the in-memory tool-calling runtime.
 
 use ai_interface::{
-    ConversationMessage, FinishReason, ModelCallControls, ModelRequest, TurnOutcomeLogEntry,
+    ConversationMessage, FinishReason, ModelCallControls, ModelRequest, TurnOutcome,
+    TurnOutcomeLogEntry,
 };
 use async_trait::async_trait;
 
@@ -124,6 +125,15 @@ impl<'a> ActiveTurn<'a> {
                         steps_taken,
                     });
                 }
+                Ok(StepOutcome::Truncated {
+                    assistant_message,
+                    steps_taken,
+                }) => {
+                    return Ok(RunOutcome::Truncated {
+                        assistant_message,
+                        steps_taken,
+                    });
+                }
                 Ok(StepOutcome::Capped {
                     assistant_message,
                     steps_taken,
@@ -155,7 +165,7 @@ impl<'a> ActiveTurn<'a> {
         });
         self.runtime
             .logger
-            .log_turn_outcome(&self.terminal_outcome(false))?;
+            .log_turn_outcome(&self.terminal_outcome(TurnOutcome::Capped))?;
         Ok(Some(outcome))
     }
 
@@ -200,13 +210,27 @@ impl<'a> ActiveTurn<'a> {
     ) -> Result<Option<StepOutcome>> {
         match &response.finish_reason {
             FinishReason::Stop | FinishReason::Truncated => {
-                let outcome = self.store_terminal_outcome(StepOutcome::Completed {
-                    assistant_message: self.assistant_message.clone(),
-                    steps_taken: self.steps_taken,
-                });
+                let (outcome, log_outcome) = if response.finish_reason == FinishReason::Truncated {
+                    (
+                        StepOutcome::Truncated {
+                            assistant_message: self.assistant_message.clone(),
+                            steps_taken: self.steps_taken,
+                        },
+                        TurnOutcome::Truncated,
+                    )
+                } else {
+                    (
+                        StepOutcome::Completed {
+                            assistant_message: self.assistant_message.clone(),
+                            steps_taken: self.steps_taken,
+                        },
+                        TurnOutcome::Completed,
+                    )
+                };
+                let outcome = self.store_terminal_outcome(outcome);
                 self.runtime
                     .logger
-                    .log_turn_outcome(&self.terminal_outcome(true))?;
+                    .log_turn_outcome(&self.terminal_outcome(log_outcome))?;
                 Ok(Some(outcome))
             }
             FinishReason::Filtered => Err(provider_error(
@@ -222,11 +246,11 @@ impl<'a> ActiveTurn<'a> {
         }
     }
 
-    fn terminal_outcome(&self, completed: bool) -> TurnOutcomeLogEntry {
+    fn terminal_outcome(&self, outcome: TurnOutcome) -> TurnOutcomeLogEntry {
         TurnOutcomeLogEntry {
             assistant_message: self.assistant_message.clone(),
             steps_taken: self.steps_taken,
-            completed,
+            outcome,
             max_steps: self.max_steps,
         }
     }

@@ -107,6 +107,8 @@ reader.
 
 ## Outcomes
 
+The truncated outcome is implemented in the current runtime.
+
 | Outcome | When | Carries |
 | --- | --- | --- |
 | Completed | A step finishes with the reason stop | The latest non-empty assistant text, the structured output, and the steps taken |

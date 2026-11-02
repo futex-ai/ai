@@ -17,8 +17,15 @@ pub enum StepOutcome {
         /// Successful tool execution records from this round.
         tool_results: Vec<ToolExecutionRecord>,
     },
-    /// The model returned a terminal finish reason and the turn is complete.
+    /// The model stopped normally and the turn is complete.
     Completed {
+        /// Most recent non-empty assistant response seen so far.
+        assistant_message: String,
+        /// Number of model rounds executed in the turn.
+        steps_taken: usize,
+    },
+    /// A token or context limit cut off the model response.
+    Truncated {
         /// Most recent non-empty assistant response seen so far.
         assistant_message: String,
         /// Number of model rounds executed in the turn.
@@ -38,8 +45,15 @@ pub enum StepOutcome {
 #[derive(Clone, Debug, PartialEq)]
 /// Terminal outcome returned by `run()`.
 pub enum RunOutcome {
-    /// The model completed with a terminal finish reason.
+    /// The model stopped normally.
     Completed {
+        /// Most recent non-empty assistant response seen so far.
+        assistant_message: String,
+        /// Number of model rounds executed in the turn.
+        steps_taken: usize,
+    },
+    /// A token or context limit cut off the model response.
+    Truncated {
         /// Most recent non-empty assistant response seen so far.
         assistant_message: String,
         /// Number of model rounds executed in the turn.

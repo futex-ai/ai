@@ -84,6 +84,17 @@ pub struct ToolActivityLogEntry {
     pub phase: ToolActivityPhase,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Reason that a turn ended.
+pub enum TurnOutcome {
+    /// The model stopped normally.
+    Completed,
+    /// A token or context limit cut off the model response.
+    Truncated,
+    /// The runtime exhausted its step budget.
+    Capped,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 /// Terminal turn outcome log payload.
 pub struct TurnOutcomeLogEntry {
@@ -91,8 +102,8 @@ pub struct TurnOutcomeLogEntry {
     pub assistant_message: String,
     /// Number of model rounds executed in the turn.
     pub steps_taken: usize,
-    /// Whether the turn reached a terminal completion state.
-    pub completed: bool,
+    /// Reason that the turn ended.
+    pub outcome: TurnOutcome,
     /// Maximum step budget when one was configured.
     pub max_steps: Option<usize>,
 }

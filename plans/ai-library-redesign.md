@@ -163,7 +163,7 @@ answers that differ from the recommendation.
   and `Function`, and send `auto` for `RequiredOrAuto`. The alternatives
   were a live probe in addition, or the rule in catalog data at once. The
   recommendation was the live probe in addition.
-- Item 4, [Truncated answers end the turn as completed](follow-ups/tool-loop-hides-truncation.md):
+- Item 4, Truncated answers end the turn as completed, applied in Milestone 3:
   option B. Add a `Truncated` variant to `StepOutcome` and `RunOutcome`.
   The alternatives were a finish reason on `Completed`, or an automatic
   continuation. B was the recommendation, because every caller must then
@@ -373,7 +373,7 @@ Apply the answers to items 1 to 4 on today's types.
 - [ ] Item 3, option A: with thinking on, return `UnsupportedControl` for
       `Required` and `Function`, and send `auto` for `RequiredOrAuto`.
       Update the matrix in `provider-call-controls.md`.
-- [ ] Item 4, option B: add a `Truncated` variant to `StepOutcome` and
+- [x] Item 4, option B: add a `Truncated` variant to `StepOutcome` and
       `RunOutcome`. Mark that requirement implemented in `agent-loop.md`.
 - [ ] Delete each follow-up item in the commit that applies it.
 - [ ] Re-record the affected scenarios, and update their snapshots.

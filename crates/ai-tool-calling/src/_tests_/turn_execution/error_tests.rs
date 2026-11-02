@@ -6,7 +6,7 @@ use ai_interface::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
-use crate::{StepOutcome, Turn};
+use crate::{RunOutcome, StepOutcome, Turn};
 
 use super::super::support::{TypedEchoTool, runtime, user_message};
 
@@ -92,17 +92,31 @@ async fn non_tool_finish_reason_with_calls_is_a_model_error() {
 }
 
 #[tokio::test]
-async fn truncated_finish_reason_completes_the_turn() {
+async fn truncated_finish_reason_ends_the_turn_without_completion() {
     let model = single_response_model(model_response(FinishReason::Truncated, Vec::new()));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let outcome = turn.step().await.expect("step should complete");
+    let mut turn = runtime.send(user_message("start"), Some(1));
+    let outcome = turn
+        .step()
+        .await
+        .expect("step should return partial output");
 
-    assert!(matches!(
+    assert_eq!(
         outcome,
-        StepOutcome::Completed { steps_taken: 1, .. }
-    ));
+        StepOutcome::Truncated {
+            assistant_message: "done".to_owned(),
+            steps_taken: 1,
+        }
+    );
+    assert_eq!(
+        turn.run().await.unwrap(),
+        RunOutcome::Truncated {
+            assistant_message: "done".to_owned(),
+            steps_taken: 1,
+        }
+    );
+    assert_eq!(turn.step().await.unwrap(), outcome);
 }
 
 #[tokio::test]
