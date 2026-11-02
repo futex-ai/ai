@@ -165,6 +165,84 @@ async fn signed_tool_results_keep_provider_ids_in_mixed_calls() {
     );
 }
 
+#[tokio::test]
+async fn unsigned_google_continuations_join_text_before_calls() {
+    let first = json!({"text":"First"});
+    let second = json!({"text":"Second"});
+    let call = json!({"functionCall":{"id":"call-7","name":"lookup","args":{"id":7}}});
+    let joined = json!({"text":"First\nSecond"});
+    let mut actual = Vec::new();
+    let mut expected = Vec::new();
+    for (parts, finish, replay, text, calls) in [
+        (
+            json!([first, call, second]),
+            "STOP",
+            json!([joined, call]),
+            "First\nSecond",
+            1,
+        ),
+        (
+            json!([first, second, call]),
+            "STOP",
+            json!([joined, call]),
+            "First\nSecond",
+            1,
+        ),
+        (
+            json!([call, first]),
+            "STOP",
+            json!([first, call]),
+            "First",
+            1,
+        ),
+        (
+            json!([first, second]),
+            "STOP",
+            json!([joined]),
+            "First\nSecond",
+            0,
+        ),
+        (
+            json!([first, call, second]),
+            "MAX_TOKENS",
+            json!([joined]),
+            "First\nSecond",
+            0,
+        ),
+    ] {
+        let (client, requests) = recording_streaming_client(vec![
+            vec![event(
+                json!({"candidates":[{"content":{"parts":parts},"finishReason":finish}]}),
+            )],
+            vec![event(
+                json!({"candidates":[{"content":{"parts":[{"text":"Done"}]},"finishReason":"STOP"}]}),
+            )],
+        ]);
+        let model = GoogleModel::new(client, custom_spec("gemini-2.5-pro"), "key");
+        let mut request = simple_request();
+        let response = model.complete(&request).await.unwrap();
+        let assistant = response.to_assistant_message();
+        request
+            .messages
+            .push(serde_json::from_value(serde_json::to_value(assistant).unwrap()).unwrap());
+        for call in response.tool_calls() {
+            request
+                .messages
+                .push(ConversationMessage::tool("7", &call.name, &call.id));
+        }
+        model.complete(&request).await.unwrap();
+        let requests = requests.lock().unwrap();
+        actual.push(json!({
+            "source":parts,"finish":finish,"text":response.text(),"calls":response.tool_calls().len(),
+            "replay":requests[1].body.as_ref().unwrap()["contents"][1]["parts"]
+        }));
+        expected.push(
+            json!({"source":parts,"finish":finish,"text":text,"calls":calls,"replay":replay}),
+        );
+    }
+    assert_eq!(actual, expected);
+}
+
 async fn tool_follow_up(parts: Value) -> (Value, Vec<ToolCall>) {
     let (client, requests) = recording_streaming_client(vec![
         vec![event(

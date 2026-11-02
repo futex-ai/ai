@@ -36,10 +36,25 @@ pub(super) fn google_contents(
             continue;
         }
         let signed = states.iter().flatten().any(GooglePartState::has_signature);
+        let normalize_text = !signed
+            && message.role == ConversationRole::Assistant
+            && states
+                .iter()
+                .flatten()
+                .any(|state| state.scope == GoogleStateScope::NormalizedText);
         let preserve_empty_assistant =
             message.role == ConversationRole::Assistant && states.iter().any(Option::is_some);
         let mut parts = Vec::new();
+        if normalize_text {
+            let text = message.text();
+            if !text.is_empty() {
+                parts.push(text_part(&text));
+            }
+        }
         for (part, state) in message.parts.iter().zip(states) {
+            if normalize_text && matches!(part, ConversationPart::Text { .. }) {
+                continue;
+            }
             if let Some(state) = state {
                 let replay = if !signed && let Some(call) = state.unsigned_call {
                     vec![GoogleAssistantPart {

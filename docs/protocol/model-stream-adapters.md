@@ -13,7 +13,7 @@ transport rules of the HTTP component.
 | --- | --- | --- | --- |
 | Anthropic Messages | text, thinking, and tool-use content blocks | `message_stop` | reasoning parts: thinking and redacted-thinking blocks with signatures. Text parts: the original text block. Tool-call parts: the original tool-use block |
 | OpenAI Responses | output text and refusal text, reasoning summary or reasoning text, and function-call items | `response.completed` or `response.incomplete` | reasoning parts: item id, summary, and encrypted content. Text parts: message phase, or a message marker without a phase in a tool-call response. Tool-call parts: item id, call id, name, and raw argument text |
-| Google Gemini | candidate-zero parts: text, thought text, and function calls | end of stream after a finish reason or a prompt block | every part of a response with a thought signature: its original Gemini parts, with signatures, empty text, and signature-only parts. Every tool-call part: its original call and its runtime call, which a message without a signature replays |
+| Google Gemini | candidate-zero parts: text, thought text, and function calls | end of stream after a finish reason or a prompt block | every part of a response with a thought signature: its original Gemini parts, with signatures, empty text, and signature-only parts. Every tool-call part: its original call and its runtime call, which a message without a signature replays. First text part of an unsigned reply whose text follows a call or spans multiple blocks: a marker for replay of joined text before calls |
 
 - Anthropic and OpenAI send `"stream": true`. Google calls
   `:streamGenerateContent` with `alt=sse`.

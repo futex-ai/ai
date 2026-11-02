@@ -2,7 +2,9 @@
 
 use ai_interface::{ModelEvent, ProviderState};
 
-use super::super::state::{GoogleAssistantPart, GoogleFunctionCallContext, GooglePartState};
+use super::super::state::{
+    GoogleAssistantPart, GoogleFunctionCallContext, GooglePartState, GoogleStateScope,
+};
 use super::{part::AccumulatedPart, types::GoogleStreamError};
 
 #[derive(Debug, Default)]
@@ -77,7 +79,7 @@ impl ReplayParts {
             .iter()
             .any(|part| part.original.thought_signature.is_some())
         {
-            return Ok(Vec::new());
+            return self.unsigned_state_events(visible, model);
         }
         let mut targets = visible
             .iter()
@@ -125,6 +127,37 @@ impl ReplayParts {
             });
         }
         Ok(events)
+    }
+
+    fn unsigned_state_events(
+        &self,
+        visible: &[AccumulatedPart],
+        model: &str,
+    ) -> Result<Vec<ModelEvent>, GoogleStreamError> {
+        let mut text_indices = visible
+            .iter()
+            .filter_map(|part| part.assistant_text().and(part.part_index));
+        let Some(first_text) = text_indices.next() else {
+            return Ok(Vec::new());
+        };
+        let call_before_text = self.parts.iter().any(|part| {
+            part.original.function_call.is_some()
+                && part.owner.is_some_and(|index| index < first_text)
+        });
+        if text_indices.next().is_none() && !call_before_text {
+            return Ok(Vec::new());
+        }
+        let mut state = GooglePartState::new(Vec::new());
+        state.scope = GoogleStateScope::NormalizedText;
+        let state = match state.encode(model) {
+            Ok(state) => state,
+            Err(source) => return Err(GoogleStreamError::SerializeState { source }),
+        };
+        Ok(vec![ModelEvent::TextDelta {
+            part_index: first_text,
+            delta: String::new(),
+            provider_state: Some(state),
+        }])
     }
 
     fn part_state(&self, part_index: usize) -> GooglePartState {

@@ -103,6 +103,9 @@ for the old format, and log copies.
 
 - An adapter sends the messages of a request in order, and the parts of a
   message in order.
+- For unsigned replies from Anthropic or Google, replay sends joined answer
+  text as one text block before the calls. This replay rule takes
+  precedence over part order. Caller-created messages keep their part order.
 - An adapter replays all its own state, from any model of its provider.
 - An adapter ignores the provider state of every other provider.
 - An adapter still sends a text part or a tool-call part that carries the

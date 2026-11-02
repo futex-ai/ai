@@ -43,6 +43,7 @@ pub(super) enum GoogleStateScope {
     #[default]
     Message,
     Part,
+    NormalizedText,
 }
 
 impl GooglePartState {
