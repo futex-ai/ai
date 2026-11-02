@@ -1,6 +1,5 @@
 use ai_interface::{
-    ConversationMessage, ConversationRole, FinishReason, Model, ModelRequest,
-    StructuredOutputSchema, ToolDefinition,
+    ConversationMessage, FinishReason, Model, ModelRequest, StructuredOutputSchema, ToolDefinition,
 };
 use json_http::JsonHttpResponse;
 use serde_json::json;
@@ -40,15 +39,7 @@ async fn builds_google_tool_requests_and_parses_response() {
     let response = model
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
-            messages: vec![ConversationMessage {
-                role: ConversationRole::User,
-                content: "hello".to_owned(),
-                content_parts: Vec::new(),
-                name: None,
-                tool_call_id: None,
-                tool_calls: Vec::new(),
-                provider_context: Vec::new(),
-            }],
+            messages: vec![ConversationMessage::user("hello")],
             tools: vec![ToolDefinition {
                 name: "memory_read".to_owned(),
                 description: "Read memory".to_owned(),
@@ -83,10 +74,10 @@ async fn builds_google_tool_requests_and_parses_response() {
         "memory_read"
     );
 
-    assert_eq!(response.assistant_message, "Done");
+    assert_eq!(response.text(), "Done");
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
-    assert_eq!(response.tool_calls.len(), 1);
-    assert_eq!(response.tool_calls[0].name, "memory_read");
+    assert_eq!(response.tool_calls().len(), 1);
+    assert_eq!(response.tool_calls()[0].name, "memory_read");
     assert_eq!(response.structured_output, None);
     assert_eq!(response.usage.total_tokens, 152);
 }
@@ -117,8 +108,8 @@ async fn google_function_call_without_args_uses_empty_object_input() {
         .expect("Google no-arg function call should parse");
 
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
-    assert_eq!(response.tool_calls.len(), 1);
-    assert_eq!(response.tool_calls[0].input, json!({}));
+    assert_eq!(response.tool_calls().len(), 1);
+    assert_eq!(response.tool_calls()[0].input, json!({}));
 }
 
 #[tokio::test]

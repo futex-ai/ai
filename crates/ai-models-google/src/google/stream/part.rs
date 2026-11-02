@@ -1,6 +1,6 @@
 //! Visible Gemini content accumulation without replay signature boundaries.
 
-use ai_interface::GoogleAssistantPart;
+use super::super::state::GoogleAssistantPart;
 
 use super::types::GoogleStreamDelta;
 
@@ -83,6 +83,10 @@ impl AccumulatedPart {
             .text
             .as_deref()
             .filter(|text| self.part.thought != Some(true) && !text.trim().is_empty())
+    }
+
+    pub(super) fn is_reasoning(&self) -> bool {
+        self.part.thought == Some(true)
     }
 }
 

@@ -10,4 +10,6 @@ pub use catalog::{
     GEMINI_3_1_FLASH_IMAGE, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH, PROVIDER_ID,
     VEO_3_1_GENERATE_PREVIEW, known_models,
 };
-pub use google::{GoogleImageGenerator, GoogleModel, GoogleVideoGenerator};
+pub use google::{
+    GoogleImageGenerator, GoogleLegacyProviderConverter, GoogleModel, GoogleVideoGenerator,
+};

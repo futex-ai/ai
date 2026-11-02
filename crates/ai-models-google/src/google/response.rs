@@ -15,7 +15,7 @@ pub(super) fn terminal_events(
     thinking_level: Effort,
     completion: GoogleCompletion,
     response_schema: Option<&StructuredOutputSchema>,
-) -> ModelResult<[ModelEvent; 2]> {
+) -> ModelResult<Vec<ModelEvent>> {
     let finish_reason = if completion.candidate_seen {
         finish_reason(
             completion.finish_reason.as_deref(),
@@ -35,7 +35,8 @@ pub(super) fn terminal_events(
         }
         _ => None,
     };
-    Ok([
+    let mut events = completion.state_events;
+    events.extend([
         ModelEvent::Usage {
             usage: model_usage(completion.usage),
         },
@@ -46,9 +47,9 @@ pub(super) fn terminal_events(
             catalog_model_id: Some(catalog_model_id.to_owned()),
             thinking_level: Some(thinking_level),
             structured_output,
-            provider_context: completion.provider_context,
         },
-    ])
+    ]);
+    Ok(events)
 }
 
 fn finish_reason(value: Option<&str>, has_tool_calls: bool) -> FinishReason {

@@ -11,9 +11,12 @@ use super::GoogleModel;
 mod controls_tests;
 mod event_tests;
 mod finish_reason_tests;
+mod legacy_tests;
 mod lifecycle_tests;
 mod multimodal_tests;
 mod operation_id_tests;
+mod part_support;
+mod provider_state_tests;
 mod replay_tests;
 mod request_tests;
 #[cfg(test)]

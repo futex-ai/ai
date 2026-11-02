@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use ai_interface::{
-    FinishReason, Model, ModelCallControls, ModelExecutionControls, ModelUsage,
+    ConversationPart, FinishReason, Model, ModelCallControls, ModelExecutionControls, ModelUsage,
     StructuredOutputSchema, ToolCall,
 };
 use serde_json::{Value, json};
@@ -105,12 +105,30 @@ async fn merged_fragments_match_rich_buffered_response() {
             ..Default::default()
         },
     );
-    buffered.tool_calls = vec![ToolCall {
-        id: "google_function_call:2bb0037dd4a68f16".to_owned(),
-        name: "memory_read".to_owned(),
-        input: json!({"path": "root"}),
-        operation_id: Some("google_function_call:2bb0037dd4a68f16".to_owned()),
-    }];
+    buffered
+        .parts
+        .insert(0, ConversationPart::reasoning("hidden reasoning"));
+    buffered
+        .parts
+        .push(ConversationPart::from_tool_call(ToolCall {
+            id: "google_function_call:2bb0037dd4a68f16".to_owned(),
+            name: "memory_read".to_owned(),
+            input: json!({"path": "root"}),
+            operation_id: Some("google_function_call:2bb0037dd4a68f16".to_owned()),
+        }));
+    *buffered.parts.last_mut().unwrap().provider_state_mut() = Some(
+        serde_json::from_value(json!({
+            "provider": "google", "model": "gemini-3.6-flash", "version": 1,
+            "payload": {
+                "parts": [{"functionCall": {"name": "memory_read", "args": {"path": "root"}}}],
+                "unsigned_call": {
+                    "id": "google_function_call:2bb0037dd4a68f16", "name": "memory_read",
+                    "args": {"path": "root"}
+                }
+            }
+        }))
+        .unwrap(),
+    );
 
     assert_eq!(streamed, buffered);
     assert_eq!(streamed.finish_reason, FinishReason::ToolCalls);
@@ -212,10 +230,15 @@ async fn same_chunk_text_parts_preserve_buffered_boundaries() {
         .complete(&request)
         .await
         .expect("streamed text parts should parse");
-    let buffered = expected_response("First\nSecond", FinishReason::Stop, ModelUsage::default());
+    let mut buffered =
+        expected_response("First\nSecond", FinishReason::Stop, ModelUsage::default());
+    buffered.parts = vec![
+        ConversationPart::text("First"),
+        ConversationPart::text("\nSecond"),
+    ];
 
     assert_eq!(streamed, buffered);
-    assert_eq!(streamed.assistant_message, "First\nSecond");
+    assert_eq!(streamed.text(), "First\nSecond");
 }
 
 fn text_chunk(text: &str, finish_reason: Option<&str>) -> Value {

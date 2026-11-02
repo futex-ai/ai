@@ -43,7 +43,7 @@ async fn emits_thought_and_assistant_fragments_with_part_boundary_parity() {
             finish_event(None),
         ]
     );
-    assert_eq!(assistant_text(&events), response.assistant_message);
+    assert_eq!(assistant_text(&events), response.text());
 }
 
 #[tokio::test]

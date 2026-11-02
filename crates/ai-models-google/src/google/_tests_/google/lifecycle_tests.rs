@@ -36,7 +36,13 @@ async fn emits_complete_function_call_before_last_usage_and_finish() {
         vec![
             json!({"ToolCallStart": {"part_index": 0, "id": "call_1", "name": "status"}}),
             json!({"ToolCallArgumentsDelta": {"part_index": 0, "delta": "{}"}}),
-            json!({"ToolCallEnd": {"part_index": 0}}),
+            json!({"ToolCallEnd": {"part_index": 0, "provider_state": {
+                "provider": "google", "model": "gemini-3.6-flash", "version": 1,
+                "payload": {
+                    "parts": [{"text": "  "}, {"functionCall": {"id": "call_1", "name": "status"}}],
+                    "unsigned_call": {"id": "call_1", "name": "status", "args": {}}
+                }
+            }}}),
             json!({"Usage": {"usage": {
                 "input_tokens": 8, "output_tokens": 3, "cached_input_tokens": 2,
                 "reasoning_tokens": 4, "total_tokens": 17, "estimated_cost_microusd": 0

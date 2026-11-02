@@ -1,15 +1,19 @@
 //! Google Gemini generate-content model client.
 
+mod contents;
 mod image_generation;
+mod legacy;
 mod request;
 mod request_types;
 mod response;
+mod state;
 mod stream;
 mod thinking;
 mod tool_config;
 mod video_generation;
 
 pub use image_generation::GoogleImageGenerator;
+pub use legacy::GoogleLegacyProviderConverter;
 pub use video_generation::GoogleVideoGenerator;
 
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
@@ -98,7 +102,7 @@ impl Model for GoogleModel {
             &self.spec.provider_model_id,
             request,
             &controls,
-        )) {
+        )?) {
             Ok(builder) => builder,
             Err(source) => return Err(ModelError::internal(source)),
         };

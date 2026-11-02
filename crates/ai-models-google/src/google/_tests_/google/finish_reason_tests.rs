@@ -127,7 +127,7 @@ async fn google_filtered_candidates_without_content_still_surface_finish_reason(
         .expect("Google response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::Filtered);
-    assert!(response.assistant_message.is_empty());
+    assert!(response.text().is_empty());
 }
 
 #[tokio::test]
@@ -157,7 +157,7 @@ async fn google_terminal_finish_with_function_call_suppresses_tool_calls() {
         .expect("Google terminal response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::Truncated);
-    assert!(response.tool_calls.is_empty());
+    assert!(response.tool_calls().is_empty());
 }
 
 #[tokio::test]
@@ -183,7 +183,7 @@ async fn google_prompt_block_without_candidates_surfaces_filtered_finish_reason(
         .expect("Google prompt block should parse as a filtered response");
 
     assert_eq!(response.finish_reason, FinishReason::Filtered);
-    assert!(response.assistant_message.is_empty());
+    assert!(response.text().is_empty());
     assert_eq!(response.usage.input_tokens, 7);
     assert_eq!(response.usage.total_tokens, 7);
 }

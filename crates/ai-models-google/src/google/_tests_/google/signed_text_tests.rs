@@ -5,7 +5,7 @@ use ai_models_core::test_support::collect_model_events;
 use serde_json::{Value, json};
 
 use super::stream_support::custom_spec;
-use super::{GoogleModel, simple_request, stream_support};
+use super::{GoogleModel, part_support::original_parts, simple_request, stream_support};
 
 #[tokio::test]
 async fn signed_chunk_continues_previous_text_in_events_and_answer() {
@@ -87,7 +87,7 @@ async fn schema_boolean_split_at_signed_boundary_emits_text_and_parses() {
     assert!(result.is_ok(), "signed JSON must parse: {result:?}");
     let response = result.unwrap();
     assert_eq!(response.structured_output, Some(json!({"ok": true})));
-    assert_eq!(response.assistant_message, "{\"ok\":true}");
+    assert_eq!(response.text(), "{\"ok\":true}");
     assert_eq!(
         text_events(events),
         vec![
@@ -113,13 +113,10 @@ async fn assert_signed_text(
         .collect::<Vec<_>>();
 
     assert_eq!(
-        (text_events(events), response.assistant_message),
+        (text_events(events), response.text()),
         (expected_events, expected_answer.to_owned())
     );
-    assert_eq!(
-        serde_json::to_value(response.provider_context).unwrap(),
-        json!([{"type": "google_assistant_message", "parts": replay_parts}])
-    );
+    assert_eq!(original_parts(&response), replay_parts);
 }
 
 fn text_stream(chunks: Vec<Value>) -> Vec<stream_support::StreamItem> {
@@ -136,6 +133,12 @@ fn text_stream(chunks: Vec<Value>) -> Vec<stream_support::StreamItem> {
 fn text_events(events: Vec<Value>) -> Vec<Value> {
     events
         .into_iter()
-        .filter(|event| event.get("TextDelta").is_some())
+        .filter(|event| {
+            event
+                .get("TextDelta")
+                .and_then(|delta| delta.get("delta"))
+                .and_then(Value::as_str)
+                .is_some_and(|text| !text.is_empty())
+        })
         .collect()
 }

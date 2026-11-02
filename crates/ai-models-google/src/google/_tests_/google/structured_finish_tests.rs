@@ -21,7 +21,7 @@ async fn structured_output_filter_preserves_filtered_finish_reason() {
 
     assert_eq!(response.finish_reason, FinishReason::Filtered);
     assert_eq!(response.structured_output, None);
-    assert!(response.assistant_message.is_empty());
+    assert!(response.text().is_empty());
 }
 
 #[tokio::test]
@@ -42,7 +42,7 @@ async fn structured_output_truncation_preserves_truncated_finish_reason() {
 
     assert_eq!(response.finish_reason, FinishReason::Truncated);
     assert_eq!(response.structured_output, None);
-    assert_eq!(response.assistant_message, "{\"summary\":");
+    assert_eq!(response.text(), "{\"summary\":");
 }
 
 fn status_schema() -> StructuredOutputSchema {

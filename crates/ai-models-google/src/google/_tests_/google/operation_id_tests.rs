@@ -11,8 +11,8 @@ use super::{GoogleModel, recording_http_client};
 async fn no_id_function_calls_get_request_scoped_operation_ids() {
     let first = complete_no_id_tool_call("first request").await;
     let second = complete_no_id_tool_call("second request").await;
-    let first_call = &first.tool_calls[0];
-    let second_call = &second.tool_calls[0];
+    let first_call = &first.tool_calls()[0];
+    let second_call = &second.tool_calls()[0];
 
     assert_ne!(first_call.id, second_call.id);
     assert_eq!(

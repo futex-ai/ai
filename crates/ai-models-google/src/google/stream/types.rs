@@ -1,9 +1,11 @@
 //! Typed Google generate-content stream chunks and failures.
 
-use ai_interface::{GoogleAssistantPart, ModelEvent, ProviderConversationItem};
+use ai_interface::ModelEvent;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use thiserror::Error;
+
+use super::super::state::GoogleAssistantPart;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct GoogleStreamChunk {
@@ -79,12 +81,12 @@ pub(super) enum GoogleStreamUpdate {
 
 #[derive(Debug)]
 pub(in crate::google) struct GoogleCompletion {
+    pub(in crate::google) state_events: Vec<ModelEvent>,
     pub(in crate::google) candidate_seen: bool,
     pub(in crate::google) assistant_message: String,
     pub(in crate::google) tool_call_count: usize,
     pub(in crate::google) finish_reason: Option<String>,
     pub(in crate::google) usage: GoogleUsageMetadata,
-    pub(in crate::google) provider_context: Vec<ProviderConversationItem>,
 }
 
 #[derive(Debug)]
@@ -97,6 +99,8 @@ pub(super) enum GoogleStreamDelta {
 pub(super) enum GoogleStreamError {
     #[error("[ai_models_google/stream] invalid chunk JSON: {source}")]
     DeserializeChunk { source: serde_json::Error },
+    #[error("[ai_models_google/stream] invalid replay state: {source}")]
+    SerializeState { source: serde_json::Error },
     #[error("[ai_models_google/stream] provider error HTTP {code} ({status:?}): {message}")]
     ProviderEvent {
         code: u16,

@@ -31,7 +31,10 @@ pub(in crate::google) fn open(
 ) -> DynModelEventStream {
     Box::new(GoogleEventStream {
         stream: Some(stream),
-        accumulator: GoogleStreamAccumulator::new(synthetic_tool_call_scope),
+        accumulator: GoogleStreamAccumulator::new(
+            synthetic_tool_call_scope,
+            provider_model_id.clone(),
+        ),
         pending: VecDeque::new(),
         events_received: 0,
         catalog_model_id,

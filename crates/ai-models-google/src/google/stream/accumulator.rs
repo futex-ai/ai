@@ -4,6 +4,8 @@ use ai_interface::ModelEvent;
 use ai_models_core::synthetic_tool_call_id;
 use serde_json::{Map, Value};
 
+use super::super::state::GoogleFunctionCallContext;
+
 use super::{
     part::AccumulatedPart,
     replay::ReplayParts,
@@ -25,12 +27,14 @@ pub(super) struct GoogleStreamAccumulator {
     next_part_index: usize,
     tool_call_count: usize,
     synthetic_tool_call_scope: String,
+    model_id: String,
 }
 
 impl GoogleStreamAccumulator {
-    pub(super) fn new(synthetic_tool_call_scope: String) -> Self {
+    pub(super) fn new(synthetic_tool_call_scope: String, model_id: String) -> Self {
         Self {
             synthetic_tool_call_scope,
+            model_id,
             ..Self::default()
         }
     }
@@ -57,12 +61,15 @@ impl GoogleStreamAccumulator {
             self.candidate_seen = true;
             if let Some(content) = candidate.content {
                 for (index, part) in content.parts.into_iter().enumerate() {
-                    self.replay_parts.append(part.clone(), index == 0);
+                    let original = part.clone();
                     let call = part.function_call.clone();
+                    let mut owner = None;
                     if let Some((slot, Some(delta))) =
                         AccumulatedPart::append(&mut self.visible_parts, part, index == 0)
                     {
-                        events.push(self.text_event(slot, delta));
+                        let event = self.text_event(slot, delta);
+                        owner = self.visible_parts[slot].part_index;
+                        events.push(event);
                     }
                     if let Some(call) = call {
                         let input = call.args.unwrap_or_else(|| Value::Object(Map::new()));
@@ -83,6 +90,17 @@ impl GoogleStreamAccumulator {
                         let part_index = self.next_part_index;
                         self.next_part_index = self.next_part_index.saturating_add(1);
                         self.tool_call_count = self.tool_call_count.saturating_add(1);
+                        self.replay_parts
+                            .append(original, index == 0, Some(part_index));
+                        let provider_state = Some(self.replay_parts.tool_state(
+                            part_index,
+                            &self.model_id,
+                            GoogleFunctionCallContext {
+                                id: Some(id.clone()),
+                                name: call.name.clone(),
+                                args: Some(input),
+                            },
+                        )?);
                         events.extend([
                             ModelEvent::ToolCallStart {
                                 part_index,
@@ -94,8 +112,13 @@ impl GoogleStreamAccumulator {
                                 part_index,
                                 delta: arguments,
                             },
-                            ModelEvent::ToolCallEnd { part_index },
+                            ModelEvent::ToolCallEnd {
+                                part_index,
+                                provider_state,
+                            },
                         ]);
+                    } else {
+                        self.replay_parts.append(original, index == 0, owner);
                     }
                 }
             }
@@ -128,15 +151,21 @@ impl GoogleStreamAccumulator {
                     }
                     self.assistant_parts_emitted = self.assistant_parts_emitted.saturating_add(1);
                 }
-                ModelEvent::TextDelta { part_index, delta }
+                ModelEvent::TextDelta {
+                    part_index,
+                    delta,
+                    provider_state: None,
+                }
             }
-            GoogleStreamDelta::ReasoningText { delta } => {
-                ModelEvent::ReasoningDelta { part_index, delta }
-            }
+            GoogleStreamDelta::ReasoningText { delta } => ModelEvent::ReasoningDelta {
+                part_index,
+                delta,
+                provider_state: None,
+            },
         }
     }
 
-    pub(super) fn finish(&self) -> Result<GoogleCompletion, GoogleStreamError> {
+    pub(super) fn finish(&mut self) -> Result<GoogleCompletion, GoogleStreamError> {
         let prompt_blocked = self
             .prompt_feedback
             .as_ref()
@@ -146,6 +175,11 @@ impl GoogleStreamAccumulator {
             return Err(GoogleStreamError::MissingTerminal);
         }
         Ok(GoogleCompletion {
+            state_events: self.replay_parts.state_events(
+                &self.visible_parts,
+                &mut self.next_part_index,
+                &self.model_id,
+            )?,
             candidate_seen: self.candidate_seen,
             assistant_message: self
                 .visible_parts
@@ -156,7 +190,6 @@ impl GoogleStreamAccumulator {
             tool_call_count: self.tool_call_count,
             finish_reason: self.finish_reason.clone(),
             usage: self.usage.clone().unwrap_or_default(),
-            provider_context: self.replay_parts.provider_context(),
         })
     }
 }

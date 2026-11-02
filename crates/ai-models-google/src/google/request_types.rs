@@ -1,10 +1,11 @@
 //! Typed Gemini request bodies.
 
-use ai_interface::GoogleAssistantPart;
 use serde::Serialize;
 use serde_json::Value;
 
-use super::{thinking::GoogleThinkingConfig, tool_config::GoogleToolConfig};
+use super::{
+    state::GoogleAssistantPart, thinking::GoogleThinkingConfig, tool_config::GoogleToolConfig,
+};
 
 #[derive(Debug, Serialize)]
 pub(super) struct GoogleRequest {
