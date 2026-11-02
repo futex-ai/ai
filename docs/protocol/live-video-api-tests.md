@@ -15,10 +15,11 @@ not replace detailed request, polling, timeout, or error-mapping tests.
 ## Scope
 
 The initial providers are Google and OpenAI because they currently implement
-`VideoGenerator`. Each provider test loads `known_models()` and selects every
-entry advertising `ModelFeature::VideoGeneration`, so catalog additions receive
-live coverage automatically. A credential-free guard fails when any
-video-capable catalog provider lacks a registered adapter or workflow entry.
+`VideoGenerator`. Each provider test loads the specs of its crate's `CATALOG`
+and selects every spec advertising `ModelFeature::VideoGeneration`, so
+catalog additions receive live coverage automatically. A credential-free
+guard fails when any video-capable catalog provider lacks a registered
+adapter or workflow entry.
 
 The live probe covers text-to-video only. First-frame input, editing,
 extensions, multiple outputs, progress, cancellation, visual fidelity, audio

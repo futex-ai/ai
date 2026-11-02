@@ -15,8 +15,8 @@ mapping tests.
 ## Scope
 
 The initial provider set is Google and OpenAI because those are the providers
-that currently implement `ImageGenerator`. Each provider test obtains entries
-from its crate's `known_models()` and selects every entry advertising
+that currently implement `ImageGenerator`. Each provider test obtains the specs
+of its crate's `CATALOG` and selects every spec advertising
 `ModelFeature::ImageGeneration`. Adding an image model to an existing catalog
 therefore adds live coverage automatically. A credential-free guard fails when
 an image-capable catalog provider has no registered live-image adapter or CI
@@ -126,7 +126,7 @@ cargo test --locked -p xtask --test live_images
 ## Extending Coverage
 
 Adding an image-capable catalog entry to Google or OpenAI requires no workflow
-change: the provider's `known_models()` result is filtered by
+change: the provider's `CATALOG` is filtered by
 `ModelFeature::ImageGeneration` automatically. The credential-free registry
 test must continue to pass, proving the entry can construct the production
 adapter through `DynImageGenerator`.
@@ -134,7 +134,7 @@ adapter through `DynImageGenerator`.
 Adding another image provider requires all of the following in the same change:
 
 1. Implement `ImageGenerator` and advertise every image model in that provider's
-   `known_models()` catalog.
+   `CATALOG`.
 2. Add the provider catalog to the all-provider coverage guard and add its
    identity, authentication, adapter construction, test name, and secret name
    to `LiveImageProvider`.

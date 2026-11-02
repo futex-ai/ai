@@ -1,14 +1,12 @@
 # Model Capabilities Protocol
 
-Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
-
-When implemented, this protocol replaces the thinking-level resolution
-section and the provider matrix of
-[provider-call-controls.md](provider-call-controls.md).
+Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
 This protocol defines model specs, provider ids, text ids, custom specs,
 effort, the capability check, and the control matrix. The portable controls
-themselves stay in [provider call controls](provider-call-controls.md).
+themselves stay in [provider call controls](provider-call-controls.md). That
+protocol points here for effort resolution and for the control rules of
+each model.
 
 ## Model specs
 
@@ -21,6 +19,7 @@ a spec for short.
 | Provider model id | The model id that the adapter sends to the provider |
 | Context window | The total context tokens that the provider documents, or 0 when unknown |
 | Max output | The largest output-token limit that the provider accepts for the model |
+| Output limit required | Whether the provider requires an output limit on every request |
 | Efforts | The ordered set of efforts that the model supports. It is never empty |
 | Default effort | The effort of a request that sets none. It is one of the efforts |
 | Forced tool choice | The forced-tool-choice rule of the model |
@@ -34,8 +33,8 @@ a spec for short.
 - The speed tiers are slow, medium, fast, and very fast. The cost tiers are
   low, medium, high, and premium.
 - The routing tiers describe the model at its default effort.
-- The replay need is data for callers and for the test kit. The conformance
-  runner checks replay for each spec that has the replay need.
+- The replay need is data for callers and for the test kit. The planned
+  conformance milestone checks replay for each spec that has this need.
 - Model specs hold no prices. Decision: prices come from the deployment, as
   [model policies](model-policies.md) says, because deployment prices
   change without a release. The rejected alternative put prices in specs.
@@ -45,13 +44,15 @@ a spec for short.
 - Each provider crate exports one constant for each spec and a `CATALOG`
   slice of its specs.
 - A catalog lists each provider model id once.
-- `catalog()` combines the catalogs of the providers that the registry
-  includes.
+- `ModelCatalog` combines the catalogs of several providers. It keeps the
+  specs in the order in which the host adds them.
+- The [registry](provider-registry.md) combines the catalogs of the
+  providers that it includes.
 - Decision: the request carries the effort, and a catalog lists one spec for
   each provider model. The rejected alternative was one catalog entry for
-  each thinking level, such as `claude-opus-5-thinking-max`. That repeated
-  the facts of a model in each entry and fixed the effort when the host
-  built the model.
+  each pair of a provider model and a thinking level. That repeated the
+  facts of a model in each entry and fixed the effort when the host built
+  the model.
 
 ## Provider ids
 
@@ -59,8 +60,9 @@ a spec for short.
   provider state and host configs hold it.
 - The provider ids are `anthropic`, `deepseek`, `google`, `kimi`, `minimax`,
   `mock`, `openai`, `qwen`, `typesafe`, and `xai`.
-- Each provider crate defines the `ProviderId` constant of its provider. The
-  contracts define only the `mock` id of their test model.
+- Each provider crate defines the `ProviderId` constant of each provider
+  that it serves. The contracts define only the `mock` id of their test
+  model.
 - Decision: provider ids are constants of the provider crates. The rejected
   alternative was one enum of every provider in the contracts, which made
   the contracts name every provider.
@@ -72,7 +74,8 @@ a spec for short.
 - The provider id ends at the first slash. The model part can hold more
   slashes.
 - Text ids are case-sensitive.
-- `catalog().find(text_id)` returns the spec with that text id, or none.
+- `find(text_id)` on a combined catalog returns the spec with that text id,
+  or none.
 - `find` reads only the catalogs. It sends no request.
 - Hosts resolve text ids to specs when they load their configuration. A
   built model holds its spec and never resolves a text id again.
@@ -81,8 +84,11 @@ a spec for short.
 
 ## Custom specs
 
-- `ModelSpec::custom` builds a spec from a provider id and a provider model
-  id for a model that no catalog lists.
+- Each provider crate exports the custom defaults of each provider that it
+  serves.
+- `ModelSpec::custom` builds a spec from a provider id, a provider model id,
+  and the custom defaults of that provider, for a model that no catalog
+  lists.
 - The caller can set every other field of a custom spec.
 - Each field that the caller does not set takes the custom default of the
   provider.
@@ -90,9 +96,8 @@ a spec for short.
   requires an output limit on every request.
 - A custom spec has no features and no routing tiers until the caller sets
   them.
-- A custom spec with a provider id that the registry does not include fails
-  when the registry builds it, as the
-  [provider registry protocol](provider-registry.md) says.
+- The [provider registry protocol](provider-registry.md) says how the
+  registry treats a custom spec of a provider that it does not include.
 
 ## Effort
 
@@ -105,7 +110,9 @@ a spec for short.
   list to the highest listed effort below it.
 - The check never raises an effort. When no listed effort is at or below the
   request, the call fails with the unsupported control kind for effort.
-- The finish event and the response record the resolved effort.
+- The response of an adapter records the resolved effort and the text id of
+  its spec. The [model stream protocol](model-stream.md) puts the resolved
+  effort on its finish event.
 - Each adapter maps each effort to the wire fields of its provider.
 - Decision: the check lowers and never raises. The rejected alternative
   raised to the nearest effort, which can add cost that the caller did not
@@ -113,22 +120,20 @@ a spec for short.
 
 ## Capability check
 
-Every adapter applies the capability check before transport, with the same
-rules for every provider. The check reads the request and the spec. It
-either fails with the unsupported control kind or gives the resolved
-controls. The adapter sends exactly the resolved controls.
+Every `Model` adapter applies the capability check before transport, with
+the same rules for every provider. The check reads the request and the
+spec. It either fails with the unsupported control kind or gives the
+resolved controls. The adapter sends exactly the resolved controls.
 
 | Control | Rule |
 | --- | --- |
 | Effort | The effort rules above. |
-| Output limit | A limit above the max output becomes the max output. A request without a limit keeps none. |
+| Output limit | A limit above the max output becomes the max output. A request without a limit keeps none, unless the spec requires an output limit. Then the limit is the max output. |
 | Temperature and top-p | Sent when sampling is adjustable. Left out, also when requested, while sampling is fixed. |
 | Stop sequences | A non-empty list fails when the spec does not support stop sequences. |
 | Tool choice | The tool-choice rules below. |
 | Completion mode | Synchronous uses the synchronous lifecycle. Prefer deferred uses the deferred lifecycle when the spec has one, and the synchronous lifecycle otherwise. Require deferred fails when the spec has none. |
 
-- An adapter whose provider requires an output limit sends the max output
-  when the request has no limit.
 - Decision: the max output of each spec is the ceiling of every request and
   the default limit where the provider requires a limit. The rejected
   alternatives were these:
@@ -182,4 +187,55 @@ the generated section is committed. Do not edit it by hand.
 - Decision: no CI step compares the committed matrix with the generator
   output. The rejected alternative was such a step, which is a new gate.
 
-Milestone 5 of the plan generates the first content of this section.
+<!-- capability-matrix:start -->
+
+Bold effort marks the default effort. `default` marks an output limit sent when the request omits one.
+`u32::MAX` adds no output ceiling beyond the request type. Context 0 means unknown.
+
+| Text id | Efforts | Max output | Context | Sampling | Stops | Forced tools | Deferred | Replay efforts |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `anthropic/claude-sonnet-5` | **high** | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | high |
+| `anthropic/claude-opus-5` | **high**, max | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | high, max |
+| `anthropic/claude-fable-5` | **high** | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | high |
+| `anthropic/claude-sonnet-4-6` | **disabled** | 128000 default | 200000 | fixed while thinking | yes | only without thinking | no | none |
+| `anthropic/claude-opus-4-7` | **disabled**, max | 128000 default | 200000 | fixed while thinking | yes | only without thinking | no | max |
+| `anthropic/claude-haiku-4-5` | **disabled** | 64000 default | 200000 | fixed while thinking | yes | only without thinking | no | none |
+| `anthropic/custom` | **disabled**, low, medium, high, extra_high, max | 64000 default | 0 | fixed while thinking | yes | only without thinking | no | low, medium, high, extra_high, max |
+| `deepseek/deepseek-v4-pro` | disabled, **high**, max | 393216 | 1000000 | fixed while thinking | yes | only without thinking | no | high, max |
+| `deepseek/deepseek-v4-flash` | disabled, **high**, max | 393216 | 1000000 | fixed while thinking | yes | only without thinking | no | high, max |
+| `deepseek/custom` | disabled, **high**, max | 393216 | 0 | fixed while thinking | yes | only without thinking | no | high, max |
+| `google/gemini-3.6-flash` | **medium**, high | 65536 | 1048576 | adjustable | yes | always | no | medium, high |
+| `google/gemini-3.5-flash-lite` | **disabled** | 65536 | 1048576 | adjustable | yes | always | no | disabled |
+| `google/gemini-3.1-flash-image` | **disabled** | 0 | 131072 | adjustable | yes | always | no | none |
+| `google/veo-3.1-generate-preview` | **disabled** | 0 | 1024 | adjustable | yes | always | no | none |
+| `google/custom` | **disabled**, low, medium, high, extra_high, max | u32::MAX | 0 | adjustable | yes | always | no | disabled, low, medium, high, extra_high, max |
+| `kimi/kimi-k3` | low, high, **max** | 131072 | 1000000 | fixed | yes | always | no | low, high, max |
+| `kimi/custom` | low, high, **max** | 131072 | 0 | fixed | yes | always | no | low, high, max |
+| `minimax/MiniMax-M3` | disabled, **medium** | 512000 | 1000000 | adjustable | no | required only | no | medium |
+| `minimax/MiniMax-M2.7` | **medium** | 131072 | 204800 | adjustable | no | never | no | medium |
+| `minimax/MiniMax-M2.7-highspeed` | **medium** | 131072 | 204800 | adjustable | no | never | no | medium |
+| `minimax/custom` | disabled, low, **medium**, high, extra_high, max | u32::MAX | 0 | adjustable | no | never | no | low, medium, high, extra_high, max |
+| `mock/mock` | **disabled** | 128000 | 128000 | adjustable | yes | always | no | none |
+| `mock/custom` | **disabled** | 128000 | 128000 | adjustable | yes | always | no | none |
+| `openai/gpt-5.6-sol` | low, **medium**, high, extra_high, max | 128000 | 1050000 | fixed while thinking | no | always | no | low, medium, high, extra_high, max |
+| `openai/gpt-5.6-terra` | **medium** | 128000 | 1050000 | fixed while thinking | no | always | no | medium |
+| `openai/gpt-5.6-luna` | **medium** | 128000 | 1050000 | fixed while thinking | no | always | no | medium |
+| `openai/gpt-5.5` | low, **medium**, high, extra_high | 128000 | 400000 | fixed while thinking | no | always | no | low, medium, high, extra_high |
+| `openai/gpt-5.4-mini` | **disabled** | 128000 | 400000 | fixed while thinking | no | always | no | disabled |
+| `openai/gpt-5.4-nano` | **disabled** | 128000 | 400000 | fixed while thinking | no | always | no | disabled |
+| `openai/gpt-image-2` | **disabled** | 0 | 0 | fixed while thinking | no | always | no | none |
+| `openai/sora-2` | **disabled** | 0 | 0 | fixed while thinking | no | always | no | none |
+| `openai/custom` | **disabled**, low, medium, high, extra_high, max | u32::MAX | 0 | fixed while thinking | no | always | no | disabled, low, medium, high, extra_high, max |
+| `qwen/qwen3.7-max` | disabled, **high** | 65536 | 1000000 | fixed while thinking | yes | only without thinking | no | high |
+| `qwen/qwen3.7-plus` | disabled, **high** | 65536 | 1000000 | fixed while thinking | yes | only without thinking | no | high |
+| `qwen/qwen3.7-flash` | disabled, **high** | 65536 | 1000000 | fixed while thinking | yes | only without thinking | no | high |
+| `qwen/custom` | disabled, **high** | 65536 | 0 | fixed while thinking | yes | only without thinking | no | high |
+| `typesafe/jev-latest` | **disabled** | 0 | 64000 | fixed | no | never | no | none |
+| `typesafe/jev-1.13.0` | **disabled** | 0 | 64000 | fixed | no | never | no | none |
+| `typesafe/custom` | **disabled** | 0 | 0 | fixed | no | never | no | none |
+| `xai/grok-4.5` | low, medium, **high** | 500000 | 500000 | adjustable | yes | always | yes | none |
+| `xai/grok-4.20-reasoning` | **high** | 1000000 | 1000000 | adjustable | yes | always | yes | none |
+| `xai/grok-4.20` | **disabled** | 1000000 | 1000000 | adjustable | yes | always | yes | none |
+| `xai/custom` | **disabled**, low, medium, high, extra_high, max | u32::MAX | 0 | adjustable | yes | always | yes | none |
+
+<!-- capability-matrix:end -->

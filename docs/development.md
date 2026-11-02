@@ -1,0 +1,126 @@
+# Development
+
+This page describes the credentialed live checks and the CI workflows of the
+workspace. The [workspace README](../README.md) gives the short
+getting-started commands. The protocol docs under [`protocol/`](protocol/)
+hold the requirements of each live suite.
+
+## Live model checks
+
+Credentialed model checks live in `xtask/tests/live_models.rs`. They construct
+provider adapters only at the composition boundary. They then call each
+chat-capable model spec once for each effort that the spec lists, with the
+default effort first, through the same `DynModel` and `ToolCallingRuntime`
+path with portable controls. A test-only model wrapper opts those calls into
+`complete_with_events`: each provider first proves synchronous
+assistant-delta parity on its first chat spec at its default effort, every
+synchronous catalog call retains terminal parity, and xAI's deferred catalog
+calls prove event silence. Run the credential-free catalog, event-policy,
+bridge, validation, and workflow guards with:
+
+```sh
+cargo test --locked -p xtask --test live_models
+```
+
+To test one provider against the real API, set `LIVE_MODEL_API_KEY` and run the
+corresponding ignored test, for example:
+
+```sh
+LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_models \
+  openai_catalog -- --ignored --exact --nocapture
+```
+
+These calls are billable. The dedicated `Live model APIs` workflow runs all
+eight provider catalogs for same-repository pull requests, every day, and on
+manual dispatch. It requires the repository Actions secrets
+`ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`,
+`GOOGLE_API_KEY`, `KIMI_API_KEY`, `MINIMAX_API_KEY`, `OPENAI_API_KEY`,
+`QWEN_API_KEY`, and `XAI_API_KEY`. On an eligible run, a missing secret fails
+its provider job. The [live model API test protocol](protocol/live-model-api-tests.md)
+defines the probes and their success contract.
+
+## Live image checks
+
+Credentialed image checks live in `xtask/tests/live_images/mod.rs`. They select
+every Google and OpenAI catalog spec advertising `ImageGeneration`, construct
+the production adapter behind `DynImageGenerator`, and request one square image
+per attempt. Run the credential-free guards or one billable provider catalog
+with:
+
+```sh
+cargo test --locked -p xtask --test live_images
+LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
+  --test live_images catalog_tests::openai_image_catalog \
+  -- --ignored --exact --nocapture
+```
+
+The `Live image APIs` workflow runs both provider catalogs for trusted
+same-repository pull requests, daily, and on manual dispatch. It uses
+`GOOGLE_API_KEY` and `OPENAI_API_KEY`, runs providers sequentially, and may make
+up to three billable attempts per catalog model after transient failures.
+
+## Live judgment checks
+
+Credentialed judgment checks live in `xtask/tests/live_judgments/mod.rs`. They
+select every TypeSafe catalog spec advertising `Judgment`, construct the
+production adapter behind `DynJudgmentModel`, and evaluate one short support
+message against condition, choice, and a fully described score rubric. Run the
+credential-free guards or the billable TypeSafe catalog with:
+
+```sh
+cargo test --locked -p xtask --test live_judgments
+LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
+  --test live_judgments catalog_tests::typesafe_judgment_catalog \
+  -- --ignored --exact --nocapture
+```
+
+The `Live judgment APIs` workflow runs the TypeSafe catalog sequentially for
+trusted same-repository pull requests, daily, and on manual dispatch after the
+repository variable `LIVE_JUDGMENT_API_TESTS_ENABLED` is set to `true`. Enable
+it only after provisioning `TYPESAFE_API_KEY`; once enabled, a missing secret
+fails the job. The workflow may make up to three billable attempts per catalog
+model after transient failures.
+
+## Live video checks
+
+Credentialed video checks live in `xtask/tests/live_videos/mod.rs`. They select
+every Google and OpenAI catalog spec advertising `VideoGeneration`, construct
+the production adapter behind `DynVideoGenerator`, and request one four-second
+720p landscape MP4. Run the credential-free guards or one billable provider
+catalog with:
+
+```sh
+cargo test --locked -p xtask --test live_videos
+LIVE_VIDEO_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
+  --test live_videos catalog_tests::openai_video_catalog \
+  -- --ignored --exact --nocapture
+```
+
+The `Live video APIs` workflow runs both provider catalogs sequentially for
+trusted same-repository pull requests, daily, and on manual dispatch. It uses
+`GOOGLE_API_KEY` and `OPENAI_API_KEY`. Video jobs are not automatically retried
+after submission because a transport failure can leave a billable job running.
+
+## CI
+
+GitHub Actions runs the same Rust verification expected locally on pull requests
+and pushes to `main`: formatting, Clippy, tests, Rust file-length lint,
+credential-free smoke tests, and `cargo xtask check`. Limiting push-triggered CI
+to `main` prevents an open pull request from running the same commit once for
+the branch push and again for the pull-request event. The separate `Live model
+APIs` workflow makes billable calls through the production adapters for each
+listed effort of every chat-capable catalog spec through the generic
+tool-calling runtime on eligible pull requests as well as its daily schedule
+and manual dispatch. The separate
+`Live image APIs` workflow exercises every Google and OpenAI image-capable
+catalog spec through `DynImageGenerator` with image-specific validation and
+sequential provider jobs. The `Live video APIs` workflow similarly exercises
+every Google and OpenAI video-capable spec through `DynVideoGenerator`, with
+MP4-specific validation and no asset persistence. The `Live judgment APIs`
+workflow exercises every TypeSafe Jev catalog spec through `DynJudgmentModel`
+with `TYPESAFE_API_KEY`, shared answer validation, and sequential retries once
+`LIVE_JUDGMENT_API_TESTS_ENABLED` opts the repository into those billable
+checks. Forked and Dependabot pull requests skip all credentialed workflows
+because GitHub does not provide them repository Actions secrets. The ordinary
+credential-free suite still enforces the live model registry and
+completion-event coverage policy without making provider calls.

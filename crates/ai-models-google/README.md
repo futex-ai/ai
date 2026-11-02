@@ -10,7 +10,8 @@ neighboring crates.
 - Implement the Google model client behind `ai_interface::Model`
 - Implement the Google image client behind `ai_interface::ImageGenerator`
 - Implement the Google video client behind `ai_interface::VideoGenerator`
-- Export strongly typed known Google model metadata for model routing
+- Export the Google `PROVIDER_ID`, one `ModelSpec` constant for each known
+  model, the `CATALOG` slice, and the `CUSTOM_DEFAULTS` of unlisted models
 - Map shared model/tool DTOs to the Google `generateContent` API
 - Consume Gemini `streamGenerateContent` SSE response fragments
 - Emit public assistant and thought text deltas in provider order
@@ -20,7 +21,9 @@ neighboring crates.
 
 ## What This Crate Does
 
-`GoogleModel` accepts a `json-http` client plus explicit auth input and handles:
+`GoogleModel` accepts a `json-http` client, a `ModelSpec`, and explicit auth
+input. Each call runs the shared capability check of `ai-models-core`
+against the spec before transport. The adapter handles:
 
 - Gemini request serialization through `streamGenerateContent?alt=sse`
 - opt-in `complete_with_events` delivery for candidate text and thought parts,
@@ -55,10 +58,11 @@ neighboring crates.
   and operation ids when Gemini omits `functionCall.id`, preventing distinct
   no-id calls from sharing runtime idempotency keys
 - Gemini `generationConfig.responseJsonSchema` mapping for structured outputs
-- Gemini 3 `generationConfig.thinkingConfig.thinkingLevel` mapping from catalog
-  `ThinkingLevel`, while retaining Gemini 2.5 `thinkingBudget` mapping
-- catalog-aware downgrade to the highest configured thinking level not above
-  an unsupported request, with the effective level retained in responses
+- Gemini 3 `generationConfig.thinkingConfig.thinkingLevel` mapping from the
+  resolved request effort, while retaining Gemini 2.5 `thinkingBudget`
+  mapping
+- effort lowering to the highest effort that the spec lists at or below the
+  request, with the resolved effort and the text id retained in responses
 - provider response usage extraction into normalized input, output, cached
   input, and thinking token counts
 - ordered accumulation of cross-chunk text, complete function-call parts,
@@ -70,16 +74,24 @@ neighboring crates.
   `ai_interface::ModelError`
 
 This crate does not load config, read environment variables, or resolve
-credentials on its own. It exports `known_models()` and typed catalog id
-constants for Gemini 3.6 Flash and Gemini 3.5 Flash-Lite.
-`GEMINI_3_6_FLASH` is the first catalog entry and the default used by workspace
-examples. Its high-thinking variant sends provider model id
-`gemini-3.6-flash` with `thinkingLevel: "high"`. Gemini 3.5 Flash-Lite leaves
-the thinking control unset so the provider uses its minimal default. Gemini
-2.5 models are not advertised in the routing catalog because the API does not
-make them available to new users. Callers can still construct an explicit
-model id using the retained Gemini 2.5 constants, and the request mapper keeps
-fixed `thinkingBudget` compatibility for those models. Response parts marked
+credentials on its own. It exports one `ModelSpec` constant for each catalog
+model: `GEMINI_3_6_FLASH`, `GEMINI_3_5_FLASH_LITE`,
+`GEMINI_3_1_FLASH_IMAGE`, and `VEO_3_1_GENERATE_PREVIEW`. `CATALOG` lists
+them in that order, and `known_models()` returns a copy of it.
+`GEMINI_3_6_FLASH` is the first catalog spec and the default used by
+workspace examples. Its default effort is medium. A request with the high
+effort sends provider model id `gemini-3.6-flash` with
+`thinkingLevel: "high"`. Gemini 3.5 Flash-Lite lists only the disabled
+effort and leaves the thinking control unset so the provider uses its
+minimal default. The
+[control matrix](../../docs/protocol/model-capabilities.md#control-matrix)
+lists the efforts and limits of each spec. Gemini 2.5 models are not in the
+catalog because the API does not make them available to new users. Callers
+can still build them from the retained `GEMINI_2_5_PRO`, `GEMINI_2_5_FLASH`,
+and `GEMINI_2_5_FLASH_LITE` provider model ids with
+`ModelSpec::custom(PROVIDER_ID, GEMINI_2_5_PRO, &CUSTOM_DEFAULTS)`. The
+request mapper keeps fixed `thinkingBudget` compatibility for those models.
+A custom spec starts with the disabled effort as its default. Response parts marked
 as provider thoughts are not surfaced as assistant text, but event-observing
 callers receive them as reasoning deltas. Schema-constrained calls suppress all
 public deltas in version one.
@@ -92,13 +104,15 @@ modality, and maps shared aspect preferences to Google's typed
 not map shared quality preferences, because Gemini's resolution control is a
 different contract. It skips interim thought images, rejects empty decoded
 payloads, decodes the first final image, normalizes usage, and retains safety
-messages in typed content-policy errors. `GEMINI_3_1_FLASH_IMAGE` identifies
-the balanced image catalog entry.
+messages in typed content-policy errors. The `GEMINI_3_1_FLASH_IMAGE` spec
+identifies the balanced image catalog model, and its `provider_model_id` is
+the id to pass.
 
 `GoogleVideoGenerator` submits text or one inline first frame to Veo's
 `predictLongRunning` endpoint, polls the returned operation, and downloads the
-first generated MP4 with the same API-key auth. `VEO_3_1_GENERATE_PREVIEW`
-identifies the video catalog entry. The adapter maps portable
+first generated MP4 with the same API-key auth. The
+`VEO_3_1_GENERATE_PREVIEW` spec identifies the video catalog model, and its
+`provider_model_id` is the id to pass. The adapter maps portable
 landscape/portrait, four/eight-second, and 720p controls, enforces one
 ten-minute total deadline through an injected polling runtime, rejects download
 URIs outside the configured API origin, and keeps policy, timeout, rate-limit,
@@ -109,10 +123,11 @@ transient, and terminal failures typed.
 ```rust
 use std::sync::Arc;
 
-use ai_interface::{ImageGenerator, VideoGenerator};
+use ai_interface::{ImageGenerator, ModelSpec, VideoGenerator};
 use ai_models_google::{
-    GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, VEO_3_1_GENERATE_PREVIEW,
-    GoogleImageGenerator, GoogleModel, GoogleVideoGenerator, known_models,
+    CUSTOM_DEFAULTS, GEMINI_2_5_PRO, GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, PROVIDER_ID,
+    VEO_3_1_GENERATE_PREVIEW, GoogleImageGenerator, GoogleModel, GoogleVideoGenerator,
+    known_models,
 };
 use json_http::ReqwestJsonHttpClient;
 
@@ -124,6 +139,14 @@ fn build_model() -> GoogleModel {
     )
 }
 
+fn build_gemini_2_5_model() -> GoogleModel {
+    GoogleModel::new(
+        Arc::new(ReqwestJsonHttpClient::new()),
+        ModelSpec::custom(PROVIDER_ID, GEMINI_2_5_PRO, &CUSTOM_DEFAULTS),
+        "google-demo",
+    )
+}
+
 fn known_model_count() -> usize {
     known_models().len()
 }
@@ -131,7 +154,7 @@ fn known_model_count() -> usize {
 fn build_image_generator() -> GoogleImageGenerator {
     GoogleImageGenerator::new(
         Arc::new(ReqwestJsonHttpClient::new()),
-        GEMINI_3_1_FLASH_IMAGE,
+        GEMINI_3_1_FLASH_IMAGE.provider_model_id,
         "google-demo",
     )
 }
@@ -139,7 +162,7 @@ fn build_image_generator() -> GoogleImageGenerator {
 fn build_video_generator() -> GoogleVideoGenerator {
     GoogleVideoGenerator::new(
         Arc::new(ReqwestJsonHttpClient::new()),
-        VEO_3_1_GENERATE_PREVIEW,
+        VEO_3_1_GENERATE_PREVIEW.provider_model_id,
         "google-demo",
     )
 }
@@ -155,7 +178,8 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 ### Key Code
 
 - `src/google/mod.rs` - `Model` implementation and request dispatch
-- `src/catalog.rs` - known Google model ids and routing metadata
+- `src/catalog.rs` - Google provider id, model spec constants, `CATALOG`,
+  custom defaults, and the retained Gemini 2.5 provider model ids
 - `src/google/request.rs` - Google request and continuation mapping
 - `src/google/request_types.rs` - typed Gemini request bodies
 - `src/google/response.rs` - Google response parsing
@@ -167,6 +191,7 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)

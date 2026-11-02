@@ -254,8 +254,8 @@ execution remains buffered.
 For equivalent fixtures, streaming and buffered parsing must produce equal
 `ModelResponse` values, including assistant text, structured output, tool
 calls and argument JSON, thinking/reasoning replay, signatures, provider
-context, finish reason, usage, provider/model identity, catalog id, and
-effective thinking level.
+context, finish reason, usage, provider/model identity, text id, and
+resolved effort.
 
 Required deterministic coverage includes decoder framing, split chunks,
 timeouts before and after progress, non-success bodies, content type, EOF,

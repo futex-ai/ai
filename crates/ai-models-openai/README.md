@@ -13,7 +13,8 @@ neighboring crates.
   `ai_interface::AudioTranscriber`
 - Implement the OpenAI image client behind `ai_interface::ImageGenerator`
 - Implement the OpenAI video client behind `ai_interface::VideoGenerator`
-- Export strongly typed known OpenAI model metadata for model routing
+- Export the OpenAI `PROVIDER_ID`, one `ModelSpec` constant for each known
+  model, the `CATALOG` slice, and the `CUSTOM_DEFAULTS` of unlisted models
 - Map shared model/tool DTOs to the OpenAI Responses API
 - Consume OpenAI Responses SSE events, emit public text progress, and retain
   the complete terminal response
@@ -24,7 +25,9 @@ neighboring crates.
 
 ## What This Crate Does
 
-`OpenAiModel` accepts a `json-http` client plus explicit auth input and handles:
+`OpenAiModel` accepts a `json-http` client, a `ModelSpec`, and explicit auth
+input. Each call runs the shared capability check of `ai-models-core`
+against the spec before transport. The adapter handles:
 
 - OpenAI Responses request serialization with internal SSE consumption
 - opt-in assistant output and reasoning-summary delta delivery through
@@ -43,10 +46,10 @@ neighboring crates.
   dispatch partial function-call output items
 - OpenAI `text.format` JSON-schema mapping for structured outputs, using
   non-strict mode so callers can pass the broader shared schema contract
-- OpenAI `reasoning.effort` mapping from catalog `ThinkingLevel` for
-  reasoning-capable catalog variants
-- catalog-aware downgrade to the highest configured effort not above an
-  unsupported request, with the effective effort retained in responses
+- OpenAI `reasoning.effort` mapping from the resolved request effort for
+  reasoning-capable specs
+- effort lowering to the highest effort that the spec lists at or below the
+  request, with the resolved effort and the text id retained in responses
 - stateless `store: false` generation calls using caller-owned conversation
   state
 - `reasoning.encrypted_content` inclusion for reasoning models so encrypted
@@ -72,13 +75,21 @@ neighboring crates.
   transcription statuses mapped to transient provider failures
 
 This crate does not load config, read environment variables, or resolve
-credentials on its own. It exports `known_models()` and typed catalog id
-constants for GPT-5.6 Sol, Terra, and Luna. `GPT_5_6_SOL` is the first catalog
-entry and the default used by workspace examples. Sol also has explicit low,
-high, extra-high, and max-thinking variants; each sends provider model id
-`gpt-5.6-sol`. All existing GPT-5.5 constants and catalog entries remain
-available for pinned deployments. Cost-optimized routing uses GPT-5.4 Mini and
-Nano because OpenAI does not expose GPT-5.5 Mini or Nano aliases.
+credentials on its own. It exports one `ModelSpec` constant for each catalog
+model: `GPT_5_6_SOL`, `GPT_5_6_TERRA`, `GPT_5_6_LUNA`, `GPT_5_5`,
+`GPT_5_4_MINI`, `GPT_5_4_NANO`, `GPT_IMAGE_2`, and `SORA_2`. `CATALOG` lists
+them in that order, and `known_models()` returns a copy of it.
+`GPT_5_6_SOL` is the first catalog spec and the default used by workspace
+examples. Its default effort is medium, and it also lists low, high, extra
+high, and max. Every effort sends provider model id `gpt-5.6-sol`. The
+GPT-5.5 spec remains available for pinned deployments. Cost-optimized routing
+uses GPT-5.4 Mini and Nano because OpenAI does not expose GPT-5.5 Mini or
+Nano aliases. The
+[control matrix](../../docs/protocol/model-capabilities.md#control-matrix)
+lists the efforts and limits of each spec. Build a model that the catalog
+does not list from
+`ModelSpec::custom(PROVIDER_ID, model_id, &CUSTOM_DEFAULTS)`. Its default
+effort is disabled.
 OpenAI generation uses workspace-defined function tools with `strict: false` during
 the Responses cutover. OpenAI built-in tools are intentionally not exposed by
 this crate.
@@ -97,7 +108,8 @@ uploaded audio media type. It applies a 60-second request timeout and surfaces
 retryable OpenAI transcription statuses as transient errors.
 
 `OpenAiImageGenerator` accepts an injected `json-http` client and explicit
-model id; `GPT_IMAGE_2` identifies the current image catalog entry. Requests
+model id. The `GPT_IMAGE_2` spec identifies the current image catalog model,
+and its `provider_model_id` is the id to pass. Requests
 without source images use the JSON generation endpoint; requests with source
 images use multipart edit requests. The injected client makes auth,
 serialization, timeout, transport, and status behavior credential-free to
@@ -108,7 +120,8 @@ provider failures.
 `OpenAiVideoGenerator` submits text-to-video JSON or first-frame multipart
 requests to `v1/videos`, polls queued jobs through `GET /v1/videos/{id}`, then
 downloads the completed MP4 through the authenticated binary transport path.
-`SORA_2` identifies the 720p video catalog entry. The adapter supports portable
+The `SORA_2` spec identifies the 720p video catalog model, and its
+`provider_model_id` is the id to pass. The adapter supports portable
 landscape/portrait and four/eight-second controls, enforces one ten-minute total
 deadline with an injected polling runtime, and keeps policy, timeout, rate
 limit, transient, and terminal failures typed. This upstream API is currently
@@ -120,10 +133,10 @@ adapter as a time-bounded compatibility integration.
 ```rust
 use std::sync::Arc;
 
-use ai_interface::{AudioTranscriber, ImageGenerator, Model, VideoGenerator};
+use ai_interface::{AudioTranscriber, ImageGenerator, Model, ModelSpec, VideoGenerator};
 use ai_models_openai::{
-    GPT_5_6_SOL, GPT_IMAGE_2, SORA_2, OpenAiAudioTranscriber, OpenAiImageGenerator,
-    OpenAiModel, OpenAiVideoGenerator, known_models,
+    CUSTOM_DEFAULTS, GPT_5_6_SOL, GPT_IMAGE_2, PROVIDER_ID, SORA_2, OpenAiAudioTranscriber,
+    OpenAiImageGenerator, OpenAiModel, OpenAiVideoGenerator, known_models,
 };
 use json_http::ReqwestJsonHttpClient;
 
@@ -131,6 +144,14 @@ fn build_model() -> OpenAiModel {
     OpenAiModel::new(
         Arc::new(ReqwestJsonHttpClient::new()),
         GPT_5_6_SOL,
+        "sk-demo",
+    )
+}
+
+fn build_unlisted_model() -> OpenAiModel {
+    OpenAiModel::new(
+        Arc::new(ReqwestJsonHttpClient::new()),
+        ModelSpec::custom(PROVIDER_ID, "gpt-preview", &CUSTOM_DEFAULTS),
         "sk-demo",
     )
 }
@@ -146,7 +167,7 @@ fn build_transcriber() -> OpenAiAudioTranscriber {
 fn build_image_generator() -> OpenAiImageGenerator {
     OpenAiImageGenerator::new(
         Arc::new(ReqwestJsonHttpClient::new()),
-        GPT_IMAGE_2,
+        GPT_IMAGE_2.provider_model_id,
         "sk-demo",
     )
 }
@@ -154,7 +175,7 @@ fn build_image_generator() -> OpenAiImageGenerator {
 fn build_video_generator() -> OpenAiVideoGenerator {
     OpenAiVideoGenerator::new(
         Arc::new(ReqwestJsonHttpClient::new()),
-        SORA_2,
+        SORA_2.provider_model_id,
         "sk-demo",
     )
 }
@@ -170,8 +191,10 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 ### Key Code
 
 - `src/openai/mod.rs` - `Model` implementation and request dispatch
-- `src/catalog.rs` - known OpenAI model ids and routing metadata
-- `src/openai/request.rs` - OpenAI Responses request mapping
+- `src/catalog.rs` - OpenAI provider id, model spec constants, `CATALOG`, and
+  custom defaults
+- `src/openai/request.rs` - maps the resolved controls and the effort to the
+  Responses request
 - `src/openai/request_types.rs` - OpenAI Responses request DTOs
 - `src/openai/response/mod.rs` - OpenAI Responses response parsing
 - `src/openai/stream/` - public delta emission, terminal event handling, and
@@ -185,6 +208,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)

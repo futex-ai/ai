@@ -16,6 +16,8 @@ pub(crate) enum Command {
     Check,
     /// Run an AI review against origin/main.
     Review,
+    /// Regenerate the committed model capability matrix from provider specs.
+    CapabilityMatrix,
     /// Audit Rust source files for the repository line-count cap.
     RustFileLengthLint {
         /// Audit every Rust file under crates/ and xtask/.

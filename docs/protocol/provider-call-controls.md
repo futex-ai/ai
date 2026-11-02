@@ -9,17 +9,19 @@ lifecycles inside their owning `ai-models-*` adapters.
 ## Ownership
 
 - Callers choose model, routing, retry, concurrency, pricing, generation
-  intent, completion preference, and total deadline.
-- `ai-interface` owns the typed portable contract and errors.
-- Each provider adapter owns validation, fixed-value behavior, native field
-  names, endpoint selection, and request lifecycle.
+  intent, effort, completion preference, and total deadline.
+- `ai-interface` owns the typed portable contract, model specs, and errors.
+- `ai-models-core` owns the shared capability check. It validates each
+  control against the model spec and applies the fixed values of the spec.
+- Each provider crate owns the model specs of its provider. Each adapter
+  owns native field names, endpoint selection, and request lifecycle.
 - `json-http` carries overall and idle timeouts plus a typed body but never
   inspects provider payloads.
 
 Provider identity remains necessary only at the configuration and composition
 boundary that selects an adapter and supplies its credentials. Feature,
 evaluation, and execution-policy code receives `dyn Model` plus
-`ModelRequest`; it does not inspect `ProviderKind`, provider URLs, native field
+`ModelRequest`; it does not inspect provider ids, provider URLs, native field
 names, or lifecycle endpoints.
 
 No consumer may infer a provider from a URL, mutate serialized provider JSON,
@@ -29,9 +31,13 @@ or choose a completion lifecycle by provider name.
 
 `ModelRequest::controls` contains:
 
-- generation controls: optional `temperature`, optional `top_p`, optional
-  `max_output_tokens`, ordered `stop_sequences`, and optional `tool_choice`;
+- generation controls: optional `effort`, optional `temperature`, optional
+  `top_p`, optional `max_output_tokens`, ordered `stop_sequences`, and
+  optional `tool_choice`;
 - execution controls: optional `total_timeout` and `completion_mode`.
+
+The effort is one of the portable efforts of the
+[model capabilities protocol](model-capabilities.md#effort).
 
 Tool choice is one of `None`, `Auto`, `Required`, `RequiredOrAuto`, or
 `Function(name)`:
@@ -53,8 +59,8 @@ Completion mode is one of:
   `ModelError::UnsupportedControl`.
 
 All fields default to absence and `Synchronous`. An entirely default controls
-object is omitted when `ModelRequest` is serialized. Existing callers
-therefore retain provider-native defaults.
+object is omitted when `ModelRequest` is serialized. A request without an
+effort uses the default effort of the model spec.
 
 `total_timeout` is the total duration available to one adapter invocation. A
 streaming immediate adapter uses it as the overall stream deadline without
@@ -62,22 +68,14 @@ changing its idle timeout. A deferred adapter applies it across submission,
 sleeps, and every retrieval attempt. Retry wrappers remain separate calls and
 may apply their own overall policy.
 
-An explicit output limit composes with a stricter adapter-native maximum by
+An explicit output limit composes with the max output of the model spec by
 using the smaller value. Ordered stop sequences retain caller order.
 
-## Thinking-Level Resolution
+## Effort Resolution
 
-Thinking level is model-construction metadata rather than a per-call
-`ModelRequest` control. For a known provider model, an exact catalog level is
-retained. When the requested level has no exact variant, the adapter selects
-the highest catalog level for that provider model that does not exceed the
-request. Resolution never increases the requested level. The effective level
-drives provider serialization and is recorded in `ModelResponse`.
-
-When no catalog level exists at or below the request, adapters with validated
-model families return their typed configuration error. Explicit custom or
-unknown provider-model mappings remain caller-owned because the catalog has no
-capability data from which to derive a safe fallback.
+The [model capabilities protocol](model-capabilities.md#effort) defines how
+the capability check resolves the request effort against the model spec. The
+resolved effort drives provider serialization.
 
 ## Error And Fixed-Value Contract
 
@@ -87,53 +85,33 @@ If a provider cannot honor explicit caller intent, the adapter returns
 
 A provider-fixed control may be deliberately ignored only where the provider
 defines the value rather than caller intent. The fixed behavior must appear in
-the matrix below and have a final-request regression test. This exception
-applies to sampling on reasoning models that require native sampling defaults;
-it does not permit silently dropping unsupported stops, limits, or forced tool
-choices.
+the [control matrix](model-capabilities.md#control-matrix) and have a
+final-request regression test. This exception applies to sampling on
+reasoning models that require native sampling defaults; it does not permit
+silently dropping unsupported stops, limits, or forced tool choices.
 
-Anthropic's `new` and `with_auth` convenience constructors resolve known
-catalog ids to their declared provider model id and `ThinkingLevel`. This
-ensures models with adaptive thinking use the fixed-sampling path even when a
-caller supplies a temperature. Unknown ids remain direct provider ids with
-thinking disabled; `with_catalog_auth` remains the explicit construction path.
+Each chat adapter holds one model spec. `new`, `with_auth`, and
+`with_catalog_auth` take the spec, except that the DeepSeek, Kimi, and Qwen
+`new` and `with_auth` build the default spec of their provider. The spec
+carries the sampling rule of its model, so a model with adaptive thinking
+omits a caller temperature while thinking is on. A model that no catalog
+lists uses a [custom spec](model-capabilities.md#custom-specs). The
+Anthropic custom defaults keep thinking off unless the request sets an
+effort.
 
 Malformed provider responses, terminal provider failures, and transport
 failures retain the existing typed `ModelError` classification.
 
 ## Provider Matrix
 
-`map` means serialize the native field. `fixed` means omit the field and
-preserve the provider/model value even when requested. `unsupported` means an
-explicit request returns `UnsupportedControl` before transport. Empty controls
-always preserve the adapter's prior behavior.
-
-| Provider and mode | Temperature / top-p | Output limit | Stops | Tool choice |
-| --- | --- | --- | --- | --- |
-| OpenAI Responses, no reasoning | map | `max_output_tokens` | unsupported | map all |
-| OpenAI Responses, reasoning | fixed | `max_output_tokens` | unsupported | map all |
-| Anthropic, no thinking | map | `min(catalog max output, requested)` | `stop_sequences` | map all |
-| Anthropic, thinking | fixed | `min(catalog max output, requested)` | `stop_sequences` | none/auto; strict forced unsupported; `RequiredOrAuto` -> auto |
-| Google Gemini | map | `maxOutputTokens` | `stopSequences` | map all |
-| Kimi K3 | fixed | `max_completion_tokens` | `stop` | map all |
-| Qwen, no thinking | map | `max_completion_tokens` | `stop` | map all; `RequiredOrAuto` -> required |
-| Qwen, thinking | fixed | `max_completion_tokens` | `stop` | none/auto; strict forced unsupported; `RequiredOrAuto` -> auto |
-| DeepSeek, no thinking | map | `max_tokens` | `stop` | map all |
-| DeepSeek, thinking | fixed | `max_tokens` | `stop` | auto by omission; strict forced unsupported; `RequiredOrAuto` -> omission |
-| MiniMax-M3 | map | `max_completion_tokens` | unsupported | none, auto, required; `RequiredOrAuto` -> required |
-| Other MiniMax catalog models | map | `max_completion_tokens` | unsupported | none/auto; required unsupported; `RequiredOrAuto` -> auto |
-| XAI Chat Completions | map | `max_tokens` | `stop` | map all |
-
-Anthropic uses the catalog model's max output as the default and the ceiling.
-An unknown provider model id uses 64,000 tokens for both.
-
-For OpenAI, Anthropic without thinking, Google, Kimi, and XAI, `RequiredOrAuto` maps to the
-same provider-enforced form as `Required`. Tool definitions remain serialized
-in every `RequiredOrAuto` fallback path.
-
-For every non-XAI adapter, `PreferDeferred` uses the ordinary immediate call
-and `RequireDeferred` is unsupported. XAI maps either deferred mode to its
-native deferred lifecycle.
+The [control matrix](model-capabilities.md#control-matrix) lists the control
+rules of every model spec. The
+[capability check](model-capabilities.md#capability-check) applies them
+before transport. The
+[Chat Completions dialects protocol](chat-completions-dialects.md) and the
+[DeepSeek](deepseek-model-provider.md), [Kimi](kimi-model-provider.md),
+[Qwen](qwen-model-provider.md), and [MiniMax](minimax-model-provider.md)
+provider protocols give the wire mappings of the compatible providers.
 
 ## System Instructions
 
