@@ -1,7 +1,8 @@
 //! Qwen endpoint, wire settings, and input-length error quirk.
 
-use ai_interface::ModelError;
-use ai_models_core::classify_json_http_error;
+use ai_interface::{ErrorKind, ModelError};
+use ai_models_core::{ErrorContext, classify_json_http_error};
+use json_http::JsonHttpHeaders;
 use serde_json::Value;
 
 use crate::engine::dialect::{
@@ -13,6 +14,7 @@ use super::catalog::{QWEN_3_7_FLASH_ID, QWEN_3_7_MAX_ID, QWEN_3_7_PLUS_ID};
 
 pub(super) static DIALECT: Dialect = Dialect {
     provider: "qwen",
+    request_id_headers: &["x-request-id", "request-id"],
     label: "Qwen",
     endpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
     usage: UsageFields::CachedInput,
@@ -38,18 +40,22 @@ pub(super) static DIALECT: Dialect = Dialect {
     http_error: Some(classify_qwen_http_error),
 };
 
-pub(super) fn classify_qwen_http_error(model_id: &str, status: u16, body: &Value) -> ModelError {
+pub(super) fn classify_qwen_http_error(
+    context: &ErrorContext,
+    status: u16,
+    headers: &JsonHttpHeaders,
+    body: &Value,
+) -> ModelError {
     if status == 400
         && let Some(message) = error_message(body)
         && message.starts_with("Range of input length should be [1,")
     {
-        return ModelError::context_limit_exceeded(
-            "qwen",
-            model_id,
+        return context.for_response(headers).model_error(
+            ErrorKind::ContextLimitExceeded,
             format!("HTTP {status}: {message}"),
         );
     }
-    classify_json_http_error("qwen", model_id, status, body)
+    classify_json_http_error(context, status, headers, body)
 }
 
 fn error_message(body: &Value) -> Option<&str> {

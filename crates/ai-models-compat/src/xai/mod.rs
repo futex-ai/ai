@@ -78,3 +78,11 @@ mod xai_event_tests;
 #[cfg(test)]
 #[path = "_tests_/catalog_tests.rs"]
 mod catalog_tests;
+
+#[cfg(test)]
+#[path = "_tests_/deferred_support.rs"]
+mod deferred_support;
+
+#[cfg(test)]
+#[path = "_tests_/deferred_error_context_tests.rs"]
+mod deferred_error_context_tests;

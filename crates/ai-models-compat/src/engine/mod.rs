@@ -5,6 +5,7 @@ mod controls;
 mod deferred_stream;
 pub(crate) mod dialect;
 pub(crate) mod errors;
+mod http_error;
 pub(crate) mod lifecycle;
 mod message_content;
 mod messages;
@@ -46,3 +47,15 @@ mod finish_state_tests;
 #[cfg(test)]
 #[path = "_tests_/part_replay_tests.rs"]
 mod part_replay_tests;
+
+#[cfg(test)]
+#[path = "_tests_/error_support.rs"]
+mod error_support;
+
+#[cfg(test)]
+#[path = "_tests_/error_context_tests.rs"]
+mod error_context_tests;
+
+#[cfg(test)]
+#[path = "_tests_/auth_context_tests.rs"]
+mod auth_context_tests;

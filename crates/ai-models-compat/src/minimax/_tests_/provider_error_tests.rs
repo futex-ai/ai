@@ -1,5 +1,7 @@
 //! MiniMax HTTP-success provider-code tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{Model, ModelError};
 use json_http::JsonHttpResponse;
 use serde_json::json;
@@ -15,22 +17,35 @@ use super::{
 async fn classifies_documented_base_response_codes() {
     for code in [1002, 1041, 2045, 2056] {
         assert_code_matches(code, |error| {
-            matches!(error, ModelError::RateLimited { .. })
+            matches!(error.core().kind, ErrorKind::RateLimited)
         })
         .await;
     }
     for code in [1000, 1001, 1013, 1024, 1033] {
         assert_code_matches(code, |error| {
-            matches!(error, ModelError::TransientProvider { .. })
+            matches!(error.core().kind, ErrorKind::Transient)
         })
         .await;
     }
     assert_code_matches(1039, |error| {
-        matches!(error, ModelError::ContextLimitExceeded { .. })
+        matches!(error.core().kind, ErrorKind::ContextLimitExceeded)
     })
     .await;
-    for code in [1004, 1008, 1026, 1027, 2013, 2049, 9999] {
-        assert_code_matches(code, |error| matches!(error, ModelError::Provider { .. })).await;
+    for (code, expected) in [
+        (1004, ErrorKind::RejectedKey),
+        (1008, ErrorKind::RejectedKey),
+        (1026, ErrorKind::InvalidRequest),
+        (1027, ErrorKind::InvalidOutput),
+        (2013, ErrorKind::InvalidRequest),
+        (2049, ErrorKind::RejectedKey),
+        (9999, ErrorKind::InvalidRequest),
+        (2022, ErrorKind::UnknownModel),
+    ] {
+        assert_code_matches(
+            code,
+            |error| matches!(error.core().kind, kind if kind == expected),
+        )
+        .await;
     }
 }
 

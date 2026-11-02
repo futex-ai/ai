@@ -1,6 +1,7 @@
 //! Private typed replay payloads and versioned part-state encoding.
 
-use ai_interface::{ModelError, ModelResult, ProviderId, ProviderState};
+use ai_interface::{ErrorKind, ModelError, ModelResult, ProviderId, ProviderState};
+use ai_models_core::ErrorContext;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -74,20 +75,22 @@ pub(crate) fn decode(
 }
 
 pub(crate) fn encode(
+    context: &ErrorContext,
     dialect: &Dialect,
     model_id: &str,
     payload: PartState,
 ) -> ModelResult<ProviderState> {
     let value = match serde_json::to_value(payload) {
         Ok(value) => value,
-        Err(source) => return Err(ModelError::internal(source)),
+        Err(source) => {
+            return Err(ModelError::with_source(
+                context.core(ErrorKind::Internal, "internal error"),
+                source,
+            ));
+        }
     };
     let Value::Object(payload) = value else {
-        return Err(ModelError::provider(
-            dialect.provider,
-            model_id,
-            "invalid provider state payload",
-        ));
+        return Err(context.model_error(ErrorKind::Internal, "invalid provider state payload"));
     };
     Ok(ProviderState {
         provider: ProviderId::new(dialect.provider),

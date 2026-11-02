@@ -1,8 +1,10 @@
 //! DeepSeek local input validation tests.
 
+use ai_interface::ErrorKind;
+
 use std::sync::Arc;
 
-use ai_interface::{ConversationMessage, ConversationPart, Model, ModelError, ModelRequest};
+use ai_interface::{ConversationMessage, ConversationPart, Model, ModelRequest};
 use json_http::JsonHttpAuth;
 use unimock::Unimock;
 
@@ -37,6 +39,6 @@ async fn rejects_image_and_video_parts_before_external_calls() {
             .await
             .expect_err("typed content should be rejected");
 
-        assert!(matches!(error, ModelError::Provider { .. }));
+        assert!(matches!(error.core().kind, ErrorKind::UnsupportedInput));
     }
 }

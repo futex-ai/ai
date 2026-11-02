@@ -1,7 +1,7 @@
 //! MiniMax normalization hooks for the common stream loop.
 
-use ai_interface::{ModelError, ModelResult};
-use ai_models_core::classify_stream_error;
+use ai_interface::{ErrorKind, ModelResult};
+use ai_models_core::{ErrorContext, classify_stream_error};
 
 use super::{
     dialect::DIALECT,
@@ -17,24 +17,26 @@ pub(super) fn normalizer(model_id: &str) -> Box<dyn StreamNormalizer> {
 }
 
 impl StreamNormalizer for MiniMaxNormalizer {
-    fn normalize_data(&mut self, data: &str, model_id: &str, progress: u64) -> ModelResult<String> {
+    fn normalize_data(
+        &mut self,
+        data: &str,
+        context: &ErrorContext,
+        progress: u64,
+    ) -> ModelResult<String> {
         let normalized = match self.normalize(data) {
             Ok(normalized) => normalized,
             Err(source) => {
-                return Err(classify_stream_error(
-                    "minimax", model_id, progress, &source,
-                ));
+                return Err(classify_stream_error(context, progress, &source));
             }
         };
         match normalized {
             NormalizedEvent::Done => Ok("[DONE]".to_owned()),
             NormalizedEvent::Chunk(body) => {
-                let error = match stream_base_response_error(&DIALECT, model_id, &body) {
+                let error = match stream_base_response_error(&DIALECT, context, &body) {
                     Ok(error) => error,
                     Err(source) => {
                         return Err(classify_stream_error(
-                            "minimax",
-                            model_id,
+                            context,
                             progress,
                             &MiniMaxStreamError::DeserializeChunk { source },
                         ));
@@ -44,11 +46,7 @@ impl StreamNormalizer for MiniMaxNormalizer {
                     if progress == 0 {
                         return Err(error);
                     }
-                    return Err(ModelError::interrupted(
-                        "minimax",
-                        model_id,
-                        error.to_string(),
-                    ));
+                    return Err(context.model_error(ErrorKind::Interrupted, error.to_string()));
                 }
                 Ok(body.to_string())
             }

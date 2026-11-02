@@ -1,7 +1,9 @@
 //! MiniMax modern tool-call request and response tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{
-    ConversationMessage, ConversationRole, FinishReason, Model, ModelError, ModelRequest, ToolCall,
+    ConversationMessage, ConversationRole, FinishReason, Model, ModelRequest, ToolCall,
     ToolDefinition,
 };
 use json_http::JsonHttpResponse;
@@ -234,7 +236,7 @@ async fn rejects_malformed_tool_arguments() {
         .await
         .expect_err("malformed tool arguments should fail");
 
-    assert!(matches!(error, ModelError::Provider { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::InvalidOutput));
     assert!(
         error
             .to_string()

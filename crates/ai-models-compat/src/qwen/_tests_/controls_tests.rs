@@ -1,11 +1,12 @@
 //! Qwen portable call-control tests.
 
+use ai_interface::ErrorKind;
+
 use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
     ConversationMessage, Effort, Model, ModelCallControls, ModelCompletionMode, ModelControl,
-    ModelError, ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
-    ToolDefinition,
+    ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
 };
 use json_http::StaticHeaderAuth;
 use serde_json::json;
@@ -189,13 +190,9 @@ async fn rejects_unsupported_tool_and_completion_choices_before_transport() {
             .complete(&controlled_request(choice))
             .await
             .expect_err("forced thinking choice should fail");
-        assert!(matches!(
-            error,
-            ModelError::UnsupportedControl {
-                control: ModelControl::ToolChoice,
-                ..
-            }
-        ));
+        assert!(
+            matches!(error, ref error if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::ToolChoice))
+        );
     }
 
     let mut request = base_request();
@@ -204,13 +201,9 @@ async fn rejects_unsupported_tool_and_completion_choices_before_transport() {
         .complete(&request)
         .await
         .expect_err("required deferred mode should fail");
-    assert!(matches!(
-        error,
-        ModelError::UnsupportedControl {
-            control: ModelControl::CompletionMode,
-            ..
-        }
-    ));
+    assert!(
+        matches!(error, ref error if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::CompletionMode))
+    );
 }
 
 fn controlled_request(tool_choice: ModelToolChoice) -> ModelRequest {

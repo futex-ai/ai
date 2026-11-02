@@ -1,5 +1,7 @@
 //! Qwen usage and structured-output response tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{Effort, ModelError, ModelUsage, StructuredOutputSchema};
 use serde_json::{Value, json};
 
@@ -69,7 +71,7 @@ fn validates_structured_output_locally_and_only_on_stop() {
             }),
             Some(&schema),
         );
-        assert!(matches!(result, Err(ModelError::Provider { .. })));
+        assert!(matches!(result, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput));
     }
 
     let truncated = parse(
@@ -89,15 +91,13 @@ fn malformed_typed_payloads_are_internal_but_missing_choices_is_provider_failure
         json!({"choices": [{"message": {"content": 7}}]}),
         json!({"choices": [{"finish_reason": 7, "message": {"content": "Done"}}]}),
     ] {
-        assert!(matches!(
-            parse(body, None),
-            Err(ModelError::Internal { .. })
-        ));
+        assert!(
+            matches!(parse(body, None), Err(ref error) if error.core().kind == ErrorKind::InvalidOutput)
+        );
     }
-    assert!(matches!(
-        parse(json!({"choices": []}), None),
-        Err(ModelError::Provider { .. })
-    ));
+    assert!(
+        matches!(parse(json!({"choices": []}), None), Err(ref error) if error.core().kind == ErrorKind::InvalidOutput)
+    );
 }
 
 fn parse(

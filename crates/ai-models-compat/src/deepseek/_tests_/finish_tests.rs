@@ -1,5 +1,7 @@
 //! DeepSeek finish-reason and resource-safety tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{Effort, FinishReason, ModelError};
 use serde_json::{Value, json};
 
@@ -48,14 +50,9 @@ fn insufficient_system_resource_is_transient_before_tool_parsing() {
     }))
     .expect_err("resource-limited response should be retryable");
 
-    assert!(matches!(
-        error,
-        ModelError::TransientProvider {
-            provider,
-            model_id,
-            ..
-        } if provider == "deepseek" && model_id == DEEPSEEK_V4_PRO.provider_model_id.as_ref()
-    ));
+    assert!(
+        matches!(error, ref error if error.core().kind == ErrorKind::Transient && error.core().provider == "deepseek" && error.core().model_id == DEEPSEEK_V4_PRO.provider_model_id.as_ref())
+    );
 }
 
 fn parse(body: Value) -> Result<ai_interface::ModelResponse, ModelError> {

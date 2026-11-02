@@ -1,8 +1,10 @@
 //! Kimi spec construction and per-request effort tests.
 
+use ai_interface::ErrorKind;
+
 use std::{collections::BTreeMap, sync::Arc};
 
-use ai_interface::{Effort, Model, ModelControl, ModelError, ModelSpec};
+use ai_interface::{Effort, Model, ModelControl, ModelSpec};
 use json_http::StaticHeaderAuth;
 
 use super::{
@@ -51,7 +53,7 @@ async fn rejects_request_effort_below_lowest_supported_before_transport() {
         .await
         .expect_err("disabled effort must fail");
     assert!(
-        matches!(error, ModelError::UnsupportedControl { provider, model_id, control: ModelControl::Effort } if provider == "kimi" && model_id == "kimi-k3")
+        matches!(error, ref error if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::Effort) && error.core().provider == "kimi" && error.core().model_id == "kimi-k3")
     );
 }
 

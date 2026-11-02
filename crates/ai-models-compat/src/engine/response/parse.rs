@@ -1,7 +1,8 @@
 //! Shared response normalization and local structured-output checks.
 
 use ai_interface::{
-    FinishReason, ModelError, ModelResponse, ModelResult, ModelUsage, StructuredOutputSchema,
+    ErrorKind, FinishReason, ModelError, ModelResponse, ModelResult, ModelUsage,
+    StructuredOutputSchema,
 };
 use ai_models_core::{assistant_text, parse_structured_output};
 use serde_json::Value;
@@ -31,31 +32,32 @@ pub(super) fn decode_response(
 ) -> ModelResult<(ChatCompletionsResponse, ModelUsage)> {
     let CompletionContext {
         dialect,
+        error,
         catalog_model_id: _,
-        provider_model_id,
+        provider_model_id: _,
         thinking_level: _,
         synthetic_tool_call_scope: _,
     } = context;
     let parse_error = |source| match dialect.replay {
-        ReplayRule::Kimi => ModelError::provider(
-            dialect.provider,
-            provider_model_id,
-            "invalid Kimi response payload",
+        ReplayRule::Kimi => ModelError::with_source(
+            error.core(ErrorKind::InvalidOutput, "invalid Kimi response payload"),
+            source,
         ),
-        ReplayRule::Xai => ModelError::provider(
-            dialect.provider,
-            provider_model_id,
-            format!("invalid xAI response: {source}"),
+        ReplayRule::Xai => ModelError::with_source(
+            error.core(
+                ErrorKind::InvalidOutput,
+                format!("invalid xAI response: {source}"),
+            ),
+            source,
         ),
-        _ => ModelError::internal(source),
+        _ => ModelError::with_source(
+            error.core(ErrorKind::InvalidOutput, "invalid provider response"),
+            source,
+        ),
     };
     let mut body = body;
     if dialect.replay == ReplayRule::Kimi && body.get("choices").is_none() {
-        return Err(ModelError::provider(
-            dialect.provider,
-            provider_model_id,
-            "invalid Kimi response payload",
-        ));
+        return Err(error.model_error(ErrorKind::InvalidOutput, "invalid Kimi response payload"));
     }
     let mut parsed: ChatCompletionsResponse = match match dialect.replay {
         ReplayRule::MiniMax => eager::decode(body.take()),
@@ -80,6 +82,7 @@ pub(super) fn map_response(
 ) -> ModelResult<ModelResponse> {
     let CompletionContext {
         dialect,
+        error,
         catalog_model_id,
         provider_model_id,
         thinking_level,
@@ -87,18 +90,17 @@ pub(super) fn map_response(
     } = context;
     if let Some(error) = dialect
         .base_error
-        .and_then(|classify| classify(provider_model_id, parsed.base_resp.as_ref()))
+        .and_then(|classify| classify(error, parsed.base_resp.as_ref()))
     {
         return Err(error);
     }
     let Some(choice) = parsed.choices.into_iter().next() else {
-        return Err(ModelError::provider(
-            dialect.provider,
-            provider_model_id,
+        return Err(error.model_error(
+            ErrorKind::InvalidOutput,
             format!("{} response had no choices", dialect.label),
         ));
     };
-    let finish_reason = finish_reason(dialect, provider_model_id, choice.finish_reason.as_deref())?;
+    let finish_reason = finish_reason(error, dialect, choice.finish_reason.as_deref())?;
     let ChatCompletionsAssistantMessage {
         content,
         reasoning_content,
@@ -114,9 +116,8 @@ pub(super) fn map_response(
         && thinking_level.is_enabled()
         && reasoning_content.is_none()
     {
-        return Err(ModelError::provider(
-            dialect.provider,
-            provider_model_id,
+        return Err(error.model_error(
+            ErrorKind::InvalidOutput,
             format!(
                 "{} thinking tool response had no reasoning content",
                 dialect.label
@@ -127,26 +128,18 @@ pub(super) fn map_response(
     let parsed_calls = match eager_calls {
         Some(calls) if dispatchable => calls,
         Some(_) => Vec::new(),
-        None => dispatchable_tool_calls(dialect, provider_model_id, raw, dispatchable)?,
+        None => dispatchable_tool_calls(error, dialect, raw, dispatchable)?,
     };
     if dispatchable && parsed_calls.is_empty() {
-        return Err(ModelError::provider(
-            dialect.provider,
-            provider_model_id,
+        return Err(error.model_error(
+            ErrorKind::InvalidOutput,
             format!("{} tool-call response had no tool calls", dialect.label),
         ));
     }
-    let tool_calls = parse_tool_calls(dialect, provider_model_id, &parsed_calls)?;
+    let tool_calls = parse_tool_calls(error, dialect, &parsed_calls)?;
     let structured_output = response_schema
         .filter(|_| matches!(finish_reason, FinishReason::Stop) && tool_calls.is_empty())
-        .map(|schema| {
-            parse_structured_output(
-                dialect.provider,
-                provider_model_id,
-                &assistant_message,
-                schema,
-            )
-        })
+        .map(|schema| parse_structured_output(error, &assistant_message, schema))
         .transpose()?;
     if matches!(dialect.replay, ReplayRule::Kimi | ReplayRule::Xai)
         && assistant_message.trim().is_empty()

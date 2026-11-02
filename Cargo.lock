@@ -106,6 +106,7 @@ dependencies = [
  "ai-models-core",
  "async-trait",
  "json-http",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror",

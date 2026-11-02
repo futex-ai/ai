@@ -1,5 +1,7 @@
 //! Qwen response, tool-call, replay, usage, and schema tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{Effort, FinishReason, ModelError, StructuredOutputSchema};
 use serde_json::{Value, json};
 
@@ -149,7 +151,7 @@ fn enforces_dispatchable_tool_shape_and_thinking_reasoning() {
             json!({"choices": [{"finish_reason": "tool_calls", "message": message}]}),
             None,
         );
-        assert!(matches!(result, Err(ModelError::Provider { .. })));
+        assert!(matches!(result, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput));
     }
 
     let missing_reasoning = json!({
@@ -161,10 +163,9 @@ fn enforces_dispatchable_tool_shape_and_thinking_reasoning() {
             }
         }]
     });
-    assert!(matches!(
-        parse(Effort::High, missing_reasoning.clone(), None),
-        Err(ModelError::Provider { .. })
-    ));
+    assert!(
+        matches!(parse(Effort::High, missing_reasoning.clone(), None), Err(ref error) if error.core().kind == ErrorKind::InvalidOutput)
+    );
     assert!(
         parse(Effort::Disabled, missing_reasoning, None).is_ok(),
         "disabled thinking should not require reasoning content"

@@ -7,6 +7,7 @@ use crate::engine::dialect::{
 
 pub(super) static DIALECT: Dialect = Dialect {
     provider: "deepseek",
+    request_id_headers: &["x-request-id", "request-id"],
     label: "DeepSeek",
     endpoint: "https://api.deepseek.com/chat/completions",
     usage: UsageFields::CacheHitMiss,

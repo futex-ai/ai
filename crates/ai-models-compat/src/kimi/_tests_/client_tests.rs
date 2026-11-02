@@ -1,5 +1,7 @@
 //! Kimi HTTP dispatch and error classification tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{Model, ModelError};
 use json_http::{JsonHttpAuth, JsonHttpAuthMock, JsonHttpResponse, StaticHeaderAuth};
 use serde_json::{Value, json};
@@ -59,8 +61,14 @@ async fn classifies_rate_transient_and_ordinary_statuses() {
         (425, ErrorKind::Transient),
         (500, ErrorKind::Transient),
         (503, ErrorKind::Transient),
-        (400, ErrorKind::Provider),
-        (403, ErrorKind::Provider),
+        (400, ErrorKind::InvalidRequest),
+        (401, ErrorKind::RejectedKey),
+        (402, ErrorKind::RejectedKey),
+        (403, ErrorKind::RejectedKey),
+        (404, ErrorKind::UnknownModel),
+        (413, ErrorKind::InvalidRequest),
+        (422, ErrorKind::InvalidRequest),
+        (451, ErrorKind::InvalidRequest),
     ];
 
     for (status, expected) in cases {
@@ -74,7 +82,7 @@ async fn classifies_rate_transient_and_ordinary_statuses() {
             .await
             .expect_err("HTTP failure should return an error");
 
-        assert!(expected.matches(&error), "status {status}: {error}");
+        assert!(expected == error.core().kind, "status {status}: {error}");
         assert!(!error.to_string().contains("moonshot-secret"));
     }
 }
@@ -90,7 +98,7 @@ async fn transport_failures_are_transient_and_do_not_expose_credentials() {
         .await
         .expect_err("transport failure should return an error");
 
-    assert!(matches!(error, ModelError::TransientProvider { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::Transient));
     assert!(!error.to_string().contains("moonshot-secret"));
 }
 
@@ -107,7 +115,7 @@ async fn auth_hook_failures_are_transient() {
         .await
         .expect_err("auth failure should return an error");
 
-    assert!(matches!(error, ModelError::TransientProvider { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::Transient));
 }
 
 #[test]
@@ -134,10 +142,14 @@ fn classifies_auth_transport_and_local_codec_failures() {
         KIMI_K3.provider_model_id.as_ref(),
     );
 
-    assert!(matches!(auth, ModelError::TransientProvider { .. }));
-    assert!(matches!(transport, ModelError::TransientProvider { .. }));
-    assert!(matches!(serialization, ModelError::Internal { .. }));
-    assert!(matches!(deserialization, ModelError::Internal { .. }));
+    assert!(matches!(auth.core().kind, ErrorKind::Transient));
+    assert!(matches!(transport.core().kind, ErrorKind::Transient));
+    assert!(
+        matches!(serialization, ModelError::Internal { ref core, .. } if core.kind == ErrorKind::Internal)
+    );
+    assert!(
+        matches!(deserialization, ModelError::Internal { ref core, .. } if core.kind == ErrorKind::InvalidOutput)
+    );
 }
 
 #[test]
@@ -146,22 +158,4 @@ fn explicit_auth_constructor_does_not_require_ambient_credentials() {
         unused_http_client(),
         std::sync::Arc::new(StaticHeaderAuth::default()),
     );
-}
-
-#[derive(Clone, Copy)]
-enum ErrorKind {
-    RateLimited,
-    Transient,
-    Provider,
-}
-
-impl ErrorKind {
-    fn matches(self, error: &ModelError) -> bool {
-        matches!(
-            (self, error),
-            (Self::RateLimited, ModelError::RateLimited { .. })
-                | (Self::Transient, ModelError::TransientProvider { .. })
-                | (Self::Provider, ModelError::Provider { .. })
-        )
-    }
 }

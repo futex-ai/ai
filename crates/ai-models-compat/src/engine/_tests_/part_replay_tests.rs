@@ -1,10 +1,12 @@
 //! Provider isolation and own-state validation at the model boundary.
 
+use ai_interface::ErrorKind;
+
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, ConversationPart, ConversationRole, DynModel, ModelError, ModelRequest,
-    ProviderId, ProviderState, ToolCall,
+    ConversationMessage, ConversationPart, ConversationRole, DynModel, ModelRequest, ProviderId,
+    ProviderState, ToolCall,
 };
 use ai_models_core::test_support::{fixtures_for_buffered_responses, recording_streaming_client};
 use json_http::{DynJsonHttpClient, JsonHttpResponse, TransportBackedJsonHttpClient};
@@ -87,7 +89,7 @@ async fn rejects_invalid_own_state_on_portable_and_reasoning_parts_before_transp
                     .err()
                     .expect("own state fails before stream opens");
                 assert!(
-                    matches!(&error, ModelError::Provider { provider: actual, message, .. } if actual == provider && message == expected),
+                    matches!(&error, error if error.core().kind == ErrorKind::InvalidRequest && error.core().provider == provider && error.core().message == expected),
                     "{provider} version {version}: {error:?}"
                 );
             }

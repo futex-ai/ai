@@ -1,6 +1,8 @@
 //! xAI synchronous stream failure classification tests.
 
-use ai_interface::{ConversationMessage, Model, ModelError, ModelRequest};
+use ai_interface::ErrorKind;
+
+use ai_interface::{ConversationMessage, Model, ModelRequest};
 use ai_models_core::test_support::{SseFixture, data_event, event, recording_streaming_client};
 use serde_json::json;
 
@@ -30,8 +32,8 @@ async fn provider_errors_preserve_classification_until_progress() {
         .await
         .expect_err("provider error after progress should fail");
 
-    assert!(matches!(before, ModelError::RateLimited { .. }));
-    assert!(matches!(after, ModelError::Interrupted { .. }));
+    assert!(matches!(before.core().kind, ErrorKind::RateLimited));
+    assert!(matches!(after.core().kind, ErrorKind::Interrupted));
 }
 
 #[tokio::test]
@@ -58,12 +60,12 @@ async fn eof_transport_and_malformed_events_are_progress_aware() {
             .await
             .expect_err("incomplete stream should fail");
         assert_eq!(
-            matches!(error, ModelError::Interrupted { .. }),
+            matches!(error.core().kind, ErrorKind::Interrupted),
             interrupted,
             "fixture {position}: {error}"
         );
         if !interrupted {
-            assert!(matches!(error, ModelError::TransientProvider { .. }));
+            assert!(matches!(error.core().kind, ErrorKind::Transient));
         }
     }
 }

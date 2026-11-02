@@ -1,5 +1,7 @@
 //! DeepSeek locally validated JSON-object response tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, StructuredOutputSchema};
 use json_http::JsonHttpResponse;
 use serde_json::{Value, json};
@@ -72,11 +74,16 @@ async fn rejects_empty_invalid_mismatched_and_invalid_schema_output() {
         ),
     ];
 
-    for (content, schema) in cases {
+    for ((content, schema), expected) in cases.into_iter().zip([
+        ErrorKind::InvalidOutput,
+        ErrorKind::InvalidOutput,
+        ErrorKind::InvalidOutput,
+        ErrorKind::InvalidRequest,
+    ]) {
         let error = complete_with_schema(stopped_response(content), schema)
             .await
             .expect_err("invalid structured output should fail");
-        assert!(matches!(error, ModelError::Provider { .. }));
+        assert!(matches!(error.core().kind, kind if kind == expected));
     }
 }
 

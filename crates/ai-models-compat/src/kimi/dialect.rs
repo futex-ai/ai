@@ -7,6 +7,7 @@ use crate::engine::dialect::{
 
 pub(super) static DIALECT: Dialect = Dialect {
     provider: "kimi",
+    request_id_headers: &["x-request-id", "request-id"],
     label: "Kimi",
     endpoint: "https://api.moonshot.ai/v1/chat/completions",
     usage: UsageFields::DirectCached,

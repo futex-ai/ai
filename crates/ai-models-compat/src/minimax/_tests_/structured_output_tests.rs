@@ -1,5 +1,7 @@
 //! MiniMax locally validated structured-output tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{
     Effort, Model, ModelError, ModelRequest, ModelResponse, StructuredOutputSchema,
 };
@@ -62,7 +64,7 @@ async fn rejects_invalid_json_schema_and_schema_mismatches() {
         complete_with_schema(stopped_response("not json".to_owned()), status_schema())
             .await
             .expect_err("invalid JSON should fail");
-    assert!(matches!(invalid_json, ModelError::Provider { .. }));
+    assert!(matches!(invalid_json.core().kind, ErrorKind::InvalidOutput));
 
     let mismatch = complete_with_schema(
         stopped_response(json!({"summary": 7, "done": true}).to_string()),
@@ -70,7 +72,7 @@ async fn rejects_invalid_json_schema_and_schema_mismatches() {
     )
     .await
     .expect_err("schema mismatch should fail");
-    assert!(matches!(mismatch, ModelError::Provider { .. }));
+    assert!(matches!(mismatch.core().kind, ErrorKind::InvalidOutput));
 
     let invalid_schema = complete_with_schema(
         stopped_response(json!({"summary": "Done"}).to_string()),
@@ -81,7 +83,10 @@ async fn rejects_invalid_json_schema_and_schema_mismatches() {
     )
     .await
     .expect_err("invalid requested schema should fail");
-    assert!(matches!(invalid_schema, ModelError::Provider { .. }));
+    assert!(matches!(
+        invalid_schema.core().kind,
+        ErrorKind::InvalidRequest
+    ));
 
     let mut body = stopped_response("not json".to_owned());
     body["choices"][0]["message"]["tool_calls"] = json!([{
@@ -89,7 +94,9 @@ async fn rejects_invalid_json_schema_and_schema_mismatches() {
         "function": {"name": "lookup", "arguments": "{}"}
     }]);
     let raw_tool_stop = complete_with_schema(body, status_schema()).await;
-    assert!(matches!(raw_tool_stop, Err(ModelError::Provider { .. })));
+    assert!(
+        matches!(raw_tool_stop, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput)
+    );
 }
 
 #[tokio::test]

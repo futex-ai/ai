@@ -1,5 +1,7 @@
 //! DeepSeek typed response-shape edge-case tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::Effort;
 use ai_interface::ModelError;
 use serde_json::json;
@@ -12,7 +14,7 @@ use super::response;
 fn missing_or_empty_choices_are_provider_failures() {
     for body in [json!({}), json!({"choices": []})] {
         let error = complete(body).expect_err("missing first choice should fail");
-        assert!(matches!(error, ModelError::Provider { .. }));
+        assert!(matches!(error.core().kind, ErrorKind::InvalidOutput));
     }
 }
 
@@ -35,7 +37,9 @@ fn malformed_typed_response_fields_retain_internal_sources() {
         }),
     ] {
         let error = complete(body).expect_err("malformed typed response should fail");
-        assert!(matches!(error, ModelError::Internal { .. }));
+        assert!(
+            matches!(error, ModelError::Internal { ref core, .. } if core.kind == ErrorKind::InvalidOutput)
+        );
     }
 }
 

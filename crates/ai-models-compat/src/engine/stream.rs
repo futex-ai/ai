@@ -3,9 +3,10 @@
 use std::collections::VecDeque;
 
 use ai_interface::{
-    DynModelEventStream, Effort, ModelEvent, ModelEventStream, ModelResult, StructuredOutputSchema,
+    DynModelEventStream, Effort, ErrorKind, ModelError, ModelEvent, ModelEventStream, ModelResult,
+    StructuredOutputSchema,
 };
-use ai_models_core::{classify_json_http_stream_error, classify_stream_error};
+use ai_models_core::{ErrorContext, classify_json_http_stream_error, classify_stream_error};
 use async_trait::async_trait;
 use json_http::DynJsonHttpSseStream;
 
@@ -18,12 +19,19 @@ use super::{
 use crate::{ChatCompletionsAccumulator, ChatCompletionsResponse, ChatCompletionsStreamError};
 
 pub(crate) trait StreamNormalizer: Send {
-    fn normalize_data(&mut self, data: &str, model_id: &str, progress: u64) -> ModelResult<String>;
+    fn normalize_data(
+        &mut self,
+        data: &str,
+        context: &ErrorContext,
+        progress: u64,
+    ) -> ModelResult<String>;
     fn restore(self: Box<Self>, body: &mut ChatCompletionsResponse) -> Option<String>;
 }
 
 pub(super) struct StreamIdentity {
     pub(super) dialect: &'static Dialect,
+    /// Bound response facts and the secrets captured for this call.
+    pub(super) error: ErrorContext,
     pub(super) catalog_model_id: String,
     pub(super) provider_model_id: String,
     pub(super) thinking_level: Effort,
@@ -34,6 +42,7 @@ impl StreamIdentity {
     pub(super) fn context(&self) -> CompletionContext<'_> {
         CompletionContext {
             dialect: self.dialect,
+            error: &self.error,
             catalog_model_id: &self.catalog_model_id,
             provider_model_id: &self.provider_model_id,
             thinking_level: self.thinking_level,
@@ -44,9 +53,10 @@ impl StreamIdentity {
 
 pub(super) fn open(
     stream: DynJsonHttpSseStream,
-    identity: StreamIdentity,
+    mut identity: StreamIdentity,
     response_schema: Option<StructuredOutputSchema>,
 ) -> DynModelEventStream {
+    identity.error = identity.error.for_response(stream.headers());
     let normalizer = identity
         .dialect
         .normalizer
@@ -79,42 +89,34 @@ impl CompatStream {
         let Some(source) = self.source.as_mut() else {
             return Ok(());
         };
-        let provider = self.identity.dialect.provider;
-        let model_id = &self.identity.provider_model_id;
+        let context = &self.identity.error;
         let event = match source.next().await {
             Ok(Some(event)) => event,
             Ok(None) if self.identity.dialect.clean_eof => {
                 if let Some(accumulator) = self.accumulator.as_mut()
                     && let Err(source) = accumulator.push_data("[DONE]")
                 {
-                    return Err(classify_stream_error(
-                        provider,
-                        model_id,
-                        self.progress,
-                        &source,
-                    ));
+                    return Err(classify_stream_error(context, self.progress, &source));
                 }
                 return self.finish(false);
             }
             Ok(None) => {
                 return Err(classify_stream_error(
-                    provider,
-                    model_id,
+                    context,
                     self.progress,
                     &ChatCompletionsStreamError::MissingDone,
                 ));
             }
             Err(source) => {
                 return Err(classify_json_http_stream_error(
-                    provider,
-                    model_id,
+                    context,
                     self.progress,
                     source,
                 ));
             }
         };
         let data = match self.normalizer.as_mut() {
-            Some(normalizer) => normalizer.normalize_data(&event.data, model_id, self.progress)?,
+            Some(normalizer) => normalizer.normalize_data(&event.data, context, self.progress)?,
             None => event.data,
         };
         let Some(accumulator) = self.accumulator.as_mut() else {
@@ -131,14 +133,9 @@ impl CompatStream {
             }
             Ok(None) => self.finish(true),
             Err(ChatCompletionsStreamError::ProviderEvent { error }) => Err(
-                classify_chat_completions_provider_error(provider, model_id, self.progress, error),
+                classify_chat_completions_provider_error(context, self.progress, error),
             ),
-            Err(source) => Err(classify_stream_error(
-                provider,
-                model_id,
-                self.progress,
-                &source,
-            )),
+            Err(source) => Err(classify_stream_error(context, self.progress, &source)),
         }
     }
 
@@ -150,9 +147,21 @@ impl CompatStream {
         let mut accumulated = match accumulator.finish_model_stream(explicit_done) {
             Ok(accumulated) => accumulated,
             Err(source) => {
+                if matches!(
+                    source,
+                    ChatCompletionsStreamError::MissingToolCallId { .. }
+                        | ChatCompletionsStreamError::MissingToolFunctionName { .. }
+                        | ChatCompletionsStreamError::MissingLegacyFunctionName
+                ) {
+                    return Err(ModelError::with_source(
+                        self.identity
+                            .error
+                            .core(ErrorKind::InvalidOutput, source.to_string()),
+                        source,
+                    ));
+                }
                 return Err(classify_stream_error(
-                    self.identity.dialect.provider,
-                    &self.identity.provider_model_id,
+                    &self.identity.error,
                     self.progress,
                     &source,
                 ));

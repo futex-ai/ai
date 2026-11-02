@@ -1,5 +1,7 @@
 //! Kimi tool request and response tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{
     ConversationMessage, Effort, FinishReason, ModelError, ToolCall, ToolDefinition,
 };
@@ -102,7 +104,7 @@ fn invalid_dispatchable_tool_arguments_fail_as_provider_error() {
         vec![raw_call("call_1", "memory_read", "{\"path\":")],
     ));
 
-    assert!(matches!(result, Err(ModelError::Provider { .. })));
+    assert!(matches!(result, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput));
 }
 
 #[test]
@@ -123,7 +125,7 @@ fn structurally_partial_dispatchable_tool_calls_fail_as_provider_error() {
         }]
     }));
 
-    assert!(matches!(result, Err(ModelError::Provider { .. })));
+    assert!(matches!(result, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput));
 }
 
 #[test]
@@ -140,7 +142,7 @@ fn empty_dispatchable_tool_call_payloads_fail_as_provider_error() {
             }]
         }));
 
-        assert!(matches!(result, Err(ModelError::Provider { .. })));
+        assert!(matches!(result, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput));
     }
 }
 

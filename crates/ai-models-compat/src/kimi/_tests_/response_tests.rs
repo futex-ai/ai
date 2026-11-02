@@ -1,5 +1,7 @@
 //! Kimi normalized response tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{Effort, FinishReason, ModelError};
 use serde_json::{Value, json};
 
@@ -34,18 +36,15 @@ fn nullable_content_normalizes_empty_and_reasoning_remains_replay_only() {
 
 #[test]
 fn rejects_missing_choices_and_malformed_payloads() {
-    assert!(matches!(
-        parse(json!({"choices": []})),
-        Err(ModelError::Provider { .. })
-    ));
-    assert!(matches!(
-        parse(json!({"choices": [{"finish_reason": "stop"}]})),
-        Err(ModelError::Provider { .. })
-    ));
-    assert!(matches!(
-        parse(json!({"choices": "not-an-array"})),
-        Err(ModelError::Provider { .. })
-    ));
+    assert!(
+        matches!(parse(json!({"choices": []})), Err(ref error) if error.core().kind == ErrorKind::InvalidOutput)
+    );
+    assert!(
+        matches!(parse(json!({"choices": [{"finish_reason": "stop"}]})), Err(ref error) if error.core().kind == ErrorKind::InvalidOutput)
+    );
+    assert!(
+        matches!(parse(json!({"choices": "not-an-array"})), Err(ref error) if error.core().kind == ErrorKind::InvalidOutput)
+    );
 }
 
 #[test]

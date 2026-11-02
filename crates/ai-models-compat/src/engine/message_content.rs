@@ -1,7 +1,7 @@
 //! Text, image, video, and empty-content wire forms.
 
 use ai_interface::{
-    ConversationMessage, ConversationPart, ConversationRole, ModelError, ModelResult,
+    ConversationMessage, ConversationPart, ConversationRole, ErrorKind, ModelError, ModelResult,
 };
 
 use super::{
@@ -71,7 +71,8 @@ fn content_part(
                 },
             })
         }
-        _ => Err(ModelError::provider(
+        _ => Err(ModelError::failure(
+            ErrorKind::UnsupportedInput,
             dialect.provider,
             model_id,
             format!(

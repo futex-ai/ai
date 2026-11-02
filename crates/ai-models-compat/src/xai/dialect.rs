@@ -9,6 +9,7 @@ use crate::engine::dialect::{
 
 pub(super) static DIALECT: Dialect = Dialect {
     provider: "xai",
+    request_id_headers: &["x-request-id", "request-id"],
     label: "xAI",
     endpoint: "https://api.x.ai/v1/chat/completions",
     usage: UsageFields::BoundedCachedAndReasoning,

@@ -1,5 +1,7 @@
 //! DeepSeek tool request and response tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{
     ConversationMessage, Effort, FinishReason, ModelError, ToolCall, ToolDefinition,
 };
@@ -128,7 +130,7 @@ fn rejects_absent_null_empty_partial_and_malformed_dispatchable_calls() {
             }),
         );
 
-        assert!(matches!(result, Err(ModelError::Provider { .. })));
+        assert!(matches!(result, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput));
     }
 }
 
@@ -177,10 +179,9 @@ fn enabled_thinking_requires_reasoning_but_disabled_thinking_does_not() {
         }]
     });
 
-    assert!(matches!(
-        parse(Effort::High, missing_reasoning.clone()),
-        Err(ModelError::Provider { .. })
-    ));
+    assert!(
+        matches!(parse(Effort::High, missing_reasoning.clone()), Err(ref error) if error.core().kind == ErrorKind::InvalidOutput)
+    );
     let response = parse(Effort::Disabled, missing_reasoning)
         .expect("disabled-thinking tool call should not require reasoning");
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);

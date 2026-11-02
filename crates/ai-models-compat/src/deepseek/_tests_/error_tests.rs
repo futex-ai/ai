@@ -1,5 +1,7 @@
 //! DeepSeek HTTP, transport, auth, and semantic error tests.
 
+use ai_interface::ErrorKind;
+
 use std::sync::Arc;
 
 use ai_interface::{Model, ModelError};
@@ -19,12 +21,16 @@ use super::{
 #[tokio::test]
 async fn classifies_the_complete_http_status_matrix() {
     let cases = [
-        (400, ErrorKind::Provider),
-        (401, ErrorKind::Provider),
-        (402, ErrorKind::Provider),
+        (400, ErrorKind::InvalidRequest),
+        (401, ErrorKind::RejectedKey),
+        (402, ErrorKind::RejectedKey),
+        (403, ErrorKind::RejectedKey),
+        (404, ErrorKind::UnknownModel),
+        (413, ErrorKind::InvalidRequest),
+        (451, ErrorKind::InvalidRequest),
         (408, ErrorKind::Transient),
         (409, ErrorKind::Transient),
-        (422, ErrorKind::Provider),
+        (422, ErrorKind::InvalidRequest),
         (425, ErrorKind::Transient),
         (429, ErrorKind::RateLimited),
         (500, ErrorKind::Transient),
@@ -42,7 +48,7 @@ async fn classifies_the_complete_http_status_matrix() {
             .await
             .expect_err("HTTP failure should return an error");
 
-        assert!(expected.matches(&error), "status {status}: {error}");
+        assert!(expected == error.core().kind, "status {status}: {error}");
         assert!(!error.to_string().contains("deepseek-secret"));
         assert!(!format!("{error:?}").contains("deepseek-secret"));
     }
@@ -65,7 +71,7 @@ async fn recognizes_structured_context_overflow_codes() {
         .await
         .expect_err("context overflow should fail");
 
-    assert!(matches!(error, ModelError::ContextLimitExceeded { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::ContextLimitExceeded));
 }
 
 #[tokio::test]
@@ -77,7 +83,7 @@ async fn transport_and_auth_failures_are_transient() {
     .complete(&simple_request())
     .await
     .expect_err("transport failure should fail");
-    assert!(matches!(transport, ModelError::TransientProvider { .. }));
+    assert!(matches!(transport.core().kind, ErrorKind::Transient));
     assert!(!transport.to_string().contains("deepseek-secret"));
 
     let auth: Arc<dyn JsonHttpAuth> = Arc::new(Unimock::new(
@@ -89,7 +95,7 @@ async fn transport_and_auth_failures_are_transient() {
         .complete(&simple_request())
         .await
         .expect_err("auth failure should fail");
-    assert!(matches!(auth_error, ModelError::TransientProvider { .. }));
+    assert!(matches!(auth_error.core().kind, ErrorKind::Transient));
 }
 
 #[test]
@@ -108,8 +114,12 @@ fn request_serialization_and_response_deserialization_errors_are_internal() {
         DEEPSEEK_V4_PRO.provider_model_id.as_ref(),
     );
 
-    assert!(matches!(serialization, ModelError::Internal { .. }));
-    assert!(matches!(deserialization, ModelError::Internal { .. }));
+    assert!(
+        matches!(serialization, ModelError::Internal { ref core, .. } if core.kind == ErrorKind::Internal)
+    );
+    assert!(
+        matches!(deserialization, ModelError::Internal { ref core, .. } if core.kind == ErrorKind::InvalidOutput)
+    );
 }
 
 #[tokio::test]
@@ -124,23 +134,5 @@ async fn completed_stream_without_choices_is_an_interruption() {
         .await
         .expect_err("missing choices should fail");
 
-    assert!(matches!(error, ModelError::Interrupted { .. }));
-}
-
-#[derive(Clone, Copy)]
-enum ErrorKind {
-    RateLimited,
-    Transient,
-    Provider,
-}
-
-impl ErrorKind {
-    fn matches(self, error: &ModelError) -> bool {
-        matches!(
-            (self, error),
-            (Self::RateLimited, ModelError::RateLimited { .. })
-                | (Self::Transient, ModelError::TransientProvider { .. })
-                | (Self::Provider, ModelError::Provider { .. })
-        )
-    }
+    assert!(matches!(error.core().kind, ErrorKind::Interrupted));
 }

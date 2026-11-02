@@ -44,8 +44,14 @@ first. Indexed `delta.tool_calls` entries give tool-call start, argument,
 and end events. One usage event and one finish event follow the terminal
 event of the stream. `Model::complete` folds these events. A call with a
 response schema emits text deltas like any other call. Stream failures
-after progress return `ModelError::Interrupted`.
+after progress return the `Interrupted` error kind.
 Moved errors retain their existing message prefixes for response parity.
+
+Errors carry precise shared kinds, adapter identity, Retry-After, and optional
+provider request ids. Late stream and output failures retain their response
+metadata. Auth hooks apply once per request and diagnostics redact captured
+credentials. Each model offers `with_clock` for HTTP-date retry hints.
+MiniMax uses `Trace-Id` first; other request-id names are optional aliases.
 
 MiniMax retains M2.x snapshot recovery, M3 deltas, reasoning details, numeric
 provider errors, and structurally validated clean EOF. It emits the inferred
@@ -53,7 +59,10 @@ M2.x text as one text delta after terminal validation.
 xAI retains legacy function calls, deterministic call ids, final usage
 replacement, and deferred submission and polling. A deferred call emits
 every event of the call after the provider result arrives. Its existing
-timeout classification remains unchanged.
+timeout classification remains `Transient`. Polling continues after production
+transport failures through the shared transport predicate, with one submission.
+
+DeepSeek keeps its `insufficient_system_resource` finish as `Transient`.
 
 Each dialect records its replay data as provider state of its own provider
 id on the part that produced it. The text part keeps the raw content, the
@@ -61,7 +70,7 @@ reasoning part keeps the raw reasoning, and each tool-call part keeps its raw
 call. The provider doc of each dialect says which values it keeps. The
 engine prefers own state to the portable parts, and it ignores the state of
 every other provider. Own state with an unknown version or a payload that
-does not decode fails before transport with `ModelError::Provider`. A
+does not decode fails before transport with the `InvalidRequest` error kind. A
 dialect writes state with version 2, and it reads the version 1 state that
 holds the fields of an old item.
 

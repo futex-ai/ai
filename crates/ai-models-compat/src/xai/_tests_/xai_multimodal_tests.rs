@@ -1,8 +1,8 @@
 //! Multimodal serialization tests for xAI.
 
-use ai_interface::{
-    ConversationMessage, ConversationPart, Model, ModelError, ModelRequest, ToolCall,
-};
+use ai_interface::ErrorKind;
+
+use ai_interface::{ConversationMessage, ConversationPart, Model, ModelRequest, ToolCall};
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
@@ -97,18 +97,14 @@ async fn rejects_video_content_parts_before_transport() {
         .await
         .expect_err("video parts must be rejected");
 
-    match error {
-        ModelError::Provider {
-            provider,
-            model_id,
-            message,
-        } => {
-            assert_eq!(provider, "xai");
-            assert_eq!(model_id, "grok-4");
-            assert_eq!(message, "xAI accepts text and image content parts only");
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
+    assert_eq!(error.core().kind, ErrorKind::UnsupportedInput);
+
+    assert_eq!(error.core().provider, "xai");
+    assert_eq!(error.core().model_id, "grok-4");
+    assert_eq!(
+        error.core().message,
+        "xAI accepts text and image content parts only"
+    );
 }
 
 fn successful_response() -> JsonHttpResponse<serde_json::Value> {

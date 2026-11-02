@@ -1,5 +1,7 @@
 //! MiniMax response-shape edge-case tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{Effort, ModelError, ModelUsage};
 use serde_json::json;
 
@@ -10,7 +12,7 @@ use super::response;
 #[test]
 fn rejects_empty_choices_and_malformed_typed_fields() {
     let empty_error = parse(json!({"choices": []})).expect_err("empty choices should fail");
-    assert!(matches!(empty_error, ModelError::Provider { .. }));
+    assert!(matches!(empty_error.core().kind, ErrorKind::InvalidOutput));
 
     for malformed in [
         json!({"choices": "invalid"}),
@@ -18,7 +20,9 @@ fn rejects_empty_choices_and_malformed_typed_fields() {
         json!({"choices": [{"message": {"reasoning_details": [{"index": "zero"}]}}]}),
     ] {
         let error = parse(malformed).expect_err("malformed typed response should fail");
-        assert!(matches!(error, ModelError::Internal { .. }));
+        assert!(
+            matches!(error, ModelError::Internal { ref core, .. } if core.kind == ErrorKind::InvalidOutput)
+        );
     }
 }
 

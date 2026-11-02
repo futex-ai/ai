@@ -1,10 +1,12 @@
 //! MiniMax portable call-control tests.
 
+use ai_interface::ErrorKind;
+
 use std::sync::Arc;
 use std::time::Duration;
 
 use ai_interface::{
-    ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl, ModelError,
+    ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl,
     ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
 };
 use json_http::{JsonHttpClient, JsonHttpResponse, TransportBackedJsonHttpClient};
@@ -54,13 +56,9 @@ async fn rejects_unsupported_controls_before_transport() {
         .complete(&stop_request)
         .await
         .expect_err("stops should fail");
-    assert!(matches!(
-        stop_error,
-        ModelError::UnsupportedControl {
-            control: ModelControl::StopSequences,
-            ..
-        }
-    ));
+    assert!(
+        matches!(stop_error, ref error if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::StopSequences))
+    );
 
     let mut tool_request = base_request();
     tool_request.controls.generation.tool_choice =
@@ -69,13 +67,9 @@ async fn rejects_unsupported_controls_before_transport() {
         .complete(&tool_request)
         .await
         .expect_err("named tool choice should fail");
-    assert!(matches!(
-        tool_error,
-        ModelError::UnsupportedControl {
-            control: ModelControl::ToolChoice,
-            ..
-        }
-    ));
+    assert!(
+        matches!(tool_error, ref error if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::ToolChoice))
+    );
 
     let mut deferred_request = base_request();
     deferred_request.controls.execution.completion_mode = ModelCompletionMode::RequireDeferred;
@@ -83,13 +77,9 @@ async fn rejects_unsupported_controls_before_transport() {
         .complete(&deferred_request)
         .await
         .expect_err("required deferred mode should fail");
-    assert!(matches!(
-        deferred_error,
-        ModelError::UnsupportedControl {
-            control: ModelControl::CompletionMode,
-            ..
-        }
-    ));
+    assert!(
+        matches!(deferred_error, ref error if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::CompletionMode))
+    );
 }
 
 #[tokio::test]
@@ -163,13 +153,9 @@ async fn strict_required_remains_unsupported_for_other_minimax_models() {
         .await
         .expect_err("unverified strict required support should fail");
 
-    assert!(matches!(
-        error,
-        ModelError::UnsupportedControl {
-            control: ModelControl::ToolChoice,
-            ..
-        }
-    ));
+    assert!(
+        matches!(error, ref error if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::ToolChoice))
+    );
 }
 
 #[tokio::test]

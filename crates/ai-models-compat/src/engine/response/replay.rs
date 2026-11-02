@@ -43,6 +43,7 @@ pub(super) fn parts(
         let mut part = ConversationPart::reasoning(content.reasoning.clone().unwrap_or_default());
         if retains_reasoning {
             part = part.with_provider_state(replay_state::encode(
+                context.error,
                 context.dialect,
                 context.provider_model_id,
                 PartState::Reasoning {
@@ -62,6 +63,7 @@ pub(super) fn parts(
                 content.raw_content
             };
             part = part.with_provider_state(replay_state::encode(
+                context.error,
                 context.dialect,
                 context.provider_model_id,
                 PartState::Text { content: raw },
@@ -72,6 +74,7 @@ pub(super) fn parts(
     for (call, raw) in content.calls.into_iter().zip(content.raw_calls) {
         parts.push(ConversationPart::from_tool_call(call).with_provider_state(
             replay_state::encode(
+                context.error,
                 context.dialect,
                 context.provider_model_id,
                 PartState::ToolCall {

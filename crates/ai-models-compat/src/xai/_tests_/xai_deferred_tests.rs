@@ -1,32 +1,15 @@
 //! XAI deferred-completion lifecycle tests.
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
-
-use ai_interface::{
-    ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelError,
-    ModelExecutionControls, ModelRequest,
-};
-use json_http::{
-    JsonHttpClient, JsonHttpMethod, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
-    StaticHeaderAuth, TransportBackedJsonHttpClient,
-};
-use serde_json::{Value, json};
-use unimock::{MockFn, Unimock, matching};
-
 use crate::stream_test_support::{assistant_delta, content_events, observe};
+use ai_interface::{ErrorKind, Model};
+use json_http::JsonHttpMethod;
+use serde_json::{Value, json};
+use std::time::Duration;
 
-use super::test_support::custom_spec;
-use super::{
-    XaiModel,
-    deferred::{DeferredRuntime, DeferredRuntimeMock},
+use super::deferred_support::{
+    advancing_runtime, completed_body, deferred_request, model, reqwest_failure, response,
+    scripted_http_client, stationary_runtime,
 };
-
-type ScriptedResponse = std::result::Result<JsonHttpResponse<Value>, json_http::Error>;
-type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 
 #[tokio::test]
 async fn polls_one_accepted_completion_and_emits_result_events() {
@@ -34,6 +17,7 @@ async fn polls_one_accepted_completion_and_emits_result_events() {
         response(200, json!({ "request_id": "req_abc-123" })),
         response(202, json!({ "status": "pending" })),
         Err(json_http::Error::transport("poll disconnected")),
+        Err(reqwest_failure("://invalid")),
         response(429, json!({ "error": "slow down" })),
         response(503, json!({ "error": "unavailable" })),
         response(200, completed_body()),
@@ -62,7 +46,7 @@ async fn polls_one_accepted_completion_and_emits_result_events() {
             .count(),
         1
     );
-    assert_eq!(requests.len(), 6);
+    assert_eq!(requests.len(), 7);
     let body = serde_json::from_slice::<Value>(
         requests[0]
             .body
@@ -90,7 +74,7 @@ async fn polls_one_accepted_completion_and_emits_result_events() {
     }
     assert_eq!(
         *sleeps.lock().expect("sleep lock should be available"),
-        vec![Duration::from_secs(5); 4]
+        vec![Duration::from_secs(5); 5]
     );
 }
 
@@ -105,7 +89,7 @@ async fn rejects_non_successful_submission_without_polling() {
         .stream(&deferred_request(Duration::from_secs(60)))
         .await;
 
-    assert!(matches!(result, Err(ModelError::Provider { .. })));
+    assert!(matches!(result, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput));
     let requests = requests.lock().expect("request lock should be available");
     assert_eq!(requests.len(), 1);
     assert_eq!(requests[0].method, JsonHttpMethod::Post);
@@ -124,7 +108,7 @@ async fn returns_terminal_retrieval_errors_without_resubmitting() {
         .stream(&deferred_request(Duration::from_secs(60)))
         .await;
 
-    assert!(matches!(result, Err(ModelError::Provider { .. })));
+    assert!(matches!(result, Err(ref error) if error.core().kind == ErrorKind::InvalidRequest));
     let requests = requests.lock().expect("request lock should be available");
     assert_eq!(requests.len(), 2);
     assert_eq!(requests[0].method, JsonHttpMethod::Post);
@@ -144,7 +128,7 @@ async fn rejects_malformed_deferred_request_ids_before_polling() {
         .stream(&deferred_request(Duration::from_secs(60)))
         .await;
 
-    assert!(matches!(result, Err(ModelError::Provider { .. })));
+    assert!(matches!(result, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput));
     assert_eq!(
         requests
             .lock()
@@ -167,7 +151,7 @@ async fn total_timeout_bounds_submission_poll_and_sleep() {
         .stream(&deferred_request(Duration::from_secs(3)))
         .await;
 
-    assert!(matches!(result, Err(ModelError::TransientProvider { .. })));
+    assert!(matches!(result, Err(ref error) if error.core().kind == ErrorKind::Transient));
     let requests = requests.lock().expect("request lock should be available");
     assert_eq!(requests.len(), 2);
     assert_eq!(requests[0].timeout, Duration::from_secs(3));
@@ -176,114 +160,4 @@ async fn total_timeout_bounds_submission_poll_and_sleep() {
         *sleeps.lock().expect("sleep lock should be available"),
         vec![Duration::from_secs(3)]
     );
-}
-
-fn model(http_client: Arc<dyn JsonHttpClient>, runtime: Arc<dyn DeferredRuntime>) -> XaiModel {
-    XaiModel::with_catalog_auth_and_runtime(
-        http_client,
-        custom_spec("grok-4"),
-        Arc::new(StaticHeaderAuth::bearer_token("xai-key")),
-        runtime,
-    )
-}
-
-fn deferred_request(total_timeout: Duration) -> ModelRequest {
-    ModelRequest {
-        system_prompt: String::new(),
-        messages: vec![ConversationMessage::user("hello")],
-        tools: Vec::new(),
-        response_schema: None,
-        controls: ModelCallControls {
-            execution: ModelExecutionControls {
-                total_timeout: Some(total_timeout),
-                completion_mode: ModelCompletionMode::PreferDeferred,
-            },
-            ..Default::default()
-        },
-    }
-}
-
-fn scripted_http_client(
-    responses: Vec<ScriptedResponse>,
-) -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let responses = Arc::new(Mutex::new(VecDeque::from(responses)));
-    let transport = Arc::new(Unimock::new(
-        JsonHttpTransportMock::execute
-            .each_call(matching!(_))
-            .answers_arc({
-                let requests = requests.clone();
-                let responses = responses.clone();
-                Arc::new(move |_, request: &JsonHttpRequest| {
-                    requests
-                        .lock()
-                        .expect("request lock should be available")
-                        .push(request.clone());
-                    responses
-                        .lock()
-                        .expect("response lock should be available")
-                        .pop_front()
-                        .expect("unexpected transport call")
-                })
-            }),
-    ));
-    (
-        Arc::new(TransportBackedJsonHttpClient::new(transport)),
-        requests,
-    )
-}
-
-fn advancing_runtime() -> (Arc<dyn DeferredRuntime>, Arc<Mutex<Vec<Duration>>>) {
-    let started_at = tokio::time::Instant::now();
-    let elapsed = Arc::new(Mutex::new(Duration::ZERO));
-    let sleeps = Arc::new(Mutex::new(Vec::new()));
-    let runtime = Arc::new(Unimock::new((
-        DeferredRuntimeMock::now
-            .each_call(matching!())
-            .answers_arc({
-                let elapsed = elapsed.clone();
-                Arc::new(move |_| {
-                    started_at + *elapsed.lock().expect("elapsed lock should be available")
-                })
-            }),
-        DeferredRuntimeMock::sleep
-            .each_call(matching!(_))
-            .answers_arc({
-                let elapsed = elapsed.clone();
-                let sleeps = sleeps.clone();
-                Arc::new(move |_, duration: Duration| {
-                    sleeps
-                        .lock()
-                        .expect("sleep lock should be available")
-                        .push(duration);
-                    let mut elapsed = elapsed.lock().expect("elapsed lock should be available");
-                    *elapsed += duration;
-                })
-            }),
-    ))) as Arc<dyn DeferredRuntime>;
-    (runtime, sleeps)
-}
-
-fn stationary_runtime() -> Arc<dyn DeferredRuntime> {
-    let now = tokio::time::Instant::now();
-    Arc::new(Unimock::new(
-        DeferredRuntimeMock::now.each_call(matching!()).returns(now),
-    ))
-}
-
-fn response(status: u16, body: Value) -> ScriptedResponse {
-    Ok(JsonHttpResponse {
-        headers: Default::default(),
-        status,
-        body,
-    })
-}
-
-fn completed_body() -> Value {
-    json!({
-        "choices": [{
-            "finish_reason": "stop",
-            "message": { "content": "Done", "tool_calls": [] }
-        }]
-    })
 }

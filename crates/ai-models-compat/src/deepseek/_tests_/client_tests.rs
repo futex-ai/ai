@@ -1,5 +1,7 @@
 //! DeepSeek transport and local-codec error tests.
 
+use ai_interface::ErrorKind;
+
 use std::sync::Arc;
 
 use ai_interface::{Model, ModelError};
@@ -20,10 +22,7 @@ async fn transport_and_auth_failures_are_transient_without_credentials() {
         .complete(&simple_request())
         .await
         .expect_err("transport failure should return an error");
-    assert!(matches!(
-        transport_error,
-        ModelError::TransientProvider { .. }
-    ));
+    assert!(matches!(transport_error.core().kind, ErrorKind::Transient));
     assert!(!transport_error.to_string().contains("secret"));
 
     let auth: Arc<dyn JsonHttpAuth> = Arc::new(Unimock::new(
@@ -35,7 +34,7 @@ async fn transport_and_auth_failures_are_transient_without_credentials() {
         .complete(&simple_request())
         .await
         .expect_err("auth failure should return an error");
-    assert!(matches!(auth_error, ModelError::TransientProvider { .. }));
+    assert!(matches!(auth_error.core().kind, ErrorKind::Transient));
 }
 
 #[test]
@@ -54,6 +53,10 @@ fn local_codec_failures_remain_internal() {
         DEEPSEEK_V4_PRO.provider_model_id.as_ref(),
     );
 
-    assert!(matches!(serialization, ModelError::Internal { .. }));
-    assert!(matches!(deserialization, ModelError::Internal { .. }));
+    assert!(
+        matches!(serialization, ModelError::Internal { ref core, .. } if core.kind == ErrorKind::Internal)
+    );
+    assert!(
+        matches!(deserialization, ModelError::Internal { ref core, .. } if core.kind == ErrorKind::InvalidOutput)
+    );
 }
