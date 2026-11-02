@@ -3,6 +3,8 @@
 use ai_interface::ImageGenerationError;
 use serde_json::json;
 
+use crate::google::google_tests::stream_support::error_context;
+
 use super::super::{
     error::{classify_request_error, classify_status},
     response::parse_response,
@@ -11,6 +13,8 @@ use super::super::{
 #[test]
 fn prompt_blocks_are_content_policy_refusals() {
     let error = parse_response(
+        &error_context("gemini-3.1-flash-image"),
+        &Default::default(),
         "gemini-3.1-flash-image",
         json!({
             "promptFeedback": {
@@ -21,11 +25,9 @@ fn prompt_blocks_are_content_policy_refusals() {
     )
     .unwrap_err();
 
-    assert!(matches!(
-        error,
-        ImageGenerationError::ContentPolicy { message, .. }
-            if message == "unsafe prompt"
-    ));
+    assert!(
+        matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::ContentPolicy && (error.core().message == "unsafe prompt"))
+    );
 }
 
 #[test]
@@ -42,6 +44,8 @@ fn documented_finish_reasons_are_content_policy_refusals() {
         "ESCALATION",
     ] {
         let error = parse_response(
+            &error_context("gemini-3.1-flash-image"),
+            &Default::default(),
             "gemini-3.1-flash-image",
             json!({"candidates": [{
                 "finishReason": reason,
@@ -49,11 +53,9 @@ fn documented_finish_reasons_are_content_policy_refusals() {
             }]}),
         )
         .unwrap_err();
-        assert!(matches!(
-            error,
-            ImageGenerationError::ContentPolicy { message, .. }
-                if message == "provider refused image"
-        ));
+        assert!(
+            matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::ContentPolicy && (error.core().message == "provider refused image"))
+        );
     }
 }
 
@@ -61,54 +63,36 @@ fn documented_finish_reasons_are_content_policy_refusals() {
 fn no_image_and_other_finish_failures_stay_distinct() {
     assert!(matches!(
         parse_response(
+            &error_context("gemini-3.1-flash-image"),
+            &Default::default(),
             "gemini-3.1-flash-image",
             json!({"candidates": [{"finishReason": "NO_IMAGE"}]})
         ),
-        Err(ImageGenerationError::NoImage { .. })
+        Err(ImageGenerationError::NoImage { ref core }) if core.kind == ai_interface::ErrorKind::InvalidOutput
     ));
-    assert!(matches!(
-        parse_response(
-            "gemini-3.1-flash-image",
-            json!({"candidates": [{
+    assert!(
+        matches!(parse_response(&error_context("gemini-3.1-flash-image"), &Default::default(), "gemini-3.1-flash-image", json!({"candidates": [{
                 "finishReason": "IMAGE_OTHER",
                 "finishMessage": "generation failed"
-            }]})
-        ),
-        Err(ImageGenerationError::Provider { message, .. })
-            if message == "generation failed"
-    ));
+            }]})), Err(ref error) if error.core().kind == ai_interface::ErrorKind::InvalidOutput && (error.core().message == "generation failed"))
+    );
 }
 
 #[test]
 fn http_and_transport_failures_are_classified_for_retry() {
-    assert!(matches!(
-        classify_status(429, "gemini-3.1-flash-image", &json!({})),
-        ImageGenerationError::RateLimited { .. }
-    ));
-    assert!(matches!(
-        classify_status(503, "gemini-3.1-flash-image", &json!({})),
-        ImageGenerationError::TransientProvider { .. }
-    ));
-    assert!(matches!(
-        classify_status(
-            400,
-            "gemini-3.1-flash-image",
-            &json!({"error": {"message": "bad request"}})
-        ),
-        ImageGenerationError::Provider { message, .. } if message.contains("bad request")
-    ));
-    assert!(matches!(
-        classify_request_error(
-            json_http::Error::transport("disconnected"),
-            "gemini-3.1-flash-image"
-        ),
-        ImageGenerationError::TransientProvider { .. }
-    ));
-    assert!(matches!(
-        classify_request_error(
-            json_http::Error::auth("unavailable"),
-            "gemini-3.1-flash-image"
-        ),
-        ImageGenerationError::TransientProvider { .. }
-    ));
+    assert!(
+        matches!(classify_status(&error_context("gemini-3.1-flash-image"), 429, &Default::default(), &json!({})), ref error if error.core().kind == ai_interface::ErrorKind::RateLimited)
+    );
+    assert!(
+        matches!(classify_status(&error_context("gemini-3.1-flash-image"), 503, &Default::default(), &json!({})), ref error if error.core().kind == ai_interface::ErrorKind::Transient)
+    );
+    assert!(
+        matches!(classify_status(&error_context("gemini-3.1-flash-image"), 400, &Default::default(), &json!({"error": {"message": "bad request"}})), ref error if error.core().kind == ai_interface::ErrorKind::InvalidRequest && (error.core().message.contains("bad request")))
+    );
+    assert!(
+        matches!(classify_request_error(&error_context("gemini-3.1-flash-image"), json_http::Error::transport("disconnected")), ref error if error.core().kind == ai_interface::ErrorKind::Transient)
+    );
+    assert!(
+        matches!(classify_request_error(&error_context("gemini-3.1-flash-image"), json_http::Error::auth("unavailable")), ref error if error.core().kind == ai_interface::ErrorKind::Transient)
+    );
 }

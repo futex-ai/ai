@@ -1,6 +1,6 @@
 //! Indexed tool calls, terminal metadata, and failed stream closure.
 
-use ai_interface::{Model, ModelError, StructuredOutputSchema};
+use ai_interface::{Model, StructuredOutputSchema};
 use serde_json::json;
 
 use super::stream_support::custom_spec;
@@ -87,7 +87,9 @@ async fn invalid_schema_fails_before_usage_and_then_closes() {
         .next()
         .await
         .expect_err("invalid schema must precede usage");
-    assert!(matches!(invalid, ModelError::Provider { .. }));
+    assert!(
+        matches!(invalid, ref error if error.core().kind == ai_interface::ErrorKind::InvalidOutput)
+    );
     assert!(
         stream
             .next()

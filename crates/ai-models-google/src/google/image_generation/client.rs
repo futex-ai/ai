@@ -5,8 +5,11 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use ai_interface::{
     ImageGenerationRequest, ImageGenerationResponse, ImageGenerationResult, ImageGenerator,
 };
+use ai_models_core::{Clock, SystemClock};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+
+use crate::google::error_context;
 
 use super::{
     error::{classify_request_error, classify_status},
@@ -26,6 +29,8 @@ pub struct GoogleImageGenerator {
     auth: DynJsonHttpAuth,
     endpoint_override: Option<String>,
     pub(super) timeout: Duration,
+    clock: Arc<dyn Clock>,
+    initial_secrets: Vec<String>,
 }
 
 impl GoogleImageGenerator {
@@ -35,14 +40,17 @@ impl GoogleImageGenerator {
         model_id: impl Into<String>,
         api_key: impl Into<String>,
     ) -> Self {
-        Self::with_auth(
+        let api_key = api_key.into();
+        let mut model = Self::with_auth(
             http_client,
             model_id,
             Arc::new(StaticHeaderAuth::new(BTreeMap::from([(
                 "x-goog-api-key".to_owned(),
-                api_key.into(),
+                api_key.clone(),
             )]))),
-        )
+        );
+        model.initial_secrets.push(api_key);
+        model
     }
 
     /// Builds a Google image generator from an injected client and auth hook.
@@ -57,7 +65,15 @@ impl GoogleImageGenerator {
             auth,
             endpoint_override: None,
             timeout: DEFAULT_IMAGE_TIMEOUT,
+            clock: Arc::new(SystemClock),
+            initial_secrets: Vec::new(),
         }
+    }
+
+    /// Uses an injected wall clock for response retry dates.
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
+        self
     }
 
     /// Overrides the generated provider endpoint.
@@ -88,28 +104,37 @@ impl ImageGenerator for GoogleImageGenerator {
         &self,
         request: &ImageGenerationRequest,
     ) -> ImageGenerationResult<ImageGenerationResponse> {
-        let body = build_request(request)?;
+        let context = error_context::new(&self.model_id, self.clock.clone());
+        for secret in &self.initial_secrets {
+            context.add_secret(secret);
+            if let Some(token) = secret.split_whitespace().last() {
+                context.add_secret(token);
+            }
+        }
+        let body = build_request(&context, request)?;
         let request = match self
             .http_client
             .post(&self.endpoint())
-            .auth(self.auth.clone())
+            .auth(context.capture_auth(self.auth.clone()))
             .timeout(self.timeout)
             .json(body)
         {
             Ok(request) => request,
-            Err(source) => return Err(classify_request_error(source, &self.model_id)),
+            Err(source) => return Err(classify_request_error(&context, source)),
         };
         let response = match request.send_value().await {
             Ok(response) => response,
-            Err(source) => return Err(classify_request_error(source, &self.model_id)),
+            Err(source) => return Err(classify_request_error(&context, source)),
         };
         if response.status >= 400 {
             return Err(classify_status(
+                &context,
                 response.status,
-                &self.model_id,
+                &response.headers,
                 &response.body,
             ));
         }
-        parse_response(&self.model_id, response.body)
+        let context = context.for_response(&response.headers);
+        parse_response(&context, &response.headers, &self.model_id, response.body)
     }
 }

@@ -1,6 +1,6 @@
 //! Google generate-content stream failure classification tests.
 
-use ai_interface::{Model, ModelError};
+use ai_interface::Model;
 use serde_json::json;
 
 use super::stream_support::custom_spec;
@@ -19,7 +19,7 @@ async fn first_provider_error_preserves_status_classification() {
         .await
         .expect_err("provider error should fail");
 
-    assert!(matches!(error, ModelError::TransientProvider { .. }));
+    assert!(matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::Transient));
 }
 
 #[tokio::test]
@@ -38,7 +38,9 @@ async fn provider_error_after_progress_is_an_interruption() {
         .await
         .expect_err("partially generated stream should fail");
 
-    assert!(matches!(error, ModelError::Interrupted { .. }));
+    assert!(
+        matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::Interrupted)
+    );
 }
 
 #[tokio::test]
@@ -56,8 +58,10 @@ async fn classifies_eof_before_and_after_progress() {
         .await
         .expect_err("unterminated stream should fail");
 
-    assert!(matches!(before, ModelError::TransientProvider { .. }));
-    assert!(matches!(after, ModelError::Interrupted { .. }));
+    assert!(matches!(before, ref error if error.core().kind == ai_interface::ErrorKind::Transient));
+    assert!(
+        matches!(after, ref error if error.core().kind == ai_interface::ErrorKind::Interrupted)
+    );
 }
 
 #[tokio::test]
@@ -77,8 +81,10 @@ async fn classifies_transport_failure_before_and_after_progress() {
         .await
         .expect_err("mid-stream transport failure should fail");
 
-    assert!(matches!(before, ModelError::TransientProvider { .. }));
-    assert!(matches!(after, ModelError::Interrupted { .. }));
+    assert!(matches!(before, ref error if error.core().kind == ai_interface::ErrorKind::Transient));
+    assert!(
+        matches!(after, ref error if error.core().kind == ai_interface::ErrorKind::Interrupted)
+    );
 }
 
 #[tokio::test]
@@ -98,8 +104,10 @@ async fn malformed_events_follow_progress_classification() {
         .await
         .expect_err("malformed event after progress should fail");
 
-    assert!(matches!(before, ModelError::TransientProvider { .. }));
-    assert!(matches!(after, ModelError::Interrupted { .. }));
+    assert!(matches!(before, ref error if error.core().kind == ai_interface::ErrorKind::Transient));
+    assert!(
+        matches!(after, ref error if error.core().kind == ai_interface::ErrorKind::Interrupted)
+    );
 }
 
 fn progress_event() -> stream_support::StreamItem {

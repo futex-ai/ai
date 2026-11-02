@@ -1,6 +1,6 @@
 //! Public completion-event tests for Google generate-content streams.
 
-use ai_interface::{ModelError, StructuredOutputSchema};
+use ai_interface::StructuredOutputSchema;
 use ai_models_core::test_support::collect_model_events;
 use serde_json::{Value, json};
 
@@ -99,7 +99,9 @@ async fn emits_partial_candidate_text_before_an_interruption() {
     let (result, events) = collect_model_events(&model, &simple_request()).await;
     let error = result.expect_err("interrupted completion should fail");
 
-    assert!(matches!(error, ModelError::Interrupted { .. }));
+    assert!(
+        matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::Interrupted)
+    );
     assert_eq!(events, vec![assistant_delta(0, "partial")]);
 }
 

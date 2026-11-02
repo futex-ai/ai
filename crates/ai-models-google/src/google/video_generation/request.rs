@@ -1,8 +1,10 @@
 //! Google video generation request mapping.
 
 use ai_interface::{
-    VideoGenerationAspect, VideoGenerationError, VideoGenerationRequest, VideoGenerationResult,
+    ErrorKind, VideoGenerationAspect, VideoGenerationError, VideoGenerationRequest,
+    VideoGenerationResult,
 };
+use ai_models_core::ErrorContext;
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::Serialize;
 
@@ -44,14 +46,17 @@ struct GoogleVideoParameters {
 }
 
 pub(super) fn build_request(
+    context: &ErrorContext,
     request: &VideoGenerationRequest,
 ) -> VideoGenerationResult<GoogleVideoRequest> {
     if request.prompt.trim().is_empty() {
-        return Err(VideoGenerationError::EmptyPrompt);
+        return Err(VideoGenerationError::EmptyPrompt {
+            core: Box::new(context.core(ErrorKind::InvalidRequest, "prompt must not be empty")),
+        });
     }
     let image = match &request.input_image {
         Some(image) => {
-            validate_media_type(&image.mime_type)?;
+            validate_media_type(context, &image.mime_type)?;
             Some(GoogleVideoImage {
                 inline_data: GoogleInlineData {
                     mime_type: image.mime_type.clone(),
@@ -78,9 +83,15 @@ pub(super) fn build_request(
     })
 }
 
-fn validate_media_type(mime_type: &str) -> VideoGenerationResult<()> {
+fn validate_media_type(context: &ErrorContext, mime_type: &str) -> VideoGenerationResult<()> {
     match mime_type {
         "image/jpeg" | "image/png" | "image/webp" => Ok(()),
-        _ => Err(VideoGenerationError::unsupported_media_type(mime_type)),
+        _ => Err(VideoGenerationError::UnsupportedMediaType {
+            core: Box::new(context.core(
+                ErrorKind::UnsupportedInput,
+                format!("unsupported media type `{mime_type}`"),
+            )),
+            content_type: context.redact(mime_type),
+        }),
     }
 }

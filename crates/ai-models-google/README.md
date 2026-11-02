@@ -56,7 +56,7 @@ against the spec before transport. The adapter handles:
   when runtime dispatch needs a synthetic id. Unsigned calls keep their
   runtime id on both the call and its result. Signatures do not change
   answer text or text deltas. Own state with an unknown version or a payload
-  that does not decode fails before transport with `ModelError::Provider`.
+  that does not decode fails before transport with the `InvalidRequest` error kind.
   Log copies drop this state.
 - `GoogleLegacyProviderConverter` for a stored version 1
   `google_assistant_message` item. In a message with items from Google only,
@@ -101,7 +101,7 @@ against the spec before transport. The adapter handles:
 - the last finish reason and the last usage metadata of the stream as those
   of the call. The stream must end after a finish reason or a prompt block
 - typed classification of failures before stream progress as retryable or
-  provider errors and failures after progress as `ModelError::Interrupted`
+  provider errors and failures after progress as the `Interrupted` error kind
 - status, transport, and structured-output validation failure mapping onto
   `ai_interface::ModelError`
 
@@ -129,6 +129,13 @@ as provider thoughts are not surfaced as assistant text, but stream consumers
 receive them as reasoning deltas. A call with a response schema emits text
 deltas like any other call, and its finish event carries the validated
 structured output.
+
+Each adapter attaches shared error details with its configured model id.
+Adapters inspect `x-goog-request-id`, `x-request-id`, and `request-id` as optional aliases.
+Errors inside successful HTTP responses retain those response headers.
+Late stream and output failures keep the relevant metadata and safe original sources.
+`with_clock` supplies a wall clock for HTTP-date retry hints.
+Provider diagnostics and typed media details redact the credentials applied for that call.
 
 `GoogleImageGenerator` uses the current `v1` compatibility endpoint with an
 injected `json-http` client and explicit API key or auth hook. It maps text and

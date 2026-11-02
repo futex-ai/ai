@@ -1,12 +1,16 @@
-//! Google video generation HTTP error classification.
+//! Google video HTTP classification through the shared error contract.
 
 use ai_interface::VideoGenerationError;
-use ai_models_core::{HttpFailureClass, classify_http_status};
+use ai_models_core::{ErrorContext, json_http_error_core};
+use json_http::JsonHttpHeaders;
 use serde_json::Value;
 
-const PROVIDER: &str = "google";
-
-pub(super) fn classify_status(status: u16, model_id: &str, body: &Value) -> VideoGenerationError {
+pub(super) fn classify_status(
+    context: &ErrorContext,
+    status: u16,
+    headers: &JsonHttpHeaders,
+    body: &Value,
+) -> VideoGenerationError {
     let message = body
         .get("error")
         .and_then(|error| error.get("message"))
@@ -14,37 +18,14 @@ pub(super) fn classify_status(status: u16, model_id: &str, body: &Value) -> Vide
         .or_else(|| body.as_str())
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| format!("HTTP {status}"));
-    match classify_http_status(status) {
-        Some(HttpFailureClass::RateLimited) => {
-            return VideoGenerationError::rate_limited(PROVIDER, model_id, message);
-        }
-        Some(HttpFailureClass::Transient) => {
-            return VideoGenerationError::transient_provider(PROVIDER, model_id, message);
-        }
-        Some(HttpFailureClass::Terminal) | None => {}
-    }
-    VideoGenerationError::provider(PROVIDER, model_id, message)
+    let mut core = json_http_error_core(context, status, headers, body);
+    core.message = context.redact(&message);
+    VideoGenerationError::new(core)
 }
 
 pub(super) fn classify_request_error(
+    context: &ErrorContext,
     source: json_http::Error,
-    model_id: &str,
 ) -> VideoGenerationError {
-    match source {
-        json_http::Error::Transport { .. }
-        | json_http::Error::ReqwestTransport { .. }
-        | json_http::Error::Auth { .. } => {
-            VideoGenerationError::transient_provider(PROVIDER, model_id, source.to_string())
-        }
-        json_http::Error::SerializeRequest { .. }
-        | json_http::Error::DeserializeResponse { .. }
-        | json_http::Error::ClientInitialization { .. }
-        | json_http::Error::SseUnsupported
-        | json_http::Error::HttpStatus { .. }
-        | json_http::Error::InvalidSseContentType { .. }
-        | json_http::Error::IdleTimeout { .. }
-        | json_http::Error::DeadlineExceeded { .. }
-        | json_http::Error::SseTransport { .. }
-        | json_http::Error::SseDecode { .. } => VideoGenerationError::internal(source),
-    }
+    VideoGenerationError::with_source(context.request_error(&source), source)
 }

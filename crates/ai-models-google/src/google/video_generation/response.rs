@@ -1,10 +1,14 @@
 //! Google long-running video operation response parsing.
 
-use ai_interface::{VideoGenerationError, VideoGenerationResult};
+use ai_interface::{ErrorKind, VideoGenerationError, VideoGenerationResult};
+use ai_models_core::ErrorContext;
+use json_http::JsonHttpHeaders;
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{Value, json};
 
-const PROVIDER: &str = "google";
+use crate::google::error_context::operation_status;
+
+use super::error::classify_status;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum OperationState {
@@ -55,31 +59,30 @@ struct GeneratedVideo {
 }
 
 pub(super) fn parse_operation(
-    model_id: &str,
+    context: &ErrorContext,
+    headers: &JsonHttpHeaders,
     body: Value,
 ) -> VideoGenerationResult<(String, OperationState)> {
     let operation: VideoOperation = match serde_json::from_value(body) {
         Ok(operation) => operation,
         Err(source) => {
-            return Err(VideoGenerationError::provider(
-                PROVIDER,
-                model_id,
-                source.to_string(),
+            return Err(VideoGenerationError::with_source(
+                context.core(ErrorKind::InvalidOutput, "invalid provider video operation"),
+                source,
             ));
         }
     };
     if !valid_operation_name(&operation.name) {
-        return Err(VideoGenerationError::provider(
-            PROVIDER,
-            model_id,
+        return Err(VideoGenerationError::new(context.core(
+            ErrorKind::InvalidOutput,
             "provider returned an invalid operation name",
-        ));
+        )));
     }
     if !operation.done {
         return Ok((operation.name, OperationState::Pending));
     }
     if let Some(error) = operation.error {
-        return Err(operation_error(model_id, error));
+        return Err(operation_error(context, headers, error));
     }
     let response = operation
         .response
@@ -91,8 +94,8 @@ pub(super) fn parse_operation(
         } else {
             response.rai_media_filtered_reasons.join("; ")
         };
-        return Err(VideoGenerationError::content_policy(
-            PROVIDER, model_id, message,
+        return Err(VideoGenerationError::new(
+            context.core(ErrorKind::ContentPolicy, message),
         ));
     }
     let uri = response
@@ -100,29 +103,33 @@ pub(super) fn parse_operation(
         .into_iter()
         .find_map(|sample| sample.video.and_then(|video| video.uri))
         .filter(|uri| !uri.is_empty())
-        .ok_or_else(|| VideoGenerationError::no_video(PROVIDER, model_id))?;
+        .ok_or_else(|| VideoGenerationError::NoVideo {
+            core: Box::new(context.core(ErrorKind::InvalidOutput, "no video returned")),
+        })?;
     Ok((
         operation.name,
         OperationState::Completed { download_uri: uri },
     ))
 }
 
-fn operation_error(model_id: &str, error: OperationError) -> VideoGenerationError {
-    let status = error.status.as_deref();
+fn operation_error(
+    context: &ErrorContext,
+    headers: &JsonHttpHeaders,
+    error: OperationError,
+) -> VideoGenerationError {
+    let status = operation_status(error.code, error.status.as_deref());
     let message = error
         .message
         .unwrap_or_else(|| "video operation failed".to_owned());
-    if error.code == Some(8) || status == Some("RESOURCE_EXHAUSTED") {
-        return VideoGenerationError::rate_limited(PROVIDER, model_id, message);
+    match status {
+        Some(status) => classify_status(
+            context,
+            status,
+            headers,
+            &json!({"error":{"code":error.code,"status":error.status,"message":message}}),
+        ),
+        None => VideoGenerationError::new(context.core(ErrorKind::InvalidOutput, message)),
     }
-    if matches!(
-        status,
-        Some("UNAVAILABLE" | "DEADLINE_EXCEEDED" | "ABORTED")
-    ) || matches!(error.code, Some(4 | 10 | 14))
-    {
-        return VideoGenerationError::transient_provider(PROVIDER, model_id, message);
-    }
-    VideoGenerationError::provider(PROVIDER, model_id, message)
 }
 
 fn valid_operation_name(name: &str) -> bool {

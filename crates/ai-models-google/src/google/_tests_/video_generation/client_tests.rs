@@ -6,7 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ai_interface::{VideoGenerationError, VideoGenerationRequest, VideoGenerator};
+use ai_interface::{VideoGenerationRequest, VideoGenerator};
 use ai_models_core::{PollingRuntime, PollingRuntimeMock};
 use json_http::{
     JsonHttpMethod, JsonHttpRequest, JsonHttpResponse, JsonHttpTransport, JsonHttpTransportMock,
@@ -99,7 +99,9 @@ async fn rejects_external_downloads_and_enforces_deadline() {
             .generate(&request())
             .await
             .unwrap_err();
-        assert!(matches!(error, VideoGenerationError::Provider { .. }));
+        assert!(
+            matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::InvalidOutput)
+        );
     }
 
     let (client, _) = scripted_client(vec![ok_json(json!({"name": OPERATION}))], Vec::new());
@@ -109,7 +111,7 @@ async fn rejects_external_downloads_and_enforces_deadline() {
         .generate(&request())
         .await
         .unwrap_err();
-    assert!(matches!(error, VideoGenerationError::TimedOut { .. }));
+    assert!(matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::TimedOut));
 }
 
 #[tokio::test]
@@ -151,7 +153,7 @@ fn generator(
     .with_base_url("https://google.test/v1beta")
 }
 
-fn scripted_client(
+pub(super) fn scripted_client(
     json_responses: Vec<JsonResult>,
     byte_responses: Vec<BytesResult>,
 ) -> (
@@ -211,7 +213,7 @@ fn record_bytes(
     })
 }
 
-fn advancing_runtime() -> (Arc<dyn PollingRuntime>, Arc<Mutex<Vec<Duration>>>) {
+pub(super) fn advancing_runtime() -> (Arc<dyn PollingRuntime>, Arc<Mutex<Vec<Duration>>>) {
     let started_at = Instant::now();
     let elapsed = Arc::new(Mutex::new(Duration::ZERO));
     let sleeps = Arc::new(Mutex::new(Vec::new()));
@@ -234,7 +236,7 @@ fn advancing_runtime() -> (Arc<dyn PollingRuntime>, Arc<Mutex<Vec<Duration>>>) {
     (runtime, sleeps)
 }
 
-fn stationary_runtime() -> Arc<dyn PollingRuntime> {
+pub(super) fn stationary_runtime() -> Arc<dyn PollingRuntime> {
     let now = Instant::now();
     Arc::new(Unimock::new(
         PollingRuntimeMock::now.each_call(matching!()).returns(now),
@@ -249,7 +251,7 @@ fn ok_json(body: Value) -> JsonResult {
     })
 }
 
-fn request() -> VideoGenerationRequest {
+pub(super) fn request() -> VideoGenerationRequest {
     VideoGenerationRequest {
         prompt: "A bird takes flight".to_owned(),
         ..VideoGenerationRequest::default()

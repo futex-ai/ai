@@ -6,25 +6,30 @@ use ai_interface::{
 };
 use serde_json::{Value, json};
 
+use crate::google::google_tests::stream_support::error_context;
+
 use super::super::request::build_request;
 
 #[test]
 fn prompt_and_ordered_inputs_map_to_image_only_request() {
-    let body = build_request(&ImageGenerationRequest {
-        prompt: "Put both products on a table".to_owned(),
-        input_images: vec![
-            ImageGenerationInputImage {
-                data: vec![1, 2],
-                mime_type: "image/png".to_owned(),
-            },
-            ImageGenerationInputImage {
-                data: vec![3, 4],
-                mime_type: "image/jpeg".to_owned(),
-            },
-        ],
-        aspect: ImageGenerationAspect::Landscape,
-        quality: ImageGenerationQuality::High,
-    })
+    let body = build_request(
+        &error_context("gemini-image"),
+        &ImageGenerationRequest {
+            prompt: "Put both products on a table".to_owned(),
+            input_images: vec![
+                ImageGenerationInputImage {
+                    data: vec![1, 2],
+                    mime_type: "image/png".to_owned(),
+                },
+                ImageGenerationInputImage {
+                    data: vec![3, 4],
+                    mime_type: "image/jpeg".to_owned(),
+                },
+            ],
+            aspect: ImageGenerationAspect::Landscape,
+            quality: ImageGenerationQuality::High,
+        },
+    )
     .unwrap();
 
     assert_eq!(
@@ -66,11 +71,14 @@ fn aspects_map_exhaustively_and_auto_omits_response_format() {
         ),
     ] {
         let body = serde_json::to_value(
-            build_request(&ImageGenerationRequest {
-                prompt: "test".to_owned(),
-                aspect,
-                ..ImageGenerationRequest::default()
-            })
+            build_request(
+                &error_context("gemini-image"),
+                &ImageGenerationRequest {
+                    prompt: "test".to_owned(),
+                    aspect,
+                    ..ImageGenerationRequest::default()
+                },
+            )
             .unwrap(),
         )
         .unwrap();
@@ -86,11 +94,14 @@ fn aspects_map_exhaustively_and_auto_omits_response_format() {
 fn quality_is_intentionally_ignored() {
     let map = |quality| {
         serde_json::to_value(
-            build_request(&ImageGenerationRequest {
-                prompt: "test".to_owned(),
-                quality,
-                ..ImageGenerationRequest::default()
-            })
+            build_request(
+                &error_context("gemini-image"),
+                &ImageGenerationRequest {
+                    prompt: "test".to_owned(),
+                    quality,
+                    ..ImageGenerationRequest::default()
+                },
+            )
             .unwrap(),
         )
         .unwrap()
@@ -105,11 +116,14 @@ fn quality_is_intentionally_ignored() {
 #[test]
 fn invalid_local_inputs_are_rejected() {
     assert!(matches!(
-        build_request(&ImageGenerationRequest::default()),
-        Err(ImageGenerationError::EmptyPrompt)
+        build_request(
+            &error_context("gemini-image"),
+            &ImageGenerationRequest::default()
+        ),
+        Err(ImageGenerationError::EmptyPrompt { ref core }) if core.kind == ai_interface::ErrorKind::InvalidRequest
     ));
     assert!(matches!(
-        build_request(&ImageGenerationRequest {
+        build_request(&error_context("gemini-image"), &ImageGenerationRequest {
             prompt: "edit".to_owned(),
             input_images: vec![ImageGenerationInputImage {
                 data: vec![1],
@@ -117,8 +131,8 @@ fn invalid_local_inputs_are_rejected() {
             }],
             ..ImageGenerationRequest::default()
         }),
-        Err(ImageGenerationError::UnsupportedMediaType { content_type })
-            if content_type == "image/tiff"
+        Err(ImageGenerationError::UnsupportedMediaType { content_type, core })
+            if content_type == "image/tiff" && core.kind == ai_interface::ErrorKind::UnsupportedInput
     ));
 }
 
@@ -126,14 +140,17 @@ fn invalid_local_inputs_are_rejected() {
 fn common_edit_media_types_are_supported() {
     for mime_type in ["image/png", "image/jpeg", "image/webp"] {
         assert!(
-            build_request(&ImageGenerationRequest {
-                prompt: "edit".to_owned(),
-                input_images: vec![ImageGenerationInputImage {
-                    data: vec![1],
-                    mime_type: mime_type.to_owned(),
-                }],
-                ..ImageGenerationRequest::default()
-            })
+            build_request(
+                &error_context("gemini-image"),
+                &ImageGenerationRequest {
+                    prompt: "edit".to_owned(),
+                    input_images: vec![ImageGenerationInputImage {
+                        data: vec![1],
+                        mime_type: mime_type.to_owned(),
+                    }],
+                    ..ImageGenerationRequest::default()
+                }
+            )
             .is_ok()
         );
     }

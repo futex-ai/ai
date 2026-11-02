@@ -2,6 +2,7 @@
 
 mod client;
 mod error;
+mod lifecycle;
 mod request;
 mod response;
 

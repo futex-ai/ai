@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ai_interface::{
-    ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl, ModelError,
+    ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl,
     ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
 };
 use json_http::{JsonHttpClient, TransportBackedJsonHttpClient};
@@ -72,13 +72,9 @@ async fn rejects_required_deferred_mode_before_transport() {
         .await
         .expect_err("required deferred mode should fail");
 
-    assert!(matches!(
-        error,
-        ModelError::UnsupportedControl {
-            control: ModelControl::CompletionMode,
-            ..
-        }
-    ));
+    assert!(
+        matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::UnsupportedControl(ModelControl::CompletionMode))
+    );
 }
 
 #[tokio::test]

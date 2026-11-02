@@ -6,16 +6,21 @@ use ai_interface::{
 };
 use serde_json::json;
 
+use crate::google::google_tests::stream_support::error_context;
+
 use super::super::request::build_request;
 
 #[test]
 fn maps_text_request_to_one_portable_video() {
-    let body = build_request(&VideoGenerationRequest {
-        prompt: "A paper bird takes flight".to_owned(),
-        aspect: VideoGenerationAspect::Portrait,
-        duration: VideoGenerationDuration::Seconds8,
-        ..VideoGenerationRequest::default()
-    })
+    let body = build_request(
+        &error_context("veo-current"),
+        &VideoGenerationRequest {
+            prompt: "A paper bird takes flight".to_owned(),
+            aspect: VideoGenerationAspect::Portrait,
+            duration: VideoGenerationDuration::Seconds8,
+            ..VideoGenerationRequest::default()
+        },
+    )
     .unwrap();
 
     assert_eq!(
@@ -34,14 +39,17 @@ fn maps_text_request_to_one_portable_video() {
 
 #[test]
 fn maps_first_frame_to_inline_data() {
-    let body = build_request(&VideoGenerationRequest {
-        prompt: "Animate this".to_owned(),
-        input_image: Some(VideoGenerationInputImage {
-            data: vec![1, 2, 3],
-            mime_type: "image/png".to_owned(),
-        }),
-        ..VideoGenerationRequest::default()
-    })
+    let body = build_request(
+        &error_context("veo-current"),
+        &VideoGenerationRequest {
+            prompt: "Animate this".to_owned(),
+            input_image: Some(VideoGenerationInputImage {
+                data: vec![1, 2, 3],
+                mime_type: "image/png".to_owned(),
+            }),
+            ..VideoGenerationRequest::default()
+        },
+    )
     .unwrap();
     let value = serde_json::to_value(body).unwrap();
 
@@ -57,11 +65,14 @@ fn maps_first_frame_to_inline_data() {
 #[test]
 fn rejects_blank_prompts_and_unsupported_first_frames() {
     assert!(matches!(
-        build_request(&VideoGenerationRequest::default()),
-        Err(VideoGenerationError::EmptyPrompt)
+        build_request(
+            &error_context("veo-current"),
+            &VideoGenerationRequest::default()
+        ),
+        Err(VideoGenerationError::EmptyPrompt { ref core }) if core.kind == ai_interface::ErrorKind::InvalidRequest
     ));
     assert!(matches!(
-        build_request(&VideoGenerationRequest {
+        build_request(&error_context("veo-current"), &VideoGenerationRequest {
             prompt: "Animate".to_owned(),
             input_image: Some(VideoGenerationInputImage {
                 data: vec![1],
@@ -69,7 +80,7 @@ fn rejects_blank_prompts_and_unsupported_first_frames() {
             }),
             ..VideoGenerationRequest::default()
         }),
-        Err(VideoGenerationError::UnsupportedMediaType { content_type })
-            if content_type == "image/gif"
+        Err(VideoGenerationError::UnsupportedMediaType { content_type, core })
+            if content_type == "image/gif" && core.kind == ai_interface::ErrorKind::UnsupportedInput
     ));
 }

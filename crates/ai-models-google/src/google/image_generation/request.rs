@@ -1,8 +1,10 @@
 //! Google image generation request mapping.
 
 use ai_interface::{
-    ImageGenerationAspect, ImageGenerationError, ImageGenerationRequest, ImageGenerationResult,
+    ErrorKind, ImageGenerationAspect, ImageGenerationError, ImageGenerationRequest,
+    ImageGenerationResult,
 };
+use ai_models_core::ErrorContext;
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::Serialize;
 
@@ -64,17 +66,20 @@ enum GoogleAspectRatio {
 }
 
 pub(super) fn build_request(
+    context: &ErrorContext,
     request: &ImageGenerationRequest,
 ) -> ImageGenerationResult<GoogleImageRequest> {
     if request.prompt.trim().is_empty() {
-        return Err(ImageGenerationError::EmptyPrompt);
+        return Err(ImageGenerationError::EmptyPrompt {
+            core: Box::new(context.core(ErrorKind::InvalidRequest, "prompt must not be empty")),
+        });
     }
     let mut parts = vec![GoogleImagePart {
         text: Some(request.prompt.clone()),
         inline_data: None,
     }];
     for image in &request.input_images {
-        validate_media_type(&image.mime_type)?;
+        validate_media_type(context, &image.mime_type)?;
         parts.push(GoogleImagePart {
             text: None,
             inline_data: Some(GoogleInlineData {
@@ -97,10 +102,16 @@ pub(super) fn build_request(
     })
 }
 
-fn validate_media_type(content_type: &str) -> ImageGenerationResult<()> {
+fn validate_media_type(context: &ErrorContext, content_type: &str) -> ImageGenerationResult<()> {
     match content_type {
         "image/png" | "image/jpeg" | "image/webp" => Ok(()),
-        _ => Err(ImageGenerationError::unsupported_media_type(content_type)),
+        _ => Err(ImageGenerationError::UnsupportedMediaType {
+            core: Box::new(context.core(
+                ErrorKind::UnsupportedInput,
+                format!("unsupported media type `{content_type}`"),
+            )),
+            content_type: context.redact(content_type),
+        }),
     }
 }
 
