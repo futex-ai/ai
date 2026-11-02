@@ -4,9 +4,13 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
+use crate::Effort;
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 /// Portable control whose support is decided by a provider adapter.
 pub enum ModelControl {
+    /// Portable thinking effort.
+    Effort,
     /// Sampling temperature.
     Temperature,
     /// Nucleus-sampling probability.
@@ -39,6 +43,9 @@ pub enum ModelToolChoice {
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 /// Optional generation controls applied by a provider adapter.
 pub struct ModelGenerationControls {
+    /// Optional thinking effort, resolved against the selected model spec.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<Effort>,
     /// Sampling temperature, when supported by the selected model.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,

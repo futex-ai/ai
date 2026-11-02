@@ -3,6 +3,7 @@
 #![warn(unreachable_pub)]
 
 mod audio_transcriber;
+mod effort;
 mod image_generator;
 mod judgment;
 mod logger;
@@ -13,11 +14,16 @@ mod mock_judgment_model;
 mod mock_model;
 mod mock_video_generator;
 mod model;
+mod model_capabilities;
+mod model_catalog;
 mod model_completion_events;
 mod model_controls;
+mod model_spec;
 pub mod output;
+mod provider_id;
 mod router;
 mod router_error;
+mod routing_tiers;
 mod tools;
 mod usage;
 mod video_generator;
@@ -26,6 +32,7 @@ pub use audio_transcriber::{
     AudioTranscriber, AudioTranscriptionRequest, AudioTranscriptionResponse, DynAudioTranscriber,
     TranscriptionError, TranscriptionResult,
 };
+pub use effort::{Effort, EffortSet};
 pub use image_generator::{
     DynImageGenerator, GeneratedImage, ImageGenerationAspect, ImageGenerationError,
     ImageGenerationInputImage, ImageGenerationQuality, ImageGenerationRequest,
@@ -57,6 +64,8 @@ pub use model::{
     DynModel, FinishReason, Model, ModelError, ModelRequest, ModelResponse, ModelResult,
     StructuredOutputSchema,
 };
+pub use model_capabilities::{CustomModelDefaults, ForcedToolChoice, Sampling};
+pub use model_catalog::ModelCatalog;
 pub use model_completion_events::{
     DynModelCompletionEventSink, ModelCompletionEvent, ModelCompletionEventSink,
     NoopModelCompletionEventSink,
@@ -65,16 +74,19 @@ pub use model_controls::{
     ModelCallControls, ModelCompletionMode, ModelControl, ModelExecutionControls,
     ModelGenerationControls, ModelToolChoice,
 };
+pub use model_spec::ModelSpec;
 pub use output::{
     ToolOutputEnvelope, ToolOutputEnvelopeError, ToolOutputEnvelopeResult, ToolOutputId,
     ToolOutputInlineEnvelope, ToolOutputReadRequest, ToolOutputRemainderUnavailableReason,
     ToolOutputWindowEnvelope,
 };
+pub use provider_id::{MOCK_PROVIDER, ProviderId};
 pub use router::{
     DynModelRouter, ModelFeature, ModelPreference, ModelRequirement, ModelRouteRequest,
     ModelRouteRequestBuilder, ModelRouter, ProviderKind,
 };
 pub use router_error::{ModelRouterError, ModelRouterResult};
+pub use routing_tiers::{CostTier, IntelligenceScore, RoutingTiers, SpeedTier};
 pub use tools::{DynTool, Tool, ToolCall, ToolDefinition, ToolError, ToolInvocation, ToolResult};
 pub use usage::{ModelUsage, ModelUsageCostLine, ModelUsageMeasurementState, ModelUsageUnitKind};
 pub use video_generator::{

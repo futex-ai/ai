@@ -171,6 +171,7 @@ fn controlled_request() -> ModelRequest {
     let mut request = base_request();
     request.controls = ModelCallControls {
         generation: ModelGenerationControls {
+            effort: None,
             temperature: Some(0.3),
             top_p: Some(0.7),
             max_output_tokens: Some(1000),

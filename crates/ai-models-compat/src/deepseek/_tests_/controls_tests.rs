@@ -170,6 +170,7 @@ fn controlled_request(tool_choice: ModelToolChoice) -> ModelRequest {
     request.tools = vec![lookup_tool()];
     request.controls = ModelCallControls {
         generation: ModelGenerationControls {
+            effort: None,
             temperature: Some(0.2),
             top_p: Some(0.8),
             max_output_tokens: Some(1200),
