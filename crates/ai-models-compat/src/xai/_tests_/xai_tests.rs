@@ -163,7 +163,7 @@ async fn maps_xai_finish_reasons() {
     let cases = [
         ("stop", FinishReason::Stop, false),
         ("tool_calls", FinishReason::ToolCalls, true),
-        ("function_call", FinishReason::ToolCalls, false),
+        ("function_call", FinishReason::ToolCalls, true),
         ("length", FinishReason::Truncated, false),
         ("content_filter", FinishReason::Filtered, false),
         (

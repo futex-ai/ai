@@ -1,17 +1,6 @@
 //! Primary-choice text extraction from Chat Completions chunks.
 
-use ai_interface::ModelCompletionEvent;
-
-use super::types::{ChatCompletionsDelta, ChatCompletionsStreamChunk};
-
-impl From<ChatCompletionsDelta> for ModelCompletionEvent {
-    fn from(delta: ChatCompletionsDelta) -> Self {
-        match delta {
-            ChatCompletionsDelta::AssistantText { delta } => Self::AssistantTextDelta { delta },
-            ChatCompletionsDelta::ReasoningText { delta } => Self::ReasoningTextDelta { delta },
-        }
-    }
-}
+use super::{chunk::ChatCompletionsStreamChunk, types::ChatCompletionsDelta};
 
 pub(super) fn primary_deltas(chunk: &ChatCompletionsStreamChunk) -> Vec<ChatCompletionsDelta> {
     let mut deltas = Vec::new();

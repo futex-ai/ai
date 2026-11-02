@@ -1,6 +1,7 @@
 //! OpenAI-compatible chat-completions stream accumulation.
 
 mod accumulator;
+mod chunk;
 mod deltas;
 mod state;
 mod types;
@@ -24,3 +25,5 @@ mod chat_completions_event_tests;
 #[cfg(test)]
 #[path = "_tests_/chat_completions_tests.rs"]
 mod chat_completions_tests;
+
+pub(crate) use chunk::{ChatCompletionsStreamChunk, ChatCompletionsToolCallDelta};

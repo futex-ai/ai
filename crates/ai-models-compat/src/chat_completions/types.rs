@@ -1,5 +1,6 @@
 //! Typed stream chunks, accumulated response values, and validation errors.
 
+use ai_interface::MiniMaxReasoningDetail;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -30,6 +31,9 @@ pub struct ChatCompletionsMessage {
     pub content: Option<String>,
     /// Concatenated provider reasoning, when supplied.
     pub reasoning_content: Option<String>,
+    /// Canonical provider reasoning details retained by MiniMax normalization.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reasoning_details: Vec<MiniMaxReasoningDetail>,
     /// Complete tool calls ordered by their provider-assigned index.
     pub tool_calls: Vec<ChatCompletionsToolCall>,
     /// Complete legacy function call, when supplied by a compatible provider.
@@ -242,52 +246,4 @@ pub enum ChatCompletionsStreamError {
         /// Conflicting later function name.
         received: String,
     },
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ChatCompletionsStreamChunk {
-    #[serde(default)]
-    pub(super) choices: Vec<ChatCompletionsChoiceDelta>,
-    #[serde(default)]
-    pub(super) usage: Option<ChatCompletionsUsage>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ChatCompletionsChoiceDelta {
-    #[serde(default)]
-    pub(super) index: u64,
-    #[serde(default)]
-    pub(super) delta: ChatCompletionsMessageDelta,
-    #[serde(default)]
-    pub(super) finish_reason: Option<String>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub(super) struct ChatCompletionsMessageDelta {
-    #[serde(default)]
-    pub(super) content: Option<String>,
-    #[serde(default)]
-    pub(super) reasoning_content: Option<String>,
-    #[serde(default)]
-    pub(super) tool_calls: Vec<ChatCompletionsToolCallDelta>,
-    #[serde(default)]
-    pub(super) function_call: Option<ChatCompletionsToolFunctionDelta>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ChatCompletionsToolCallDelta {
-    #[serde(default)]
-    pub(super) index: u64,
-    #[serde(default)]
-    pub(super) id: Option<String>,
-    #[serde(default)]
-    pub(super) function: ChatCompletionsToolFunctionDelta,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub(super) struct ChatCompletionsToolFunctionDelta {
-    #[serde(default)]
-    pub(super) name: Option<String>,
-    #[serde(default)]
-    pub(super) arguments: Option<String>,
 }

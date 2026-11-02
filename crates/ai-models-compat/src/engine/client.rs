@@ -2,10 +2,7 @@
 
 use std::time::Duration;
 
-use ai_interface::{
-    Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse, ModelResult,
-    ModelSpec, NoopModelCompletionEventSink,
-};
+use ai_interface::{DynModelEventStream, Model, ModelError, ModelRequest, ModelResult, ModelSpec};
 use ai_models_core::{
     classify_json_http_error, classify_json_http_stream_error, resolve_controls,
     synthetic_tool_call_scope,
@@ -14,8 +11,11 @@ use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
 
 use super::{
-    CompletionContext, Dialect, dialect::ReplayRule, lifecycle::DynDeferredCompletion, request,
-    response, stream,
+    Dialect, deferred_stream,
+    dialect::ReplayRule,
+    lifecycle::DynDeferredCompletion,
+    request,
+    stream::{self, StreamIdentity},
 };
 
 const STREAM_TIMEOUT: Duration = Duration::from_secs(3_600);
@@ -53,23 +53,19 @@ impl CompatModel {
         self
     }
 
-    async fn complete_with_sink(
-        &self,
-        model_request: &ModelRequest,
-        event_sink: &dyn ModelCompletionEventSink,
-    ) -> ModelResult<ModelResponse> {
+    async fn open_stream(&self, model_request: &ModelRequest) -> ModelResult<DynModelEventStream> {
         let controls = resolve_controls(model_request, &self.spec)?;
         let scope = if self.dialect.replay == ReplayRule::Xai {
             synthetic_tool_call_scope(model_request)
         } else {
             String::new()
         };
-        let context = CompletionContext {
+        let identity = StreamIdentity {
             dialect: self.dialect,
-            catalog_model_id: &self.catalog_model_id,
-            provider_model_id: self.spec.provider_model_id.as_ref(),
+            catalog_model_id: self.catalog_model_id.clone(),
+            provider_model_id: self.spec.provider_model_id.to_string(),
             thinking_level: controls.effort,
-            synthetic_tool_call_scope: &scope,
+            synthetic_tool_call_scope: scope,
         };
         let request_body = request::build_request(
             self.dialect,
@@ -85,7 +81,11 @@ impl CompatModel {
                 .or(self.dialect.deferred_timeout)
                 .unwrap_or_default();
             let body = completion.complete(request_body, timeout).await?;
-            return response::parse_response(context, body, model_request.response_schema.as_ref());
+            return Ok(deferred_stream::open(
+                body,
+                identity,
+                model_request.response_schema.clone(),
+            ));
         }
         let builder = self
             .http_client
@@ -119,33 +119,17 @@ impl CompatModel {
                 ));
             }
         };
-        stream::complete(
+        Ok(stream::open(
             event_stream,
-            context,
-            model_request.response_schema.as_ref(),
-            event_sink,
-        )
-        .await
+            identity,
+            model_request.response_schema.clone(),
+        ))
     }
 }
 
 #[async_trait]
 impl Model for CompatModel {
-    async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
-        self.complete_with_sink(request, &NoopModelCompletionEventSink)
-            .await
-    }
-
-    async fn complete_with_events(
-        &self,
-        request: &ModelRequest,
-        sink: &dyn ModelCompletionEventSink,
-    ) -> ModelResult<ModelResponse> {
-        let sink = if request.response_schema.is_some() {
-            &NoopModelCompletionEventSink
-        } else {
-            sink
-        };
-        self.complete_with_sink(request, sink).await
+    async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
+        self.open_stream(request).await
     }
 }

@@ -54,6 +54,10 @@ mod xai_usage_tests;
 mod xai_deferred_tests;
 
 #[cfg(test)]
+#[path = "_tests_/xai_deferred_event_tests.rs"]
+mod xai_deferred_event_tests;
+
+#[cfg(test)]
 #[path = "_tests_/xai_controls_tests.rs"]
 mod xai_controls_tests;
 

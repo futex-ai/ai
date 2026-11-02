@@ -7,8 +7,9 @@ credentials and an injected `json-http` client.
 ## Responsibilities
 
 - Map conversations, tools, call controls, and structured output to the wire.
-- Accumulate SSE content, reasoning, tool calls, finish state, and final usage.
-- Preserve each dialect's replay data, errors, and completion events.
+- Map SSE chunks to model events: text, reasoning, tool calls, usage, and
+  finish.
+- Preserve each dialect's replay data and errors.
 - Export each dialect's provider id, model specs, catalog, custom defaults,
   and model constructors.
 
@@ -34,16 +35,23 @@ For example, DeepSeek omits `tool_choice` for the resolved automatic choice
 while thinking is on. Responses record the resolved effort and the text id
 of the spec.
 
-The engine keeps the current buffered `complete` and opt-in
-`complete_with_events` methods. Schema calls suppress public text events.
-Stream failures after progress return `ModelError::Interrupted`.
+The engine implements `Model::stream`. Only choice index 0 produces events.
+`delta.content` gives text deltas, and the reasoning field of the dialect
+gives reasoning deltas. When one chunk has both, the reasoning delta comes
+first. Indexed `delta.tool_calls` entries give tool-call start, argument,
+and end events. One usage event and one finish event follow the terminal
+event of the stream. `Model::complete` folds these events. A call with a
+response schema emits text deltas like any other call. Stream failures
+after progress return `ModelError::Interrupted`.
 Moved errors retain their existing message prefixes for response parity.
 
 MiniMax retains M2.x snapshot recovery, M3 deltas, reasoning details, numeric
-provider errors, and structurally validated clean EOF.
+provider errors, and structurally validated clean EOF. It emits the inferred
+M2.x text as one text delta after terminal validation.
 xAI retains legacy function calls, deterministic call ids, final usage
-replacement, and buffered deferred submission and polling. Deferred calls
-suppress events. Their existing timeout classification remains unchanged.
+replacement, and deferred submission and polling. A deferred call emits
+every event of the call after the provider result arrives. Its existing
+timeout classification remains unchanged.
 
 A dialect supplies its endpoint, usage fields, replay rule, and wire settings.
 Model wrappers hold the spec and delegate execution to the engine. Callers
@@ -91,8 +99,10 @@ stream, response, validation, and usage code. Put dialect tests in its
 
 ### Key Code
 
-- `src/engine/` owns request mapping, dispatch, SSE consumption, and responses.
-- `src/chat_completions/` owns the typed chunk accumulator and its errors.
+- `src/engine/` owns request mapping, dispatch, SSE consumption, model event
+  mapping, the deferred event stream, and response validation.
+- `src/chat_completions/` owns the typed chunks, their indexed accumulation
+  state, and their errors.
 - The dialect folders own construction, specs, custom defaults, settings, and
   isolated quirks. Each `catalog.rs` holds the provider id, the specs, and
   the custom defaults of its dialect.
@@ -101,7 +111,7 @@ stream, response, validation, and usage code. Put dialect tests in its
 
 - [Architecture](../../docs/architecture.md)
 - [Target dialect protocol](../../docs/protocol/chat-completions-dialects.md)
-- [Current streaming contract](../../docs/protocol/model-completion-streaming.md)
+- [Model stream](../../docs/protocol/model-stream.md)
 - [Model capabilities](../../docs/protocol/model-capabilities.md)
 - [Provider controls](../../docs/protocol/provider-call-controls.md)
 - [DeepSeek](../../docs/protocol/deepseek-model-provider.md)

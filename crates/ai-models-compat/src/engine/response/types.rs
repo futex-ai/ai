@@ -37,7 +37,7 @@ pub(super) struct ChatCompletionsAssistantMessage {
     pub(super) function_call: Option<ChatCompletionsToolFunction>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub(super) struct ChatCompletionsToolCall {
     pub(super) id: String,
     pub(super) function: ChatCompletionsToolFunction,
@@ -45,7 +45,7 @@ pub(super) struct ChatCompletionsToolCall {
     pub(super) operation_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub(super) struct ChatCompletionsToolFunction {
     pub(super) name: String,
     pub(super) arguments: String,

@@ -1,13 +1,15 @@
 //! MiniMax M2.x stream-shape inference regression tests.
 
-use ai_interface::{Effort, Model, ModelCompletionEvent, ModelResponse};
+use ai_interface::{Effort, ModelResponse};
 use ai_models_core::test_support::{
-    SseFixture, StreamItem, done_event, event, recorded_completion_events,
-    recording_completion_event_sink, recording_streaming_client,
+    SseFixture, StreamItem, done_event, event, recording_streaming_client,
 };
 use serde_json::{Value, json};
 
-use crate::minimax::{MINIMAX_M2_7, MiniMaxModel};
+use crate::{
+    minimax::{MINIMAX_M2_7, MiniMaxModel},
+    stream_test_support::{assistant_delta, content_events, observe},
+};
 
 use super::{response, support::simple_request};
 
@@ -20,7 +22,7 @@ async fn incremental_fragments_survive_empty_finish_and_match_buffered() {
         content_chunk("", Some("stop")),
     ]);
 
-    let (response, events) = complete_with_events(events).await;
+    let (response, events) = observe_stream(events).await;
     let buffered = buffered_response("LIVE_MODEL_API_OK", None);
 
     assert_eq!(response, buffered);
@@ -35,7 +37,7 @@ async fn extending_snapshots_restore_terminal_text_once() {
         content_chunk("LIVE_MODEL_API_OK", Some("stop")),
     ]);
 
-    let (response, events) = complete_with_events(events).await;
+    let (response, events) = observe_stream(events).await;
 
     assert_eq!(response.assistant_message, "LIVE_MODEL_API_OK");
     assert_eq!(events, vec![assistant_delta("LIVE_MODEL_API_OK")],);
@@ -49,7 +51,7 @@ async fn snapshot_evidence_allows_replacement() {
         content_chunk("Goodbye", Some("stop")),
     ]);
 
-    let (response, events) = complete_with_events(events).await;
+    let (response, events) = observe_stream(events).await;
 
     assert_eq!(response.assistant_message, "Goodbye");
     assert_eq!(events, vec![assistant_delta("Goodbye")]);
@@ -70,7 +72,7 @@ async fn empty_and_absent_terminal_content_preserve_fragments() {
             }),
         ]);
 
-        let (response, events) = complete_with_events(events).await;
+        let (response, events) = observe_stream(events).await;
 
         assert_eq!(response.assistant_message, "LIVE_MODEL_API_OK");
         assert_eq!(events, vec![assistant_delta("LIVE_MODEL_API_OK")],);
@@ -87,24 +89,21 @@ async fn reasoning_snapshots_remain_canonical_with_inferred_fragments() {
         content_chunk("API_OK", Some("stop")),
     ]);
 
-    let (response, events) = complete_with_events(events).await;
+    let (response, events) = observe_stream(events).await;
     let buffered = buffered_response("LIVE_MODEL_API_OK", Some(canonical));
 
     assert_eq!(response, buffered);
     assert_eq!(events, vec![assistant_delta("LIVE_MODEL_API_OK")],);
 }
 
-async fn complete_with_events(
-    events: Vec<StreamItem>,
-) -> (ModelResponse, Vec<ModelCompletionEvent>) {
+async fn observe_stream(events: Vec<StreamItem>) -> (ModelResponse, Vec<Value>) {
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
     let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
-    let (sink, recorded) = recording_completion_event_sink();
-    let response = model
-        .complete_with_events(&simple_request(), &sink)
+    let mut recorded = Vec::new();
+    let response = observe(&model, &simple_request(), &mut recorded)
         .await
         .expect("M2.7 stream should complete");
-    (response, recorded_completion_events(&recorded))
+    (response, content_events(&recorded))
 }
 
 fn completed_stream(chunks: Vec<Value>) -> Vec<StreamItem> {
@@ -172,12 +171,6 @@ fn buffered_response(content: &str, reasoning_details: Option<Value>) -> ModelRe
     .expect("buffered MiniMax response should parse")
 }
 
-fn assistant_delta(delta: &str) -> ModelCompletionEvent {
-    ModelCompletionEvent::AssistantTextDelta {
-        delta: delta.to_owned(),
-    }
-}
-
 #[tokio::test]
 async fn repeated_identical_fragments_append_instead_of_collapsing() {
     let events = completed_stream(vec![
@@ -186,7 +179,7 @@ async fn repeated_identical_fragments_append_instead_of_collapsing() {
         content_chunk("!", Some("stop")),
     ]);
 
-    let (response, events) = complete_with_events(events).await;
+    let (response, events) = observe_stream(events).await;
 
     assert_eq!(response.assistant_message, "haha!");
     assert_eq!(events, vec![assistant_delta("haha!")]);
@@ -199,7 +192,7 @@ async fn a_value_extending_the_retained_prefix_is_a_snapshot_even_without_prior_
         content_chunk("LIVE_MODEL_API_OK", Some("stop")),
     ]);
 
-    let (response, _) = complete_with_events(events).await;
+    let (response, _) = observe_stream(events).await;
 
     assert_eq!(response.assistant_message, "LIVE_MODEL_API_OK");
 }
@@ -212,7 +205,7 @@ async fn a_repeated_snapshot_after_evidence_does_not_duplicate_text() {
         content_chunk("LIVE_MODEL_API_OK", Some("stop")),
     ]);
 
-    let (response, events) = complete_with_events(events).await;
+    let (response, events) = observe_stream(events).await;
 
     assert_eq!(response.assistant_message, "LIVE_MODEL_API_OK");
     assert_eq!(events, vec![assistant_delta("LIVE_MODEL_API_OK")]);

@@ -2,10 +2,12 @@
 
 use std::collections::BTreeMap;
 
+use super::chunk::{
+    ChatCompletionsStreamChunk, ChatCompletionsToolCallDelta, ChatCompletionsToolFunctionDelta,
+};
 use super::types::{
     ChatCompletionsChoice, ChatCompletionsMessage, ChatCompletionsResponse,
-    ChatCompletionsStreamChunk, ChatCompletionsStreamError, ChatCompletionsToolCall,
-    ChatCompletionsToolCallDelta, ChatCompletionsToolFunction, ChatCompletionsToolFunctionDelta,
+    ChatCompletionsStreamError, ChatCompletionsToolCall, ChatCompletionsToolFunction,
     ChatCompletionsUsage,
 };
 
@@ -19,6 +21,7 @@ impl ChatCompletionsState {
     pub(super) fn push_chunk(
         &mut self,
         chunk: ChatCompletionsStreamChunk,
+        model_stream: bool,
     ) -> Result<(), ChatCompletionsStreamError> {
         for choice in chunk.choices {
             let state = self.choices.entry(choice.index).or_default();
@@ -30,7 +33,13 @@ impl ChatCompletionsState {
             if let Some(function_call) = choice.delta.function_call {
                 state.push_function_call(function_call)?;
             }
-            state.push_finish_reason(choice.index, choice.finish_reason)?;
+            if model_stream {
+                if let Some(finish_reason) = choice.finish_reason {
+                    state.finish_reason = Some(finish_reason);
+                }
+            } else {
+                state.push_finish_reason(choice.index, choice.finish_reason)?;
+            }
         }
         if let Some(usage) = chunk.usage {
             self.usage = Some(usage);
@@ -38,14 +47,17 @@ impl ChatCompletionsState {
         Ok(())
     }
 
-    pub(super) fn finish(self) -> Result<ChatCompletionsResponse, ChatCompletionsStreamError> {
+    pub(super) fn finish(
+        self,
+        allow_missing_finish: bool,
+    ) -> Result<ChatCompletionsResponse, ChatCompletionsStreamError> {
         if self.choices.is_empty() {
             return Err(ChatCompletionsStreamError::MissingChoices);
         }
         let choices = self
             .choices
             .into_iter()
-            .map(|(index, state)| state.finish(index))
+            .map(|(index, state)| state.finish(index, allow_missing_finish))
             .collect::<Result<Vec<_>, _>>()?;
         let Some(usage) = self.usage else {
             return Err(ChatCompletionsStreamError::MissingUsage);
@@ -118,11 +130,19 @@ impl ChoiceState {
         Ok(())
     }
 
-    fn finish(self, index: u64) -> Result<ChatCompletionsChoice, ChatCompletionsStreamError> {
-        let Some(finish_reason) = self.finish_reason else {
-            return Err(ChatCompletionsStreamError::MissingFinishReason {
-                choice_index: index,
-            });
+    fn finish(
+        self,
+        index: u64,
+        allow_missing_finish: bool,
+    ) -> Result<ChatCompletionsChoice, ChatCompletionsStreamError> {
+        let finish_reason = match self.finish_reason {
+            Some(reason) => reason,
+            None if allow_missing_finish => "missing".to_owned(),
+            None => {
+                return Err(ChatCompletionsStreamError::MissingFinishReason {
+                    choice_index: index,
+                });
+            }
         };
         let tool_calls = self
             .tool_calls
@@ -138,6 +158,7 @@ impl ChoiceState {
             message: ChatCompletionsMessage {
                 content: self.content,
                 reasoning_content: self.reasoning_content,
+                reasoning_details: Vec::new(),
                 tool_calls,
                 function_call,
             },
