@@ -58,9 +58,10 @@ async fn complete_preserves_the_original_open_and_read_errors() {
         Error::new(std::io::ErrorKind::ConnectionReset, "original source"),
     ))]);
     let internal = model.complete(&request()).await;
-    let Err(ModelError::Internal { source, .. }) = internal else {
+    let Err(ModelError::Internal { core, source, .. }) = internal else {
         panic!("the original internal error must reach the caller");
     };
+    assert_eq!(core.kind, ErrorKind::Internal);
     assert_eq!(
         source.downcast_ref::<Error>().map(Error::kind),
         Some(std::io::ErrorKind::ConnectionReset)

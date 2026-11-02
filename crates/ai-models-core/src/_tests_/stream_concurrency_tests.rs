@@ -11,7 +11,7 @@ use std::{
 };
 
 use ai_interface::{
-    DynModelEventStream, Model, ModelError, ModelEvent, ModelEventStream, ModelResult,
+    DynModelEventStream, ErrorKind, Model, ModelError, ModelEvent, ModelEventStream, ModelResult,
 };
 use async_trait::async_trait;
 
@@ -81,7 +81,7 @@ async fn concurrency_holds_until_drop_eof_or_error_and_keeps_the_inner_stream_al
             Release::Error => {
                 assert!(matches!(
                     first.next().await,
-                    Err(ModelError::Interrupted { .. })
+                    Err(ModelError::Failure { core, .. }) if core.kind == ErrorKind::Interrupted
                 ));
                 assert!(matches!(first.next().await, Ok(None)));
             }

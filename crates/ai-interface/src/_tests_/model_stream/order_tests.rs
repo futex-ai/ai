@@ -1,6 +1,6 @@
 //! Internal-error handling for model event order violations.
 
-use crate::{FinishReason, ModelError, ModelEvent, ModelResponseFold};
+use crate::{ErrorKind, FinishReason, ModelError, ModelEvent, ModelResponseFold};
 
 use super::fixtures::{arguments, finish, fold, reasoning, text, tool_start, usage};
 
@@ -104,7 +104,7 @@ fn fold_rejects_invalid_event_order_with_an_internal_error() {
 
     for (name, events) in cases {
         assert!(
-            matches!(fold(events), Err(ModelError::Internal { .. })),
+            matches!(fold(events), Err(ModelError::Internal { core, .. }) if core.kind == ErrorKind::Internal),
             "case: {name}"
         );
     }

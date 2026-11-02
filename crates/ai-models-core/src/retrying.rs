@@ -3,7 +3,8 @@
 use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
-    DynModelEventStream, Model, ModelError, ModelEvent, ModelEventStream, ModelRequest, ModelResult,
+    DynModelEventStream, ErrorKind, Model, ModelError, ModelEvent, ModelEventStream, ModelRequest,
+    ModelResult,
 };
 use async_trait::async_trait;
 
@@ -88,7 +89,7 @@ impl RetryStream {
     }
 
     async fn wait_for_retry(&mut self, error: &ModelError) -> bool {
-        if self.emitted_event || !matches!(error, ModelError::TransientProvider { .. }) {
+        if self.emitted_event || error.core().kind != ErrorKind::Transient {
             return false;
         }
         let Some(delay) = self.retry_delays.get(self.retry_index).copied() else {

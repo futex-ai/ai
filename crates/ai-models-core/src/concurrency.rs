@@ -42,9 +42,13 @@ impl Model for ConcurrencyLimitedModel {
             Some(semaphore) => match semaphore.clone().acquire_owned().await {
                 Ok(permit) => Some(permit),
                 Err(_) => {
-                    return Err(ModelError::internal(Error::ConcurrencyLimiterClosed {
-                        model_id: self.model_id.clone(),
-                    }));
+                    return Err(ModelError::internal(
+                        "local",
+                        &self.model_id,
+                        Error::ConcurrencyLimiterClosed {
+                            model_id: self.model_id.clone(),
+                        },
+                    ));
                 }
             },
             None => None,

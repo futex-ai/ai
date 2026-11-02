@@ -1,7 +1,7 @@
 //! Catalog identity, routing facts, and per-request effort resolution.
 
 use ai_interface::{
-    Effort, EffortSet, MOCK_CUSTOM_DEFAULTS, ModelCatalog, ModelControl, ModelError, ModelFeature,
+    Effort, EffortSet, ErrorKind, MOCK_CUSTOM_DEFAULTS, ModelCatalog, ModelControl, ModelFeature,
     ModelRequest, ModelSpec, ProviderId,
 };
 
@@ -107,8 +107,8 @@ fn resolved_effort(spec: &ModelSpec, effort: Effort) -> Result<Effort, ModelCont
     request.controls.generation.effort = Some(effort);
     resolve_controls(&request, spec)
         .map(|controls| controls.effort)
-        .map_err(|error| match error {
-            ModelError::UnsupportedControl { control, .. } => control,
+        .map_err(|error| match error.core().kind {
+            ErrorKind::UnsupportedControl(control) => control,
             other => panic!("expected unsupported effort, received {other:?}"),
         })
 }

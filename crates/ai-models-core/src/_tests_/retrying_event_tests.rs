@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use ai_interface::{ModelError, ModelRequest};
+use ai_interface::{ErrorKind, ModelError, ModelRequest};
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
@@ -22,7 +22,7 @@ async fn transient_retry_emits_only_the_successful_attempt_events() {
     let model = RetryingModel::new(
         scripted_model(
             vec![
-                Err(ModelError::transient_provider("openai", "gpt", "retry")),
+                Err(ModelError::transient("openai", "gpt", "retry")),
                 Ok(success("ok")),
             ],
             calls.clone(),
@@ -57,7 +57,7 @@ async fn interrupted_event_attempt_is_not_retried() {
     let (result, events) = collect_model_events(&model, &empty_request()).await;
     let error = result.expect_err("interruption should be returned immediately");
 
-    assert!(matches!(error, ModelError::Interrupted { .. }));
+    assert_eq!(error.core().kind, ErrorKind::Interrupted);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     assert_eq!(recorded_events(events), vec![assistant_delta("partial")]);
 }

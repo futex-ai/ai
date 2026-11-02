@@ -20,7 +20,31 @@
 
 ## What This Crate Does
 
-`ai-models-core` exposes wrappers such as `RetryingModel` and `ConcurrencyLimitedModel` so composition roots can assemble policy layers around provider clients. It also includes provider-facing helpers for common response/error handling, including the boundary-neutral `classify_http_status`, structured context-window overflow detection, tool-call JSON parsing, and deterministic local ids for provider tool calls that arrive without upstream ids. The classifier returns `None` below 400 and distinguishes rate-limited, transient, and terminal failures without depending on a modality-specific error type. HTTP 408, 409, 425, and 5xx responses are transient so retry wrappers can apply the configured schedule. Streaming helpers classify failures before any provider event as transient and failures after progress as `ModelError::Interrupted`.
+`ai-models-core` exposes wrappers such as `RetryingModel` and
+`ConcurrencyLimitedModel` for composition around provider clients.
+`classify_http_status` returns the precise shared `ErrorKind` for a failed
+HTTP status, and `None` below 400. `json_http_error_core` adds the HTTP 400
+context-limit override and response metadata for every modality.
+Stream helpers distinguish transient failures before provider progress from
+interrupted failures after progress. The original HTTP source remains available.
+
+Error and output helpers require an `ErrorContext`. Each call supplies its
+adapter identity, request-id header names, and an injected `Clock`.
+Production callers use `SystemClock`. Tests can use `ClockMock` through
+`test-support`. Seconds and invalid retry headers do not read the clock.
+`parse_retry_after` also accepts an explicit `SystemTime` for pure parsing.
+
+Keep one response-free context for each logical call. Wrap the actual auth
+hook with `capture_auth` to capture its transmitted credentials once.
+Use `add_secret` for explicit keys outside that hook.
+`for_response` creates a clone for one response and retains its headers.
+The context evaluates absolute retry dates when it applies an error.
+Each new HTTP phase starts from the response-free context.
+Late stream, provider, and output failures use the clone for that stream.
+`request_error` uses only the headers of the actual failed request.
+`apply` and `apply_model_error` keep the kind and source while sanitizing
+messages and request ids. `apply_judgment_error` also sanitizes provider-controlled answer labels.
+Auth-hook failures use a fixed diagnostic. They do not copy unknown hook text.
 
 The Chat Completions engine and its accumulator live in
 [`ai-models-compat`](../ai-models-compat/README.md).
@@ -42,7 +66,7 @@ lifecycle. The check does no I/O. Its rules are these:
 - `RequiredOrAuto` becomes `Required` when the `ForcedToolChoice` rule of the
   spec allows it, and `Auto` otherwise. `ResolvedToolChoice` therefore has
   no fallback variant, and the check never removes a tool definition.
-- The check fails with `ModelError::UnsupportedControl` for an effort with no
+- The check fails with `ErrorKind::UnsupportedControl` for an effort with no
   listed effort at or below it, nonempty stop sequences that the spec does
   not support, a forced tool choice that the rule does not allow, and a
   required deferred lifecycle that the spec does not have.
@@ -76,11 +100,11 @@ event unchanged, so `complete` returns the priced usage.
 
 The default retry schedule preserved by this crate is `100ms` then `250ms` for
 transient model failures. `RetryingModel` retries only
-`ModelError::TransientProvider`. It opens the inner stream again when the
+`ErrorKind::Transient`. It opens the inner stream again when the
 open fails with that error, or when the stream fails with it before the
 stream returned its first event. After the first event it passes every
 error on, so a consumer never sees an event of a retried attempt.
-`RetryingModel` never retries `ModelError::Interrupted`, because a repeated
+`RetryingModel` never retries `ErrorKind::Interrupted`, because a repeated
 generation can duplicate provider work and billing.
 
 `ConcurrencyLimitedModel` holds its permit from the call of `stream` until
@@ -147,8 +171,12 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
   the life of a stream
 - `src/pricing.rs` - usage-event pricing wrapper and integer cost calculator
 - `src/http_status.rs` - boundary-neutral HTTP failure classification
-- `src/errors.rs` - provider-agnostic JSON error mapping, parsing, and
-  structured-output validation helpers
+- `src/errors.rs` - provider-agnostic HTTP and provider-stream failure mapping
+- `src/error_context.rs` and `src/capturing_auth.rs` - per-call error
+  identity, safe diagnostics, response facts, and actual auth-hook capture
+- `src/error_metadata.rs` and `src/clock.rs` - optional retry and request-id
+  metadata with an injected wall clock
+- `src/structured_output.rs` - caller-schema and generated-output checks
 - `src/tool_call_identity/` - deterministic synthetic tool-call ids, and
   hashing of the portable message projection, ordered parts, and opaque
   provider state

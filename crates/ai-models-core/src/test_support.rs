@@ -9,8 +9,8 @@ use ai_interface::{
     Model, ModelError, ModelRequest, ModelResponse, ModelResponseFold, ModelResult,
 };
 use json_http::{
-    DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpSseEvent,
-    JsonHttpSseStreamMock, JsonHttpTransportMock, TransportBackedJsonHttpClient,
+    DynJsonHttpSseStream, JsonHttpClient, JsonHttpHeaders, JsonHttpRequest, JsonHttpResponse,
+    JsonHttpSseEvent, JsonHttpSseStreamMock, JsonHttpTransportMock, TransportBackedJsonHttpClient,
 };
 use serde_json::{Map, Value, json};
 use unimock::{MockFn, Unimock, matching};
@@ -25,6 +25,13 @@ pub type StreamItem = json_http::Result<Option<JsonHttpSseEvent>>;
 pub enum SseFixture {
     /// A successfully opened stream with the supplied items.
     Stream(Vec<StreamItem>),
+    /// A successful stream with the headers of its actual response.
+    StreamWithHeaders {
+        /// Response headers made available when the stream opens.
+        headers: JsonHttpHeaders,
+        /// Ordered reads from this response.
+        items: Vec<StreamItem>,
+    },
     /// A failure returned before a stream opens.
     OpeningError(json_http::Error),
 }
@@ -48,7 +55,16 @@ pub async fn collect_model_events(
         };
         let snapshot = match serde_json::to_value(&event) {
             Ok(snapshot) => snapshot,
-            Err(source) => return (Err(ModelError::internal(source)), events),
+            Err(source) => {
+                return (
+                    Err(ModelError::internal(
+                        "local",
+                        "model-event-collector",
+                        source,
+                    )),
+                    events,
+                );
+            }
         };
         events.push(snapshot);
         if let Err(error) = fold.push(event) {
@@ -80,7 +96,10 @@ pub fn recording_streaming_client(
                         .pop_front()
                         .expect("unexpected streaming transport call")
                     {
-                        SseFixture::Stream(items) => Ok(mock_stream(items)),
+                        SseFixture::Stream(items) => Ok(mock_stream(items, JsonHttpHeaders::new())),
+                        SseFixture::StreamWithHeaders { headers, items } => {
+                            Ok(mock_stream(items, headers))
+                        }
                         SseFixture::OpeningError(error) => Err(error),
                     }
                 })
@@ -118,12 +137,15 @@ pub fn done_event() -> StreamItem {
 fn buffered_fixture(response: JsonHttpResponse<Value>) -> SseFixture {
     if response.status >= 400 {
         return SseFixture::OpeningError(json_http::Error::HttpStatus {
-            headers: Default::default(),
+            headers: Box::new(response.headers),
             status: response.status,
             body: response.body,
         });
     }
-    SseFixture::Stream(buffered_events(response.body))
+    SseFixture::StreamWithHeaders {
+        headers: response.headers,
+        items: buffered_events(response.body),
+    }
 }
 
 fn buffered_events(body: Value) -> Vec<StreamItem> {
@@ -174,9 +196,12 @@ fn buffered_delta(mut message: Value) -> Value {
     message
 }
 
-fn mock_stream(items: Vec<StreamItem>) -> DynJsonHttpSseStream {
+fn mock_stream(items: Vec<StreamItem>, headers: JsonHttpHeaders) -> DynJsonHttpSseStream {
     let items = Arc::new(Mutex::new(VecDeque::from(items)));
-    Box::new(Unimock::new(
+    Box::new(Unimock::new((
+        JsonHttpSseStreamMock::headers
+            .each_call(matching!())
+            .returns(headers),
         JsonHttpSseStreamMock::next
             .each_call(matching!())
             .answers_arc(Arc::new(move |_| {
@@ -186,5 +211,5 @@ fn mock_stream(items: Vec<StreamItem>) -> DynJsonHttpSseStream {
                     .pop_front()
                     .unwrap_or(Ok(None))
             })),
-    ))
+    )))
 }

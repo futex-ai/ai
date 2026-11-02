@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use ai_interface::{Model, ModelError};
+use ai_interface::{ErrorKind, Model, ModelError};
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{RetryingModel, SleeperMock};
@@ -23,10 +23,8 @@ async fn retry_reopens_before_first_event_and_shares_the_delay_budget() {
     let model = RetryingModel::new(
         scripted_model(
             vec![
-                Err(ModelError::transient_provider("p", "m", "open")),
-                Ok(stream(vec![Err(ModelError::transient_provider(
-                    "p", "m", "read",
-                ))])),
+                Err(ModelError::transient("p", "m", "open")),
+                Ok(stream(vec![Err(ModelError::transient("p", "m", "read"))])),
                 Ok(success("retained")),
             ],
             calls.clone(),
@@ -61,7 +59,7 @@ async fn retry_does_not_replay_interruptions_or_errors_after_a_visible_event() {
         (
             vec![
                 Ok(Some(text("partial"))),
-                Err(ModelError::transient_provider("p", "m", "after text")),
+                Err(ModelError::transient("p", "m", "after text")),
             ],
             false,
         ),
@@ -77,8 +75,8 @@ async fn retry_does_not_replay_interruptions_or_errors_after_a_visible_event() {
 
         assert!(matches!(
             (&result, interrupted),
-            (Err(ModelError::Interrupted { .. }), true)
-                | (Err(ModelError::TransientProvider { .. }), false)
+            (Err(ModelError::Failure { core, .. }), expected)
+                if core.kind == if expected { ErrorKind::Interrupted } else { ErrorKind::Transient }
         ));
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
@@ -90,10 +88,8 @@ async fn retry_exhaustion_returns_the_last_read_error_and_stays_terminal() {
     let model = RetryingModel::new(
         scripted_model(
             vec![
-                Ok(stream(vec![Err(ModelError::transient_provider(
-                    "p", "m", "first",
-                ))])),
-                Err(ModelError::transient_provider("p", "m", "last")),
+                Ok(stream(vec![Err(ModelError::transient("p", "m", "first"))])),
+                Err(ModelError::transient("p", "m", "last")),
             ],
             calls.clone(),
         ),
@@ -107,7 +103,7 @@ async fn retry_exhaustion_returns_the_last_read_error_and_stays_terminal() {
     let error = stream.next().await;
 
     assert!(
-        matches!(error, Err(ModelError::TransientProvider { message, .. }) if message == "last")
+        matches!(error, Err(ModelError::Failure { core, .. }) if core.kind == ErrorKind::Transient && core.message == "last")
     );
     assert!(matches!(stream.next().await, Ok(None)));
     assert!(matches!(stream.next().await, Ok(None)));

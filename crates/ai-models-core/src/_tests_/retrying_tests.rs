@@ -8,7 +8,7 @@ use std::{
 
 use ai_interface::test_support::model_response_stream;
 use ai_interface::{
-    FinishReason, Model, ModelError, ModelGenerationControls, ModelMock, ModelRequest,
+    ErrorKind, FinishReason, Model, ModelError, ModelGenerationControls, ModelMock, ModelRequest,
     ModelResponse, ModelToolChoice, ModelUsage,
 };
 use unimock::{MockFn, Unimock, matching};
@@ -20,12 +20,8 @@ async fn retries_transient_failures_using_the_configured_schedule() {
     let sleeps = Arc::new(Mutex::new(Vec::new()));
     let retrying = RetryingModel::new(
         scripted_model(vec![
-            Err(ModelError::transient_provider(
-                "openai", "gpt-5.5", "retry 1",
-            )),
-            Err(ModelError::transient_provider(
-                "openai", "gpt-5.5", "retry 2",
-            )),
+            Err(ModelError::transient("openai", "gpt-5.5", "retry 1")),
+            Err(ModelError::transient("openai", "gpt-5.5", "retry 2")),
             Ok(success_response()),
         ]),
         recording_sleeper(sleeps.clone()),
@@ -48,15 +44,9 @@ async fn retries_transient_failures_using_the_configured_schedule() {
 async fn returns_the_last_transient_error_after_exhausting_retries() {
     let retrying = RetryingModel::new(
         scripted_model(vec![
-            Err(ModelError::transient_provider(
-                "openai", "gpt-5.5", "retry 1",
-            )),
-            Err(ModelError::transient_provider(
-                "openai", "gpt-5.5", "retry 2",
-            )),
-            Err(ModelError::transient_provider(
-                "openai", "gpt-5.5", "retry 3",
-            )),
+            Err(ModelError::transient("openai", "gpt-5.5", "retry 1")),
+            Err(ModelError::transient("openai", "gpt-5.5", "retry 2")),
+            Err(ModelError::transient("openai", "gpt-5.5", "retry 3")),
         ]),
         recording_sleeper(Arc::new(Mutex::new(Vec::new()))),
         vec![Duration::from_millis(100), Duration::from_millis(250)],
@@ -67,7 +57,7 @@ async fn returns_the_last_transient_error_after_exhausting_retries() {
         .await
         .expect_err("third transient failure should be returned");
 
-    assert!(matches!(error, ModelError::TransientProvider { .. }));
+    assert_eq!(error.core().kind, ErrorKind::Transient);
 }
 
 #[tokio::test]
@@ -87,7 +77,7 @@ async fn does_not_retry_an_interrupted_generation() {
         .await
         .expect_err("interrupted generation should be returned immediately");
 
-    assert!(matches!(error, ModelError::Interrupted { .. }));
+    assert_eq!(error.core().kind, ErrorKind::Interrupted);
 }
 
 #[tokio::test]

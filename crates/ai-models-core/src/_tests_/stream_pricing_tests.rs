@@ -2,7 +2,9 @@
 
 use std::sync::{Arc, atomic::AtomicUsize};
 
-use ai_interface::{FinishReason, Model, ModelError, test_support::model_response_stream};
+use ai_interface::{
+    ErrorKind, FinishReason, Model, ModelError, test_support::model_response_stream,
+};
 use serde_json::json;
 
 use crate::{ModelPricing, UsagePricingModel};
@@ -71,7 +73,7 @@ async fn pricing_changes_only_usage_and_stays_terminal_after_a_read_error() {
         json!({"TextDelta": {"part_index": 0, "delta": "partial"}})
     );
     assert!(
-        matches!(stream.next().await, Err(ModelError::Interrupted { message, .. }) if message == "read failed")
+        matches!(stream.next().await, Err(ModelError::Failure { core, .. }) if core.kind == ErrorKind::Interrupted && core.message == "read failed")
     );
     assert!(matches!(stream.next().await, Ok(None)));
     assert!(matches!(stream.next().await, Ok(None)));
