@@ -509,6 +509,9 @@ fallback explicit.
 - [ ] Keep the provider message of every rate-limit error in the error
       core. The MiniMax and xAI adapters lose it today, as their
       `rate_limit` snapshots show.
+- [ ] Apply `plans/follow-ups/xai-deferred-poll-transport-error.md`, so
+      that deferred polling continues after a network failure of the
+      production transport.
 - [ ] Mark `model-policies.md` implemented.
 - [ ] Run `cargo xtask check`, then commit and push.
 
