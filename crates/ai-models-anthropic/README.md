@@ -23,6 +23,10 @@
 - portable sampling outside thinking mode, bounded output limits, stop
   sequences, strict and required-with-automatic-fallback tool choice, per-call
   timeouts, and blank-system omission
+- with thinking enabled, `Required` and `Function` tool choice return
+  `ModelError::UnsupportedControl` for `ModelControl::ToolChoice` before
+  transport. `RequiredOrAuto` sends `auto` and retains tool definitions.
+  Without thinking, `RequiredOrAuto` sends `any`, as `Required` does.
 - Anthropic tool-use and tool-result content blocks
 - shared text and image parts as Anthropic text and base64 image blocks, with
   typed rejection of shared video parts before transport
@@ -91,7 +95,8 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 
 - `src/anthropic/mod.rs` - `Model` implementation and request dispatch
 - `src/catalog.rs` - known Anthropic model ids and routing metadata
-- `src/anthropic/request.rs` - Anthropic request DTO mapping
+- `src/anthropic/request.rs` - Anthropic request and control mapping
+- `src/anthropic/request_types.rs` - typed Messages request bodies
 - `src/anthropic/response.rs` - Anthropic response parsing
 - `src/anthropic/stream/` - public delta emission, terminal accumulation, and
   stream failure mapping

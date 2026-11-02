@@ -33,8 +33,10 @@ async fn maps_controls_bounds_output_and_keeps_thinking_sampling_fixed() {
         .complete(&controlled_request())
         .await
         .expect("non-thinking response should parse");
+    let mut thinking_request = controlled_request();
+    thinking_request.controls.generation.tool_choice = Some(ModelToolChoice::Auto);
     thinking
-        .complete(&controlled_request())
+        .complete(&thinking_request)
         .await
         .expect("thinking response should parse");
 

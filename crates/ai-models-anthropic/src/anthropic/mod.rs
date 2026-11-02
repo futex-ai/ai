@@ -1,6 +1,7 @@
 //! Anthropic messages model client.
 
 mod request;
+mod request_types;
 mod response;
 mod stream;
 
@@ -224,3 +225,7 @@ mod anthropic_event_tests;
 #[cfg(test)]
 #[path = "_tests_/stream_support.rs"]
 mod stream_support;
+
+#[cfg(test)]
+#[path = "_tests_/thinking_tool_choice_tests.rs"]
+mod thinking_tool_choice_tests;

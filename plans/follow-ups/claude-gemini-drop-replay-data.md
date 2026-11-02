@@ -22,6 +22,6 @@
 - **Left out:** Turning thinking off in tool loops fails the goal, because the catalog offers thinking models for tool use. Changing nothing fails the goal if the providers enforce the rule.
 - **Wider fix:** C. Opaque state removes the enum with a variant per provider. The live probe in B is the detection fix.
 - **Previous examples:** The replay variants for OpenAI, DeepSeek, Kimi, Qwen, MiniMax, and xAI in `crates/ai-interface/src/messages/provider_context.rs`.
-- **Related:** `plans/follow-ups/anthropic-forced-tool-choice-thinking.md` has the same cause: no live test runs a tool round trip. Both items share the live-probe detection fix.
+- **Related:** `crates/ai-models-anthropic/README.md` describes the tool-choice rule with thinking on, applied in Milestone 3. The unchosen live-probe option also covered this item.
 - **Recommendation:** B. It fixes the bug in the current design and proves the fix against the real APIs. C best protects the codebase.
 - **Action:** fix after merge, apply A, because the user chose A on 2026-11-01.

@@ -158,7 +158,7 @@ answers that differ from the recommendation.
   option B. Add a max output to each catalog entry, and use it as the
   default and the ceiling. The alternatives were a larger constant, or no
   ceiling. The recommendation was the larger constant.
-- Item 3, [Anthropic forces tool use while thinking is on](follow-ups/anthropic-forced-tool-choice-thinking.md):
+- Item 3, Anthropic forces tool use while thinking is on, applied in Milestone 3:
   option A. With thinking on, return `UnsupportedControl` for `Required`
   and `Function`, and send `auto` for `RequiredOrAuto`. The alternatives
   were a live probe in addition, or the rule in catalog data at once. The
@@ -370,7 +370,7 @@ Apply the answers to items 1 to 4 on today's types.
       value from the provider's model documentation. Use it as the default
       and the ceiling in the Anthropic adapter. Update
       `provider-call-controls.md`.
-- [ ] Item 3, option A: with thinking on, return `UnsupportedControl` for
+- [x] Item 3, option A: with thinking on, return `UnsupportedControl` for
       `Required` and `Function`, and send `auto` for `RequiredOrAuto`.
       Update the matrix in `provider-call-controls.md`.
 - [x] Item 4, option B: add a `Truncated` variant to `StepOutcome` and

@@ -1,101 +1,17 @@
 //! Anthropic messages request mapping.
 
+use super::request_types::{
+    AnthropicBlock, AnthropicImageSource, AnthropicMessage, AnthropicOutputConfig,
+    AnthropicRequest, AnthropicThinking, AnthropicTool, AnthropicToolChoice,
+};
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, ModelError, ModelRequest,
-    ModelResult, ModelToolChoice, ToolDefinition,
+    ConversationContentPart, ConversationMessage, ConversationRole, ModelControl, ModelError,
+    ModelRequest, ModelResult, ModelToolChoice, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
-use serde::Serialize;
-use serde_json::Value;
 
 const ANTHROPIC_MAX_TOKENS: u32 = 4096;
 const PROVIDER: &str = "anthropic";
-
-#[derive(Debug, Serialize)]
-pub(super) struct AnthropicRequest {
-    stream: bool,
-    model: String,
-    max_tokens: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    system: Option<String>,
-    messages: Vec<AnthropicMessage>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    tools: Vec<AnthropicTool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    thinking: Option<AnthropicThinking>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    output_config: Option<AnthropicOutputConfig>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    temperature: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    top_p: Option<f64>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    stop_sequences: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_choice: Option<AnthropicToolChoice>,
-}
-
-#[derive(Debug, Serialize)]
-struct AnthropicMessage {
-    role: String,
-    content: Vec<AnthropicBlock>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-enum AnthropicBlock {
-    #[serde(rename = "text")]
-    Text { text: String },
-    #[serde(rename = "image")]
-    Image { source: AnthropicImageSource },
-    #[serde(rename = "tool_use")]
-    ToolUse {
-        id: String,
-        name: String,
-        input: Value,
-    },
-    #[serde(rename = "tool_result")]
-    ToolResult {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        tool_use_id: Option<String>,
-        content: String,
-    },
-}
-
-#[derive(Debug, Serialize)]
-struct AnthropicImageSource {
-    #[serde(rename = "type")]
-    kind: String,
-    media_type: String,
-    data: String,
-}
-
-#[derive(Debug, Serialize)]
-struct AnthropicTool {
-    name: String,
-    description: String,
-    input_schema: Value,
-}
-
-#[derive(Debug, Serialize)]
-struct AnthropicThinking {
-    #[serde(rename = "type")]
-    kind: String,
-    display: String,
-}
-
-#[derive(Debug, Serialize)]
-struct AnthropicOutputConfig {
-    effort: String,
-}
-
-#[derive(Debug, Serialize)]
-struct AnthropicToolChoice {
-    #[serde(rename = "type")]
-    kind: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
-}
 
 pub(super) fn build_request(
     model_id: &str,
@@ -123,7 +39,11 @@ pub(super) fn build_request(
             .then_some(request.controls.generation.top_p)
             .flatten(),
         stop_sequences: request.controls.generation.stop_sequences.clone(),
-        tool_choice: tool_choice(request.controls.generation.tool_choice.as_ref()),
+        tool_choice: tool_choice(
+            model_id,
+            thinking_level,
+            request.controls.generation.tool_choice.as_ref(),
+        )?,
     })
 }
 
@@ -137,8 +57,30 @@ fn system_prompt(request: &ModelRequest) -> Option<String> {
     ))
 }
 
-fn tool_choice(choice: Option<&ModelToolChoice>) -> Option<AnthropicToolChoice> {
-    match choice {
+fn tool_choice(
+    model_id: &str,
+    thinking_level: ThinkingLevel,
+    choice: Option<&ModelToolChoice>,
+) -> ModelResult<Option<AnthropicToolChoice>> {
+    if thinking_level.is_enabled() {
+        match choice {
+            Some(ModelToolChoice::Required | ModelToolChoice::Function(_)) => {
+                return Err(ModelError::unsupported_control(
+                    PROVIDER,
+                    model_id,
+                    ModelControl::ToolChoice,
+                ));
+            }
+            Some(ModelToolChoice::RequiredOrAuto) => {
+                return Ok(Some(AnthropicToolChoice {
+                    kind: "auto".to_owned(),
+                    name: None,
+                }));
+            }
+            _ => {}
+        }
+    }
+    Ok(match choice {
         Some(ModelToolChoice::None) => Some(AnthropicToolChoice {
             kind: "none".to_owned(),
             name: None,
@@ -158,7 +100,7 @@ fn tool_choice(choice: Option<&ModelToolChoice>) -> Option<AnthropicToolChoice> 
             name: Some(name.clone()),
         }),
         None => None,
-    }
+    })
 }
 
 fn anthropic_messages(
