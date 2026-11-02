@@ -9,8 +9,12 @@ mod stream;
 
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-use ai_interface::{DynModelEventStream, Model, ModelError, ModelRequest, ModelResult, ModelSpec};
-use ai_models_core::{classify_json_http_stream_error, resolve_controls};
+use ai_interface::{
+    DynModelEventStream, ErrorKind, Model, ModelError, ModelRequest, ModelResult, ModelSpec,
+};
+use ai_models_core::{
+    Clock, ErrorContext, SystemClock, classify_json_http_stream_error, resolve_controls,
+};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 
@@ -19,6 +23,7 @@ const ANTHROPIC_API_VERSION: &str = "2023-06-01";
 const COMPLETION_TIMEOUT: Duration = Duration::from_secs(3_600);
 const PROVIDER: &str = "anthropic";
 const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+const REQUEST_ID_HEADERS: &[&str] = &["request-id", "x-request-id"];
 
 #[derive(Clone)]
 /// Anthropic-backed `ai_interface::Model` implementation.
@@ -27,6 +32,7 @@ pub struct AnthropicModel {
     spec: ModelSpec,
     auth: DynJsonHttpAuth,
     endpoint: String,
+    clock: Arc<dyn Clock>,
 }
 
 impl AnthropicModel {
@@ -70,44 +76,62 @@ impl AnthropicModel {
             spec,
             auth,
             endpoint: ANTHROPIC_MESSAGES_URL.to_owned(),
+            clock: Arc::new(SystemClock),
         }
+    }
+
+    /// Uses an injected wall clock to evaluate response retry dates.
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
+        self
     }
 }
 
 #[async_trait]
 impl Model for AnthropicModel {
     async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
-        let controls = resolve_controls(request, &self.spec)?;
+        let context = ErrorContext::new(
+            PROVIDER,
+            self.spec.provider_model_id.as_ref(),
+            REQUEST_ID_HEADERS,
+            self.clock.clone(),
+        );
+        let controls = match resolve_controls(request, &self.spec) {
+            Ok(controls) => controls,
+            Err(error) => return Err(context.apply_model_error(error)),
+        };
         let response_schema = request.response_schema.as_ref();
         let timeout = controls.total_timeout.unwrap_or(COMPLETION_TIMEOUT);
         let builder = self
             .http_client
             .post(&self.endpoint)
-            .auth(self.auth.clone())
+            .auth(context.capture_auth(self.auth.clone()))
             .header("anthropic-version", ANTHROPIC_API_VERSION)
             .timeout(timeout)
             .idle_timeout(STREAM_IDLE_TIMEOUT);
         let builder = match builder.json(request::build_request(
+            &context,
             &self.spec.provider_model_id,
             request,
             &controls,
         )?) {
             Ok(builder) => builder,
-            Err(source) => return Err(ModelError::internal(source)),
-        };
-        let stream = match builder.send_sse().await {
-            Ok(stream) => stream,
             Err(source) => {
-                return Err(classify_json_http_stream_error(
-                    PROVIDER,
-                    &self.spec.provider_model_id,
-                    0,
+                return Err(ModelError::with_source(
+                    context.core(ErrorKind::Internal, "internal error"),
                     source,
                 ));
             }
         };
+        let stream = match builder.send_sse().await {
+            Ok(stream) => stream,
+            Err(source) => {
+                return Err(classify_json_http_stream_error(&context, 0, source));
+            }
+        };
         Ok(stream::open(
             stream,
+            context,
             self.spec.text_id(),
             self.spec.provider_model_id.to_string(),
             controls.effort,
@@ -179,3 +203,10 @@ mod legacy_replay_tests;
 #[cfg(test)]
 #[path = "_tests_/anthropic_lifecycle_tests.rs"]
 mod anthropic_lifecycle_tests;
+#[cfg(test)]
+#[path = "_tests_/error_context_tests.rs"]
+mod error_context_tests;
+
+#[cfg(test)]
+#[path = "_tests_/auth_context_tests.rs"]
+mod auth_context_tests;

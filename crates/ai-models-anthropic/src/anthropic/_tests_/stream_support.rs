@@ -7,8 +7,8 @@ use std::{
 
 use ai_interface::{ModelSpec, ProviderState};
 use json_http::{
-    DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpSseEvent, JsonHttpSseStreamMock,
-    JsonHttpTransportMock, TransportBackedJsonHttpClient,
+    DynJsonHttpSseStream, JsonHttpClient, JsonHttpHeaders, JsonHttpRequest, JsonHttpSseEvent,
+    JsonHttpSseStreamMock, JsonHttpTransportMock, TransportBackedJsonHttpClient,
 };
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
@@ -182,7 +182,10 @@ fn append_block_events(events: &mut Vec<StreamItem>, index: usize, block: &Value
 
 fn mock_stream(items: Vec<StreamItem>) -> DynJsonHttpSseStream {
     let items = Arc::new(Mutex::new(VecDeque::from(items)));
-    Box::new(Unimock::new(
+    Box::new(Unimock::new((
+        JsonHttpSseStreamMock::headers
+            .each_call(matching!())
+            .returns(JsonHttpHeaders::new()),
         JsonHttpSseStreamMock::next
             .each_call(matching!())
             .answers_arc(Arc::new(move |_| {
@@ -192,5 +195,5 @@ fn mock_stream(items: Vec<StreamItem>) -> DynJsonHttpSseStream {
                     .pop_front()
                     .unwrap_or(Ok(None))
             })),
-    ))
+    )))
 }

@@ -1,6 +1,6 @@
 //! Anthropic stream failure classification tests.
 
-use ai_interface::{ConversationMessage, Model, ModelError, ModelRequest};
+use ai_interface::{ConversationMessage, Model, ModelRequest};
 use serde_json::json;
 
 use crate::CLAUDE_SONNET_4_6;
@@ -10,22 +10,81 @@ use super::AnthropicModel;
 
 #[tokio::test]
 async fn classifies_first_provider_error_without_partial_generation() {
-    let error_event = event(
-        "error",
-        json!({
-            "type": "error",
-            "error": {"type": "overloaded_error", "message": "Overloaded"}
-        }),
-    );
-    let (http_client, _) = recording_streaming_client(vec![vec![error_event]]);
-    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
-
-    let error = model
-        .complete(&simple_request())
-        .await
-        .expect_err("overloaded stream should fail");
-
-    assert!(matches!(error, ModelError::TransientProvider { .. }));
+    for (raw, expected, message) in [
+        (
+            "overloaded_error",
+            ai_interface::ErrorKind::Transient,
+            "Overloaded",
+        ),
+        (
+            "authentication_error",
+            ai_interface::ErrorKind::RejectedKey,
+            "authentication failed",
+        ),
+        (
+            "permission_error",
+            ai_interface::ErrorKind::RejectedKey,
+            "permission denied",
+        ),
+        (
+            "billing_error",
+            ai_interface::ErrorKind::RejectedKey,
+            "payment required",
+        ),
+        (
+            "not_found_error",
+            ai_interface::ErrorKind::UnknownModel,
+            "unknown model",
+        ),
+        (
+            "invalid_request_error",
+            ai_interface::ErrorKind::InvalidRequest,
+            "invalid request",
+        ),
+        (
+            "request_too_large",
+            ai_interface::ErrorKind::InvalidRequest,
+            "too large",
+        ),
+        (
+            "new_provider_error",
+            ai_interface::ErrorKind::InvalidRequest,
+            "unknown error",
+        ),
+        (
+            "rate_limit_error",
+            ai_interface::ErrorKind::RateLimited,
+            "slow down",
+        ),
+        (
+            "api_error",
+            ai_interface::ErrorKind::Transient,
+            "provider failed",
+        ),
+        (
+            "timeout_error",
+            ai_interface::ErrorKind::Transient,
+            "provider timed out",
+        ),
+        (
+            "context_length_exceeded",
+            ai_interface::ErrorKind::ContextLimitExceeded,
+            "too many tokens",
+        ),
+    ] {
+        let error_event = event(
+            "error",
+            json!({"type":"error","error":{"type":raw,"message":message}}),
+        );
+        let (http_client, _) = recording_streaming_client(vec![vec![error_event]]);
+        let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
+        let error = model
+            .complete(&simple_request())
+            .await
+            .expect_err("provider error must fail");
+        assert_eq!(error.core().kind, expected, "{raw}");
+        assert_eq!(error.core().message, message, "{raw}");
+    }
 }
 
 #[tokio::test]
@@ -45,7 +104,10 @@ async fn preserves_first_rate_limit_event_as_rate_limited() {
         .await
         .expect_err("rate-limited stream should fail");
 
-    assert!(matches!(error, ModelError::RateLimited { .. }));
+    assert!(matches!(
+        error.core().kind,
+        ai_interface::ErrorKind::RateLimited
+    ));
 }
 
 #[tokio::test]
@@ -68,7 +130,10 @@ async fn classifies_provider_error_after_progress_as_interrupted() {
         .await
         .expect_err("partially generated stream should fail");
 
-    assert!(matches!(error, ModelError::Interrupted { .. }));
+    assert!(matches!(
+        error.core().kind,
+        ai_interface::ErrorKind::Interrupted
+    ));
 }
 
 #[tokio::test]
@@ -85,8 +150,14 @@ async fn classifies_eof_before_and_after_progress() {
         .await
         .expect_err("partial stream should fail");
 
-    assert!(matches!(before, ModelError::TransientProvider { .. }));
-    assert!(matches!(after, ModelError::Interrupted { .. }));
+    assert!(matches!(
+        before.core().kind,
+        ai_interface::ErrorKind::Transient
+    ));
+    assert!(matches!(
+        after.core().kind,
+        ai_interface::ErrorKind::Interrupted
+    ));
 }
 
 #[tokio::test]
@@ -106,8 +177,14 @@ async fn classifies_transport_failure_before_and_after_progress() {
         .await
         .expect_err("mid-stream transport failure should fail");
 
-    assert!(matches!(before, ModelError::TransientProvider { .. }));
-    assert!(matches!(after, ModelError::Interrupted { .. }));
+    assert!(matches!(
+        before.core().kind,
+        ai_interface::ErrorKind::Transient
+    ));
+    assert!(matches!(
+        after.core().kind,
+        ai_interface::ErrorKind::Interrupted
+    ));
 }
 
 #[tokio::test]
@@ -148,7 +225,10 @@ async fn invalid_fragmented_tool_json_is_an_interruption() {
         .await
         .expect_err("invalid partial JSON should fail");
 
-    assert!(matches!(error, ModelError::Interrupted { .. }));
+    assert!(matches!(
+        error.core().kind,
+        ai_interface::ErrorKind::InvalidOutput
+    ));
 }
 
 fn message_start() -> crate::anthropic::stream_support::StreamItem {

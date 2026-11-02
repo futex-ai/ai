@@ -35,7 +35,7 @@ against the spec before transport. The adapter handles:
   sequences, strict and required-with-automatic-fallback tool choice, per-call
   timeouts, and blank-system omission
 - with thinking enabled, `Required` and `Function` tool choice return
-  `ModelError::UnsupportedControl` for `ModelControl::ToolChoice` before
+  the `UnsupportedControl(ModelControl::ToolChoice)` error kind before
   transport. `RequiredOrAuto` sends `auto` and retains tool definitions.
   Without thinking, `RequiredOrAuto` sends `any`, as `Required` does. Every
   Anthropic spec holds this rule as `ForcedToolChoice::OnlyWithoutThinking`.
@@ -59,7 +59,7 @@ against the spec before transport. The adapter handles:
   output, cached input, and cache-creation token counts; cache creation is
   folded into regular input usage
 - typed classification of failures before stream progress as retryable and
-  failures after progress as `ModelError::Interrupted`
+  failures after progress as the `Interrupted` error kind
 - status, native stream error, transport, and structured-output validation
   failure mapping onto `ai_interface::ModelError`
 
@@ -94,7 +94,14 @@ response has `thinking` or `redacted_thinking` blocks, an assistant message
 with these parts replays every block exactly, with the original order and
 message boundary. The adapter ignores the state of other providers. Own
 state with an unknown version or a payload that does not decode fails before
-transport with `ModelError::Provider`.
+transport with the `InvalidRequest` error kind.
+
+Every failure carries shared error details with the adapter's provider and
+configured model id. Errors retain `Retry-After` and the `request-id` response
+header, including failures after a stream opens. Provider diagnostics redact
+the actual credentials applied for that call. `with_clock` supplies an injected
+wall clock for HTTP-date retry hints. Malformed generated tools or schema output
+use `InvalidOutput`, while an invalid caller schema uses `InvalidRequest`.
 Thinking stays separate from visible assistant text. Stream consumers receive
 thinking text as `ReasoningDelta` events, and the folded response keeps it in
 reasoning parts. A call with a response schema emits text deltas like any

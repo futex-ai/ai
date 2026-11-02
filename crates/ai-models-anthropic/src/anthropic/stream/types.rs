@@ -130,6 +130,9 @@ pub(super) enum AnthropicProviderErrorKind {
     InvalidRequest,
     Authentication,
     Permission,
+    Billing,
+    Timeout,
+    ContextLimit,
     NotFound,
     Unrecognized,
 }
@@ -144,6 +147,12 @@ impl AnthropicProviderErrorKind {
             "invalid_request_error" => Self::InvalidRequest,
             "authentication_error" => Self::Authentication,
             "permission_error" => Self::Permission,
+            "billing_error" => Self::Billing,
+            "timeout_error" => Self::Timeout,
+            "context_length_exceeded"
+            | "model_context_window_exceeded"
+            | "input_too_long"
+            | "too_many_tokens" => Self::ContextLimit,
             "not_found_error" => Self::NotFound,
             _ => Self::Unrecognized,
         }

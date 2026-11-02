@@ -3,8 +3,7 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, Effort, Model, ModelControl, ModelError, ModelRequest, ModelToolChoice,
-    ToolDefinition,
+    ConversationMessage, Effort, Model, ModelControl, ModelRequest, ModelToolChoice, ToolDefinition,
 };
 use json_http::TransportBackedJsonHttpClient;
 use serde_json::json;
@@ -29,11 +28,8 @@ async fn thinking_tool_choice_rejects_strict_modes_before_transport() {
         let result = model.complete(&request(choice)).await;
         assert!(
             matches!(
-                result,
-                Err(ModelError::UnsupportedControl {
-                    control: ModelControl::ToolChoice,
-                    ..
-                })
+                result.as_ref(),
+                Err(error) if error.core().kind == ai_interface::ErrorKind::UnsupportedControl(ModelControl::ToolChoice)
             ),
             "{result:?}"
         );

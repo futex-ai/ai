@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, ConversationPart, ConversationRole, Model, ModelError, ModelRequest,
-    ProviderState, ToolCall,
+    ConversationMessage, ConversationPart, ConversationRole, Model, ModelRequest, ProviderState,
+    ToolCall,
 };
 use json_http::{JsonHttpClient, TransportBackedJsonHttpClient};
 use serde_json::json;
@@ -177,14 +177,11 @@ async fn invalid_own_state_and_roles_fail_before_transport() {
     ];
     for (message, expected_message) in cases {
         let error = model.complete(&request(vec![message])).await.unwrap_err();
-        let ModelError::Provider {
-            provider,
-            model_id,
-            message,
-        } = error
-        else {
-            panic!("expected invalid request provider error, got {error:?}");
-        };
+        let core = error.core();
+        assert_eq!(core.kind, ai_interface::ErrorKind::InvalidRequest);
+        let provider = &core.provider;
+        let model_id = &core.model_id;
+        let message = &core.message;
         assert_eq!(provider, "anthropic");
         assert_eq!(model_id, "claude-sonnet-4-6");
         assert_eq!(message, expected_message);

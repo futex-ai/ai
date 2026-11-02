@@ -1,7 +1,7 @@
 //! Anthropic messages request mapping.
 
 use ai_interface::{Effort, ModelRequest, ModelResult, ToolDefinition};
-use ai_models_core::{ResolvedModelControls, ResolvedToolChoice};
+use ai_models_core::{ErrorContext, ResolvedModelControls, ResolvedToolChoice};
 
 use super::{
     request_messages::anthropic_messages,
@@ -12,6 +12,7 @@ use super::{
 };
 
 pub(super) fn build_request(
+    context: &ErrorContext,
     model_id: &str,
     request: &ModelRequest,
     controls: &ResolvedModelControls,
@@ -21,7 +22,7 @@ pub(super) fn build_request(
         model: model_id.to_owned(),
         max_tokens: controls.max_output_tokens,
         system: system_prompt(request),
-        messages: anthropic_messages(model_id, &request.messages)?,
+        messages: anthropic_messages(context, model_id, &request.messages)?,
         tools: request.tools.iter().map(tool).collect(),
         thinking: thinking(controls.effort),
         output_config: output_config(controls.effort),

@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use ai_interface::{
     ConversationMessage, Effort, Model, ModelCallControls, ModelCompletionMode, ModelControl,
-    ModelError, ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
+    ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
 };
 use json_http::{JsonHttpClient, JsonHttpRequest, StaticHeaderAuth, TransportBackedJsonHttpClient};
 use serde_json::json;
@@ -165,11 +165,8 @@ async fn rejects_required_deferred_mode_before_transport() {
         .expect_err("required deferred mode should fail");
 
     assert!(matches!(
-        error,
-        ModelError::UnsupportedControl {
-            control: ModelControl::CompletionMode,
-            ..
-        }
+        error.core().kind,
+        ai_interface::ErrorKind::UnsupportedControl(ModelControl::CompletionMode)
     ));
 }
 
