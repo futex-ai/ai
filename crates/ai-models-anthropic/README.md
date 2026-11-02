@@ -17,8 +17,15 @@
 
 ## What This Crate Does
 
-`AnthropicModel` accepts a `json-http` client, a `ModelSpec`, and explicit
-auth input. Each call runs the shared capability check of `ai-models-core`
+`AnthropicModel::from_config(http, spec, config)` accepts an injected
+`json-http` client, a `ModelSpec`, and an `ai_models_core::ProviderConfig`.
+The config sets the base URL, auth, extra headers, and timeout overrides.
+Requests preserve any base URL path prefix. API keys use `x-api-key`.
+An auth hook runs for each request. Adapter and auth headers take precedence
+over extra headers without regard to case. The adapter sends
+`anthropic-version: 2023-06-01`.
+
+Each call runs the shared capability check of `ai-models-core`
 against the spec before transport. The adapter handles:
 
 - Anthropic messages request serialization with `"stream": true`
@@ -76,6 +83,7 @@ remain available for pinned deployments. The
 [control matrix](../../docs/protocol/model-capabilities.md#control-matrix)
 lists the efforts and limits of each spec.
 `new`, `with_auth`, and `with_catalog_auth` all take a spec. Every Anthropic
+constructor remains available and uses the same config path. Each Anthropic
 spec fixes sampling while thinking is on, so adaptive-thinking requests omit
 caller sampling controls as Anthropic requires. Build a model that the
 catalog does not list from
@@ -135,13 +143,14 @@ use ai_interface::{Effort, ModelCallControls, ModelSpec};
 use ai_models_anthropic::{
     AnthropicModel, CLAUDE_OPUS_5, CLAUDE_SONNET_5, CUSTOM_DEFAULTS, PROVIDER_ID, known_models,
 };
+use ai_models_core::ProviderConfig;
 use json_http::ReqwestJsonHttpClient;
 
 fn build_model() -> AnthropicModel {
-    AnthropicModel::new(
+    AnthropicModel::from_config(
         Arc::new(ReqwestJsonHttpClient::new()),
         CLAUDE_SONNET_5,
-        "anthropic-demo",
+        ProviderConfig::new(PROVIDER_ID, "anthropic-demo"),
     )
 }
 
@@ -179,7 +188,7 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 ### Key Code
 
 - `src/anthropic/mod.rs` - `Model::stream` implementation and request
-  dispatch
+  dispatch, with `AnthropicModel::from_config` for shared provider settings
 - `src/catalog.rs` - Anthropic provider id, model spec constants, `CATALOG`,
   and custom defaults
 - `src/anthropic/request.rs` - maps the resolved controls and the effort to
@@ -197,6 +206,7 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [`../../docs/protocol/provider-registry.md`](../../docs/protocol/provider-registry.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)
