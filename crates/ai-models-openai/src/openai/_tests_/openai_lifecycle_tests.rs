@@ -144,6 +144,92 @@ async fn emits_terminal_only_content_without_duplicating_streamed_text() {
     let response = response.expect("terminal-only parts should fold");
     assert_eq!(response.text(), "Hello denied");
     assert_eq!(response.finish_reason, FinishReason::Filtered);
+
+    let mut actual = Vec::new();
+    let mut expected = Vec::new();
+    for (case, delta, text, deltas) in [
+        ("item start", Value::Null, "Hello", json!(["Hello"])),
+        (
+            "anonymous",
+            json!({"delta":"Hello"}),
+            "Hello",
+            json!(["Hello"]),
+        ),
+        (
+            "item id",
+            json!({"item_id":"msg","delta":"Hello"}),
+            "Hello",
+            json!(["Hello"]),
+        ),
+        (
+            "partial",
+            json!({"output_index":0,"delta":"Hel"}),
+            "Hello",
+            json!(["Hel", "lo"]),
+        ),
+        (
+            "partial anonymous",
+            json!({"delta":"Hel"}),
+            "Hello",
+            json!(["Hel", "lo"]),
+        ),
+        (
+            "divergent",
+            json!({"output_index":0,"delta":"Other"}),
+            "Other",
+            json!(["Other"]),
+        ),
+    ] {
+        let message = json!({"type":"message","id":"msg","phase":"commentary","content":[{"type":"output_text","text":"Hello"}]});
+        let reasoning = json!({"type":"reasoning","id":"rs_1","summary":[{"type":"summary_text","text":"think"}]});
+        let mut events = vec![
+            native(
+                "response.output_item.added",
+                json!({"output_index":0,"item":{"type":"message","id":"msg","phase":"commentary","content":[]}}),
+            ),
+            native(
+                "response.output_item.added",
+                json!({"output_index":1,"item":{"type":"reasoning","id":"rs_1","summary":[]}}),
+            ),
+        ];
+        if !delta.is_null() {
+            events.push(native("response.output_text.delta", delta));
+        }
+        events.extend([
+            native(
+                "response.output_item.done",
+                json!({"output_index":0,"item":message}),
+            ),
+            native(
+                "response.output_item.done",
+                json!({"output_index":1,"item":reasoning}),
+            ),
+            terminal_event(
+                "response.completed",
+                json!({"status":"completed","output":[message,reasoning]}),
+            ),
+        ]);
+        let (client, _) = stream_support::recording_streaming_client(vec![events]);
+        let model = OpenAiModel::new(client, custom_spec("gpt-5.5"), "key");
+        let (response, events) = collect_model_events(&model, &request()).await;
+        let text_deltas = events
+            .iter()
+            .filter_map(|event| {
+                event
+                    .get("TextDelta")?
+                    .get("delta")?
+                    .as_str()
+                    .filter(|delta| !delta.is_empty())
+            })
+            .collect::<Vec<_>>();
+        let reasoning = events
+            .iter()
+            .filter_map(|event| event.get("ReasoningDelta")?.get("delta")?.as_str())
+            .collect::<String>();
+        actual.push(json!({"case":case,"text":response.unwrap().text(),"deltas":text_deltas,"reasoning":reasoning}));
+        expected.push(json!({"case":case,"text":text,"deltas":deltas,"reasoning":"think"}));
+    }
+    assert_eq!(actual, expected);
 }
 
 #[tokio::test]

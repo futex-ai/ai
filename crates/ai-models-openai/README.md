@@ -37,6 +37,9 @@ against the spec before transport. The adapter handles:
   provider order. Output text and refusal text join without a separator. One
   usage event and one finish event follow the terminal `response.completed`
   or `response.incomplete` event. `Model::complete` folds these events.
+  Item completion adds only the suffix of terminal text that earlier deltas
+  did not deliver. State-only events do not count as delivered text.
+  Divergent terminal text adds nothing.
 - calls with a response schema emit text deltas like any other call, and
   the finish event carries the validated structured output
 - 3,600-second default overall completion deadline, 120-second stream idle

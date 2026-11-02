@@ -42,14 +42,25 @@ impl TextParts {
         next_part_index: &mut usize,
         events: &mut Vec<ModelEvent>,
     ) {
-        if delta.is_empty() {
-            return;
-        }
         let key = ContentKey {
             item: location.item.key(),
             content_index: location.content_index,
             kind,
         };
+        self.push_key(key, delta, next_part_index, events);
+    }
+
+    fn push_key(
+        &mut self,
+        key: ContentKey,
+        delta: String,
+        next_part_index: &mut usize,
+        events: &mut Vec<ModelEvent>,
+    ) {
+        if delta.is_empty() {
+            return;
+        }
+        let kind = key.kind;
         let part = self.parts.entry(key).or_insert_with(|| {
             let index = *next_part_index;
             *next_part_index = next_part_index.saturating_add(1);
@@ -137,33 +148,45 @@ impl TextParts {
         next_part_index: &mut usize,
         events: &mut Vec<ModelEvent>,
     ) {
-        let key = ContentKey {
+        let mut key = ContentKey {
             item: location.item.key(),
             content_index: location.content_index,
             kind,
         };
-        if self.parts.contains_key(&key) {
-            return;
-        }
-        let candidates = [
-            location
-                .item
-                .item_id
-                .as_ref()
-                .map(|id| ItemKey::Id(id.clone())),
-            Some(ItemKey::Anonymous),
-        ];
-        for item in candidates.into_iter().flatten() {
-            if let Some(part) = self.parts.remove(&ContentKey {
-                item,
-                content_index: location.content_index,
-                kind,
-            }) {
-                self.parts.insert(key, part);
-                return;
+        if self.parts.get(&key).is_none_or(|part| part.text.is_empty()) {
+            let candidates = [
+                location.item.item_id.map(ItemKey::Id),
+                Some(ItemKey::Anonymous),
+            ];
+            let fallback = candidates
+                .into_iter()
+                .flatten()
+                .map(|item| ContentKey {
+                    item,
+                    content_index: location.content_index,
+                    kind,
+                })
+                .find(|candidate| {
+                    self.parts
+                        .get(candidate)
+                        .is_some_and(|part| !part.text.is_empty())
+                });
+            if let Some(fallback) = fallback {
+                if self.parts.contains_key(&key) {
+                    key = fallback;
+                } else if let Some(part) = self.parts.remove(&fallback) {
+                    self.parts.insert(key.clone(), part);
+                }
             }
         }
-        self.push(location, kind, text.to_owned(), next_part_index, events);
+        let streamed = self
+            .parts
+            .get(&key)
+            .map(|part| part.text.as_str())
+            .unwrap_or_default();
+        if let Some(suffix) = text.strip_prefix(streamed) {
+            self.push_key(key, suffix.to_owned(), next_part_index, events);
+        }
     }
 
     fn attach_state(
