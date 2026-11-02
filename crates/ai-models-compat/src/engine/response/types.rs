@@ -33,12 +33,16 @@ pub(super) struct ChatCompletionsAssistantMessage {
     pub(super) parsed_tool_calls: Option<Vec<ChatCompletionsToolCall>>,
     #[serde(skip)]
     pub(super) reasoning_details: Vec<MiniMaxReasoningDetail>,
+    #[serde(skip)]
+    pub(super) function_call: Option<ChatCompletionsToolFunction>,
 }
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ChatCompletionsToolCall {
     pub(super) id: String,
     pub(super) function: ChatCompletionsToolFunction,
+    #[serde(skip)]
+    pub(super) operation_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

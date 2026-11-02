@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use super::{
     super::dialect::{CompletionContext, ReplayRule},
-    eager,
+    eager, legacy,
     mapping::{dispatchable_tool_calls, finish_reason, parse_tool_calls},
     replay::provider_context,
     types::{ChatCompletionsAssistantMessage, ChatCompletionsResponse},
@@ -23,17 +23,20 @@ pub(crate) fn parse_response(
         catalog_model_id,
         provider_model_id,
         thinking_level,
+        synthetic_tool_call_scope: _,
     } = context;
-    let parse_error = |source| {
-        if dialect.replay == ReplayRule::Kimi {
-            ModelError::provider(
-                dialect.provider,
-                provider_model_id,
-                "invalid Kimi response payload",
-            )
-        } else {
-            ModelError::internal(source)
-        }
+    let parse_error = |source| match dialect.replay {
+        ReplayRule::Kimi => ModelError::provider(
+            dialect.provider,
+            provider_model_id,
+            "invalid Kimi response payload",
+        ),
+        ReplayRule::Xai => ModelError::provider(
+            dialect.provider,
+            provider_model_id,
+            format!("invalid xAI response: {source}"),
+        ),
+        _ => ModelError::internal(source),
     };
     let mut body = body;
     if dialect.replay == ReplayRule::Kimi && body.get("choices").is_none() {
@@ -43,10 +46,10 @@ pub(crate) fn parse_response(
             "invalid Kimi response payload",
         ));
     }
-    let parsed: ChatCompletionsResponse = match if dialect.replay == ReplayRule::MiniMax {
-        eager::decode(body.take())
-    } else {
-        serde_json::from_value(body.take())
+    let parsed: ChatCompletionsResponse = match match dialect.replay {
+        ReplayRule::MiniMax => eager::decode(body.take()),
+        ReplayRule::Xai => legacy::decode(body.take()),
+        _ => serde_json::from_value(body.take()),
     } {
         Ok(parsed) => parsed,
         Err(source) => return Err(parse_error(source)),
@@ -73,8 +76,9 @@ pub(crate) fn parse_response(
         content,
         reasoning_content,
         tool_calls: raw,
-        parsed_tool_calls: eager_calls,
+        parsed_tool_calls: mut eager_calls,
         reasoning_details,
+        function_call,
     } = choice.message;
     let mut assistant_message = assistant_text(content.clone());
     let dispatchable = matches!(finish_reason, FinishReason::ToolCalls);
@@ -92,6 +96,7 @@ pub(crate) fn parse_response(
             ),
         ));
     }
+    let legacy_context = legacy::normalize(context, &mut eager_calls, function_call);
     let has_raw_calls = eager_calls.as_ref().is_some_and(|calls| !calls.is_empty());
     let parsed_calls = match eager_calls {
         Some(calls) if dispatchable => calls,
@@ -114,7 +119,9 @@ pub(crate) fn parse_response(
             )
         })
         .transpose()?;
-    if dialect.replay == ReplayRule::Kimi && assistant_message.trim().is_empty() {
+    if matches!(dialect.replay, ReplayRule::Kimi | ReplayRule::Xai)
+        && assistant_message.trim().is_empty()
+    {
         assistant_message = structured_output
             .as_ref()
             .map(Value::to_string)
@@ -135,14 +142,18 @@ pub(crate) fn parse_response(
         tool_calls,
         finish_reason,
         structured_output,
-        provider_context: provider_context(
-            dialect.replay,
-            dispatchable,
-            content,
-            reasoning_content,
-            &parsed_calls,
-            reasoning_details,
-        ),
+        provider_context: if dialect.replay == ReplayRule::Xai {
+            legacy_context
+        } else {
+            provider_context(
+                dialect.replay,
+                dispatchable,
+                content,
+                reasoning_content,
+                &parsed_calls,
+                reasoning_details,
+            )
+        },
         usage,
     })
 }

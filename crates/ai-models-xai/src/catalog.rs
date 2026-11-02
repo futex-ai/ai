@@ -110,7 +110,3 @@ fn grok_4_5_variant(
         features: GROK_4_5_FEATURES,
     }
 }
-
-#[cfg(test)]
-#[path = "_tests_/catalog_tests.rs"]
-mod catalog_tests;

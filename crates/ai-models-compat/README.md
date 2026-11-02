@@ -13,13 +13,16 @@ credentials and an injected `json-http` client.
 
 ## What This Crate Does
 
-One engine serves provider dialects. The public `deepseek`, `kimi`, `qwen`, and `minimax` modules
+One engine serves provider dialects. The public `deepseek`, `kimi`, `qwen`, `minimax`, and `xai` modules
 export their models, configuration errors, catalog constants, and `known_models()`.
 The engine keeps the current buffered `complete` and opt-in
 `complete_with_events` methods. Schema calls suppress public text events.
 Stream failures after progress return `ModelError::Interrupted`.
 MiniMax retains M2.x snapshot recovery, M3 deltas, reasoning details, numeric
 provider errors, and structurally validated clean EOF.
+xAI retains legacy function calls, deterministic call ids, final usage
+replacement, and buffered deferred submission and polling. Deferred calls
+suppress events. Their existing timeout classification remains unchanged.
 
 A dialect supplies its endpoint and provider settings. Model wrappers validate
 construction and delegate execution to the engine. Callers supply credentials

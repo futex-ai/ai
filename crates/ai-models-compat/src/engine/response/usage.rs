@@ -4,7 +4,7 @@ use ai_interface::ModelUsage;
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::super::dialect::ReplayRule;
+use super::{super::dialect::ReplayRule, xai_usage::XaiUsage};
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct DeepSeekUsage {
@@ -135,6 +135,20 @@ pub(super) fn normalize(
                 None,
                 usage.completion_tokens_details.reasoning_tokens,
                 usage.total_tokens,
+            )
+        }
+        ReplayRule::Xai => {
+            let usage: XaiUsage = match raw {
+                Some(raw) => serde_json::from_value(raw)?,
+                None => XaiUsage::default(),
+            };
+            (
+                u64::from(usage.prompt_tokens),
+                u64::from(usage.completion_tokens),
+                u64::from(usage.prompt_tokens_details.cached_tokens),
+                None,
+                u64::from(usage.completion_tokens_details.reasoning_tokens),
+                usage.total_tokens.map(u64::from),
             )
         }
     };

@@ -6,11 +6,16 @@ use ai_interface::{
     Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse, ModelResult,
     NoopModelCompletionEventSink,
 };
-use ai_models_core::{ThinkingLevel, classify_json_http_error, classify_json_http_stream_error};
+use ai_models_core::{
+    ThinkingLevel, classify_json_http_error, classify_json_http_stream_error,
+    synthetic_tool_call_scope,
+};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
 
-use super::{CompletionContext, Dialect, request, stream};
+use super::{
+    CompletionContext, Dialect, lifecycle::DynDeferredCompletion, request, response, stream,
+};
 
 const STREAM_TIMEOUT: Duration = Duration::from_secs(3_600);
 const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
@@ -23,6 +28,7 @@ pub(crate) struct CompatModel {
     provider_model_id: String,
     thinking_level: ThinkingLevel,
     auth: DynJsonHttpAuth,
+    deferred_completion: Option<DynDeferredCompletion>,
 }
 
 impl CompatModel {
@@ -41,7 +47,13 @@ impl CompatModel {
             provider_model_id,
             thinking_level,
             auth,
+            deferred_completion: None,
         }
+    }
+
+    pub(crate) fn with_deferred(mut self, completion: DynDeferredCompletion) -> Self {
+        self.deferred_completion = Some(completion);
+        self
     }
 
     async fn complete_with_sink(
@@ -49,19 +61,44 @@ impl CompatModel {
         model_request: &ModelRequest,
         event_sink: &dyn ModelCompletionEventSink,
     ) -> ModelResult<ModelResponse> {
-        if let Err(control) = model_request.controls.execution.resolve_deferred(false) {
-            return Err(ModelError::unsupported_control(
-                self.dialect.provider,
-                &self.provider_model_id,
-                control,
-            ));
-        }
+        let use_deferred = match model_request
+            .controls
+            .execution
+            .resolve_deferred(self.deferred_completion.is_some())
+        {
+            Ok(use_deferred) => use_deferred,
+            Err(control) => {
+                return Err(ModelError::unsupported_control(
+                    self.dialect.provider,
+                    &self.provider_model_id,
+                    control,
+                ));
+            }
+        };
+        let scope = synthetic_tool_call_scope(model_request);
+        let context = CompletionContext {
+            dialect: self.dialect,
+            catalog_model_id: &self.catalog_model_id,
+            provider_model_id: &self.provider_model_id,
+            thinking_level: self.thinking_level,
+            synthetic_tool_call_scope: &scope,
+        };
         let request_body = request::build_request(
             self.dialect,
             &self.provider_model_id,
             self.thinking_level,
             model_request,
         )?;
+        if use_deferred && let Some(completion) = self.deferred_completion.as_ref() {
+            let timeout = model_request
+                .controls
+                .execution
+                .total_timeout
+                .or(self.dialect.deferred_timeout)
+                .unwrap_or_default();
+            let body = completion.complete(request_body, timeout).await?;
+            return response::parse_response(context, body, model_request.response_schema.as_ref());
+        }
         let builder = self
             .http_client
             .post(self.dialect.endpoint)
@@ -102,12 +139,7 @@ impl CompatModel {
         };
         stream::complete(
             event_stream,
-            CompletionContext {
-                dialect: self.dialect,
-                catalog_model_id: &self.catalog_model_id,
-                provider_model_id: &self.provider_model_id,
-                thinking_level: self.thinking_level,
-            },
+            context,
             model_request.response_schema.as_ref(),
             event_sink,
         )

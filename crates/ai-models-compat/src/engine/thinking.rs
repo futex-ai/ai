@@ -14,6 +14,21 @@ pub(super) fn thinking_fields(
     level: ThinkingLevel,
 ) -> ModelResult<(Option<ChatCompletionsThinking>, Option<String>)> {
     match dialect.thinking {
+        ThinkingFormat::GrokEffort { fixed_prefix } => {
+            let effort = if model_id.starts_with(fixed_prefix) {
+                None
+            } else {
+                match level {
+                    ThinkingLevel::Disabled => None,
+                    ThinkingLevel::Low => Some("low"),
+                    ThinkingLevel::Medium => Some("medium"),
+                    ThinkingLevel::High | ThinkingLevel::Max => Some("high"),
+                    ThinkingLevel::ExtraHigh => Some("xhigh"),
+                }
+            };
+            Ok((None, effort.map(str::to_owned)))
+        }
+
         ThinkingFormat::Adaptive => Ok((
             Some(ChatCompletionsThinking {
                 kind: if level.is_enabled() {

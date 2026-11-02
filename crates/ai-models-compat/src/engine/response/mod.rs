@@ -2,11 +2,13 @@
 
 mod base_error;
 mod eager;
+mod legacy;
 mod mapping;
 mod parse;
 mod replay;
 mod types;
 mod usage;
+mod xai_usage;
 
 pub(crate) use parse::parse_response;
 

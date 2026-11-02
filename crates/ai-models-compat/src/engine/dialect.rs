@@ -1,5 +1,7 @@
 //! Dialect settings and invocation identity shared by the engine stages.
 
+use std::time::Duration;
+
 use ai_interface::ModelError;
 use ai_models_core::ThinkingLevel;
 use serde_json::Value;
@@ -26,6 +28,7 @@ pub(crate) struct Dialect {
     pub(crate) http_error: Option<fn(&str, u16, &Value) -> ModelError>,
     pub(crate) parallel_tools: bool,
     pub(crate) clean_eof: bool,
+    pub(crate) deferred_timeout: Option<Duration>,
     pub(crate) normalizer: Option<NormalizerFactory>,
     pub(crate) base_error: Option<BaseErrorClassifier>,
 }
@@ -36,6 +39,7 @@ pub(crate) enum ReplayRule {
     Kimi,
     Qwen,
     MiniMax,
+    Xai,
 }
 
 #[derive(Clone, Copy)]
@@ -44,6 +48,7 @@ pub(crate) enum ThinkingFormat {
     Effort,
     Flags,
     Adaptive,
+    GrokEffort { fixed_prefix: &'static str },
 }
 
 #[derive(Clone, Copy)]
@@ -89,4 +94,5 @@ pub(crate) struct CompletionContext<'a> {
     pub(crate) catalog_model_id: &'a str,
     pub(crate) provider_model_id: &'a str,
     pub(crate) thinking_level: ThinkingLevel,
+    pub(crate) synthetic_tool_call_scope: &'a str,
 }

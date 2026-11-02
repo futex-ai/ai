@@ -1,17 +1,13 @@
 //! Conversation content, participant names, and role mapping.
 
-use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, ModelError, ModelRequest,
-    ModelResult,
-};
+use ai_interface::{ConversationMessage, ConversationRole, ModelError, ModelRequest, ModelResult};
 
 use super::{
     dialect::{Dialect, InputParts, ReplayRule},
+    message_content::message_content,
+    request_legacy::{LegacyFunctionCall, legacy_function_call, legacy_tool_name},
     request_replay::{reasoning_context, replay_message},
-    request_types::{
-        ChatCompletionsContent, ChatCompletionsContentPart, ChatCompletionsImageUrl,
-        ChatCompletionsMessage,
-    },
+    request_types::{ChatCompletionsContent, ChatCompletionsMessage, ChatCompletionsToolFunction},
     tools::tool_call,
 };
 
@@ -24,6 +20,7 @@ pub(super) fn system_message(content: String) -> ChatCompletionsMessage {
         reasoning_content: None,
         reasoning_details: Vec::new(),
         tool_calls: Vec::new(),
+        function_call: None,
     }
 }
 
@@ -71,16 +68,25 @@ pub(super) fn validate_content_parts(
     Ok(())
 }
 
-pub(super) fn message(
+fn message(
     dialect: &Dialect,
     model_id: &str,
     message: &ConversationMessage,
+    legacy_calls: &[LegacyFunctionCall],
 ) -> ModelResult<ChatCompletionsMessage> {
     if message.role == ConversationRole::Assistant
         && let Some(replay) = replay_message(dialect.replay, message)
     {
         return Ok(replay);
     }
+    let legacy_call = (dialect.replay == ReplayRule::Xai)
+        .then(|| legacy_function_call(message))
+        .flatten();
+    let legacy_name = if dialect.replay == ReplayRule::Xai {
+        legacy_tool_name(message, legacy_calls)
+    } else {
+        None
+    };
     let (reasoning_content, reasoning_details) = reasoning_context(dialect.replay, message);
     let content = message_content(dialect, model_id, message)?;
     let content = if dialect.replay == ReplayRule::MiniMax {
@@ -89,19 +95,27 @@ pub(super) fn message(
         Some(content)
     };
     Ok(ChatCompletionsMessage {
-        role: match message.role {
-            ConversationRole::User => "user",
-            ConversationRole::Assistant => "assistant",
-            ConversationRole::Tool => "tool",
+        role: if legacy_name.is_some() {
+            "function"
+        } else {
+            match message.role {
+                ConversationRole::User => "user",
+                ConversationRole::Assistant => "assistant",
+                ConversationRole::Tool => "tool",
+            }
         },
         content,
-        name: if dialect.names && message.role != ConversationRole::Tool {
+        name: if let Some(name) = legacy_name {
+            Some(name.to_owned())
+        } else if dialect.names && message.role != ConversationRole::Tool {
             message.name.clone()
         } else {
             None
         },
-        tool_call_id: if message.role == ConversationRole::Tool
-            || dialect.replay == ReplayRule::Kimi
+        tool_call_id: if legacy_name.is_some() {
+            None
+        } else if message.role == ConversationRole::Tool
+            || matches!(dialect.replay, ReplayRule::Kimi | ReplayRule::Xai)
         {
             message.tool_call_id.clone()
         } else {
@@ -109,81 +123,35 @@ pub(super) fn message(
         },
         reasoning_content,
         reasoning_details,
-        tool_calls: if message.role == ConversationRole::Assistant
-            || dialect.replay == ReplayRule::MiniMax
+        tool_calls: if legacy_call.is_none()
+            && (message.role == ConversationRole::Assistant
+                || matches!(dialect.replay, ReplayRule::MiniMax | ReplayRule::Xai))
         {
             message.tool_calls.iter().map(tool_call).collect()
         } else {
             Vec::new()
         },
+        function_call: legacy_call.map(|call| ChatCompletionsToolFunction {
+            name: call.name,
+            arguments: call.arguments,
+        }),
     })
 }
 
-fn message_content(
+pub(super) fn conversation_messages(
     dialect: &Dialect,
     model_id: &str,
-    message: &ConversationMessage,
-) -> ModelResult<Option<ChatCompletionsContent>> {
-    if !message.content_parts.is_empty() {
-        return Ok(Some(ChatCompletionsContent::Parts(
-            message
-                .content_parts
-                .iter()
-                .map(|part| content_part(dialect, model_id, part))
-                .collect::<ModelResult<Vec<_>>>()?,
-        )));
-    }
-    if dialect.replay == ReplayRule::MiniMax
-        && message.role != ConversationRole::Tool
-        && message.content.is_empty()
-    {
-        return Ok(None);
-    }
-    if message.role == ConversationRole::Assistant
-        && message.content.is_empty()
-        && (dialect.replay == ReplayRule::Kimi
-            || dialect.replay == ReplayRule::Qwen && !message.tool_calls.is_empty())
-    {
-        Ok(None)
-    } else {
-        Ok(Some(ChatCompletionsContent::Text(message.content.clone())))
-    }
-}
-
-fn content_part(
-    dialect: &Dialect,
-    model_id: &str,
-    part: &ConversationContentPart,
-) -> ModelResult<ChatCompletionsContentPart> {
-    match part {
-        ConversationContentPart::Text { text } => {
-            Ok(ChatCompletionsContentPart::Text { text: text.clone() })
+    messages: &[ConversationMessage],
+) -> ModelResult<Vec<ChatCompletionsMessage>> {
+    let mut legacy_calls = Vec::new();
+    let mut output = Vec::new();
+    for input in messages {
+        output.push(message(dialect, model_id, input, &legacy_calls)?);
+        if dialect.replay == ReplayRule::Xai
+            && let Some(call) = legacy_function_call(input)
+        {
+            legacy_calls.push(call);
         }
-        ConversationContentPart::Image {
-            mime_type,
-            data_base64,
-        } => Ok(ChatCompletionsContentPart::ImageUrl {
-            image_url: ChatCompletionsImageUrl {
-                url: format!("data:{mime_type};base64,{data_base64}"),
-            },
-        }),
-        ConversationContentPart::Video {
-            mime_type,
-            data_base64,
-        } if matches!(dialect.input, InputParts::TextImageVideo) => {
-            Ok(ChatCompletionsContentPart::VideoUrl {
-                video_url: ChatCompletionsImageUrl {
-                    url: format!("data:{mime_type};base64,{data_base64}"),
-                },
-            })
-        }
-        ConversationContentPart::Video { .. } => Err(ModelError::provider(
-            dialect.provider,
-            model_id,
-            format!(
-                "{} accepts text and image content parts only",
-                dialect.label
-            ),
-        )),
     }
+    Ok(output)
 }

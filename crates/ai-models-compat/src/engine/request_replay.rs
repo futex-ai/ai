@@ -72,6 +72,7 @@ pub(super) fn replay_message(
             tool_call_id: None,
             reasoning_content,
             reasoning_details: Vec::new(),
+            function_call: None,
             tool_calls,
         })
     })

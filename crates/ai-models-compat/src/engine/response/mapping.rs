@@ -17,6 +17,7 @@ pub(super) fn finish_reason(
     Ok(match value {
         Some("stop") => FinishReason::Stop,
         Some("tool_calls") => FinishReason::ToolCalls,
+        Some("function_call") if dialect.replay == ReplayRule::Xai => FinishReason::ToolCalls,
         Some("length") => FinishReason::Truncated,
         Some("content_filter") => FinishReason::Filtered,
         Some(raw)
@@ -91,7 +92,7 @@ pub(super) fn parse_tool_calls(
                     model_id,
                     &call.function.arguments,
                 )?,
-                operation_id: None,
+                operation_id: call.operation_id.clone(),
             })
         })
         .collect()

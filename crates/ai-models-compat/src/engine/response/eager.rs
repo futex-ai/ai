@@ -52,6 +52,7 @@ pub(super) fn decode(body: Value) -> Result<ChatCompletionsResponse, serde_json:
                     reasoning_details: choice.message.reasoning_details,
                     tool_calls: None,
                     parsed_tool_calls: Some(choice.message.tool_calls),
+                    function_call: None,
                 },
             })
             .collect(),

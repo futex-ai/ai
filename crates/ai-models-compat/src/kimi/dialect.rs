@@ -16,6 +16,7 @@ pub(super) static DIALECT: Dialect = Dialect {
     sampling: Sampling::Fixed,
     tool_choice: ToolChoiceRule::Standard,
     input: InputParts::TextImage,
+    deferred_timeout: None,
     clean_eof: false,
     normalizer: None,
     base_error: None,

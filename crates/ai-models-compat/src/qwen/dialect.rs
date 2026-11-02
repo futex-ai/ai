@@ -22,6 +22,7 @@ pub(super) static DIALECT: Dialect = Dialect {
     input: InputParts::UserTextImage {
         plain_text_model: QWEN_3_7_MAX,
     },
+    deferred_timeout: None,
     clean_eof: false,
     normalizer: None,
     base_error: None,

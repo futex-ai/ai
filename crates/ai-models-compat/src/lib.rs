@@ -9,6 +9,7 @@ pub mod deepseek;
 pub mod kimi;
 pub mod minimax;
 pub mod qwen;
+pub mod xai;
 
 pub use chat_completions::{
     ChatCompletionsAccumulator, ChatCompletionsChoice, ChatCompletionsCompletionTokenDetails,

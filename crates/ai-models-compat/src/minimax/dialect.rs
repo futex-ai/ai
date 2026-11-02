@@ -26,6 +26,7 @@ pub(super) static DIALECT: Dialect = Dialect {
     transient_finish: None,
     http_error: None,
     parallel_tools: false,
+    deferred_timeout: None,
     clean_eof: true,
     normalizer: Some(normalizer),
     base_error: Some(base_response_error),

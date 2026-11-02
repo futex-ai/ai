@@ -1,12 +1,12 @@
 //! Shared request mapping and structured-output instructions.
 
-use ai_interface::{ModelRequest, ModelResult, ModelToolChoice};
+use ai_interface::{ModelCompletionMode, ModelRequest, ModelResult, ModelToolChoice};
 use ai_models_core::ThinkingLevel;
 
 use super::{
     controls::{tool_choice, validate_controls},
     dialect::{Dialect, OutputLimit, Sampling, StructuredOutput, ThinkingFormat, ToolChoiceRule},
-    messages::{message, system_message, validate_content_parts},
+    messages::{conversation_messages, system_message, validate_content_parts},
     request_types::{
         ChatCompletionsJsonSchema, ChatCompletionsRequest, ChatCompletionsResponseFormat,
         ChatCompletionsStreamOptions,
@@ -29,9 +29,7 @@ pub(crate) fn build_request(
     if !system_prompt.trim().is_empty() {
         messages.push(system_message(system_prompt));
     }
-    for conversation_message in &request.messages {
-        messages.push(message(dialect, model_id, conversation_message)?);
-    }
+    messages.extend(conversation_messages(dialect, model_id, &request.messages)?);
     let omit_tools = matches!(dialect.tool_choice, ToolChoiceRule::OmitWhileThinking)
         && thinking_level.is_enabled()
         && request.controls.generation.tool_choice == Some(ModelToolChoice::None);
@@ -46,6 +44,8 @@ pub(crate) fn build_request(
         Sampling::Any => true,
     };
     let max_output = request.controls.generation.max_output_tokens;
+    let deferred = dialect.deferred_timeout.is_some()
+        && request.controls.execution.completion_mode != ModelCompletionMode::Synchronous;
     Ok(ChatCompletionsRequest {
         model: model_id.to_owned(),
         messages,
@@ -56,10 +56,11 @@ pub(crate) fn build_request(
             .then_some(thinking_level.is_enabled()),
         preserve_thinking: matches!(dialect.thinking, ThinkingFormat::Flags)
             .then_some(thinking_level.is_enabled()),
-        stream: true,
-        stream_options: ChatCompletionsStreamOptions {
+        stream: !deferred,
+        deferred,
+        stream_options: (!deferred).then_some(ChatCompletionsStreamOptions {
             include_usage: true,
-        },
+        }),
         reasoning_split: matches!(dialect.thinking, ThinkingFormat::Adaptive).then_some(true),
         thinking,
         reasoning_effort,

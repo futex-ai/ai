@@ -15,6 +15,7 @@ pub(super) fn provider_context(
     reasoning_details: Vec<MiniMaxReasoningDetail>,
 ) -> Vec<ProviderConversationItem> {
     match rule {
+        ReplayRule::Xai => Vec::new(),
         ReplayRule::MiniMax if reasoning_content.is_none() && reasoning_details.is_empty() => {
             Vec::new()
         }
