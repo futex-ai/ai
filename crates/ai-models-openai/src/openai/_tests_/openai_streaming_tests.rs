@@ -4,9 +4,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ai_interface::{
-    ConversationMessage, Effort, FinishReason, Model, ModelCallControls, ModelExecutionControls,
-    ModelRequest, ModelUsage, OpenAiReasoningSummary, ProviderConversationItem,
-    StructuredOutputSchema, ToolCall,
+    ConversationMessage, ConversationPart, Effort, FinishReason, Model, ModelCallControls,
+    ModelExecutionControls, ModelRequest, ModelUsage, StructuredOutputSchema, ToolCall,
 };
 use json_http::StaticHeaderAuth;
 use serde_json::{Value, json};
@@ -16,6 +15,7 @@ use crate::openai::stream_support::custom_spec;
 use crate::openai::stream_support::{event, recording_streaming_client, terminal_event};
 
 use super::{OpenAiModel, stream_support::expected_response};
+use crate::openai::stream_support::state;
 
 #[tokio::test]
 async fn sends_streaming_request_with_completion_deadlines() {
@@ -98,30 +98,16 @@ async fn completed_stream_matches_rich_buffered_response() {
             ..Default::default()
         },
     );
-    buffered.tool_calls = vec![ToolCall {
+    let tool_calls = [ToolCall {
         id: "call_1".to_owned(),
         name: "memory_read".to_owned(),
         input: json!({"path": "root"}),
         operation_id: None,
     }];
-    buffered.provider_context = vec![
-        ProviderConversationItem::OpenAiReasoning {
-            id: "rs_1".to_owned(),
-            summary: vec![OpenAiReasoningSummary {
-                kind: "summary_text".to_owned(),
-                text: "Use memory".to_owned(),
-            }],
-            encrypted_content: Some("encrypted".to_owned()),
-        },
-        ProviderConversationItem::OpenAiMessage {
-            phase: Some("commentary".to_owned()),
-        },
-        ProviderConversationItem::OpenAiFunctionCall {
-            id: Some("fc_1".to_owned()),
-            call_id: "call_1".to_owned(),
-            name: "memory_read".to_owned(),
-            arguments: "{\"path\":\"root\"}".to_owned(),
-        },
+    buffered.parts = vec![
+        ConversationPart::reasoning("Use memory").with_provider_state(state(json!({"id":"rs_1","summary":[{"type":"summary_text","text":"Use memory"}],"encrypted_content":"encrypted"}))),
+        ConversationPart::text("Checking. ").with_provider_state(state(json!({"phase":"commentary"}))),
+        ConversationPart::from_tool_call(tool_calls[0].clone()).with_provider_state(state(json!({"id":"fc_1","call_id":"call_1","name":"memory_read","arguments":"{\"path\":\"root\"}"}))),
     ];
 
     assert_eq!(streamed, buffered);

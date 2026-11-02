@@ -6,8 +6,8 @@ use std::{
 };
 
 use ai_interface::{
-    Effort, FinishReason, ModelResponse, ModelResponseFold, ModelResult, ModelSpec, ModelUsage,
-    StructuredOutputSchema,
+    ConversationPart, Effort, FinishReason, ModelResponse, ModelResponseFold, ModelResult,
+    ModelSpec, ModelUsage, StructuredOutputSchema,
 };
 use json_http::{
     DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpSseEvent, JsonHttpSseStreamMock,
@@ -135,12 +135,29 @@ pub(super) fn expected_response(
         model_id: "gpt-5.5".to_owned(),
         catalog_model_id: Some("openai/gpt-5.5".to_owned()),
         thinking_level: Some(thinking_level),
-        assistant_message: assistant_message.to_owned(),
-        tool_calls: Vec::new(),
+        parts: vec![ConversationPart::text(assistant_message)],
         finish_reason,
         structured_output: None,
-        provider_context: Vec::new(),
         usage,
         attempts: Vec::new(),
+    }
+}
+
+pub(super) fn replay_states(response: &ModelResponse) -> Vec<super::replay_state::ReplayState> {
+    response
+        .parts
+        .iter()
+        .filter_map(|part| part.provider_state())
+        .filter(|state| state.provider == PROVIDER_ID)
+        .map(|state| serde_json::from_value(Value::Object(state.payload.clone())).unwrap())
+        .collect()
+}
+
+pub(super) fn state(payload: Value) -> ai_interface::ProviderState {
+    ai_interface::ProviderState {
+        provider: PROVIDER_ID,
+        model: "gpt-5.5".to_owned(),
+        version: 1,
+        payload: payload.as_object().unwrap().clone(),
     }
 }

@@ -37,10 +37,6 @@ pub(super) fn terminal_events(
     response_schema: Option<&StructuredOutputSchema>,
 ) -> ModelResult<[ModelEvent; 2]> {
     let finish_reason = finish_reason(&parsed);
-    let provider_context = output::provider_context(
-        &parsed.output,
-        matches!(finish_reason, FinishReason::ToolCalls),
-    );
     let structured_output = match response_schema {
         Some(schema) if matches!(finish_reason, FinishReason::Stop) => Some(
             parse_structured_output(PROVIDER, provider_model_id, assistant_message, schema)?,
@@ -77,7 +73,6 @@ pub(super) fn terminal_events(
             catalog_model_id: Some(catalog_model_id.to_owned()),
             thinking_level: Some(thinking_level),
             structured_output,
-            provider_context,
         },
     ])
 }

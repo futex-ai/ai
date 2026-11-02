@@ -52,7 +52,7 @@ async fn emits_output_and_reasoning_deltas_in_provider_order_with_parity() {
             finish_event(None),
         ]
     );
-    assert_eq!(assistant_text(&events), response.assistant_message);
+    assert_eq!(assistant_text(&events), response.text());
 }
 
 #[tokio::test]

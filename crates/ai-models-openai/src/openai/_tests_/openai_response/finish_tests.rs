@@ -77,7 +77,7 @@ async fn maps_refusal_content_to_filtered_finish_reason() {
     .expect("refusal response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::Filtered);
-    assert_eq!(response.assistant_message, "I cannot help with that.");
+    assert_eq!(response.text(), "I cannot help with that.");
 }
 
 #[tokio::test]
@@ -109,9 +109,9 @@ async fn parses_multiple_function_call_output_items() {
     .expect("function calls should parse");
 
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
-    assert_eq!(response.tool_calls.len(), 2);
-    assert_eq!(response.tool_calls[0].id, "call_1");
-    assert_eq!(response.tool_calls[1].id, "call_2");
+    assert_eq!(response.tool_calls().len(), 2);
+    assert_eq!(response.tool_calls()[0].id, "call_1");
+    assert_eq!(response.tool_calls()[1].id, "call_2");
 }
 
 #[tokio::test]
@@ -136,8 +136,13 @@ async fn incomplete_function_call_response_is_not_dispatchable() {
     .expect("incomplete function-call response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::Truncated);
-    assert!(response.tool_calls.is_empty());
-    assert!(response.provider_context.is_empty());
+    assert!(response.tool_calls().is_empty());
+    assert!(
+        response
+            .parts
+            .iter()
+            .all(|part| part.provider_state().is_none())
+    );
 }
 
 #[tokio::test]

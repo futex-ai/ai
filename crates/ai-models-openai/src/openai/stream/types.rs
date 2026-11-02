@@ -71,7 +71,7 @@ pub(super) struct ItemLocation {
     pub(super) item_id: Option<String>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct ContentLocation {
     #[serde(flatten)]
     pub(super) item: ItemLocation,

@@ -1,7 +1,12 @@
 //! Reasoning output item response tests.
 
-use ai_interface::{FinishReason, OpenAiReasoningSummary, ProviderConversationItem};
+use ai_interface::FinishReason;
 use serde_json::json;
+
+use crate::openai::replay_state::{
+    FunctionCallState, ReasoningState, ReasoningSummary, ReplayState,
+};
+use crate::openai::stream_support::replay_states;
 
 use super::{Effort, response_from_fixture};
 
@@ -37,9 +42,9 @@ async fn ignores_reasoning_output_items() {
     .await
     .expect("mixed reasoning response should parse");
 
-    assert_eq!(response.assistant_message, "Visible");
+    assert_eq!(response.text(), "Visible");
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
-    assert_eq!(response.tool_calls.len(), 1);
+    assert_eq!(response.tool_calls().len(), 1);
     assert_eq!(
         response.catalog_model_id.as_deref(),
         Some("gpt-5.5-thinking-extra-high")
@@ -75,24 +80,24 @@ async fn preserves_reasoning_items_for_stateless_tool_continuation() {
     .expect("reasoning response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
-    assert_eq!(response.tool_calls.len(), 1);
+    assert_eq!(response.tool_calls().len(), 1);
     assert_eq!(
-        response.provider_context,
+        replay_states(&response),
         vec![
-            ProviderConversationItem::OpenAiReasoning {
+            ReplayState::Reasoning(ReasoningState {
                 id: "rs_1".to_owned(),
-                summary: vec![OpenAiReasoningSummary {
+                summary: vec![ReasoningSummary {
                     kind: "summary_text".to_owned(),
                     text: "Need the tool.".to_owned(),
                 }],
                 encrypted_content: Some("encrypted-reasoning".to_owned()),
-            },
-            ProviderConversationItem::OpenAiFunctionCall {
+            }),
+            ReplayState::FunctionCall(FunctionCallState {
                 id: None,
                 call_id: "call_1".to_owned(),
                 name: "memory_read".to_owned(),
                 arguments: "{\"path\":\"root\"}".to_owned(),
-            }
+            })
         ]
     );
 }
@@ -127,28 +132,28 @@ async fn preserves_function_call_items_for_stateless_replay_context() {
     .expect("function-call response should parse");
 
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
-    assert_eq!(response.tool_calls.len(), 1);
+    assert_eq!(response.tool_calls().len(), 1);
     assert_eq!(
-        serde_json::to_value(&response.provider_context[1]).expect("context should serialize")["id"],
+        serde_json::to_value(&replay_states(&response)[1]).expect("context should serialize")["id"],
         "fc_1"
     );
     assert_eq!(
-        response.provider_context,
+        replay_states(&response),
         vec![
-            ProviderConversationItem::OpenAiReasoning {
+            ReplayState::Reasoning(ReasoningState {
                 id: "rs_1".to_owned(),
-                summary: vec![OpenAiReasoningSummary {
+                summary: vec![ReasoningSummary {
                     kind: "summary_text".to_owned(),
                     text: "Need the tool.".to_owned(),
                 }],
                 encrypted_content: Some("encrypted-reasoning".to_owned()),
-            },
-            ProviderConversationItem::OpenAiFunctionCall {
+            }),
+            ReplayState::FunctionCall(FunctionCallState {
                 id: Some("fc_1".to_owned()),
                 call_id: "call_1".to_owned(),
                 name: "memory_read".to_owned(),
                 arguments: "{\n  \"path\": \"root\"\n}".to_owned(),
-            }
+            })
         ]
     );
 }
@@ -182,12 +187,18 @@ async fn preserves_assistant_message_phase_for_stateless_replay_context() {
     .await
     .expect("preamble response should parse");
 
-    let provider_context =
-        serde_json::to_value(&response.provider_context).expect("context should serialize");
-    assert_eq!(provider_context[0]["type"], "openai_message");
-    assert_eq!(provider_context[0]["phase"], "commentary");
-    assert_eq!(provider_context[1]["type"], "openai_function_call");
-    assert_eq!(response.assistant_message, "I'll inspect memory.");
+    let provider_context = serde_json::to_value(
+        response
+            .parts
+            .iter()
+            .filter_map(|part| part.provider_state())
+            .collect::<Vec<_>>(),
+    )
+    .expect("context should serialize");
+    assert_eq!(provider_context[0]["provider"], "openai");
+    assert_eq!(provider_context[0]["payload"]["phase"], "commentary");
+    assert_eq!(provider_context[1]["payload"]["call_id"], "call_1");
+    assert_eq!(response.text(), "I'll inspect memory.");
 }
 
 #[tokio::test]
@@ -218,13 +229,19 @@ async fn preserves_phase_less_assistant_message_order_for_stateless_replay_conte
     .await
     .expect("phase-less preamble response should parse");
 
-    let provider_context =
-        serde_json::to_value(&response.provider_context).expect("context should serialize");
-    let message_context = provider_context[0]
+    let provider_context = serde_json::to_value(
+        response
+            .parts
+            .iter()
+            .filter_map(|part| part.provider_state())
+            .collect::<Vec<_>>(),
+    )
+    .expect("context should serialize");
+    let message_context = provider_context[0]["payload"]
         .as_object()
         .expect("message context should serialize as an object");
-    assert_eq!(provider_context[0]["type"], "openai_message");
+    assert_eq!(provider_context[0]["provider"], "openai");
     assert!(!message_context.contains_key("phase"));
-    assert_eq!(provider_context[1]["type"], "openai_function_call");
-    assert_eq!(response.assistant_message, "I'll inspect memory.");
+    assert_eq!(provider_context[1]["payload"]["call_id"], "call_1");
+    assert_eq!(response.text(), "I'll inspect memory.");
 }

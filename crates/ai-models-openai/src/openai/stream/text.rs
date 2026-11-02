@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use ai_interface::ModelEvent;
+use ai_interface::{ModelEvent, ProviderState};
 
 use crate::openai::response::types::{ResponsesContentPart, ResponsesOutputItem};
 
@@ -14,20 +14,21 @@ pub(super) enum ContentKind {
     Reasoning,
 }
 
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct ContentKey {
     item: ItemKey,
     content_index: usize,
     kind: ContentKind,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct TextPart {
     part_index: usize,
     text: String,
+    provider_state: Option<ProviderState>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(super) struct TextParts {
     parts: BTreeMap<ContentKey, TextPart>,
 }
@@ -55,6 +56,7 @@ impl TextParts {
             TextPart {
                 part_index: index,
                 text: String::new(),
+                provider_state: None,
             }
         });
         part.text.push_str(&delta);
@@ -62,10 +64,12 @@ impl TextParts {
             ContentKind::Text => ModelEvent::TextDelta {
                 part_index: part.part_index,
                 delta,
+                provider_state: None,
             },
             ContentKind::Reasoning => ModelEvent::ReasoningDelta {
                 part_index: part.part_index,
                 delta,
+                provider_state: None,
             },
         });
     }
@@ -74,6 +78,7 @@ impl TextParts {
         &mut self,
         output_index: usize,
         item: &ResponsesOutputItem,
+        state: Option<ProviderState>,
         next_part_index: &mut usize,
         events: &mut Vec<ModelEvent>,
     ) {
@@ -119,6 +124,9 @@ impl TextParts {
             }
             ResponsesOutputItem::FunctionCall { .. } | ResponsesOutputItem::Other => {}
         }
+        if let Some(state) = state {
+            self.attach_state(output_index, item, state, next_part_index, events);
+        }
     }
 
     fn supplement(
@@ -156,6 +164,73 @@ impl TextParts {
             }
         }
         self.push(location, kind, text.to_owned(), next_part_index, events);
+    }
+
+    fn attach_state(
+        &mut self,
+        output_index: usize,
+        item: &ResponsesOutputItem,
+        state: ProviderState,
+        next_part_index: &mut usize,
+        events: &mut Vec<ModelEvent>,
+    ) {
+        let kind = match item {
+            ResponsesOutputItem::Message { .. } => ContentKind::Text,
+            ResponsesOutputItem::Reasoning { .. } => ContentKind::Reasoning,
+            _ => return,
+        };
+        let key = self
+            .parts
+            .keys()
+            .find(|key| key.item == ItemKey::Index(output_index) && key.kind == kind)
+            .map(|key| key.content_index)
+            .unwrap_or_default();
+        let part = self
+            .parts
+            .entry(ContentKey {
+                item: ItemKey::Index(output_index),
+                content_index: key,
+                kind,
+            })
+            .or_insert_with(|| {
+                let part_index = *next_part_index;
+                *next_part_index = next_part_index.saturating_add(1);
+                TextPart {
+                    part_index,
+                    text: String::new(),
+                    provider_state: None,
+                }
+            });
+        if part.provider_state.as_ref() == Some(&state) {
+            return;
+        }
+        part.provider_state = Some(state.clone());
+        match events.last_mut() {
+            Some(
+                ModelEvent::TextDelta {
+                    part_index,
+                    provider_state,
+                    ..
+                }
+                | ModelEvent::ReasoningDelta {
+                    part_index,
+                    provider_state,
+                    ..
+                },
+            ) if *part_index == part.part_index => *provider_state = Some(state),
+            _ => events.push(match kind {
+                ContentKind::Text => ModelEvent::TextDelta {
+                    part_index: part.part_index,
+                    delta: String::new(),
+                    provider_state: Some(state),
+                },
+                ContentKind::Reasoning => ModelEvent::ReasoningDelta {
+                    part_index: part.part_index,
+                    delta: String::new(),
+                    provider_state: Some(state),
+                },
+            }),
+        }
     }
 
     pub(super) fn assistant_message(&self) -> String {

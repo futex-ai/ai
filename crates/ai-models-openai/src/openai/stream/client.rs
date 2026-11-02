@@ -26,7 +26,8 @@ pub(in crate::openai) fn open(
 ) -> DynModelEventStream {
     Box::new(OpenAiEventStream {
         stream: Some(stream),
-        state: OpenAiStreamState::default(),
+        state: OpenAiStreamState::new(&provider_model_id),
+        deferred_error: None,
         pending: VecDeque::new(),
         events_received: 0,
         catalog_model_id,
@@ -45,17 +46,25 @@ struct OpenAiEventStream {
     provider_model_id: String,
     thinking_level: Effort,
     response_schema: Option<StructuredOutputSchema>,
+    deferred_error: Option<ModelError>,
 }
 
 #[async_trait]
 impl ModelEventStream for OpenAiEventStream {
     async fn next(&mut self) -> ModelResult<Option<ModelEvent>> {
-        let result = self.read_event().await;
-        if result.is_err() {
-            self.stream = None;
-            self.pending.clear();
+        match self.read_event().await {
+            Ok(event) => Ok(event),
+            Err(error) => {
+                self.stream = None;
+                self.pending.clear();
+                self.pending.extend(self.state.flush_anonymous()?);
+                if self.pending.is_empty() {
+                    return Err(error);
+                }
+                self.deferred_error = Some(error);
+                Ok(self.pending.pop_front())
+            }
         }
-        result
     }
 }
 
@@ -64,6 +73,9 @@ impl OpenAiEventStream {
         loop {
             if let Some(event) = self.pending.pop_front() {
                 return Ok(Some(event));
+            }
+            if let Some(error) = self.deferred_error.take() {
+                return Err(error);
             }
             let Some(stream) = self.stream.as_mut() else {
                 return Ok(None);
@@ -127,7 +139,7 @@ impl OpenAiEventStream {
                 }
                 event => {
                     self.events_received = self.events_received.saturating_add(1);
-                    self.pending.extend(self.state.push(event));
+                    self.pending.extend(self.state.push(event)?);
                 }
             }
         }

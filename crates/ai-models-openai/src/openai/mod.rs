@@ -1,7 +1,10 @@
 //! OpenAI Responses model client.
 
 mod image_generation;
+mod legacy;
+mod replay_state;
 mod request;
+mod request_content;
 mod request_input;
 mod request_types;
 mod response;
@@ -17,6 +20,7 @@ use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 
 pub use image_generation::OpenAiImageGenerator;
+pub use legacy::OpenAiLegacyConverter;
 pub use transcription::OpenAiAudioTranscriber;
 pub use video_generation::OpenAiVideoGenerator;
 
@@ -163,3 +167,11 @@ mod request_effort_tests;
 #[cfg(test)]
 #[path = "_tests_/openai_lifecycle_tests.rs"]
 mod openai_lifecycle_tests;
+
+#[cfg(test)]
+#[path = "_tests_/parts_tests.rs"]
+mod parts_tests;
+
+#[cfg(test)]
+#[path = "_tests_/conversion_tests.rs"]
+mod conversion_tests;

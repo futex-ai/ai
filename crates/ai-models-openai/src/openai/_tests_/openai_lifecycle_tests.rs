@@ -81,9 +81,11 @@ async fn emits_indexed_interleaved_tools_reasoning_and_refusal_before_terminal_m
             json!({"ToolCallArgumentsDelta": {"part_index": 3, "delta": "{\"key\":"}}),
             json!({"ToolCallStart": {"part_index": 4, "id": "call_2", "name": "status"}}),
             json!({"ToolCallArgumentsDelta": {"part_index": 4, "delta": "{}"}}),
-            json!({"ToolCallEnd": {"part_index": 4}}),
+            json!({"ToolCallEnd": {"part_index": 4,"provider_state":{"provider":"openai","model":"gpt-5.5","version":1,"payload":{"id":"fc_2","call_id":"call_2","name":"status","arguments":"{}"}}}}),
             json!({"ToolCallArgumentsDelta": {"part_index": 3, "delta": "\"root\"}"}}),
-            json!({"ToolCallEnd": {"part_index": 3}}),
+            json!({"ToolCallEnd": {"part_index": 3,"provider_state":{"provider":"openai","model":"gpt-5.5","version":1,"payload":{"id":"fc_1","call_id":"call_1","name":"lookup","arguments":"{\"key\":\"root\"}"}}}}),
+            json!({"ReasoningDelta":{"part_index":0,"delta":"","provider_state":{"provider":"openai","model":"gpt-5.5","version":1,"payload":{"id":"rs_1","summary":[{"type":"summary_text","text":"think"}],"encrypted_content":"encrypted"}}}}),
+            json!({"TextDelta":{"part_index":1,"delta":"","provider_state":{"provider":"openai","model":"gpt-5.5","version":1,"payload":{"phase":"final_answer"}}}}),
             json!({"Usage": {"usage": {
                 "input_tokens": 8, "output_tokens": 4, "cached_input_tokens": 2,
                 "reasoning_tokens": 1, "total_tokens": 15, "estimated_cost_microusd": 0
@@ -91,12 +93,7 @@ async fn emits_indexed_interleaved_tools_reasoning_and_refusal_before_terminal_m
             json!({"Finish": {
                 "finish_reason": "ToolCalls", "provider": "openai", "model_id": "gpt-5.5",
                 "catalog_model_id": "openai/gpt-5.5", "effort": "disabled",
-                "provider_context": [
-                    {"type": "openai_reasoning", "id": "rs_1", "summary": [{"type": "summary_text", "text": "think"}], "encrypted_content": "encrypted"},
-                    {"type": "openai_message", "phase": "final_answer"},
-                    {"type": "openai_function_call", "id": "fc_1", "call_id": "call_1", "name": "lookup", "arguments": "{\"key\":\"root\"}"},
-                    {"type": "openai_function_call", "id": "fc_2", "call_id": "call_2", "name": "status", "arguments": "{}"}
-                ]
+
             }}),
         ]
     );
@@ -141,11 +138,11 @@ async fn emits_terminal_only_content_without_duplicating_streamed_text() {
         vec![
             json!({"TextDelta": {"part_index": 0, "delta": "Hello"}}),
             json!({"TextDelta": {"part_index": 1, "delta": " denied"}}),
-            json!({"ReasoningDelta": {"part_index": 2, "delta": "think"}}),
+            json!({"ReasoningDelta": {"part_index": 2, "delta": "think","provider_state":{"provider":"openai","model":"gpt-5.5","version":1,"payload":{"id":"rs_1","summary":[{"type":"summary_text","text":"think"}]}}}}),
         ]
     );
     let response = response.expect("terminal-only parts should fold");
-    assert_eq!(response.assistant_message, "Hello denied");
+    assert_eq!(response.text(), "Hello denied");
     assert_eq!(response.finish_reason, FinishReason::Filtered);
 }
 

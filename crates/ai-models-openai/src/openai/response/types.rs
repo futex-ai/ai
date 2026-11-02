@@ -1,7 +1,8 @@
 //! OpenAI Responses API response DTOs.
 
-use ai_interface::OpenAiReasoningSummary;
 use serde::Deserialize;
+
+use crate::openai::replay_state::ReasoningSummary;
 
 #[derive(Debug, Deserialize)]
 pub(in crate::openai) struct ResponsesResponse {
@@ -32,7 +33,7 @@ pub(in crate::openai) enum ResponsesOutputItem {
     Reasoning {
         id: String,
         #[serde(default)]
-        summary: Vec<OpenAiReasoningSummary>,
+        summary: Vec<ReasoningSummary>,
         #[serde(default)]
         encrypted_content: Option<String>,
     },
