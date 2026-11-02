@@ -8,8 +8,8 @@ output, routing, usage, and error contracts.
 
 ## Status
 
-This contract is implemented by `ai-models-compat`, with shared routing and
-replay types in `ai-interface`. The
+This contract is implemented by `ai-models-compat`, with shared routing
+types, conversation parts, and provider state in `ai-interface`. The
 [Add Kimi Model Provider plan](../../plans/add-kimi-model-provider.md) records
 the completed implementation milestones.
 
@@ -36,11 +36,12 @@ a typed provider error before transport.
 
 ## Ownership
 
-- `ai-interface` owns the model spec types and typed Kimi assistant replay
-  context.
+- `ai-interface` owns the model spec types, conversation parts, opaque
+  provider state, and log copies.
 - `ai-models-compat` owns the `kimi` provider id, the Kimi model spec and
-  custom defaults, authentication, request and response mapping, replay
-  behavior, and provider error translation.
+  custom defaults, authentication, request and response mapping, the private
+  Kimi replay state and its version 1 conversion, replay behavior, and
+  provider error translation.
 - `ai-models-core` owns shared HTTP error classification, the capability
   check, tool-argument parsing, and structured-output parsing and
   validation.
@@ -104,12 +105,13 @@ K3 request mapping must:
 - apply a portable total timeout to the overall SSE deadline, use ordinary synchronous
   completion for `PreferDeferred`, and reject `RequireDeferred` with typed
   `UnsupportedControl`;
-- serialize plain content as a string and typed text/image parts as content
-  arrays, using base64 data URLs for images; reject shared video parts with a
-  typed provider error before transport; empty user and tool content
-  remains an empty string, while unavailable assistant content may be null;
+- serialize a user message with one text part as a string, and other user
+  messages as content arrays of text and image parts, using base64 data URLs
+  for images; reject shared video parts with a typed provider error before
+  transport; empty user and tool content remains an empty string, while
+  unavailable assistant content may be null;
 - serialize user and assistant names only when present and supported;
-- ignore provider context owned by other providers;
+- ignore provider state owned by other providers;
 - send `stream: true` and `stream_options.include_usage: true`, while sending
   no partial, file, video, or K2 `thinking` fields.
 
@@ -120,30 +122,30 @@ seconds. Kimi reports usage on the final choice-bearing event; its direct
 ## Preserved Assistant Context
 
 K3 requires complete prior assistant messages, including
-`reasoning_content`, on multi-turn and tool-calling continuations. Normalized
-`ConversationMessage` fields alone cannot preserve nullable content or the raw
-JSON argument strings returned for tool calls.
+`reasoning_content`, on multi-turn and tool-calling continuations. Portable
+conversation parts alone cannot preserve nullable content or the raw JSON
+argument strings returned for tool calls.
 
-`ai-interface` therefore adds a typed Kimi assistant replay item containing:
+The response adapter therefore records Kimi provider state, as the
+[conversation parts protocol](conversation-parts.md) defines:
 
-- nullable raw assistant `content`;
-- nullable raw `reasoning_content`;
-- ordered raw tool calls, each with provider id, function name, and raw JSON
-  argument string.
+- the text part keeps the nullable raw assistant `content`;
+- the reasoning part keeps the nullable raw `reasoning_content`;
+- each tool-call part keeps the provider call id, the function name, and the
+  raw JSON argument string of its call, in provider order.
 
-The response adapter retains this item in `ModelResponse::provider_context`.
-The tool-calling runtime already copies provider context onto the retained
+The tool-calling runtime keeps these parts with their state on the retained
 assistant message. On a later Kimi request, the adapter replays the raw Kimi
-assistant item when present and falls back to normalized assistant fields only
-for caller-authored messages without Kimi context.
+values of its own state. It falls back to the portable parts only for
+caller-authored messages without Kimi state.
 
-Provider reasoning is replay-only data. It must not be appended to normalized
-assistant text, parsed as structured output, or exposed as a tool call.
-The tool-calling runtime removes the complete Kimi replay item from request
-and response copies passed to model-call loggers while preserving it in the
-actual model request and retained conversation.
-Kimi replay context participates in the shared synthetic tool-call scope hash
-so distinct retained conversations cannot derive the same scope accidentally.
+Provider reasoning is replay-only data. It must not be appended to the
+response text, parsed as structured output, or exposed as a tool call.
+Model-call loggers receive log copies, which drop the provider state and the
+reasoning text. The actual model request and the retained conversation keep
+them. Kimi provider state participates in the shared synthetic tool-call
+scope hash so distinct retained conversations cannot derive the same scope
+accidentally.
 
 ## Tool Calling
 
@@ -161,7 +163,7 @@ dispatched.
 Tool results serialize as `role: "tool"` with matching `tool_call_id` and
 string content, including an empty string for an empty result. They do not send
 a `name` field. The preceding assistant message must replay its Kimi raw tool
-calls and reasoning context so every tool result remains paired with the
+calls and reasoning state so every tool result remains paired with the
 provider call that produced it.
 
 Tool-call payloads returned with terminal, truncated, filtered, unknown, or
@@ -176,7 +178,7 @@ the response contract, usage, and the error contract.
 
 Tests must cover provider identity, spec metadata, bearer auth,
 endpoint selection, all message roles, image input, reasoning-effort mapping,
-foreign provider-context isolation, raw Kimi assistant replay, parallel tool
+foreign provider-state isolation, raw Kimi assistant replay, parallel tool
 calls and paired results, terminal tool suppression, structured-output request
 and local validation, finish reasons, nullable content, missing choices,
 usage normalization, HTTP classification, transport failures, and malformed

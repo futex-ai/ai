@@ -57,10 +57,14 @@ specs, efforts, routing tiers, and the combined catalog live in
 
 When callers request structured model responses, this crate also owns the
 shared JSON parsing and JSON Schema validation helpers used by provider crates.
-Synthetic tool-call scopes also hash provider replay context, including every
-Anthropic block and Google part field, as well as DeepSeek and Kimi raw
-assistant, reasoning, and tool-call fields, so retained
-provider conversations remain distinct during deterministic id generation.
+Synthetic tool-call scopes hash the portable projection of each message that
+earlier releases hashed. The old layout is an optional text part before the
+tool calls, a user message with at most one text part or with media parts,
+or one tool result. A message in the old layout without provider state
+therefore keeps its earlier ids. The hash also covers each provider state
+with its part position and its opaque payload, and every part in order when
+a message does not have the old layout. Retained provider conversations
+therefore remain distinct during deterministic id generation.
 
 Each wrapper is a `Model` whose stream forwards the events of the inner
 stream in order. `UsagePricingModel` wraps any `ai_interface::Model` and
@@ -145,8 +149,9 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - `src/http_status.rs` - boundary-neutral HTTP failure classification
 - `src/errors.rs` - provider-agnostic JSON error mapping, parsing, and
   structured-output validation helpers
-- `src/tool_call_identity/` - deterministic synthetic tool-call ids and
-  hashing of normalized requests and provider replay state
+- `src/tool_call_identity/` - deterministic synthetic tool-call ids, and
+  hashing of the portable message projection, ordered parts, and opaque
+  provider state
 - `src/sleeper.rs` - abstract sleeper boundary for retry testing
 - `src/test_support.rs` - behind `test-support`: in-memory Chat Completions
   SSE fixtures, and `collect_model_events`, which records the events of a

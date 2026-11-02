@@ -52,7 +52,8 @@ first gets a synchronous text-parity probe. The catalog then uses portable
 no-tools, ten-minute, `PreferDeferred` controls: seven providers fall back to
 their synchronous lifecycle, and xAI uses its deferred lifecycle. Every probe,
 also an xAI deferred probe, must emit text deltas. The text parts of those
-deltas, joined in part position order, must equal the response text. The
+deltas, joined in part position order, must equal the response text. A text
+or reasoning delta can be empty only when it carries provider state. The
 suite also validates
 normalized provider, text id, model, effort, finish, text, tool, and usage
 fields. A successfully completed synchronous probe or catalog probe gets one

@@ -54,7 +54,7 @@ The normalized response records:
 - visible assistant content
 - normalized tool calls and finish reason
 - locally validated structured output when requested
-- typed MiniMax replay context
+- MiniMax provider state on the reasoning part
 - normalized usage
 
 ## Usage

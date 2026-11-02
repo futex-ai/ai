@@ -13,8 +13,8 @@ output, and exposes explicit mutation APIs for embedding services.
   boundary.
 - Own output windowing policy, output-store integration, degraded-window
   handling, and the intrinsic `tool_output_read` reader.
-- Preserve provider replay context, operation ids, turn checkpoints, and public
-  tool activity lifecycle logging.
+- Preserve the ordered response parts with their provider state, operation
+  ids, turn checkpoints, and public tool activity lifecycle logging.
 - Keep durable storage, principal isolation, retention, and raw-output
   redaction policy in the embedding host.
 
@@ -61,21 +61,24 @@ output, and exposes explicit mutation APIs for embedding services.
 - Appends only bounded envelope JSON to conversation tool messages and logger
   success payloads. Raw output remains available only through current-run
   `ToolExecutionRecord::raw_output`.
-- Gives model-call loggers safe request and response copies with private
-  Anthropic, Google, DeepSeek, Kimi, MiniMax, and Qwen replay context removed. Requests sent to the
-  model and retained conversation state keep the complete provider context
-  required for replay.
+- Gives model-call loggers the `log_copy()` of each request and response
+  from `ai-interface`. A log copy keeps every message and part, drops every
+  provider state, and empties every reasoning text, for every provider.
+  Requests sent to the model and retained conversation state keep their
+  provider state for replay.
 - Records `ToolExecutionRecord::output_id`,
   `ToolExecutionRecord::raw_output`, and
   `ToolExecutionRecord::model_visible_output` for successful tool executions.
   Intrinsic reads use the returned window as both raw and model-visible output.
 - Appends exactly one tool-role message per provider tool-call id, including
   multi-call rounds where sibling calls fail or degrade.
-- Retains provider-owned assistant replay items unchanged. For DeepSeek and
-  Kimi, raw assistant content, reasoning content, and ordered tool calls
-  survive the tool round while reasoning remains absent from visible
-  assistant and tool output. Anthropic thinking blocks and Gemini thought
-  signatures also remain in their complete ordered provider messages.
+- Appends the assistant message of each step with every response part and
+  its provider state unchanged, in generated order, through
+  `ModelResponse::to_assistant_message()`. Reasoning parts and provider
+  state survive the tool round, while reasoning remains absent from the
+  visible assistant text and tool output. This keeps the Anthropic thinking
+  blocks, the Gemini thought signatures, and the raw DeepSeek, Kimi, Qwen,
+  and MiniMax replay data for the next step.
 
 Output store ownership is part of the host contract. Use a fresh
 `InMemoryToolOutputStore` for each active run. Output ids expire when that
@@ -99,7 +102,11 @@ policy.
 Persisted history can be mixed-format. Conversations saved before adopting
 output management may contain raw tool JSON, and `replace_conversation(...)`
 accepts arbitrary message content. Consumers should not assume every tool-role
-message is an envelope.
+message is an envelope. Read history stored in format version 1 through the
+composed version 1 converter before you pass it to
+`replace_conversation(...)`, as the
+[conversation parts protocol](../../docs/protocol/conversation-parts.md)
+says.
 
 Avoid suspending a run mid-pagination when possible. If persisted window
 envelopes become stale before replay, a host may rewrite them to a user-facing
@@ -184,14 +191,15 @@ cargo clippy -p ai-tool-calling --all-targets --all-features -- -D warnings
   window mapping.
 - `src/intrinsic.rs` - reserved `tool_output_read` definition and model
   guidance.
-- `src/turn/` - `step()`, `run()`, tool dispatch, execution records, and
-  checkpoints.
+- `src/turn/` - `step()`, `run()`, tool dispatch, execution records,
+  checkpoints, and the model call with its log copies.
 - [`../ai-interface/README.md`](../ai-interface/README.md) - shared DTO and
   trait ownership.
 
 ### Related Docs
 
 - [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
+- [`../../docs/protocol/conversation-parts.md`](../../docs/protocol/conversation-parts.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)

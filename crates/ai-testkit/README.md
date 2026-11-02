@@ -13,6 +13,8 @@ Product libraries do not depend on this crate.
 - Compare every sanitized outbound request with its recorded exchange.
 - Snapshot the ordered model events of each scenario, then its folded
   response or typed error, without provider credentials.
+- Prove that a stored version 1 tool loop, read through the composed
+  provider converters, still sends each recorded continuation request.
 
 ## What This Crate Does
 
@@ -36,8 +38,9 @@ The scenarios are:
 | `rate_limit` | A synthetic HTTP 429 opening failure. |
 | `stream_cut` | A transport failure after the first progress events. |
 
-The second tool step retains the assistant message, tool calls, and provider
-context. It appends the tool result and asks for the final answer.
+The second tool step appends the assistant message that holds every part of
+the first response with its provider state. It then appends one tool result
+for each call and asks for the final answer.
 The runner stops at the first model error and stores its variant and fields.
 It does not retry or change provider behavior.
 
@@ -63,13 +66,21 @@ Each snapshot shows the event sequence of a scenario, then its folded
 response or its error. They preserve successful responses and remaining
 defects. The schema scenarios show text deltas, because a call with a
 response schema emits text deltas like any other call.
-The Anthropic and Google tool snapshots retain complete ordered replay context.
-Their second recorded requests replay Anthropic thinking blocks and Gemini
-thought signatures. Anthropic requests use the max output of the spec.
+The events in the snapshots show the provider state of each part. The second
+recorded Anthropic and Google tool requests replay the signed thinking blocks
+and thought signatures in their original order. Anthropic requests use the
+max output of the spec.
 MiniMax and xAI currently lose their HTTP 429 message details.
 Synthetic fixtures can be refreshed offline by wrapping their replay transport
 with the recording transport and running the production adapter. This keeps
 `source: "synthetic"` and does not prove live provider acceptance.
+
+The legacy conversion test reads one stored version 1 assistant message for
+each provider from `tests/fixtures/version1/`. It reads the message through a
+`LegacyMessageConverter` that composes the converters of all eight
+providers. It replays the `tool_loop` recording with that converted message
+as the assistant message of the second step. Every outbound request must
+match its recorded exchange.
 
 The rate-limit fixtures use these official error references.
 Messages and request ids are synthetic examples, without account details.
@@ -136,6 +147,8 @@ See `json-http` for the transport boundary's status and failure limits.
 - `src/event_snapshot.rs` captures typed, sanitized model events for snapshots.
 - `src/outcome.rs` defines the event sequences and response or error results.
 - `tests/_tests_/conformance_tests.rs` snapshots every available provider scenario.
+- `tests/_tests_/legacy_conversion_tests.rs` replays converted version 1 tool
+  loops from `tests/fixtures/version1/`.
 - `recordings/` holds the sanitized exchange files.
 
 ### Related Docs
@@ -145,3 +158,4 @@ See `json-http` for the transport boundary's status and failure limits.
 - [json-http](../json-http/README.md)
 - [xtask recorder](../../xtask/README.md)
 - [Model stream](../../docs/protocol/model-stream.md)
+- [Conversation parts](../../docs/protocol/conversation-parts.md)

@@ -19,6 +19,9 @@ neighboring crates.
 - Map shared video DTOs to the Google long-running prediction API
 - Map Gemini finish reasons, usage, and failures to finish events, usage
   events, and typed model errors
+- Record the original Gemini parts as Google provider state on the parts
+  that they produce, replay that state, and convert stored version 1 Google
+  items
 
 ## What This Crate Does
 
@@ -42,16 +45,33 @@ against the spec before transport. The adapter handles:
 - complete function schemas through `parametersJsonSchema`, kept separate
   from structured response schemas in `responseJsonSchema`
 - function call and function response content parts
-- full ordered model content in `ProviderConversationItem::GoogleAssistantMessage`
-  when any part has a `thoughtSignature`. Replay preserves the original text,
-  thought flags, function-call ids and arguments, and signatures. A missing
-  provider call id stays absent in replay and tool results even when runtime
-  dispatch needs a synthetic id. Unsigned calls keep their runtime id on both
-  the call and its result. Signed parts, including empty text and signature-only
-  parts, stay separate in replay data. Signatures do not change answer text or
-  text deltas. The finish event carries this item in its `provider_context`,
-  and the folded response keeps it. The tool runtime removes this private
-  context from log copies.
+- the original Gemini parts as Google provider state on the parts that they
+  produce, when any part has a `thoughtSignature`. Each text, thought, and
+  function-call part then carries its original parts, including empty text
+  and signature-only parts. Replay sends every original part in its original
+  order and preserves the original text, thought flags, function-call ids
+  and arguments, and signatures. Every function call carries its original
+  call and its runtime call, also without a signature. In a signed message,
+  a missing provider call id stays absent in replay and tool results even
+  when runtime dispatch needs a synthetic id. Unsigned calls keep their
+  runtime id on both the call and its result. Signatures do not change
+  answer text or text deltas. Own state with an unknown version or a payload
+  that does not decode fails before transport with `ModelError::Provider`.
+  Log copies drop this state.
+- `GoogleLegacyProviderConverter` for a stored version 1
+  `google_assistant_message` item. It gives one part for each original part,
+  in the original order, with that part as the state of the new part. A
+  function call takes precedence over the other fields of its part. A
+  thought, and a part with neither text nor a function call, give a
+  reasoning part. The portable text and calls still come from the version 1
+  `content` and `tool_calls`. A function call without a `tool_calls` entry
+  stays as state on an empty reasoning part, so the converter invents no
+  portable call. Text and calls that no original part holds come after the
+  parts of the item. Their state holds no part, so they add no native Gemini
+  part to the request. An item without parts keeps its assistant message.
+  Add the converter to the `LegacyMessageConverter` of the host. A read
+  without this converter keeps the item whole on one part. The adapter then
+  sends the whole item as the content of that message, as version 1 did.
 - inline `inlineData` parts for shared base64 image and video user content
 - Gemini `finishReason` normalization into `ai_interface::FinishReason`,
   including deriving normal tool-call completion from parsed `functionCall`
@@ -189,7 +209,13 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - `src/google/mod.rs` - `Model::stream` implementation and request dispatch
 - `src/catalog.rs` - Google provider id, model spec constants, `CATALOG`,
   custom defaults, and the retained Gemini 2.5 provider model ids
-- `src/google/request.rs` - Google request and continuation mapping
+- `src/google/request.rs` - Google request mapping
+- `src/google/contents.rs` - maps ordered parts to Gemini contents, and
+  replays own state
+- `src/google/state.rs` - the private, versioned Gemini part state and its
+  decoding
+- `src/google/legacy.rs` - `GoogleLegacyProviderConverter`, the conversion of
+  stored version 1 items
 - `src/google/request_types.rs` - typed Gemini request bodies
 - `src/google/response.rs` - typed terminal metadata and output checks
 - `src/google/stream/` - typed Gemini chunks, model event mapping, replay
@@ -203,6 +229,7 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
+- [`../../docs/protocol/conversation-parts.md`](../../docs/protocol/conversation-parts.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [Latest Gemini models](https://ai.google.dev/gemini-api/docs/latest-model)
 - [Gemini thought signatures](https://ai.google.dev/gemini-api/docs/generate-content/thought-signatures)

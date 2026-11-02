@@ -12,6 +12,8 @@
   thinking, tool use, usage, and finish
 - Map Anthropic stop reasons, usage, and failures to finish events, usage
   events, and typed model errors
+- Record each original content block as Anthropic provider state on its
+  part, replay that state, and convert stored version 1 Anthropic items
 
 ## What This Crate Does
 
@@ -82,18 +84,36 @@ stays off unless the request sets an effort.
 A request with the max effort on `CLAUDE_OPUS_5` sends provider model id
 `claude-opus-5`, enables adaptive thinking, sets `output_config.effort` to
 `max`, and requests omitted thinking display.
-When a response has `thinking` or `redacted_thinking` blocks, the adapter keeps
-its full ordered content in `ProviderConversationItem::AnthropicAssistantMessage`.
-The finish event carries this item in its `provider_context`, and the folded
-response keeps it.
-This includes text, tool uses, empty thinking text with its signature, and
-redacted thinking data. An assistant message with this context replays those
-blocks exactly, with their original order and message boundary.
+
+Each content block of a response becomes one part, and the adapter attaches
+the original block to that part as Anthropic provider state. A thinking or
+redacted-thinking block goes on its reasoning part, a text block on its text
+part, and a tool-use block on the end event of its call. This includes empty
+thinking text with its signature, and redacted thinking data. When the
+response has `thinking` or `redacted_thinking` blocks, an assistant message
+with these parts replays every block exactly, with the original order and
+message boundary. The adapter ignores the state of other providers. Own
+state with an unknown version or a payload that does not decode fails before
+transport with `ModelError::Provider`.
 Thinking stays separate from visible assistant text. Stream consumers receive
-thinking text as `ReasoningDelta` events. A call with a response schema
-emits text deltas like any other call, and its finish event carries the
-validated structured output. The tool runtime removes private replay context
-from logger copies while retaining it in conversation history.
+thinking text as `ReasoningDelta` events, and the folded response keeps it in
+reasoning parts. A call with a response schema emits text deltas like any
+other call, and its finish event carries the validated structured output.
+Log copies drop the provider state and empty the reasoning text, while the
+conversation keeps both.
+
+`AnthropicLegacyConverter` converts a stored version 1
+`anthropic_assistant_message` item. It gives one part for each block, in the
+original block order, with that block as the state of the part. It keeps the
+version 1 `content` as the message text, and it keeps every `tool_calls`
+entry. A tool-use block without a `tool_calls` entry stays as state on an
+empty reasoning part, so the converter invents no portable call. Text and
+calls that no block holds come after the block parts. Their state holds no
+block, so they add no native block to the request. An item without blocks
+keeps its empty assistant message. Add the converter to the
+`LegacyMessageConverter` of the host. A read without this converter keeps
+the item whole on one part. The adapter then sends the whole item as the
+content of that message, as version 1 did.
 
 ## Quick Start
 
@@ -154,6 +174,12 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 - `src/anthropic/request.rs` - maps the resolved controls and the effort to
   the Messages request
 - `src/anthropic/request_types.rs` - typed Messages request bodies
+- `src/anthropic/request_messages.rs` - maps ordered parts to Messages
+  content, and replays own block state
+- `src/anthropic/replay.rs` - the private, versioned block state and its
+  decoding
+- `src/legacy.rs` - `AnthropicLegacyConverter`, the conversion of stored
+  version 1 items
 - `src/anthropic/response.rs` - typed terminal metadata and its validation
 - `src/anthropic/stream/` - typed Messages SSE events, content block state,
   model event mapping, and stream failure mapping
@@ -163,6 +189,7 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
+- [`../../docs/protocol/conversation-parts.md`](../../docs/protocol/conversation-parts.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [Anthropic model overview](https://platform.claude.com/docs/en/about-claude/models/overview)
 - [Anthropic thinking and replay](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)

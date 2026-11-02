@@ -17,9 +17,11 @@ runtime implementation.
   and the spec of the built-in mock model. This crate defines only the
   `mock` provider id. Provider crates define their own provider ids and
   specs.
-- Represent provider-owned replay state, including Anthropic, Google,
-  DeepSeek, Kimi, MiniMax, and Qwen reasoning context that remains separate
-  from visible assistant text.
+- Own conversation messages as ordered parts, and the opaque
+  `ProviderState` that an adapter attaches to the parts that it produces.
+  Only the adapter that wrote a state interprets its payload.
+- Own the stored message format, its reader, and the provider-neutral
+  composition of the version 1 converters that provider crates export.
 - Own the model-visible tool output DTOs used by universal output management:
   opaque output ids, inline envelopes, window envelopes, read requests, and
   unavailable-remainder reasons.
@@ -38,23 +40,47 @@ runtime implementation.
 ## What This Crate Does
 
 - Defines `ConversationMessage`, `ConversationRole`, `ToolCall`, and
-  `ToolDefinition`, including provider replay context on assistant messages.
-  User messages carry ordered typed content parts: text, base64 images, and
-  base64 videos. `ModelFeature::Vision` and `ModelFeature::VideoInput` are the
-  stable routing capabilities for image and video inputs; providers without a
-  video wire contract reject video parts with a typed provider error.
-  DeepSeek replay items retain normalized assistant content, optional provider
-  reasoning, and ordered raw tool calls so a later tool continuation can
-  reproduce the original assistant message exactly. Kimi and Qwen have
-  equivalent provider-owned replay shapes with nullable content.
-- Defines `AnthropicAssistantMessage` replay items with the complete ordered
-  text, thinking, redacted-thinking, and tool-use blocks from signed responses.
-  `GoogleAssistantMessage` keeps every original model part when any part has a
-  thought signature, including thought flags and optional raw function-call ids.
-  Their serde tags are `anthropic_assistant_message` and
-  `google_assistant_message`. Each adapter replays only its own context.
-- Defines typed MiniMax reasoning details for lossless continuation replay
-  and typed Qwen raw tool-call replay state.
+  `ToolDefinition`. A message has a role, ordered `parts`, and an optional
+  participant `name`. `ConversationPart` has the `Text`, `Image`, `Video`,
+  `ToolCall`, `ToolResult`, and `Reasoning` variants, and each variant has an
+  optional `provider_state`. `ConversationPart::text`, `image`, `video`,
+  `reasoning`, `tool_result`, and `from_tool_call` build parts without state.
+  `ConversationMessage::new`, `user`, `user_with_parts`, `assistant`, and
+  `tool` build messages. `text()` joins the text and tool-result content, and
+  `tool_calls()` returns the portable calls, both in part order.
+- Checks the role of each message before transport: a user message holds
+  text, image, and video parts, an assistant message holds text, reasoning,
+  and tool-call parts, and a tool message holds exactly one tool result.
+  `ModelRequest::validate_messages(provider, model_id)` checks every message
+  and fails with `ModelError::Provider`. `ModelFeature::Vision` and
+  `ModelFeature::VideoInput` are the stable routing capabilities for image
+  and video inputs; providers without a video wire contract reject video
+  parts with a typed provider error.
+- Defines `ProviderState { provider, model, version, payload }`. The payload
+  is a JSON object that only the adapter of `provider` reads, and each
+  adapter keeps its payload types private.
+  `ProviderState::decode::<T>(provider, model_id, version)` returns `None` for
+  the state of another provider, and fails with `ModelError::Provider` for an
+  unsupported version or a payload that does not decode.
+- Serializes `ConversationMessage` as stored format version 2:
+  `format_version`, `role`, `parts`, and an optional `name`.
+  `read_stored_message(value, &converters)` reads versions 1 and 2, and
+  returns `StoredMessageError::UnsupportedFormatVersion` for another version.
+  `LegacyMessageConverter::new(converters)` composes the
+  `LegacyProviderConverter` of each provider crate, and its `read` and
+  `convert` methods apply them. Plain `serde` deserialization reads version 1
+  without a provider converter, so every old item stays whole as the
+  provider state of its provider, in the generic part order. Use a composed
+  converter, which supplies the conversion and the part order of each
+  provider.
+- Defines the version 1 input types without provider names:
+  `LegacyConversationMessage`, and `LegacyProviderItem` with the original
+  `type` tag and fields of an old item. A `LegacyProviderConverter` gives its
+  `provider()` and its `order()`, `LegacyPartOrder::ReasoningFirst` by default
+  or `Context`. Its `convert_item` returns `LegacyPartAttachment` values with a
+  `LegacyPartTarget`, and its optional `convert_message` rebuilds the parts of
+  a message whose item holds the exact block order.
+  `compose_legacy_message` applies a list of converters.
 - Defines `ProviderId`, the stable lowercase name of a provider, such as
   `deepseek`, `minimax`, or `qwen`. It serializes as that plain string. Each
   provider crate exports the constant of its provider. This crate defines
@@ -84,8 +110,14 @@ runtime implementation.
   development and tests.
 - Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
-  `ModelResponse::effort()` returns the resolved effort. The typed
-  `thinking_level` field holds it and serializes as `effort`.
+  `ModelResponse::parts` holds the assistant parts in generated order.
+  `text()` joins its text parts, `tool_calls()` returns its portable calls,
+  and `to_assistant_message()` copies every part with its state into an
+  assistant message. `log_copy()` on a request, a message, a part, or a
+  response keeps every message and part, drops every provider state, and
+  empties the reasoning text. `ModelResponse::effort()` returns the resolved
+  effort. The typed `thinking_level` field holds it and serializes as
+  `effort`.
   `catalog_model_id` records the text id of the spec.
   `ModelResponse::attempts` lists the failed fallback attempts before the
   response as `ModelAttempt` records. JSON leaves out an empty list.
@@ -104,21 +136,22 @@ runtime implementation.
   `ToolCallArgumentsDelta`, `ToolCallEnd`, `Usage`, `Finish`, and
   `Fallback`. Content events carry a zero-based `part_index`.
   `ToolCallStart` carries the call id, the tool name, and the optional
-  runtime operation id. `Finish` carries the finish reason, the provider,
-  the provider model id, the text id, the resolved effort, the structured
-  output, and the message-level `provider_context` replay items. Events
-  carry no other provider state. Only a policy layer emits `Fallback`. It
-  carries the error of a failed attempt, and a consumer discards every
-  event of that attempt.
+  runtime operation id. `TextDelta`, `ReasoningDelta`, and `ToolCallEnd`
+  carry an optional `provider_state` for their part. A text or reasoning
+  delta has empty text only when it carries state. `Finish` carries the
+  finish reason, the provider, the provider model id, the text id, the
+  resolved effort, and the structured output. Only a policy layer emits
+  `Fallback`. It carries the error of a failed attempt, and a consumer
+  discards every event of that attempt.
 - Defines `ModelResponseFold` with `new`, `push`, and `finish`. The provided
   `Model::complete` folds every event of `stream` with it, and other stream
   consumers can use the same fold. The fold builds one part for each part
-  position. It joins the text parts, in part position order, into
-  `assistant_message`, keeps the tool-call parts only for the `ToolCalls`
-  finish reason, and takes the usage and the finish fields from their
-  events. Reasoning parts add nothing to the response. A `Fallback` event removes
-  the content of the failed attempt and adds a `ModelAttempt` to
-  `attempts`. Events that break the order of the
+  position into `ModelResponse::parts`, in part position order. It keeps
+  reasoning parts, keeps the tool-call parts only for the `ToolCalls` finish
+  reason, and gives each part the last provider state that its events
+  carried. It takes the usage and the finish fields from their events. A
+  `Fallback` event removes the content of the failed attempt and adds a
+  `ModelAttempt` to `attempts`. Events that break the order of the
   [model stream protocol](../../docs/protocol/model-stream.md) fail the fold
   with `ModelError::Internal`.
 - Defines defaulted `ModelCallControls` for the request effort, portable
@@ -171,11 +204,11 @@ returns the raw JSON value it produced. Runtime crates can inspect that value in
 current-run execution records, but they serialize only `ToolOutputEnvelope`
 values into conversation tool messages and logger success entries.
 
-Provider replay context follows the same separation. Anthropic, Google,
-DeepSeek, Kimi, MiniMax, and Qwen reasoning content is retained as provider-owned context for
-continuation requests, but it is never copied into normalized assistant text
-or exposed as tool output. Other model providers ignore replay items they do
-not own.
+Provider state follows the same separation. Reasoning stays in reasoning
+parts and never joins the response text or tool output. An adapter replays
+its own state and ignores the state of every other provider. Log copies keep
+every part but drop every provider state and every reasoning text, for every
+provider.
 
 ## Quick Start
 
@@ -214,7 +247,7 @@ fn high_effort_request() -> ModelRequest {
 
 async fn call_mock_model() -> ai_interface::ModelResult<String> {
     let response = MockModel::new("done").complete(&high_effort_request()).await?;
-    Ok(response.assistant_message)
+    Ok(response.text())
 }
 
 async fn stream_mock_text() -> ai_interface::ModelResult<String> {
@@ -223,7 +256,7 @@ async fn stream_mock_text() -> ai_interface::ModelResult<String> {
     let mut text_parts = BTreeMap::<usize, String>::new();
     while let Some(event) = stream.next().await? {
         match event {
-            ModelEvent::TextDelta { part_index, delta } => {
+            ModelEvent::TextDelta { part_index, delta, .. } => {
                 text_parts.entry(part_index).or_default().push_str(&delta);
             }
             ModelEvent::Fallback { .. } => text_parts.clear(),
@@ -236,7 +269,7 @@ async fn stream_mock_text() -> ai_interface::ModelResult<String> {
 
 [`docs/examples.md`](docs/examples.md) has more examples: model calls and
 model events, test models, image and video generation, judgment, tool output
-envelopes, and provider replay context.
+envelopes, conversation parts, log copies, and stored messages.
 
 ## Development
 
@@ -250,18 +283,22 @@ for contract DTOs, while runtime policy, storage, pagination, and intrinsic
 tool dispatch live in `ai-tool-calling`.
 
 Downstream tests can enable the `test-support` feature for the `unimock`
-mocks, such as `ModelMock` and `ModelEventStreamMock`, and for the finite
-streams of `test_support`. `model_event_stream` boxes a list of events.
+mocks, such as `ModelMock`, `ModelEventStreamMock`, and
+`LegacyProviderConverterMock`, and for the finite streams of
+`test_support`. `model_event_stream` boxes a list of events.
 `model_response_stream` turns a response fixture into the events that fold
 back into it.
 
 ### Key Code
 
-- `src/messages/` - conversation DTOs, typed Anthropic blocks and Google parts,
-  DeepSeek/Kimi/Qwen raw tool replay, MiniMax reasoning details, and provider
-  replay context.
+- `src/messages/` - `ConversationMessage`, `ConversationPart` and its
+  helpers, `ProviderState`, the role check, log copies, the stored format
+  reader, and the provider-neutral version 1 converter types and
+  composition.
 - `src/model.rs` - the `Model` trait with its provided `complete`,
   request/response DTOs, and finish reasons.
+- `src/model_helpers.rs` - `ModelRequest::validate_messages` and `log_copy`,
+  and the part accessors and `log_copy` of `ModelResponse`.
 - `src/model_event.rs` - `ModelEvent`, the ordered events of a model stream.
 - `src/model_stream.rs` - the `ModelEventStream` trait and
   `DynModelEventStream`.
@@ -308,6 +345,8 @@ back into it.
 - [`docs/examples.md`](docs/examples.md)
 - [`../../docs/architecture.md`](../../docs/architecture.md)
 - [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
+- [`../../docs/protocol/conversation-parts.md`](../../docs/protocol/conversation-parts.md)
+- [`../../docs/protocol/video-input.md`](../../docs/protocol/video-input.md)
 - [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)

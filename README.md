@@ -12,6 +12,10 @@ in-memory tool-calling runtime behavior.
   audio transcription, one-image generation and editing, one-video
   generation, tool calls, routing, logging, usage metering, and bounded
   model-visible tool output envelopes
+- Conversations of ordered text, image, video, tool-call, tool-result, and
+  reasoning parts. Each part can carry opaque provider state that only its
+  adapter reads. Messages store as format version 2, and each provider crate
+  converts its own replay items of the old format
 - One `ModelSpec` constant for each provider model, with stable provider ids,
   `provider/model` text ids, a combined catalog lookup, and custom specs for
   unlisted models
@@ -49,15 +53,14 @@ in-memory tool-calling runtime behavior.
 - [Architecture](docs/architecture.md) (approved, not implemented) describes
   the target components, their boundaries, and the flow of a model call and
   an agent turn.
-- [Model stream](docs/protocol/model-stream.md) (approved, not implemented)
-  and its [adapter page](docs/protocol/model-stream-adapters.md) define the
-  one stream method, its events and their order, the fold, deadlines,
+- [Model stream](docs/protocol/model-stream.md) and its
+  [adapter page](docs/protocol/model-stream-adapters.md) define the one
+  stream method, its events and their order, the fold, deadlines,
   interruption, the policy layers on the stream, the native adapter mapping,
-  and the SSE transport. They also hold the stream rules in force until
-  conversation parts carry provider state.
-- [Conversation parts](docs/protocol/conversation-parts.md) (approved, not
-  implemented) defines roles, parts, opaque provider state, replay rules, the
-  stored format and its converter, and log copies.
+  and the SSE transport.
+- [Conversation parts](docs/protocol/conversation-parts.md) defines roles,
+  parts, opaque provider state, replay rules, the stored format and its
+  converter, and log copies.
 - [Model capabilities](docs/protocol/model-capabilities.md) defines model
   specs, provider ids, text ids, custom specs, effort, the capability check,
   and the generated control matrix.
@@ -97,8 +100,8 @@ in-memory tool-calling runtime behavior.
 - [Live judgment API tests](docs/protocol/live-judgment-api-tests.md) defines
   the implemented credentialed judgment catalog coverage, probe, validation,
   and CI secret boundary.
-- [Video input](docs/protocol/video-input.md) defines the shared video content
-  part, the Google and MiniMax mappings, and typed rejection elsewhere.
+- [Video input](docs/protocol/video-input.md) defines the shared video part,
+  the Google and MiniMax mappings, and typed rejection elsewhere.
 - [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) and its
   [response page](docs/protocol/deepseek-responses.md) define the DeepSeek V4
   Pro/Flash catalog, text-only request boundary, thinking, replay,
@@ -132,8 +135,9 @@ The workspace is library-first. Consumers depend on the crate matching the
 boundary they need:
 
 - `ai-interface`: shared DTOs, traits, mocks, error contracts, the model
-  event stream and its fold, model specs, provider ids, efforts, the
-  combined model catalog, and model-visible tool output envelopes
+  event stream and its fold, conversation parts and provider state, the
+  stored message reader, model specs, provider ids, efforts, the combined
+  model catalog, and model-visible tool output envelopes
 - `ai-models-core`: reusable stream wrappers, the shared capability check,
   and provider helper logic
 - `ai-models-anthropic`: Anthropic model adapter
@@ -195,6 +199,54 @@ lists the efforts, limits, and control rules of every spec. After a change
 to a spec or to custom defaults, regenerate it with
 `cargo xtask capability-matrix`.
 
+### Conversations and stored messages
+
+A message has a role and ordered parts. A part can carry provider state.
+Only the adapter of that provider reads it, and every other adapter ignores
+it. Keep every part of a response in the conversation, for example with
+`ModelResponse::to_assistant_message()`, so that the next request replays
+it. Log only `log_copy()` of a request, a message, or a response. A log copy
+keeps every part, drops every provider state, and empties the reasoning
+text.
+
+`ConversationMessage` writes stored format version 2. Each provider crate
+exports the converter of its own version 1 replay items. Compose them once,
+and read every stored message through the composition:
+
+```rust
+use std::sync::Arc;
+
+use ai_interface::{ConversationMessage, LegacyMessageConverter, StoredMessageError};
+use serde_json::Value;
+
+fn converter() -> LegacyMessageConverter {
+    LegacyMessageConverter::new(vec![
+        Arc::new(ai_models_anthropic::AnthropicLegacyConverter),
+        Arc::new(ai_models_openai::OpenAiLegacyConverter),
+        Arc::new(ai_models_google::GoogleLegacyProviderConverter),
+        Arc::new(ai_models_compat::deepseek::LegacyConverter),
+        Arc::new(ai_models_compat::kimi::LegacyConverter),
+        Arc::new(ai_models_compat::qwen::LegacyConverter),
+        Arc::new(ai_models_compat::minimax::LegacyConverter),
+        Arc::new(ai_models_compat::xai::LegacyConverter),
+    ])
+}
+
+fn load(stored: Value) -> Result<ConversationMessage, StoredMessageError> {
+    // Reads version 2, and converts version 1 with the provider converters.
+    converter().read(stored)
+}
+
+fn save(message: &ConversationMessage) -> serde_json::Result<Value> {
+    serde_json::to_value(message)
+}
+```
+
+Plain `serde` deserialization also reads version 1, but it applies no
+provider conversion. It keeps each old item whole as provider state, in the
+generic part order. Use the composition, which supplies the conversion and
+the part order of each provider.
+
 ## Developer Get Started
 
 ```sh
@@ -243,7 +295,8 @@ cargo xtask review
 - `crates/ai-interface`: shared AI contracts, including call controls,
   `src/model_spec.rs`, `src/effort.rs`, `src/model_catalog.rs`,
   `src/model_event.rs`, `src/model_stream.rs`, the
-  `src/model_response_fold/` fold, and `src/output/` envelope DTOs
+  `src/model_response_fold/` fold, the `src/messages/` conversation parts,
+  provider state, and stored format, and `src/output/` envelope DTOs
 - `crates/ai-models-core`: provider-agnostic model wrappers and helpers,
   including the shared capability check in `src/capabilities.rs`
 - `crates/ai-models-compat`: shared request mapping, streaming, response,
@@ -280,9 +333,11 @@ cargo xtask review
   capability check, and generated control matrix contract
 - `docs/protocol/provider-call-controls.md`: normative model-call control and
   provider wire-compatibility contract
-- `docs/protocol/model-stream.md`: approved model stream contract: the
+- `docs/protocol/model-stream.md`: implemented model stream contract: the
   stream method, events, fold, deadlines, interruption, SSE transport, and
   the policy layers on the stream
+- `docs/protocol/conversation-parts.md`: implemented conversation parts,
+  provider state, stored format, version 1 converter, and log copy contract
 - `docs/protocol/model-policies.md`: approved error and policy contract,
   with the error, retry, and fallback rules in force today
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider

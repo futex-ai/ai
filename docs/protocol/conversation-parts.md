@@ -1,10 +1,14 @@
 # Conversation Parts Protocol
 
-Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
-When implemented, this protocol replaces the shared boundary section of
-[video-input.md](video-input.md) and the replay items in `ai-interface` that
-the DeepSeek, Kimi, Qwen, and MiniMax provider docs define.
+The registry rules of the converter apply when the
+[provider registry](provider-registry.md) is implemented. Until then, a
+host composes the converter from the conversions that the provider crates
+export. Until Milestone 8, each error kind of this protocol stands for a
+current model error, as
+[model policies](model-policies.md#rules-in-force-until-milestone-8) says.
+Every other rule of this protocol is in force.
 
 This protocol defines messages, conversation parts, provider state, the
 replay and skip rules of adapters, the stored message format, the converter
@@ -17,6 +21,9 @@ for the old format, and log copies.
   request, such as a reasoning signature.
 - **Own state:** provider state whose provider id is the provider id of the
   adapter that reads it.
+- **Full content item:** a version 1 `anthropic_assistant_message` or
+  `google_assistant_message` item. It holds the complete ordered content of
+  a signed assistant message.
 
 ## Messages
 
@@ -101,6 +108,10 @@ for the old format, and log copies.
 - An adapter skips a reasoning part that carries no own state.
 - An adapter replays a reasoning part that carries own state, in the form
   that its provider requires.
+- A converter that does not include a provider keeps its full content item
+  whole on one part. The adapter of that provider sends the whole item as
+  the content of the message, as version 1 did. The text and tool-call
+  parts of that message then add nothing to the request.
 - An adapter decodes its own state before transport.
 - Own state with an unknown version, or with a payload that does not decode,
   fails the call with the invalid request kind before transport. Decision:
@@ -170,8 +181,8 @@ It is one-way: no function writes version 1.
   message gives the provider of its items the same request as the
   version 1 message. The registry composes the conversions, because only
   the registry names every provider. The rejected alternative was one order
-  rule for every provider. Parts grouped by kind change the OpenAI request,
-  and parts in the order of `provider_context` change the Google request.
+  rule for every provider. Parts grouped by kind change the OpenAI request
+  and the signed Anthropic and Google requests.
 - The role does not change.
 - The `name` of a user or assistant message becomes its participant name.
 - A user message with `content_parts` gets those parts in order. A user
@@ -181,14 +192,16 @@ It is one-way: no function writes version 1.
 - An assistant message gets one text part from a non-empty `content`, one
   tool-call part for each entry of `tool_calls`, and the new reasoning
   parts that the table below gives. The order rules below give the order
-  of these parts.
+  of these parts. A full content item keeps this portable text and these
+  calls, as the full content rules below say.
 - A tool-call part keeps the id, the name, the input, and the operation id
   of its `tool_calls` entry.
 - When an assistant or tool message has `content_parts`, the converter
   drops them and writes a `tracing` warning.
 - Each provider item becomes provider state with the provider id of its
   provider crate, version 1, an empty model, and the fields of the item as
-  the payload.
+  the payload. A full content item splits instead, as the full content
+  rules below say.
 - Version 1 of each provider payload is the shape of its old provider item.
   Each adapter reads version 1.
 
@@ -202,12 +215,34 @@ It is one-way: no function writes version 1.
 | `deep_seek_assistant_message` | `deepseek` | A new reasoning part with the item's `reasoning_content` as text |
 | `kimi_assistant_message` | `kimi` | A new reasoning part with the item's `reasoning_content` as text |
 | `qwen_assistant_message` | `qwen` | A new reasoning part with the item's `reasoning_content` as text |
+| `anthropic_assistant_message` | `anthropic` | One part for each block of the item, as the full content rules below say |
+| `google_assistant_message` | `google` | One part for each part of the item, as the full content rules below say |
 
-- An Anthropic thinking item or a Gemini thought-signature item follows the
-  same rule. An item for reasoning becomes a new reasoning part, and an item
-  for one tool call attaches to that tool-call part.
-- When the part for an item does not exist, the converter drops the item and
-  writes a `tracing` warning.
+- These full content rules apply to a full content item that is the first
+  item:
+  - Each block or part of the item gives one part. The own state of that
+    part holds the item with only that block or part.
+  - A thinking or redacted-thinking block and a Gemini thought give a
+    reasoning part. A Gemini part with neither text nor a function call,
+    such as a signature-only part, also gives a reasoning part. A function
+    call takes precedence over the other fields of its Gemini part.
+  - A text block or part gives a text part. The text parts together keep
+    `content` as the text of the message.
+  - A tool-use block or a function call gives the tool-call part of its
+    `tool_calls` entry. A block or part without an entry gives a reasoning
+    part with empty text instead. The converter invents no portable call.
+  - Portable text and calls that no block or part holds come after the
+    parts of the item. Their own state holds no block or part, so the
+    provider request does not change.
+  - An item without blocks or parts keeps its assistant message in the
+    provider request.
+- When a full content item is not the first item, each of its blocks or
+  parts attaches like an individual item. A block or part that gives a
+  reasoning part above goes on a new reasoning part. Text goes on the text
+  part, and a call goes on its tool-call part.
+- When the part for an individual item does not exist, the converter drops
+  the item and writes a `tracing` warning. This rule never drops a block or
+  part of a full content item that is the first item.
 - When the registry does not include the provider of an item, the converter
   keeps the item as provider state of that provider, with version 1 and the
   fields of the item as the payload. The state goes on the part that the
@@ -224,6 +259,10 @@ These order rules give the order of the parts of an assistant message:
 
 - A message without provider items gets the text part, then the tool-call
   parts in the order of `tool_calls`.
+- The Anthropic and Google conversions keep the order of a full content
+  item that is the first item, so the signed order stays exact. This
+  provider order takes precedence over the generic order that puts the
+  reasoning parts first.
 - The OpenAI conversion keeps the order of `provider_context`:
   - Each `openai_reasoning` item gives a reasoning part at its position.
   - The text part takes the position of the first `openai_message` item.
@@ -236,8 +275,7 @@ These order rules give the order of the parts of an assistant message:
   Later `openai_message` items add nothing.
 - Every other provider conversion gives the reasoning parts of its items
   first, in the order of `provider_context`. Then comes the text part, then
-  the tool-call parts in the order of `tool_calls`. For Google, the text
-  thus comes before the function calls.
+  the tool-call parts in the order of `tool_calls`.
 
 ## Log copies
 

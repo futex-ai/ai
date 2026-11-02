@@ -1,7 +1,7 @@
 # ai-interface examples
 
-These examples use the built-in mocks of `ai-interface` to show its main
-boundaries. They need no provider, credential, or network access. The
+These examples show the main boundaries of `ai-interface`. Most of them use
+its built-in mocks. They need no provider, credential, or network access. The
 [crate README](../README.md) gives the model spec and effort example.
 
 ## Model calls
@@ -33,7 +33,7 @@ fn request() -> ModelRequest {
 
 async fn call_model() -> ai_interface::ModelResult<String> {
     let response = MockModel::new("done").complete(&request()).await?;
-    Ok(response.assistant_message)
+    Ok(response.text())
 }
 
 async fn stream_and_fold() -> ai_interface::ModelResult<(String, ModelResponse)> {
@@ -42,7 +42,7 @@ async fn stream_and_fold() -> ai_interface::ModelResult<(String, ModelResponse)>
     let mut text_parts = BTreeMap::<usize, String>::new();
     while let Some(event) = stream.next().await? {
         match &event {
-            ModelEvent::TextDelta { part_index, delta } => {
+            ModelEvent::TextDelta { part_index, delta, .. } => {
                 text_parts.entry(*part_index).or_default().push_str(delta);
             }
             ModelEvent::Fallback { .. } => text_parts.clear(),
@@ -162,37 +162,61 @@ fn read_next_window(output_id: &str) -> ToolOutputReadRequest {
 }
 ```
 
-## Provider replay context
+## Conversation parts and provider state
 
-Each adapter replays only its own provider context on a later request.
+A message is a role and ordered parts. A response part can carry provider
+state that only its adapter reads. Keep every part of a response in the
+conversation, so that the adapter can replay its own state on the next
+request. Log only the log copy, which keeps every part but drops every
+provider state and every reasoning text.
 
 ```rust
 use ai_interface::{
-    DeepSeekToolCallContext, MiniMaxReasoningDetail, ProviderConversationItem, ProviderId,
+    ConversationMessage, ConversationPart, ModelRequest, ModelResponse,
 };
 
-fn minimax_replay_detail(text: &str) -> (ProviderId, MiniMaxReasoningDetail) {
-    (
-        ProviderId::new("minimax"),
-        MiniMaxReasoningDetail {
-            kind: Some("reasoning.text".to_owned()),
-            id: None,
-            format: None,
-            index: Some(0),
-            text: Some(text.to_owned()),
-        },
-    )
+fn image_question(png_base64: &str) -> ConversationMessage {
+    ConversationMessage::user_with_parts(vec![
+        ConversationPart::text("What does this image show?"),
+        ConversationPart::image("image/png", png_base64),
+    ])
 }
 
-fn deepseek_replay_item() -> ProviderConversationItem {
-    ProviderConversationItem::DeepSeekAssistantMessage {
-        content: String::new(),
-        reasoning_content: Some("private provider state".to_owned()),
-        tool_calls: vec![DeepSeekToolCallContext {
-            id: "call_1".to_owned(),
-            name: "memory_read".to_owned(),
-            arguments: "{\"path\":\"root\"}".to_owned(),
-        }],
+fn continue_after_tools(response: &ModelResponse) -> Vec<ConversationMessage> {
+    // The assistant message keeps every part and its provider state.
+    let mut messages = vec![response.to_assistant_message()];
+    for call in response.tool_calls() {
+        messages.push(ConversationMessage::tool("{\"ok\":true}", &call.name, &call.id));
     }
+    messages
+}
+
+fn loggable(request: &ModelRequest) -> ModelRequest {
+    request.log_copy()
+}
+```
+
+## Stored messages
+
+`ConversationMessage` writes stored format version 2. A host reads old
+version 1 messages through the converters that the provider crates export.
+
+```rust
+use std::sync::Arc;
+
+use ai_interface::{
+    ConversationMessage, LegacyMessageConverter, LegacyProviderConverter, StoredMessageError,
+};
+use serde_json::Value;
+
+fn save(message: &ConversationMessage) -> serde_json::Result<Value> {
+    serde_json::to_value(message)
+}
+
+fn load(
+    converters: Vec<Arc<dyn LegacyProviderConverter>>,
+    stored: Value,
+) -> Result<ConversationMessage, StoredMessageError> {
+    LegacyMessageConverter::new(converters).read(stored)
 }
 ```

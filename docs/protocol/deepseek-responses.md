@@ -50,8 +50,8 @@ Finish reasons map as follows:
 
 Nullable visible content becomes an empty string. The response includes
 provider `deepseek`, the provider model id and text id, the resolved effort,
-visible content, calls, finish, optional structured output, private context,
-and usage.
+the reasoning, text, and tool-call parts with their DeepSeek provider state,
+finish, optional structured output, and usage.
 
 ## Usage
 

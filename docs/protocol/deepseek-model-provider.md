@@ -35,16 +35,17 @@ require separate contracts rather than silent partial support.
 
 ## Ownership
 
-- `ai-interface` owns the model spec types and typed DeepSeek assistant
-  replay context.
+- `ai-interface` owns the model spec types, conversation parts, opaque
+  provider state, and log copies.
 - `ai-models-compat` owns the stable `deepseek` provider id, the DeepSeek
   model specs and custom defaults, authentication, request and response
-  mapping, replay behavior, and provider error translation.
+  mapping, the private DeepSeek replay state and its version 1 conversion,
+  replay behavior, and provider error translation.
 - `ai-models-core` owns shared HTTP classification, the capability check,
   tool and structured-output parsing, and deterministic tool-call identity.
 - `json-http` owns the injected HTTP client and authentication boundaries.
-- `ai-tool-calling` owns retention of provider context and removal of private
-  replay state from logger copies.
+- `ai-tool-calling` retains the response parts with their provider state,
+  and gives model-call loggers log copies.
 - Composition roots own credentials, policy wrappers, deployment priority,
   and conversion of `DeepSeekModel` into `DynModel`.
 
@@ -100,11 +101,10 @@ Plain content remains a JSON string. Empty user, assistant, and tool content
 remains an empty string. User and assistant names are sent only when present;
 tool messages omit `name` and include the matching `tool_call_id`.
 
-DeepSeek V4 is text-only at this boundary. A message with any typed
-`content_parts`, including an image or video part, fails locally with a typed
-provider error before authentication or transport is invoked. The adapter must
-not drop an image or video, use only its text fallback, or claim vision
-support.
+DeepSeek V4 is text-only at this boundary. It sends text parts. A message
+with an image or video part fails locally with a typed provider error before
+authentication or transport is invoked. The adapter must not drop an image or
+video part, or claim vision support.
 
 Portable output limits map to `max_tokens` and ordered stops map to `stop` at
 every effort. With thinking disabled, temperature, top-p, and all
@@ -136,35 +136,33 @@ provider model id.
 ## Preserved Assistant Context
 
 Thinking-mode tool calls require the complete assistant turn, including
-`reasoning_content`, on subsequent requests. Normalized messages cannot
-preserve nullable reasoning or raw JSON arguments without loss.
+`reasoning_content`, on subsequent requests. Portable parts cannot preserve
+nullable reasoning or raw JSON arguments without loss.
 
-`ai-interface` therefore adds:
+For a dispatchable `tool_calls` finish, the adapter therefore records
+DeepSeek provider state, as the
+[conversation parts protocol](conversation-parts.md) defines:
 
-```rust
-DeepSeekAssistantMessage {
-    content: String,
-    reasoning_content: Option<String>,
-    tool_calls: Vec<DeepSeekToolCallContext>,
-}
-```
+- The reasoning part keeps the raw `reasoning_content`.
+- The text part keeps the assistant content.
+- Each tool-call part keeps the provider call id, the function name, and
+  the raw JSON arguments of its call.
 
-Each call context retains the provider id, function name, and raw JSON
-arguments. It is added only for a dispatchable `tool_calls` finish. Null
-assistant content becomes an empty string so replay always sends non-null
-`content`.
+Null assistant content becomes an empty string so replay always sends
+non-null `content`.
 
 An enabled-thinking tool-call response without `reasoning_content` is a
 non-retryable provider failure because it cannot be continued correctly. A
 disabled-thinking tool call may omit reasoning.
 
-On continuation, the adapter prefers the raw DeepSeek item and uses normalized
-assistant fields only without one. Foreign context is never serialized as
-DeepSeek state.
+On continuation, the adapter sends the raw values of its own state. It uses
+the portable parts only for values without DeepSeek state. The state of
+another provider is never serialized as DeepSeek state.
 
-Reasoning is private replay data: it never enters normalized assistant text,
-structured output, or model-call logger copies. The replay item participates
-in deterministic tool-call scope hashing.
+Reasoning is private replay data: it never enters the response text or
+structured output. Model-call log copies drop the reasoning text and the
+provider state. The provider state participates in deterministic tool-call
+scope hashing.
 
 ## Tool Calling
 

@@ -8,8 +8,8 @@ structured-output, usage, and error contracts.
 
 ## Status
 
-Implemented by `ai-models-compat`, with shared routing and replay types in
-`ai-interface`.
+Implemented by `ai-models-compat`, with shared routing types, conversation
+parts, and provider state in `ai-interface`.
 
 Once implemented, the
 [Chat Completions dialects protocol](chat-completions-dialects.md) governs the
@@ -35,16 +35,17 @@ partial support.
 
 ## Ownership
 
-- `ai-interface` owns the model spec types and typed Qwen assistant replay
-  context.
+- `ai-interface` owns the model spec types, conversation parts, opaque
+  provider state, and log copies.
 - `ai-models-compat` owns the stable `qwen` provider id, the Qwen model specs
-  and custom defaults, authentication, request and response mapping, replay,
-  and Qwen-specific error translation.
+  and custom defaults, authentication, request and response mapping, the
+  private Qwen replay state and its version 1 conversion, replay, and
+  Qwen-specific error translation.
 - `ai-models-core` owns shared HTTP classification, the capability check,
   tool-argument parsing, and structured-output validation.
 - `json-http` owns the injected HTTP client and authentication boundaries.
-- `ai-tool-calling` owns retention of provider context and removal of private
-  reasoning from model-call logger copies.
+- `ai-tool-calling` retains the response parts with their provider state,
+  and gives model-call loggers log copies.
 - Composition roots own credentials, retry and concurrency policy, pricing,
   deployment priority, and conversion of `QwenModel` into `DynModel`.
 
@@ -112,15 +113,17 @@ the matching `tool_call_id` and omit `name`.
 
 Plus and Flash map shared text and image parts to OpenAI-compatible `text` and
 `image_url` content parts. Base64 images use
-`data:<mime-type>;base64,<data>`. Max rejects every typed content-part message
-before authentication or transport. All models reject typed content parts on
-assistant and tool messages because those roles accept string content at this
-boundary. All models also reject shared video parts defined by the
+`data:<mime-type>;base64,<data>`. Max rejects every message with an image or
+video part before authentication or transport. All models reject image and
+video parts on assistant and tool messages, because the role table of the
+[conversation parts protocol](conversation-parts.md) does not allow them. All
+models also reject shared video parts defined by the
 [video input protocol](video-input.md) with a typed provider error before
 transport.
 
-Provider context owned by another adapter is never serialized as Qwen state.
-Without Qwen context, assistant calls are reconstructed from normalized calls.
+Provider state owned by another adapter is never serialized as Qwen state.
+Without Qwen state, assistant calls are reconstructed from the portable
+tool-call parts.
 
 ## Thinking And Replay
 
@@ -139,19 +142,21 @@ private `reasoning_content`. Qwen
 requires the complete assistant message, including reasoning and raw tool
 calls, when a thinking-mode tool flow continues.
 
-`ai-interface` therefore stores a typed Qwen assistant replay item with the
-nullable content, nullable reasoning, and ordered raw tool-call ids, names,
-and JSON argument strings. Qwen requests prefer this item over normalized
-assistant fields. Null replay content remains null only when raw tool calls are
-present; without calls it becomes an empty string so the next request remains
-a valid assistant message. An enabled-thinking tool-call finish without
-`reasoning_content` is a non-retryable provider failure because exact
-continuation cannot be guaranteed.
+The adapter therefore records Qwen provider state, as the
+[conversation parts protocol](conversation-parts.md) defines. The text part
+keeps the nullable content. The reasoning part keeps the nullable reasoning.
+Each tool-call part keeps its raw call id, name, and JSON argument string, in
+provider order. Qwen requests prefer this state over the portable parts.
+Null replay content remains null only when raw tool calls are present; without
+calls it becomes an empty string so the next request remains a valid assistant
+message. An enabled-thinking tool-call finish without `reasoning_content` is a
+non-retryable provider failure because exact continuation cannot be
+guaranteed.
 
-Reasoning is private provider state. It never enters normalized assistant text
-or structured output, and the tool runtime removes the complete Qwen replay
-item from logger copies while retaining it in the real conversation. Replay
-state participates in deterministic tool-call scope hashing.
+Reasoning is private provider state. It never enters the response text or
+structured output. Model-call log copies drop the provider state and the
+reasoning text, while the real conversation keeps them. Provider state
+participates in deterministic tool-call scope hashing.
 
 ## Tool Calling
 
@@ -179,7 +184,7 @@ response and usage mapping, and the error contract.
 Unit tests use `JsonHttpTransportMock` through `TransportBackedJsonHttpClient`
 and never call QwenCloud. Coverage includes provider identity, spec metadata,
 construction, bearer auth and endpoint, every message role, image mapping and
-Max rejection, thinking controls, private replay and foreign-context
+Max rejection, thinking controls, private replay and foreign-state
 isolation, parallel tools, terminal-call suppression, structured-output
 modes and validation, finish reasons, response shape, cache usage, HTTP and
 transport errors, logger redaction, deterministic hashing, and credential-free

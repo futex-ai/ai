@@ -37,6 +37,12 @@ event. The folded response lists each failed lane in
 `ModelResponse::attempts`. The fallback events of a nested `MultiModel` pass
 through unchanged.
 
+The text, reasoning, and tool-call end events of a lane keep their provider
+state unchanged. At a fallback event, the shared fold of `ai-interface`
+discards the parts and the provider state of the failed attempt. The folded
+response therefore carries only the provider state of the lane that
+succeeds.
+
 This crate expects retry and concurrency policy to be applied by wrappers before the models are inserted into the vector.
 Composition roots can use this crate as the concrete model returned by
 model-router resolution when a route contains more than one buildable model.

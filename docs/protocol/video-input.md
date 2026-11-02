@@ -7,37 +7,41 @@ and its provider mappings, mirroring the existing image content part. It is
 implemented by the
 [video input support plan](../../plans/add-video-input-support.md).
 
-`ai-interface` owns the stable content-part DTO and the routing feature.
+`ai-interface` owns the shared video part and the routing feature.
 Provider crates own their native wire mappings and typed rejections.
 Composition roots own routing, retries, storage, and base64 encoding of video
 bytes.
 
 ## Shared Boundary
 
-`ConversationContentPart` gains a third variant alongside `Text` and `Image`:
+The [conversation parts protocol](conversation-parts.md) defines the video
+part beside the text and image parts:
 
 ```rust
-ConversationContentPart::Video {
+ConversationPart::Video {
     mime_type: String,
     data_base64: String,
+    provider_state: Option<ProviderState>,
 }
 ```
 
 - `mime_type` declares the video container format, for example `video/mp4` or
   `video/webm`.
 - `data_base64` carries the base64-encoded video bytes.
+- `ConversationPart::video(mime_type, data_base64)` builds a video part
+  without provider state.
 
-The variant serializes with the same externally tagged layout as the other
-parts:
+The part serializes with the same `type` tag as the other parts:
 
 ```json
 { "type": "video", "mime_type": "video/mp4", "data_base64": "..." }
 ```
 
-Video parts follow the same placement rules as image parts: they are authored
-through `ConversationMessage::user_with_parts` on user messages, ordered
-freely between text and image parts, and the plain `content` string remains
-the text fallback that providers must not send when parts are present.
+Video parts follow the same placement rules as image parts. They belong to
+user messages. `ConversationMessage::user_with_parts` builds a user message
+from one ordered list of parts, and text, image, and video parts can come in
+any order. A user message has no separate text fallback: its text parts are
+its text.
 
 The shared interface performs no MIME validation and imposes no size limit,
 matching image behavior. Providers and upstream APIs enforce their own format
@@ -109,8 +113,9 @@ ModelError::Provider { provider, model_id,
     message: "<Provider> accepts text and image content parts only" }
 ```
 
-DeepSeek keeps its existing stricter rule: every typed content part, including
-video, is rejected with "DeepSeek accepts plain text messages only".
+DeepSeek keeps its existing stricter rule: every image or video part is
+rejected with "DeepSeek accepts plain text messages only". DeepSeek accepts
+text parts.
 
 Rejection is a `ModelError::Provider` value, so `ai-models-multi` fallback
 chains skip past a non-video model to the next candidate, and retry wrappers
@@ -132,7 +137,7 @@ Unit tests are credential-free and cover:
 - Google request serialization of ordered text, image, and video parts
 - MiniMax request serialization of `video_url` data-URL parts
 - typed rejection in Anthropic, OpenAI, xAI, Kimi, and Qwen mappers
-- DeepSeek's existing all-parts rejection covering video parts
+- DeepSeek's existing image and video rejection covering video parts
 - identity-hash sensitivity to video parts in `ai-models-core`
 - spec feature assertions for Google and MiniMax video models
 

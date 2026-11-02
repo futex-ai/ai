@@ -1,10 +1,8 @@
 # Model Stream Protocol
 
-Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
-The section [Rules in force until Milestone 7](#rules-in-force-until-milestone-7)
-gives the provider state rules that apply until conversation parts carry
-provider state. Deadline defaults from a provider config apply when the
+Deadline defaults from a provider config apply when the
 [provider registry](provider-registry.md) is implemented. Every other rule
 of this protocol is in force.
 
@@ -138,25 +136,6 @@ A failed attempt emits no usage event and no finish event.
 - When the events break the event order, `complete` fails with the
   internal kind.
 - The text of a response is the concatenation of its text parts.
-
-## Rules in force until Milestone 7
-
-Until conversation parts carry provider state, these rules replace the
-provider state rules of this protocol and of its
-[adapter page](model-stream-adapters.md):
-
-- No event carries provider state, so the text of a delta is never empty.
-- The finish event also carries the message-level replay items of the
-  attempt. The fold copies them to the `provider_context` of the response.
-- The response stores no parts. The fold still builds the parts of the
-  successful attempt by part position, as "The fold" says.
-- The text of the response is the concatenation of those text parts, in
-  part position order. Its tool calls are those tool-call parts, in part
-  position order, when the finish reason is tool calls.
-- Reasoning parts add nothing to the response. A replay item can hold the
-  same reasoning for a later request.
-- The finish event carries the replay items so that the fold rebuilds the
-  current response. Milestone 7 replaces them with provider state on parts.
 
 ## Deadlines
 

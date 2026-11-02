@@ -1,23 +1,19 @@
 # Model Stream Adapter Protocol
 
-Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
 This page is part of the [model stream protocol](model-stream.md), and it
 uses the terms and the progress rule of that protocol. It gives the mapping
 of each native adapter from its provider stream to model events, and the SSE
-transport rules of the HTTP component. Its rules are in force, except the
-provider state column of the mapping table. Until
-conversation parts carry provider state, the
-[rules in force until Milestone 7](model-stream.md#rules-in-force-until-milestone-7)
-replace that column.
+transport rules of the HTTP component.
 
 ## Native adapter mapping
 
 | Adapter | Content events from | Terminal provider event | Provider state on |
 | --- | --- | --- | --- |
-| Anthropic Messages | text, thinking, and tool-use content blocks | `message_stop` | reasoning parts: thinking and redacted-thinking blocks with signatures |
-| OpenAI Responses | output text and refusal text, reasoning summary or reasoning text, and function-call items | `response.completed` or `response.incomplete` | reasoning parts: item id and encrypted content. Text parts: message phase. Tool-call parts: item id |
-| Google Gemini | candidate-zero parts: text, thought text, and function calls | end of stream after a finish reason or a prompt block | the part that carries a thought signature |
+| Anthropic Messages | text, thinking, and tool-use content blocks | `message_stop` | reasoning parts: thinking and redacted-thinking blocks with signatures. Text parts: the original text block. Tool-call parts: the original tool-use block |
+| OpenAI Responses | output text and refusal text, reasoning summary or reasoning text, and function-call items | `response.completed` or `response.incomplete` | reasoning parts: item id, summary, and encrypted content. Text parts: message phase, or a message marker without a phase in a tool-call response. Tool-call parts: item id, call id, name, and raw argument text |
+| Google Gemini | candidate-zero parts: text, thought text, and function calls | end of stream after a finish reason or a prompt block | every part of a response with a thought signature: its original Gemini parts, with signatures, empty text, and signature-only parts. Every tool-call part: its original call and its runtime call, which a message without a signature replays |
 
 - Anthropic and OpenAI send `"stream": true`. Google calls
   `:streamGenerateContent` with `alt=sse`.

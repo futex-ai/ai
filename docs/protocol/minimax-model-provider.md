@@ -19,11 +19,12 @@ shared engine that serves this provider.
 
 ## Ownership
 
-- `ai-interface` owns the model spec and routing metadata types and typed
-  MiniMax conversation context required for stateless replay.
+- `ai-interface` owns the model spec and routing metadata types,
+  conversation parts, opaque provider state, and log copies.
 - `ai-models-compat` owns the stable `minimax` provider id, the MiniMax model
   specs and custom defaults, request and response DTOs, authentication,
-  transport dispatch, provider error handling, and response normalization.
+  transport dispatch, the private MiniMax replay state and its version 1
+  conversion, provider error handling, and response normalization.
 - `ai-models-core` continues to own provider-agnostic HTTP classification,
   the capability check, structured-output validation, and pricing wrappers.
 - Composition roots own credential lookup, retry/concurrency/pricing wrappers,
@@ -97,18 +98,19 @@ Conversation roles map as follows:
 - `Assistant` -> `assistant`
 - `Tool` -> `tool`
 
-Plain content is sent as a string. Shared text, image, and video content parts
-are sent as OpenAI-compatible `text`, `image_url`, and `video_url` parts.
+A user message with one text part is sent as a string. Other user messages
+send their text, image, and video parts as OpenAI-compatible `text`,
+`image_url`, and `video_url` parts.
 Base64 images and videos use a `data:<mime-type>;base64,<data>` URL. MiniMax-M3
 supports video input, and only its spec advertises the shared
 `video_input` feature; the
 [video input protocol](video-input.md) defines the shared contract.
 
 Assistant history must include visible content, normalized tool calls, and any
-retained MiniMax reasoning context. Tool results include `content` and the
+retained MiniMax reasoning state. Tool results include `content` and the
 provider tool-call id but no unsupported name field. Tool `content` remains
 present when the result is an empty string; only unavailable assistant content
-is omitted. Provider context owned by another adapter must not be serialized
+is omitted. Provider state owned by another adapter must not be serialized
 as MiniMax reasoning.
 
 MiniMax does not support legacy `function_call`; the adapter sends and accepts
@@ -181,18 +183,18 @@ populated provider fields:
 - `index`
 - `text`
 
-`ai-interface` stores these values in a typed MiniMax provider-conversation
-item. The item is attached to the normalized assistant response and serialized
-back onto the corresponding assistant history message on the next request.
+The adapter records these values as MiniMax provider state on the reasoning
+part of the response, as the
+[conversation parts protocol](conversation-parts.md) defines. The adapter
+serializes them back onto that assistant history message on the next request.
 This replay is mandatory for tool continuations because MiniMax requires the
 complete assistant response to maintain interleaved thinking.
 
-Reasoning text is provider replay state. It must not be concatenated into
-`assistant_message`, surfaced as ordinary assistant content, or copied into
-normal user-visible logging. The tool runtime therefore removes the complete
-MiniMax replay item from request and response copies passed to model-call
-loggers while preserving it in the actual model request and retained
-conversation.
+Reasoning text is provider replay state. It must not be concatenated into the
+response text, surfaced as ordinary assistant content, or copied into normal
+user-visible logging. Model-call loggers therefore receive log copies, which
+drop the provider state and the reasoning text. The actual model request and
+the retained conversation keep them.
 
 ## Responses And Errors
 
@@ -212,7 +214,7 @@ Coverage includes:
 - text, image, video, assistant, tool-call, and tool-result request
   serialization
 - thinking control and reasoning-split serialization
-- reasoning-context parsing, non-disclosure, serde, and continuation replay
+- reasoning-state parsing, non-disclosure, serde, and continuation replay
 - multiple tool calls, malformed arguments, and terminal-call suppression
 - every normalized finish reason and empty-choice behavior
 - structured-output prompting, success, and validation failures
