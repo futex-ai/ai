@@ -40,6 +40,30 @@ in-memory tool-calling runtime behavior.
 
 ## Protocols
 
+- [Architecture](docs/architecture.md) (approved, not implemented) describes
+  the target components, their boundaries, and the flow of a model call and
+  an agent turn.
+- [Model stream](docs/protocol/model-stream.md) (approved, not implemented)
+  defines the one stream method, its events and their order, the fold,
+  deadlines, interruption, and the policy layers on the stream.
+- [Conversation parts](docs/protocol/conversation-parts.md) (approved, not
+  implemented) defines roles, parts, opaque provider state, replay rules, the
+  stored format and its converter, and log copies.
+- [Model capabilities](docs/protocol/model-capabilities.md) (approved, not
+  implemented) defines model specs, text ids, custom specs, effort, the
+  capability check, and the generated control matrix.
+- [Chat Completions dialects](docs/protocol/chat-completions-dialects.md)
+  (approved, not implemented) defines the shared Chat Completions engine and
+  the settings of its DeepSeek, Kimi, Qwen, MiniMax, and xAI dialects.
+- [Provider registry](docs/protocol/provider-registry.md) (approved, not
+  implemented) defines provider config, base URLs, auth, headers, timeouts,
+  and the adapters that a spec builds.
+- [Model policies](docs/protocol/model-policies.md) (approved, not
+  implemented) defines the error core and kinds, retry, fallback policies,
+  concurrency, and pricing.
+- [Agent loop](docs/protocol/agent-loop.md) (approved, not implemented)
+  defines turns over a caller-owned conversation, agent events, parallel
+  tools, outcomes, observers, and the output reader.
 - [Model completion events](docs/protocol/model-completion-events.md) defines
   the opt-in public assistant, reasoning, and fallback-restart event boundary,
   terminal parity, wrapper semantics, and downstream adoption contract.

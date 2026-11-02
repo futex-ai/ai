@@ -180,6 +180,8 @@ answers that differ from the recommendation.
   single-turn probes. The alternatives were probes for one thinking model
   per provider, probes for every catalog model, recordings only, the
   conformance scenarios run live, or live models chosen from the specs.
+- Item 10, [xAI deferred timeout can bill twice](follow-ups/xai-deferred-timeout-rebills.md):
+  open. It blocks the xAI deferred timeout rule of Milestones 4 and 8.
 - Decision 7, how much paid live testing each change pays for: option A.
   The live suites keep their current triggers. The alternatives were path
   filters, a pull-request label, schedules only, a small pull-request set,
@@ -228,6 +230,34 @@ All calls are mine, made on 2026-11-01.
   other control rules, because the chosen capability check holds every
   control rule. The behavior stays as option A of item 3.
 - Milestone 7 moves the replay variants of item 1 into provider state.
+- Milestone 1, 2026-11-02: the docs implementor made these calls where the
+  plan was silent, and I accepted them:
+  - The stream has an eighth event, the fallback event. It keeps the
+    restart signal that `MultiModel` gives today and carries each failed
+    attempt.
+  - Content events carry a part position. Deltas and tool-call ends can
+    carry provider state, so that the fold rebuilds ordered parts.
+  - Output checks run inside the stream before the usage event, so that a
+    fallback can act on invalid output.
+  - The stored conversation format has `format_version` 2, and a converter
+    reads version 1.
+  - Own provider state with an unknown version or a payload that does not
+    decode fails before transport with the invalid request kind.
+  - Log copies drop all provider state and all reasoning text.
+  - Model specs also hold the sampling rule, stop support, and the deferred
+    lifecycle. The forced tool-choice rule has four values.
+  - The error kinds add content policy and timed out for the image and
+    video modalities. HTTP 401, 402, and 403 map to rejected key, and 404
+    maps to unknown model.
+  - Retry defaults to three attempts with base delays of 100 ms and 250 ms,
+    waits from half to all of the base delay, and a maximum wait of 30 s.
+  - The registry holds one config per provider. Adapter and auth headers
+    win over extra headers.
+  - The agent loop runs four tool calls at a time by default and appends
+    whole steps only, so a filtered step adds no message. The turn and
+    response checkpoints stay.
+  - The loop offers the output reader only when the output store holds a
+    stored output. It still runs a reader call that it did not offer.
 - The plan has about 520 lines, above the 300-line target, because it
   covers eight pull requests. A split would scatter the shared decisions.
 
@@ -262,29 +292,29 @@ Depends on: none
 Write the requirements and decisions of the target. New docs carry the
 status "Approved, not implemented".
 
-- [ ] Add `docs/architecture.md` with the target components, their
+- [x] Add `docs/architecture.md` with the target components, their
       responsibilities, and their boundaries.
-- [ ] Add `docs/protocol/model-stream.md`: the stream method, the events
+- [x] Add `docs/protocol/model-stream.md`: the stream method, the events
       and their order, the fold, deadlines, interruption, and wrappers.
-- [ ] Add `docs/protocol/conversation-parts.md`: roles, parts, provider
+- [x] Add `docs/protocol/conversation-parts.md`: roles, parts, provider
       state, replay and skip rules, stored-format versions, the converter,
       and log redaction.
-- [ ] Add `docs/protocol/model-capabilities.md`: specs, text ids, custom
+- [x] Add `docs/protocol/model-capabilities.md`: specs, text ids, custom
       specs, effort, the capability check, and the control matrix. Include
       the max output of item 2 and the Anthropic rule of item 3.
-- [ ] Add `docs/protocol/chat-completions-dialects.md`. Link it from the
+- [x] Add `docs/protocol/chat-completions-dialects.md`. Link it from the
       DeepSeek, Kimi, Qwen, and MiniMax protocol docs.
-- [ ] Add `docs/protocol/provider-registry.md`: provider config, base URL,
+- [x] Add `docs/protocol/provider-registry.md`: provider config, base URL,
       auth, headers, timeouts, and the adapters that a spec builds.
-- [ ] Add `docs/protocol/model-policies.md`: the error core, the scope of
+- [x] Add `docs/protocol/model-policies.md`: the error core, the scope of
       each error kind, retry, fallback, concurrency, and pricing. State the
       fallback rule of decision 5.
-- [ ] Add `docs/protocol/agent-loop.md`: turns, steps, the caller-owned
+- [x] Add `docs/protocol/agent-loop.md`: turns, steps, the caller-owned
       conversation, parallel tools, outcomes, observers, the final-answer
       schema, and the output reader. Include the `Truncated` outcome of
       item 4. Align `tool-output-management.md`.
-- [ ] Update the protocol list of the workspace `README.md`.
-- [ ] Check every relative link in the changed Markdown.
+- [x] Update the protocol list of the workspace `README.md`.
+- [x] Check every relative link in the changed Markdown.
 - [ ] Commit and push. Run the ship steps for pull request 1.
 
 ## Milestone 2: Recordings and conformance runner
@@ -391,6 +421,11 @@ Make streaming the single model entry point.
 - [ ] Re-run the recordings, and migrate the snapshots to events.
 - [ ] Mark `model-stream.md` implemented. Retire
       `model-completion-events.md` and `model-completion-streaming.md`.
+- [ ] Keep the current retry and fallback rules in force until Milestone 8.
+      Move them from the retired docs into `model-policies.md` as the rules
+      in force, next to the target rules.
+- [ ] Update `live-model-api-tests.md`: deferred and schema calls now emit
+      model events, so the live checks expect events for them.
 - [ ] Run `cargo xtask check`, then commit and push.
 
 ## Milestone 7: Conversation parts and provider state
