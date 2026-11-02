@@ -1,174 +1,222 @@
-//! Existing model error contract and constructors.
+//! Model failures with shared error details and earlier fallback attempts.
+
+use std::fmt;
 
 use thiserror::Error;
 
-use crate::ModelControl;
+use crate::{ErrorCore, ErrorKind, ModelAttempt, ModelControl};
 
-#[derive(Debug, Error)]
+#[derive(Error)]
 /// Errors returned by the model boundary.
 pub enum ModelError {
-    /// The upstream provider rejected the request due to a rate limit.
-    #[error(
-        "[ai_interface/model] provider rate limit for `{provider}` model `{model_id}`: {message}"
-    )]
-    RateLimited {
-        /// Provider that returned the rate-limit response.
-        provider: String,
-        /// Model identifier requested from the provider.
-        model_id: String,
-        /// Provider-supplied failure details.
-        message: String,
+    /// A classified provider or adapter failure.
+    #[error("[ai_interface/model] {kind:?} for `{provider}` model `{model_id}`: {message}", kind = core.kind, provider = core.provider, model_id = core.model_id, message = core.message)]
+    Failure {
+        /// Shared failure details.
+        core: Box<ErrorCore>,
+        /// Earlier failed fallback attempts, excluding this failure.
+        attempts: Vec<ModelAttempt>,
     },
-    /// The upstream provider returned a transient failure that may succeed later.
-    #[error(
-        "[ai_interface/model] transient provider failure for `{provider}` model `{model_id}`: {message}"
-    )]
-    TransientProvider {
-        /// Provider that returned the transient failure.
-        provider: String,
-        /// Model identifier requested from the provider.
-        model_id: String,
-        /// Provider-supplied failure details.
-        message: String,
-    },
-    /// A streaming response failed after the provider had begun generation.
-    #[error(
-        "[ai_interface/model] interrupted provider response for `{provider}` model `{model_id}`: {message}"
-    )]
-    Interrupted {
-        /// Provider whose response stream was interrupted.
-        provider: String,
-        /// Model identifier requested from the provider.
-        model_id: String,
-        /// Failure details reported while consuming the stream.
-        message: String,
-    },
-    /// The upstream provider returned a non-retryable failure.
-    #[error("[ai_interface/model] provider failure for `{provider}` model `{model_id}`: {message}")]
-    Provider {
-        /// Provider that returned the failure.
-        provider: String,
-        /// Model identifier requested from the provider.
-        model_id: String,
-        /// Provider-supplied failure details.
-        message: String,
-    },
-    /// The upstream provider rejected the request because the input exceeded
-    /// the model context window.
-    #[error(
-        "[ai_interface/model] context limit exceeded for `{provider}` model `{model_id}`: {message}"
-    )]
-    ContextLimitExceeded {
-        /// Provider that returned the failure.
-        provider: String,
-        /// Model identifier requested from the provider.
-        model_id: String,
-        /// Provider-supplied failure details.
-        message: String,
-    },
-    /// The selected provider or model cannot honor an explicit call control.
-    #[error(
-        "[ai_interface/model] unsupported {control:?} control for `{provider}` model `{model_id}`"
-    )]
-    UnsupportedControl {
-        /// Provider selected for the call.
-        provider: String,
-        /// Model identifier selected for the call.
-        model_id: String,
-        /// Portable control that cannot be honored.
-        control: ModelControl,
-    },
-    /// Unhandled model-boundary failure.
-    #[error("[ai_interface/model] internal error: {source}")]
+    /// A classified failure with its original source object.
+    #[error("[ai_interface/model] {kind:?} for `{provider}` model `{model_id}`: {message}", kind = core.kind, provider = core.provider, model_id = core.model_id, message = core.message)]
     Internal {
-        /// Underlying model failure.
+        /// Shared failure details.
+        core: Box<ErrorCore>,
+        /// Earlier failed fallback attempts, excluding this failure.
+        attempts: Vec<ModelAttempt>,
+        /// Original source retained for inspection and downcasting.
         source: Box<dyn std::error::Error + Send + Sync>,
     },
 }
 
+impl fmt::Debug for ModelError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ModelError")
+            .field("core", self.core())
+            .field("attempts", &self.attempts())
+            .finish()
+    }
+}
+
 impl ModelError {
-    /// Builds a rate-limited model error.
+    /// Builds a classified failure from one shared core.
+    pub fn new(core: ErrorCore) -> Self {
+        Self::Failure {
+            core: Box::new(core),
+            attempts: Vec::new(),
+        }
+    }
+
+    /// Builds a failure with an explicit category and adapter identity.
+    pub fn failure(
+        kind: ErrorKind,
+        provider: impl Into<String>,
+        model_id: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
+        Self::new(ErrorCore::new(kind, provider, model_id, message))
+    }
+
+    /// Returns the shared failure details.
+    pub fn core(&self) -> &ErrorCore {
+        match self {
+            Self::Failure { core, .. } | Self::Internal { core, .. } => core,
+        }
+    }
+
+    /// Returns the shared details for metadata attachment or secret redaction.
+    pub fn core_mut(&mut self) -> &mut ErrorCore {
+        match self {
+            Self::Failure { core, .. } | Self::Internal { core, .. } => core,
+        }
+    }
+
+    /// Returns earlier failed attempts in chronological order.
+    pub fn attempts(&self) -> &[ModelAttempt] {
+        match self {
+            Self::Failure { attempts, .. } | Self::Internal { attempts, .. } => attempts,
+        }
+    }
+
+    /// Removes and returns the earlier failed attempts.
+    pub fn take_attempts(&mut self) -> Vec<ModelAttempt> {
+        match self {
+            Self::Failure { attempts, .. } | Self::Internal { attempts, .. } => {
+                std::mem::take(attempts)
+            }
+        }
+    }
+
+    /// Replaces the earlier attempts while preserving this failure and its source.
+    pub fn with_attempts(mut self, earlier: Vec<ModelAttempt>) -> Self {
+        match &mut self {
+            Self::Failure { attempts, .. } | Self::Internal { attempts, .. } => *attempts = earlier,
+        }
+        self
+    }
+
+    /// Adds outer fallback history before any existing inner fallback history.
+    pub fn prepend_attempts(mut self, mut earlier: Vec<ModelAttempt>) -> Self {
+        earlier.extend(self.take_attempts());
+        self.with_attempts(earlier)
+    }
+
+    /// Snapshots only this failed attempt, excluding its earlier attempts.
+    pub fn attempt(&self, emitted_events: bool) -> ModelAttempt {
+        let core = self.core();
+        ModelAttempt {
+            provider: core.provider.clone(),
+            model_id: core.model_id.clone(),
+            kind: core.kind,
+            message: core.message.clone(),
+            emitted_events,
+        }
+    }
+
+    /// Reconstructs a recorded failure without its original source or response metadata.
+    pub fn from_attempt(attempt: ModelAttempt) -> Self {
+        Self::failure(
+            attempt.kind,
+            attempt.provider,
+            attempt.model_id,
+            attempt.message,
+        )
+    }
+
+    /// Wraps an internal failure with the identity of the adapter that raised it.
+    pub fn internal(
+        provider: impl Into<String>,
+        model_id: impl Into<String>,
+        source: impl std::error::Error + Send + Sync + 'static,
+    ) -> Self {
+        Self::with_source(
+            ErrorCore::new(ErrorKind::Internal, provider, model_id, "internal error"),
+            source,
+        )
+    }
+
+    /// Retains an original source with an explicit failure category.
+    pub fn with_source(
+        core: ErrorCore,
+        source: impl std::error::Error + Send + Sync + 'static,
+    ) -> Self {
+        Self::Internal {
+            core: Box::new(core),
+            attempts: Vec::new(),
+            source: Box::new(source),
+        }
+    }
+
+    pub(crate) fn fold_error(source: impl std::error::Error + Send + Sync + 'static) -> Self {
+        Self::internal("local", "model-response-fold", source)
+    }
+
+    /// Builds a rate limit.
     pub fn rate_limited(
         provider: impl Into<String>,
         model_id: impl Into<String>,
         message: impl Into<String>,
     ) -> Self {
-        Self::RateLimited {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            message: message.into(),
-        }
+        Self::failure(ErrorKind::RateLimited, provider, model_id, message)
     }
 
-    /// Builds a transient provider error.
-    pub fn transient_provider(
+    /// Builds a failure before provider progress.
+    pub fn transient(
         provider: impl Into<String>,
         model_id: impl Into<String>,
         message: impl Into<String>,
     ) -> Self {
-        Self::TransientProvider {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            message: message.into(),
-        }
+        Self::failure(ErrorKind::Transient, provider, model_id, message)
     }
 
-    /// Builds an interrupted streaming-response error.
+    /// Builds a stream failure after provider progress.
     pub fn interrupted(
         provider: impl Into<String>,
         model_id: impl Into<String>,
         message: impl Into<String>,
     ) -> Self {
-        Self::Interrupted {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            message: message.into(),
-        }
+        Self::failure(ErrorKind::Interrupted, provider, model_id, message)
     }
 
-    /// Builds a non-retryable provider error.
-    pub fn provider(
+    /// Builds a request that breaks the input contract.
+    pub fn invalid_request(
         provider: impl Into<String>,
         model_id: impl Into<String>,
         message: impl Into<String>,
     ) -> Self {
-        Self::Provider {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            message: message.into(),
-        }
+        Self::failure(ErrorKind::InvalidRequest, provider, model_id, message)
     }
 
-    /// Builds a context-window overflow error.
+    /// Builds provider output that breaks the response contract.
+    pub fn invalid_output(
+        provider: impl Into<String>,
+        model_id: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
+        Self::failure(ErrorKind::InvalidOutput, provider, model_id, message)
+    }
+
+    /// Builds an input above the model context limit.
     pub fn context_limit_exceeded(
         provider: impl Into<String>,
         model_id: impl Into<String>,
         message: impl Into<String>,
     ) -> Self {
-        Self::ContextLimitExceeded {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            message: message.into(),
-        }
+        Self::failure(ErrorKind::ContextLimitExceeded, provider, model_id, message)
     }
 
-    /// Builds an unsupported-control model error.
+    /// Builds a failure for an explicit control that the model cannot honor.
     pub fn unsupported_control(
         provider: impl Into<String>,
         model_id: impl Into<String>,
         control: ModelControl,
     ) -> Self {
-        Self::UnsupportedControl {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            control,
-        }
-    }
-
-    /// Wraps an internal model-boundary error.
-    pub fn internal(source: impl std::error::Error + Send + Sync + 'static) -> Self {
-        Self::Internal {
-            source: Box::new(source),
-        }
+        Self::failure(
+            ErrorKind::UnsupportedControl(control),
+            provider,
+            model_id,
+            format!("unsupported {control:?} control"),
+        )
     }
 }

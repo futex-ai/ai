@@ -45,7 +45,7 @@ fn validation_rejects_every_empty_state_shape() {
         JudgmentContent::Array(Vec::new()),
     ] {
         let error = request(state, valid_questions()).validate().unwrap_err();
-        assert!(matches!(error, JudgmentError::EmptyState));
+        assert!(matches!(error, JudgmentError::EmptyState { .. }));
     }
 }
 
@@ -55,7 +55,7 @@ fn validation_rejects_an_empty_question_map() {
         .validate()
         .unwrap_err();
 
-    assert!(matches!(error, JudgmentError::NoQuestions));
+    assert!(matches!(error, JudgmentError::NoQuestions { .. }));
 }
 
 #[test]
@@ -150,7 +150,7 @@ fn assert_invalid_question(
         .unwrap_err();
     assert!(matches!(
         error,
-        JudgmentError::InvalidQuestion { id, problem }
+        JudgmentError::InvalidQuestion { id, problem, .. }
             if id == expected_id && problem == expected_problem
     ));
 }

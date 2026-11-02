@@ -1,7 +1,7 @@
 //! Built-in mock image generator tests.
 
 use crate::{
-    GeneratedImage, ImageGenerationError, ImageGenerationRequest, ImageGenerator,
+    ErrorKind, GeneratedImage, ImageGenerationError, ImageGenerationRequest, ImageGenerator,
     MockImageGenerator,
 };
 
@@ -59,5 +59,8 @@ async fn mock_rejects_a_blank_prompt() {
         .await
         .unwrap_err();
 
-    assert!(matches!(error, ImageGenerationError::EmptyPrompt));
+    assert!(matches!(error, ImageGenerationError::EmptyPrompt { .. }));
+    assert_eq!(error.core().provider, "mock");
+    assert_eq!(error.core().model_id, "mock-image");
+    assert_eq!(error.core().kind, ErrorKind::InvalidRequest);
 }

@@ -59,7 +59,7 @@ impl Part {
                 }
                 Ok(())
             }
-            _ => Err(ModelError::internal(ModelEventOrderError::PartKind {
+            _ => Err(ModelError::fold_error(ModelEventOrderError::PartKind {
                 part_index,
             })),
         }
@@ -75,7 +75,7 @@ impl Part {
                 arguments.push_str(delta);
                 Ok(())
             }
-            _ => Err(ModelError::internal(
+            _ => Err(ModelError::fold_error(
                 ModelEventOrderError::InactiveToolCall { part_index },
             )),
         }
@@ -96,7 +96,7 @@ impl Part {
                 *provider_state = state;
                 Ok(())
             }
-            _ => Err(ModelError::internal(
+            _ => Err(ModelError::fold_error(
                 ModelEventOrderError::InactiveToolCall { part_index },
             )),
         }
@@ -126,7 +126,7 @@ impl Part {
         }
         let arguments = match serde_json::from_str(&arguments) {
             Ok(arguments) => arguments,
-            Err(source) => return Err(ModelError::internal(source)),
+            Err(source) => return Err(ModelError::fold_error(source)),
         };
         Ok(Some(ConversationPart::ToolCall {
             call_id: id,

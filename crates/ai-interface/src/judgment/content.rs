@@ -37,15 +37,11 @@ impl TryFrom<Value> for JudgmentContent {
             Value::String(text) => Ok(Self::Text(text)),
             Value::Object(object) => Ok(Self::Object(object)),
             Value::Array(array) => Ok(Self::Array(array)),
-            Value::Null => Err(JudgmentError::UnsupportedContent {
-                json_type: JudgmentJsonType::Null,
-            }),
-            Value::Bool(_) => Err(JudgmentError::UnsupportedContent {
-                json_type: JudgmentJsonType::Boolean,
-            }),
-            Value::Number(_) => Err(JudgmentError::UnsupportedContent {
-                json_type: JudgmentJsonType::Number,
-            }),
+            Value::Null => Err(JudgmentError::unsupported_content(JudgmentJsonType::Null)),
+            Value::Bool(_) => Err(JudgmentError::unsupported_content(
+                JudgmentJsonType::Boolean,
+            )),
+            Value::Number(_) => Err(JudgmentError::unsupported_content(JudgmentJsonType::Number)),
         }
     }
 }

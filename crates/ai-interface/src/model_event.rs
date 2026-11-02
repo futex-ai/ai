@@ -84,8 +84,10 @@ pub enum ModelEvent {
     },
     /// A failed attempt whose events the consumer must discard.
     Fallback {
-        /// Original failure of the discarded attempt.
+        /// Original leaf failure, with earlier attempts represented by separate fallback events.
         #[serde(serialize_with = "serialize_model_error")]
         error: ModelError,
+        /// Whether the discarded attempt returned any model event.
+        emitted_events: bool,
     },
 }

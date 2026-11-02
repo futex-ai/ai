@@ -50,7 +50,7 @@ impl Model for MockModel {
             Some(response_schema) => Some(
                 mock_structured_output(&response_schema.schema, &fallback_message).ok_or_else(
                     || {
-                        ModelError::provider(
+                        ModelError::invalid_output(
                             &self.provider,
                             &self.model_id,
                             format!(

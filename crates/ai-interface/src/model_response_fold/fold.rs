@@ -28,10 +28,10 @@ impl ModelResponseFold {
     /// Applies one event and rejects an event-order violation as an internal error.
     pub fn push(&mut self, event: ModelEvent) -> ModelResult<()> {
         if self.response.is_some() {
-            return Err(ModelError::internal(ModelEventOrderError::AfterFinish));
+            return Err(ModelError::fold_error(ModelEventOrderError::AfterFinish));
         }
         if self.usage.is_some() && !matches!(&event, ModelEvent::Finish { .. }) {
-            return Err(ModelError::internal(ModelEventOrderError::AfterUsage));
+            return Err(ModelError::fold_error(ModelEventOrderError::AfterUsage));
         }
         match event {
             ModelEvent::TextDelta {
@@ -66,7 +66,7 @@ impl ModelResponseFold {
             }
             ModelEvent::ToolCallArgumentsDelta { part_index, delta } => {
                 if delta.is_empty() {
-                    return Err(ModelError::internal(ModelEventOrderError::EmptyDelta));
+                    return Err(ModelError::fold_error(ModelEventOrderError::EmptyDelta));
                 }
                 self.existing_part(part_index)?
                     .push_arguments(part_index, &delta)?;
@@ -80,7 +80,7 @@ impl ModelResponseFold {
             }
             ModelEvent::Usage { usage } => {
                 if self.parts.iter().any(Part::is_open_tool_call) {
-                    return Err(ModelError::internal(ModelEventOrderError::OpenToolCall));
+                    return Err(ModelError::fold_error(ModelEventOrderError::OpenToolCall));
                 }
                 self.usage = Some(usage);
             }
@@ -95,7 +95,7 @@ impl ModelResponseFold {
                 let usage = self
                     .usage
                     .take()
-                    .ok_or_else(|| ModelError::internal(ModelEventOrderError::MissingUsage))?;
+                    .ok_or_else(|| ModelError::fold_error(ModelEventOrderError::MissingUsage))?;
                 let mut parts = Vec::new();
                 for part in std::mem::take(&mut self.parts) {
                     if let Some(part) = part.into_part(finish_reason == FinishReason::ToolCalls)? {
@@ -107,7 +107,9 @@ impl ModelResponseFold {
                         .iter()
                         .any(|part| matches!(part, ConversationPart::ToolCall { .. }))
                 {
-                    return Err(ModelError::internal(ModelEventOrderError::MissingToolCalls));
+                    return Err(ModelError::fold_error(
+                        ModelEventOrderError::MissingToolCalls,
+                    ));
                 }
                 self.response = Some(ModelResponse {
                     provider,
@@ -121,9 +123,12 @@ impl ModelResponseFold {
                     attempts: std::mem::take(&mut self.attempts),
                 });
             }
-            ModelEvent::Fallback { error } => {
+            ModelEvent::Fallback {
+                error,
+                emitted_events,
+            } => {
                 self.parts.clear();
-                self.attempts.push(ModelAttempt::from(&error));
+                self.attempts.push(error.attempt(emitted_events));
             }
         }
         Ok(())
@@ -132,12 +137,12 @@ impl ModelResponseFold {
     /// Returns the response after usage, finish, and stream exhaustion.
     pub fn finish(self) -> ModelResult<ModelResponse> {
         self.response
-            .ok_or_else(|| ModelError::internal(ModelEventOrderError::MissingFinish))
+            .ok_or_else(|| ModelError::fold_error(ModelEventOrderError::MissingFinish))
     }
 
     fn check_new_position(&self, part_index: usize) -> ModelResult<()> {
         if part_index != self.parts.len() {
-            return Err(ModelError::internal(ModelEventOrderError::PartPosition {
+            return Err(ModelError::fold_error(ModelEventOrderError::PartPosition {
                 expected: self.parts.len(),
                 actual: part_index,
             }));
@@ -148,7 +153,7 @@ impl ModelResponseFold {
     fn existing_part(&mut self, part_index: usize) -> ModelResult<&mut Part> {
         let expected = self.parts.len();
         self.parts.get_mut(part_index).ok_or_else(|| {
-            ModelError::internal(ModelEventOrderError::PartPosition {
+            ModelError::fold_error(ModelEventOrderError::PartPosition {
                 expected,
                 actual: part_index,
             })
@@ -163,7 +168,7 @@ impl ModelResponseFold {
         state: Option<ProviderState>,
     ) -> ModelResult<()> {
         if delta.is_empty() && state.is_none() {
-            return Err(ModelError::internal(ModelEventOrderError::EmptyDelta));
+            return Err(ModelError::fold_error(ModelEventOrderError::EmptyDelta));
         }
         if part_index == self.parts.len() {
             self.parts.push(Part::new_delta(kind));

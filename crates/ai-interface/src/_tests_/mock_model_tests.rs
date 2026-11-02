@@ -1,7 +1,8 @@
 use serde_json::json;
 
 use crate::{
-    ConversationMessage, MockModel, Model, ModelError, ModelRequest, StructuredOutputSchema,
+    ConversationMessage, ErrorKind, MockModel, Model, ModelError, ModelRequest,
+    StructuredOutputSchema,
 };
 
 #[tokio::test]
@@ -67,43 +68,35 @@ async fn mock_model_returns_structured_output_when_requested() {
 
 #[test]
 fn typed_model_error_helpers_preserve_branchable_variants() {
-    let rate_limited = ModelError::rate_limited("openai", "gpt-5.5", "HTTP 429");
-    assert!(matches!(
-        rate_limited,
-        ModelError::RateLimited {
-            provider,
-            model_id,
-            ..
-        } if provider == "openai" && model_id == "gpt-5.5"
-    ));
-
-    let transient = ModelError::transient_provider("anthropic", "claude", "HTTP 500");
-    assert!(matches!(
-        transient,
-        ModelError::TransientProvider {
-            provider,
-            model_id,
-            ..
-        } if provider == "anthropic" && model_id == "claude"
-    ));
-
-    let interrupted = ModelError::interrupted("deepseek", "deepseek-reasoner", "stream closed");
-    assert!(matches!(
-        interrupted,
-        ModelError::Interrupted {
-            provider,
-            model_id,
-            ..
-        } if provider == "deepseek" && model_id == "deepseek-reasoner"
-    ));
-
-    let context = ModelError::context_limit_exceeded("google", "gemini", "too large");
-    assert!(matches!(
-        context,
-        ModelError::ContextLimitExceeded {
-            provider,
-            model_id,
-            ..
-        } if provider == "google" && model_id == "gemini"
-    ));
+    let cases = [
+        (
+            ModelError::rate_limited("openai", "gpt-5.5", "HTTP 429"),
+            ErrorKind::RateLimited,
+            "openai",
+            "gpt-5.5",
+        ),
+        (
+            ModelError::transient("anthropic", "claude", "HTTP 500"),
+            ErrorKind::Transient,
+            "anthropic",
+            "claude",
+        ),
+        (
+            ModelError::interrupted("deepseek", "deepseek-reasoner", "stream closed"),
+            ErrorKind::Interrupted,
+            "deepseek",
+            "deepseek-reasoner",
+        ),
+        (
+            ModelError::context_limit_exceeded("google", "gemini", "too large"),
+            ErrorKind::ContextLimitExceeded,
+            "google",
+            "gemini",
+        ),
+    ];
+    for (error, kind, provider, model_id) in cases {
+        assert_eq!(error.core().kind, kind);
+        assert_eq!(error.core().provider, provider);
+        assert_eq!(error.core().model_id, model_id);
+    }
 }

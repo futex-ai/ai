@@ -5,8 +5,7 @@ use std::{error::Error, fmt};
 use serde_json::json;
 
 use crate::{
-    FinishReason, ModelAttempt, ModelAttemptError, ModelControl, ModelError, ModelEvent,
-    ModelResponse,
+    ErrorKind, FinishReason, ModelAttempt, ModelControl, ModelError, ModelEvent, ModelResponse,
 };
 
 use super::fixtures::{finish, fold, usage};
@@ -27,38 +26,41 @@ fn fallback_serialization_preserves_error_fields_without_cloning_the_source() {
     let cases = [
         (
             ModelError::rate_limited("p", "m", "limited"),
-            json!({"RateLimited": {"provider": "p", "model_id": "m", "message": "limited"}}),
+            json!({"kind": "RateLimited", "provider": "p", "model_id": "m", "message": "limited"}),
         ),
         (
-            ModelError::transient_provider("p", "m", "unavailable"),
-            json!({"TransientProvider": {"provider": "p", "model_id": "m", "message": "unavailable"}}),
+            ModelError::transient("p", "m", "unavailable"),
+            json!({"kind": "Transient", "provider": "p", "model_id": "m", "message": "unavailable"}),
         ),
         (
             ModelError::interrupted("p", "m", "closed"),
-            json!({"Interrupted": {"provider": "p", "model_id": "m", "message": "closed"}}),
+            json!({"kind": "Interrupted", "provider": "p", "model_id": "m", "message": "closed"}),
         ),
         (
-            ModelError::provider("p", "m", "rejected"),
-            json!({"Provider": {"provider": "p", "model_id": "m", "message": "rejected"}}),
+            ModelError::invalid_request("p", "m", "rejected"),
+            json!({"kind": "InvalidRequest", "provider": "p", "model_id": "m", "message": "rejected"}),
         ),
         (
             ModelError::context_limit_exceeded("p", "m", "large"),
-            json!({"ContextLimitExceeded": {"provider": "p", "model_id": "m", "message": "large"}}),
+            json!({"kind": "ContextLimitExceeded", "provider": "p", "model_id": "m", "message": "large"}),
         ),
         (
             ModelError::unsupported_control("p", "m", ModelControl::Effort),
-            json!({"UnsupportedControl": {"provider": "p", "model_id": "m", "control": "Effort"}}),
+            json!({"kind": {"UnsupportedControl": "Effort"}, "provider": "p", "model_id": "m", "message": "unsupported Effort control"}),
         ),
         (
-            ModelError::internal(Source),
-            json!({"Internal": {"message": "source failure"}}),
+            ModelError::internal("local", "test", Source),
+            json!({"kind": "Internal", "provider": "local", "model_id": "test", "message": "internal error"}),
         ),
     ];
     for (error, expected) in cases {
-        let event = ModelEvent::Fallback { error };
+        let event = ModelEvent::Fallback {
+            error,
+            emitted_events: false,
+        };
         assert_eq!(
             serde_json::to_value(&event).unwrap(),
-            json!({"Fallback": {"error": expected}})
+            json!({"Fallback": {"error": expected, "emitted_events": false}})
         );
     }
 }
@@ -73,11 +75,15 @@ fn response_attempt_records_round_trip_and_empty_attempts_keep_the_old_shape() {
         response
     );
 
-    let attempt = ModelAttempt::from(&ModelError::internal(Source));
+    let attempt = ModelError::internal("local", "test", Source).attempt(false);
     assert_eq!(
-        attempt.error,
-        ModelAttemptError::Internal {
-            message: "source failure".to_owned()
+        attempt,
+        ModelAttempt {
+            provider: "local".to_owned(),
+            model_id: "test".to_owned(),
+            kind: ErrorKind::Internal,
+            message: "internal error".to_owned(),
+            emitted_events: false,
         }
     );
     assert_eq!(

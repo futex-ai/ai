@@ -4,8 +4,9 @@ use serde_json::json;
 use thiserror::Error;
 
 use crate::{
-    GeneratedImage, ImageGenerationAspect, ImageGenerationError, ImageGenerationInputImage,
-    ImageGenerationQuality, ImageGenerationRequest, ImageGenerationResponse, ModelUsage,
+    ErrorCore, ErrorKind, GeneratedImage, ImageGenerationAspect, ImageGenerationError,
+    ImageGenerationInputImage, ImageGenerationQuality, ImageGenerationRequest,
+    ImageGenerationResponse, ModelUsage,
 };
 
 #[test]
@@ -90,59 +91,87 @@ fn enum_defaults_are_auto() {
 
 #[test]
 fn error_helpers_preserve_typed_context_and_display_contract() {
-    let unsupported = ImageGenerationError::unsupported_media_type("image/tiff");
+    let unsupported = ImageGenerationError::unsupported_media_type("openai", "image", "image/tiff");
     assert_eq!(
         unsupported.to_string(),
         "[ai_interface/image_generator] unsupported media type `image/tiff`"
     );
     assert!(matches!(
         unsupported,
-        ImageGenerationError::UnsupportedMediaType { content_type }
-            if content_type == "image/tiff"
+        ImageGenerationError::UnsupportedMediaType { content_type, core }
+            if content_type == "image/tiff" && core.kind == ErrorKind::UnsupportedInput
+                && core.provider == "openai" && core.model_id == "image"
     ));
 
     let policy = ImageGenerationError::content_policy("openai", "gpt-image-2", "blocked");
     assert_eq!(
         policy.to_string(),
-        "[ai_interface/image_generator] content policy refusal for `openai` model `gpt-image-2`: blocked"
+        "[ai_interface/image_generator] ContentPolicy for `openai` model `gpt-image-2`: blocked"
     );
-    assert!(matches!(
-        policy,
-        ImageGenerationError::ContentPolicy { provider, model_id, message }
-            if provider == "openai" && model_id == "gpt-image-2" && message == "blocked"
-    ));
+    assert_eq!(policy.core().kind, ErrorKind::ContentPolicy);
+    assert_eq!(policy.core().provider, "openai");
+    assert_eq!(policy.core().model_id, "gpt-image-2");
+    assert_eq!(policy.core().message, "blocked");
 
     assert!(matches!(
         ImageGenerationError::no_image("google", "gemini-image"),
-        ImageGenerationError::NoImage { provider, model_id }
-            if provider == "google" && model_id == "gemini-image"
+        ImageGenerationError::NoImage { core }
+            if core.provider == "google" && core.model_id == "gemini-image"
+                && core.kind == ErrorKind::InvalidOutput
     ));
-    assert!(matches!(
-        ImageGenerationError::rate_limited("openai", "image", "slow down"),
-        ImageGenerationError::RateLimited { .. }
-    ));
-    assert!(matches!(
-        ImageGenerationError::transient_provider("openai", "image", "retry"),
-        ImageGenerationError::TransientProvider { .. }
-    ));
-    assert!(matches!(
-        ImageGenerationError::provider("openai", "image", "bad request"),
-        ImageGenerationError::Provider { .. }
-    ));
+    for (kind, message) in [
+        (ErrorKind::RateLimited, "slow down"),
+        (ErrorKind::Transient, "retry"),
+        (ErrorKind::InvalidRequest, "bad request"),
+    ] {
+        let error = ImageGenerationError::new(ErrorCore::new(kind, "openai", "image", message));
+        assert_eq!(error.core().kind, kind);
+        assert_eq!(error.core().provider, "openai");
+        assert_eq!(error.core().model_id, "image");
+        assert_eq!(error.core().message, message);
+    }
 }
 
 #[test]
 fn internal_error_preserves_contract_and_caller_locations() {
     let expected_line = line!() + 1;
-    let error = ImageGenerationError::internal(TestSourceError);
+    let error = ImageGenerationError::internal("provider", "model", TestSourceError);
     assert_eq!(
         error.to_string(),
-        "[ai_interface/image_generator] internal error"
+        "[ai_interface/image_generator] Internal for `provider` model `model`: internal error"
     );
-    let ImageGenerationError::Internal(internal) = error else {
+    let ImageGenerationError::Internal {
+        source: internal, ..
+    } = error
+    else {
         panic!("expected internal error");
     };
 
+    assert_eq!(
+        internal.defined_at().module_path(),
+        "ai_interface::image_generator"
+    );
+    assert_eq!(internal.caller_at().file(), file!());
+    assert_eq!(internal.caller_at().line(), expected_line);
+    assert_eq!(internal.source_ref().to_string(), "test source");
+
+    let core = ErrorCore::new(
+        ErrorKind::InvalidOutput,
+        "provider",
+        "model",
+        "malformed output",
+    );
+    let expected_line = line!() + 1;
+    let error = ImageGenerationError::with_source(core, TestSourceError);
+    assert_eq!(error.core().kind, ErrorKind::InvalidOutput);
+    assert_eq!(error.core().provider, "provider");
+    assert_eq!(error.core().model_id, "model");
+    let ImageGenerationError::Internal {
+        source: internal, ..
+    } = error
+    else {
+        panic!("expected the tracked source");
+    };
     assert_eq!(
         internal.defined_at().module_path(),
         "ai_interface::image_generator"

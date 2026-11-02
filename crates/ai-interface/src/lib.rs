@@ -4,6 +4,9 @@
 
 mod audio_transcriber;
 mod effort;
+mod error_core;
+mod error_kind;
+mod image_generation_error;
 mod image_generator;
 mod judgment;
 mod logger;
@@ -32,6 +35,7 @@ mod router_error;
 mod routing_tiers;
 mod tools;
 mod usage;
+mod video_generation_error;
 mod video_generator;
 
 #[cfg(any(test, doctest, feature = "test-support"))]
@@ -42,6 +46,8 @@ pub use audio_transcriber::{
     TranscriptionError, TranscriptionResult,
 };
 pub use effort::{Effort, EffortSet};
+pub use error_core::ErrorCore;
+pub use error_kind::ErrorKind;
 pub use image_generator::{
     DynImageGenerator, GeneratedImage, ImageGenerationAspect, ImageGenerationError,
     ImageGenerationInputImage, ImageGenerationQuality, ImageGenerationRequest,
@@ -74,7 +80,7 @@ pub use mock_video_generator::MockVideoGenerator;
 pub use model::{
     DynModel, FinishReason, Model, ModelRequest, ModelResponse, ModelResult, StructuredOutputSchema,
 };
-pub use model_attempt::{ModelAttempt, ModelAttemptError};
+pub use model_attempt::ModelAttempt;
 pub use model_capabilities::{CustomModelDefaults, ForcedToolChoice, Sampling};
 pub use model_catalog::ModelCatalog;
 pub use model_controls::{

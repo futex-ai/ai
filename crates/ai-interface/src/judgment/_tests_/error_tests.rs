@@ -2,7 +2,10 @@
 
 use thiserror::Error;
 
-use crate::{JudgmentAnswerProblem, JudgmentError, JudgmentJsonType, JudgmentQuestionProblem};
+use crate::{
+    ErrorCore, ErrorKind, JudgmentAnswerProblem, JudgmentError, JudgmentJsonType,
+    JudgmentQuestionProblem,
+};
 
 #[test]
 fn question_problems_have_specific_display_messages() {
@@ -33,11 +36,9 @@ fn question_problems_have_specific_display_messages() {
 #[test]
 fn local_errors_use_the_judgment_display_prefix() {
     let errors = [
-        JudgmentError::UnsupportedContent {
-            json_type: JudgmentJsonType::Null,
-        },
-        JudgmentError::EmptyState,
-        JudgmentError::NoQuestions,
+        JudgmentError::unsupported_content(JudgmentJsonType::Null),
+        JudgmentError::empty_state(),
+        JudgmentError::no_questions(),
         JudgmentError::invalid_question("question", JudgmentQuestionProblem::BlankId),
     ];
 
@@ -48,38 +49,23 @@ fn local_errors_use_the_judgment_display_prefix() {
 
 #[test]
 fn provider_error_constructors_preserve_typed_context_and_display_contract() {
-    let rate_limited = JudgmentError::rate_limited("typesafe", "jev-latest", "slow down");
-    assert_eq!(
-        rate_limited.to_string(),
-        "[ai_interface/judgment] provider rate limit for `typesafe` model `jev-latest`: slow down"
-    );
-    assert!(matches!(
-        rate_limited,
-        JudgmentError::RateLimited { provider, model_id, message }
-            if provider == "typesafe" && model_id == "jev-latest" && message == "slow down"
-    ));
-
-    let transient = JudgmentError::transient_provider("typesafe", "jev-latest", "retry");
-    assert_eq!(
-        transient.to_string(),
-        "[ai_interface/judgment] transient provider failure for `typesafe` model `jev-latest`: retry"
-    );
-    assert!(matches!(
-        transient,
-        JudgmentError::TransientProvider { provider, model_id, message }
-            if provider == "typesafe" && model_id == "jev-latest" && message == "retry"
-    ));
-
-    let provider = JudgmentError::provider("typesafe", "jev-latest", "rejected");
-    assert_eq!(
-        provider.to_string(),
-        "[ai_interface/judgment] provider failure for `typesafe` model `jev-latest`: rejected"
-    );
-    assert!(matches!(
-        provider,
-        JudgmentError::Provider { provider, model_id, message }
-            if provider == "typesafe" && model_id == "jev-latest" && message == "rejected"
-    ));
+    for (kind, message) in [
+        (ErrorKind::RateLimited, "slow down"),
+        (ErrorKind::Transient, "retry"),
+        (ErrorKind::RejectedKey, "rejected"),
+    ] {
+        let error = JudgmentError::new(ErrorCore::new(kind, "typesafe", "jev-latest", message));
+        assert_eq!(error.core().kind, kind);
+        assert_eq!(error.core().provider, "typesafe");
+        assert_eq!(error.core().model_id, "jev-latest");
+        assert_eq!(error.core().message, message);
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "[ai_interface/judgment] {kind:?} for `typesafe` model `jev-latest`: {message}"
+            )
+        );
+    }
 }
 
 #[test]
@@ -95,7 +81,7 @@ fn invalid_question_constructor_preserves_id_and_problem() {
     );
     assert!(matches!(
         error,
-        JudgmentError::InvalidQuestion { id, problem }
+        JudgmentError::InvalidQuestion { id, problem, .. }
             if id == "frustration"
                 && problem == JudgmentQuestionProblem::TooFewLevels { levels: 1 }
     ));
@@ -117,23 +103,54 @@ fn invalid_answer_constructor_preserves_context_and_problem() {
     assert!(matches!(
         error,
         JudgmentError::InvalidAnswer {
-            provider,
-            model_id,
+            core,
             id,
             problem: JudgmentAnswerProblem::Missing,
-        } if provider == "typesafe" && model_id == "jev-latest" && id == "urgent"
+        } if core.provider == "typesafe" && core.model_id == "jev-latest" && id == "urgent"
+            && core.kind == ErrorKind::InvalidOutput
     ));
 }
 
 #[test]
 fn internal_error_preserves_contract_and_caller_locations() {
     let expected_line = line!() + 1;
-    let error = JudgmentError::internal(TestSourceError);
-    assert_eq!(error.to_string(), "[ai_interface/judgment] internal error");
-    let JudgmentError::Internal(internal) = error else {
+    let error = JudgmentError::internal("provider", "model", TestSourceError);
+    assert_eq!(
+        error.to_string(),
+        "[ai_interface/judgment] Internal for `provider` model `model`: internal error"
+    );
+    let JudgmentError::Internal {
+        source: internal, ..
+    } = error
+    else {
         panic!("expected internal error");
     };
 
+    assert_eq!(
+        internal.defined_at().module_path(),
+        "ai_interface::judgment::error"
+    );
+    assert_eq!(internal.caller_at().file(), file!());
+    assert_eq!(internal.caller_at().line(), expected_line);
+    assert_eq!(internal.source_ref().to_string(), "test source");
+
+    let core = ErrorCore::new(
+        ErrorKind::InvalidOutput,
+        "provider",
+        "model",
+        "malformed output",
+    );
+    let expected_line = line!() + 1;
+    let error = JudgmentError::with_source(core, TestSourceError);
+    assert_eq!(error.core().kind, ErrorKind::InvalidOutput);
+    assert_eq!(error.core().provider, "provider");
+    assert_eq!(error.core().model_id, "model");
+    let JudgmentError::Internal {
+        source: internal, ..
+    } = error
+    else {
+        panic!("expected the tracked source");
+    };
     assert_eq!(
         internal.defined_at().module_path(),
         "ai_interface::judgment::error"

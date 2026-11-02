@@ -1,7 +1,7 @@
 //! Built-in mock video generator tests.
 
 use crate::{
-    GeneratedVideo, MockVideoGenerator, VideoGenerationAspect, VideoGenerationDuration,
+    ErrorKind, GeneratedVideo, MockVideoGenerator, VideoGenerationAspect, VideoGenerationDuration,
     VideoGenerationError, VideoGenerationRequest, VideoGenerator,
 };
 
@@ -50,5 +50,8 @@ async fn mock_rejects_a_blank_prompt() {
         .generate(&VideoGenerationRequest::default())
         .await
         .unwrap_err();
-    assert!(matches!(error, VideoGenerationError::EmptyPrompt));
+    assert!(matches!(error, VideoGenerationError::EmptyPrompt { .. }));
+    assert_eq!(error.core().provider, "mock");
+    assert_eq!(error.core().model_id, "mock-video");
+    assert_eq!(error.core().kind, ErrorKind::InvalidRequest);
 }

@@ -118,7 +118,7 @@ impl ConversationMessage {
         if valid {
             Ok(())
         } else {
-            Err(ModelError::provider(
+            Err(ModelError::invalid_request(
                 provider,
                 model_id,
                 "conversation parts do not match the message role",

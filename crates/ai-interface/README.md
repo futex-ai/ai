@@ -52,7 +52,7 @@ runtime implementation.
   text, image, and video parts, an assistant message holds text, reasoning,
   and tool-call parts, and a tool message holds exactly one tool result.
   `ModelRequest::validate_messages(provider, model_id)` checks every message
-  and fails with `ModelError::Provider`. `ModelFeature::Vision` and
+  and fails with the `InvalidRequest` error kind. `ModelFeature::Vision` and
   `ModelFeature::VideoInput` are the stable routing capabilities for image
   and video inputs; providers without a video wire contract reject video
   parts with a typed provider error.
@@ -60,7 +60,7 @@ runtime implementation.
   is a JSON object that only the adapter of `provider` reads, and each
   adapter keeps its payload types private.
   `ProviderState::decode::<T>(provider, model_id, version)` returns `None` for
-  the state of another provider, and fails with `ModelError::Provider` for an
+  the state of another provider, and fails with `InvalidRequest` for an
   unsupported version or a payload that does not decode.
 - Serializes `ConversationMessage` as stored format version 2:
   `format_version`, `role`, `parts`, and an optional `name`.
@@ -128,9 +128,21 @@ runtime implementation.
   `catalog_model_id` records the text id of the spec.
   `ModelResponse::attempts` lists the failed fallback attempts before the
   response as `ModelAttempt` records. JSON leaves out an empty list.
-  `ModelError::Interrupted` identifies a model stream that failed only after
+  `ErrorKind::Interrupted` identifies a model stream that failed only after
   provider events had arrived, keeping it distinct from a safe-to-retry
-  `TransientProvider` failure before any progress.
+  `Transient` failure before any progress.
+- Defines `ErrorCore` and `ErrorKind` for model, image, video, transcription,
+  and judgment errors. Each error owns one core. `core()` and `core_mut()`
+  expose its kind, adapter identity, safe message, retry-after, and provider
+  request id. `UnsupportedControl` carries its typed `ModelControl`.
+  `ModelError::attempts()` returns earlier failed attempts in order.
+  Each `ModelAttempt` holds the provider, model, kind, message, and whether
+  that attempt emitted model events. Internal errors retain their sources.
+  `with_source(core, source)` retains a source with an explicit error kind.
+  Validation before adapter selection uses provider `local` and model
+  `judgment-validation`. A judgment adapter applies `with_identity` before
+  returning such a validation error. Fold invariant errors use provider
+  `local` and model `model-response-fold`.
 - Defines `ModelRouteRequest`, `ModelRequirement`, `ModelPreference`, and the
   `ModelRouter` trait. `ModelRequirement::ModelId` holds a text id, and
   `ModelRequirement::Provider` holds a `ProviderId`.
@@ -148,8 +160,8 @@ runtime implementation.
   delta has empty text only when it carries state. `Finish` carries the
   finish reason, the provider, the provider model id, the text id, the
   resolved effort, and the structured output. Only a policy layer emits
-  `Fallback`. It carries the error of a failed attempt, and a consumer
-  discards every event of that attempt.
+  `Fallback`. It carries the error and `emitted_events` of a failed attempt.
+  A consumer discards every event of that attempt.
 - Defines `ModelResponseFold` with `new`, `push`, and `finish`. The provided
   `Model::complete` folds every event of `stream` with it, and other stream
   consumers can use the same fold. The fold builds one part for each part
@@ -314,6 +326,8 @@ back into it.
 - `src/model_attempt.rs` - `ModelAttempt`, the serializable record of a
   failed fallback attempt.
 - `src/model_error.rs` - `ModelError` and its constructors.
+- `src/error_core.rs` and `src/error_kind.rs` - shared failure metadata and
+  the error categories used by policy layers.
 - `src/test_support.rs` - finite event streams for tests, behind
   `test-support`.
 - `src/model_controls.rs` - portable generation and execution controls,

@@ -68,7 +68,9 @@ async fn mock_applies_shared_request_validation() {
         .await
         .unwrap_err();
 
-    assert!(matches!(error, JudgmentError::EmptyState));
+    assert!(matches!(error, JudgmentError::EmptyState { .. }));
+    assert_eq!(error.core().provider, "mock");
+    assert_eq!(error.core().model_id, "mock-judgment");
 }
 
 #[tokio::test]
@@ -88,7 +90,7 @@ async fn generated_model_mock_returns_a_canned_error() {
     let model = Unimock::new(
         JudgmentModelMock::judge
             .next_call(matching!(_))
-            .returns(Err(JudgmentError::NoQuestions)),
+            .returns(Err(JudgmentError::no_questions())),
     );
 
     let error = model
@@ -96,7 +98,7 @@ async fn generated_model_mock_returns_a_canned_error() {
         .await
         .expect_err("configured error should be returned");
 
-    assert!(matches!(error, JudgmentError::NoQuestions));
+    assert!(matches!(error, JudgmentError::NoQuestions { .. }));
 }
 
 fn three_kind_request() -> JudgmentRequest {

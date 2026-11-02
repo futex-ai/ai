@@ -95,7 +95,8 @@ fn fold_rejects_invalid_event_order_with_an_internal_error() {
             vec![
                 usage(),
                 ModelEvent::Fallback {
-                    error: ModelError::provider("p", "m", "failed"),
+                    error: ModelError::invalid_request("p", "m", "failed"),
+                    emitted_events: false,
                 },
             ],
         ),
