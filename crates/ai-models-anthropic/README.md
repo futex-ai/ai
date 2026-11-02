@@ -103,17 +103,21 @@ Log copies drop the provider state and empty the reasoning text, while the
 conversation keeps both.
 
 `AnthropicLegacyConverter` converts a stored version 1
-`anthropic_assistant_message` item. It gives one part for each block, in the
-original block order, with that block as the state of the part. It keeps the
+`anthropic_assistant_message` item. In a message with items from Anthropic
+only, it gives one part for each block, in the original block order, with
+that block as the state of the part. It keeps the
 version 1 `content` as the message text, and it keeps every `tool_calls`
 entry. A tool-use block without a `tool_calls` entry stays as state on an
 empty reasoning part, so the converter invents no portable call. Text and
 calls that no block holds come after the block parts. Their state holds no
 block, so they add no native block to the request. An item without blocks
 keeps its empty assistant message. Add the converter to the
-`LegacyMessageConverter` of the host. A read without this converter keeps
-the item whole on one part. The adapter then sends the whole item as the
-content of that message, as version 1 did.
+`LegacyMessageConverter` of the host. In a message with items from several
+providers, the composition keeps every full content item whole on one
+reasoning part with its provider's id, at every item position. A read
+without this converter also keeps the item whole. The adapter sends the
+first whole Anthropic item as the entire content of that message, as
+version 1 did. Portable text and calls then add no native blocks.
 
 ## Quick Start
 

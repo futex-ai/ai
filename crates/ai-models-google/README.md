@@ -59,8 +59,9 @@ against the spec before transport. The adapter handles:
   that does not decode fails before transport with `ModelError::Provider`.
   Log copies drop this state.
 - `GoogleLegacyProviderConverter` for a stored version 1
-  `google_assistant_message` item. It gives one part for each original part,
-  in the original order, with that part as the state of the new part. A
+  `google_assistant_message` item. In a message with items from Google only,
+  it gives one part for each original part, in the original order, with
+  that part as the state of the new part. A
   function call takes precedence over the other fields of its part. A
   thought, and a part with neither text nor a function call, give a
   reasoning part. The portable text and calls still come from the version 1
@@ -69,9 +70,13 @@ against the spec before transport. The adapter handles:
   portable call. Text and calls that no original part holds come after the
   parts of the item. Their state holds no part, so they add no native Gemini
   part to the request. An item without parts keeps its assistant message.
-  Add the converter to the `LegacyMessageConverter` of the host. A read
-  without this converter keeps the item whole on one part. The adapter then
-  sends the whole item as the content of that message, as version 1 did.
+  Add the converter to the `LegacyMessageConverter` of the host. In a message
+  with items from several providers, the composition keeps every full
+  content item whole on one reasoning part with its provider's id, at every
+  item position. A read without this converter also keeps the item whole.
+  The adapter sends the first whole Google item as the entire content of
+  that message, as version 1 did. Portable text and calls then add no native
+  parts.
 - inline `inlineData` parts for shared base64 image and video user content
 - Gemini `finishReason` normalization into `ai_interface::FinishReason`,
   including deriving normal tool-call completion from parsed `functionCall`

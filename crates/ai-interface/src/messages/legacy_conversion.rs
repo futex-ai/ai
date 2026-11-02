@@ -22,28 +22,61 @@ pub fn compose_legacy_message(
     if message.role != ConversationRole::Assistant {
         return result;
     }
-    let primary = message.provider_context.first().and_then(|item| {
-        converters
-            .iter()
-            .find(|converter| converter.convert_item(item, message, 0).is_some())
-            .copied()
-    });
+    let converted = message
+        .provider_context
+        .iter()
+        .enumerate()
+        .map(|(item_index, item)| {
+            converters.iter().find_map(|converter| {
+                converter
+                    .convert_item(item, message, item_index)
+                    .map(|parts| (*converter, parts))
+            })
+        })
+        .collect::<Vec<_>>();
+    let primary = converted
+        .first()
+        .and_then(Option::as_ref)
+        .map(|(converter, _)| *converter);
+    let mut providers = message
+        .provider_context
+        .iter()
+        .zip(&converted)
+        .map(|(item, converted)| {
+            converted.as_ref().map_or_else(
+                || preserve_item(item).provider_state.provider,
+                |(converter, parts)| {
+                    parts.first().map_or_else(
+                        || converter.provider(),
+                        |part| part.provider_state.provider.clone(),
+                    )
+                },
+            )
+        });
+    let mixed = providers
+        .next()
+        .is_some_and(|first| providers.any(|provider| provider != first));
     let order = primary
         .map(|converter| converter.order())
         .unwrap_or_default();
-    let override_parts = primary.and_then(|converter| converter.convert_message(message));
+    let override_parts = primary
+        .filter(|_| !mixed)
+        .and_then(|converter| converter.convert_message(message));
     let has_override = override_parts.is_some();
     if let Some(parts) = override_parts {
         result.parts = parts;
     }
     let mut positions = Vec::new();
-    for (item_index, item) in message.provider_context.iter().enumerate() {
-        let converted = converters.iter().find_map(|converter| {
-            converter
-                .convert_item(item, message, item_index)
-                .map(|parts| (*converter, parts))
-        });
+    for (item, converted) in message.provider_context.iter().zip(converted) {
         let (attachments, installed) = match converted {
+            Some((converter, _)) if mixed && converter.convert_message(message).is_some() => {
+                let mut attachment = preserve_item(item);
+                attachment.target = LegacyPartTarget::Reasoning {
+                    text: String::new(),
+                };
+                attachment.provider_state.provider = converter.provider();
+                (vec![attachment], true)
+            }
             Some((converter, _))
                 if has_override
                     && primary

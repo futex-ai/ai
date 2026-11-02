@@ -92,3 +92,10 @@ fn legacy_fixture(provider: Provider) -> &'static str {
         Provider::Xai => include_str!("../fixtures/version1/xai_tool_loop.json"),
     }
 }
+
+#[cfg(test)]
+#[path = "legacy_request_support.rs"]
+mod legacy_request_support;
+#[cfg(test)]
+#[path = "mixed_native_replay_tests.rs"]
+mod mixed_native_replay_tests;

@@ -82,6 +82,12 @@ providers. It replays the `tool_loop` recording with that converted message
 as the assistant message of the second step. Every outbound request must
 match its recorded exchange.
 
+Mixed version 1 request regressions use the real adapters with an in-memory
+transport. They check native content with only its converter and with all
+converters installed. They cover repeated text, native block order, calls
+without portable entries, repeated native calls, and OpenAI item order when
+a full native item comes first. The recorded requests stay unchanged.
+
 The rate-limit fixtures use these official error references.
 Messages and request ids are synthetic examples, without account details.
 
@@ -149,6 +155,8 @@ See `json-http` for the transport boundary's status and failure limits.
 - `tests/_tests_/conformance_tests.rs` snapshots every available provider scenario.
 - `tests/_tests_/legacy_conversion_tests.rs` replays converted version 1 tool
   loops from `tests/fixtures/version1/`.
+- `tests/_tests_/mixed_native_replay_tests.rs` checks mixed version 1 native
+  requests and the reverse OpenAI item order.
 - `recordings/` holds the sanitized exchange files.
 
 ### Related Docs

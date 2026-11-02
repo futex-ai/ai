@@ -80,7 +80,9 @@ runtime implementation.
   or `Context`. Its `convert_item` returns `LegacyPartAttachment` values with a
   `LegacyPartTarget`, and its optional `convert_message` rebuilds the parts of
   a message whose item holds the exact block order.
-  `compose_legacy_message` applies a list of converters.
+  `compose_legacy_message` applies a list of converters. In a message with
+  items from several providers, it keeps each full content item whole on
+  one reasoning part with its converter's provider id.
 - Defines `ProviderId`, the stable lowercase name of a provider, such as
   `deepseek`, `minimax`, or `qwen`. It serializes as that plain string. Each
   provider crate exports the constant of its provider. This crate defines
