@@ -1,253 +1,215 @@
-//! Known OpenAI model metadata.
+//! OpenAI model specs and provider-owned custom defaults.
 
-use ai_models_core::{
-    CostTier, IntelligenceScore, KnownModelSpec, ModelFeature, ProviderKind, SpeedTier,
-    ThinkingLevel,
+use std::borrow::Cow;
+
+use ai_interface::{
+    CostTier, CustomModelDefaults, Effort, EffortSet, ForcedToolChoice, IntelligenceScore,
+    ModelFeature, ModelSpec, ProviderId, RoutingTiers, Sampling, SpeedTier,
 };
 
-/// OpenAI frontier model id used by default workspace deployments.
-pub const GPT_5_6_SOL: &str = "gpt-5.6-sol";
+/// Stable identity of the OpenAI provider.
+pub const PROVIDER_ID: ProviderId = ProviderId::new("openai");
 
-/// OpenAI balanced GPT-5.6 model id.
-pub const GPT_5_6_TERRA: &str = "gpt-5.6-terra";
+/// Controls used by an unlisted OpenAI model unless the caller replaces them.
+pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
+    context_window_tokens: 0,
+    max_output_tokens: u32::MAX,
+    efforts: EffortSet::new(Effort::Disabled)
+        .with(Effort::Low)
+        .with(Effort::Medium)
+        .with(Effort::High)
+        .with(Effort::ExtraHigh)
+        .with(Effort::Max),
+    default_effort: Effort::Disabled,
+    forced_tool_choice: ForcedToolChoice::Always,
+    sampling: Sampling::FixedWhileThinking,
+    supports_stop_sequences: false,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: &Effort::ALL,
+};
 
-/// OpenAI low-latency GPT-5.6 model id.
-pub const GPT_5_6_LUNA: &str = "gpt-5.6-luna";
-
-/// OpenAI GPT-5.6 Sol model id with explicit low reasoning effort.
-pub const GPT_5_6_SOL_THINKING_LOW: &str = "gpt-5.6-sol-thinking-low";
-
-/// OpenAI GPT-5.6 Sol model id with explicit high reasoning effort.
-pub const GPT_5_6_SOL_THINKING_HIGH: &str = "gpt-5.6-sol-thinking-high";
-
-/// OpenAI GPT-5.6 Sol model id with explicit extra-high reasoning effort.
-pub const GPT_5_6_SOL_THINKING_EXTRA_HIGH: &str = "gpt-5.6-sol-thinking-extra-high";
-
-/// OpenAI GPT-5.6 Sol model id with maximum reasoning effort.
-pub const GPT_5_6_SOL_THINKING_MAX: &str = "gpt-5.6-sol-thinking-max";
-
-/// Previous-generation OpenAI flagship model id.
-pub const GPT_5_5: &str = "gpt-5.5";
-
-/// OpenAI mid-tier model id with a balanced speed/cost profile.
-pub const GPT_5_4_MINI: &str = "gpt-5.4-mini";
-
-/// OpenAI low-latency model id for short, cheap turns.
-pub const GPT_5_4_NANO: &str = "gpt-5.4-nano";
-
-/// OpenAI flagship model id with explicit low reasoning effort.
-pub const GPT_5_5_THINKING_LOW: &str = "gpt-5.5-thinking-low";
-
-/// OpenAI flagship model id with explicit high reasoning effort.
-pub const GPT_5_5_THINKING_HIGH: &str = "gpt-5.5-thinking-high";
-
-/// OpenAI flagship model id with explicit extra-high reasoning effort.
-pub const GPT_5_5_THINKING_EXTRA_HIGH: &str = "gpt-5.5-thinking-extra-high";
-
-/// Current OpenAI image generation and editing model id.
-pub const GPT_IMAGE_2: &str = "gpt-image-2";
-
-/// Current OpenAI video generation model id.
-pub const SORA_2: &str = "sora-2";
-
-const GPT_5_6_FEATURES: &[ModelFeature] = &[
+const GPT_FEATURES: &[ModelFeature] = &[
     ModelFeature::ToolCalling,
     ModelFeature::StructuredOutput,
     ModelFeature::Vision,
     ModelFeature::LongContext,
     ModelFeature::Reasoning,
 ];
+const IMAGE_FEATURES: &[ModelFeature] = &[ModelFeature::ImageGeneration, ModelFeature::Vision];
+const VIDEO_FEATURES: &[ModelFeature] = &[ModelFeature::VideoGeneration, ModelFeature::Vision];
+const SOL_EFFORTS: EffortSet = EffortSet::new(Effort::Low)
+    .with(Effort::Medium)
+    .with(Effort::High)
+    .with(Effort::ExtraHigh)
+    .with(Effort::Max);
+const GPT_5_5_EFFORTS: EffortSet = EffortSet::new(Effort::Low)
+    .with(Effort::Medium)
+    .with(Effort::High)
+    .with(Effort::ExtraHigh);
 
-const GPT_5_5_FEATURES: &[ModelFeature] = &[
-    ModelFeature::ToolCalling,
-    ModelFeature::StructuredOutput,
-    ModelFeature::Vision,
-    ModelFeature::LongContext,
-    ModelFeature::Reasoning,
+/// Frontier GPT-5.6 model with medium reasoning by default.
+pub const GPT_5_6_SOL: ModelSpec = gpt_spec(
+    "gpt-5.6-sol",
+    1_050_000,
+    SOL_EFFORTS,
+    Effort::Medium,
+    RoutingTiers {
+        intelligence: IntelligenceScore::Ten,
+        speed: SpeedTier::Medium,
+        cost: CostTier::Premium,
+    },
+);
+
+/// Balanced GPT-5.6 model.
+pub const GPT_5_6_TERRA: ModelSpec = gpt_spec(
+    "gpt-5.6-terra",
+    1_050_000,
+    EffortSet::new(Effort::Medium),
+    Effort::Medium,
+    RoutingTiers {
+        intelligence: IntelligenceScore::Nine,
+        speed: SpeedTier::Fast,
+        cost: CostTier::High,
+    },
+);
+
+/// Low-latency GPT-5.6 model.
+pub const GPT_5_6_LUNA: ModelSpec = gpt_spec(
+    "gpt-5.6-luna",
+    1_050_000,
+    EffortSet::new(Effort::Medium),
+    Effort::Medium,
+    RoutingTiers {
+        intelligence: IntelligenceScore::Eight,
+        speed: SpeedTier::VeryFast,
+        cost: CostTier::Medium,
+    },
+);
+
+/// Previous-generation flagship with low through extra-high reasoning.
+pub const GPT_5_5: ModelSpec = gpt_spec(
+    "gpt-5.5",
+    400_000,
+    GPT_5_5_EFFORTS,
+    Effort::Medium,
+    RoutingTiers {
+        intelligence: IntelligenceScore::Ten,
+        speed: SpeedTier::Medium,
+        cost: CostTier::Premium,
+    },
+);
+
+/// Cost-optimized GPT-5.4 model.
+pub const GPT_5_4_MINI: ModelSpec = gpt_spec(
+    "gpt-5.4-mini",
+    400_000,
+    EffortSet::new(Effort::Disabled),
+    Effort::Disabled,
+    RoutingTiers {
+        intelligence: IntelligenceScore::Eight,
+        speed: SpeedTier::Fast,
+        cost: CostTier::Medium,
+    },
+);
+
+/// Smallest configured GPT-5.4 model.
+pub const GPT_5_4_NANO: ModelSpec = gpt_spec(
+    "gpt-5.4-nano",
+    400_000,
+    EffortSet::new(Effort::Disabled),
+    Effort::Disabled,
+    RoutingTiers {
+        intelligence: IntelligenceScore::Six,
+        speed: SpeedTier::VeryFast,
+        cost: CostTier::Low,
+    },
+);
+
+/// Image generation and editing model.
+pub const GPT_IMAGE_2: ModelSpec = media_spec(
+    "gpt-image-2",
+    IMAGE_FEATURES,
+    RoutingTiers {
+        intelligence: IntelligenceScore::Ten,
+        speed: SpeedTier::Medium,
+        cost: CostTier::Premium,
+    },
+);
+
+/// Video generation model.
+pub const SORA_2: ModelSpec = media_spec(
+    "sora-2",
+    VIDEO_FEATURES,
+    RoutingTiers {
+        intelligence: IntelligenceScore::Ten,
+        speed: SpeedTier::Slow,
+        cost: CostTier::Premium,
+    },
+);
+
+/// One spec for each known OpenAI provider model.
+pub const CATALOG: &[ModelSpec] = &[
+    GPT_5_6_SOL,
+    GPT_5_6_TERRA,
+    GPT_5_6_LUNA,
+    GPT_5_5,
+    GPT_5_4_MINI,
+    GPT_5_4_NANO,
+    GPT_IMAGE_2,
+    SORA_2,
 ];
-
-const GPT_5_4_EFFICIENT_FEATURES: &[ModelFeature] = &[
-    ModelFeature::ToolCalling,
-    ModelFeature::StructuredOutput,
-    ModelFeature::Vision,
-    ModelFeature::LongContext,
-    ModelFeature::Reasoning,
-];
-
-const GPT_IMAGE_2_FEATURES: &[ModelFeature] =
-    &[ModelFeature::ImageGeneration, ModelFeature::Vision];
-
-const SORA_2_FEATURES: &[ModelFeature] = &[ModelFeature::VideoGeneration, ModelFeature::Vision];
 
 /// Returns OpenAI models known to this provider crate.
-pub fn known_models() -> Vec<KnownModelSpec> {
-    vec![
-        gpt_5_6_sol_variant(
-            GPT_5_6_SOL,
-            SpeedTier::Medium,
-            CostTier::Premium,
-            ThinkingLevel::Medium,
-        ),
-        KnownModelSpec {
-            provider: ProviderKind::OpenAi,
-            id: GPT_5_6_TERRA,
-            provider_model_id: GPT_5_6_TERRA,
-            context_window_tokens: 1_050_000,
-            max_output_tokens: 128_000,
-            intelligence_score: IntelligenceScore::Nine,
-            speed: SpeedTier::Fast,
-            cost: CostTier::High,
-            thinking_level: ThinkingLevel::Medium,
-            features: GPT_5_6_FEATURES,
-        },
-        KnownModelSpec {
-            provider: ProviderKind::OpenAi,
-            id: GPT_5_6_LUNA,
-            provider_model_id: GPT_5_6_LUNA,
-            context_window_tokens: 1_050_000,
-            max_output_tokens: 128_000,
-            intelligence_score: IntelligenceScore::Eight,
-            speed: SpeedTier::VeryFast,
-            cost: CostTier::Medium,
-            thinking_level: ThinkingLevel::Medium,
-            features: GPT_5_6_FEATURES,
-        },
-        gpt_5_6_sol_variant(
-            GPT_5_6_SOL_THINKING_LOW,
-            SpeedTier::Fast,
-            CostTier::High,
-            ThinkingLevel::Low,
-        ),
-        gpt_5_6_sol_variant(
-            GPT_5_6_SOL_THINKING_HIGH,
-            SpeedTier::Slow,
-            CostTier::Premium,
-            ThinkingLevel::High,
-        ),
-        gpt_5_6_sol_variant(
-            GPT_5_6_SOL_THINKING_EXTRA_HIGH,
-            SpeedTier::Slow,
-            CostTier::Premium,
-            ThinkingLevel::ExtraHigh,
-        ),
-        gpt_5_6_sol_variant(
-            GPT_5_6_SOL_THINKING_MAX,
-            SpeedTier::Slow,
-            CostTier::Premium,
-            ThinkingLevel::Max,
-        ),
-        gpt_5_5_variant(
-            GPT_5_5,
-            SpeedTier::Medium,
-            CostTier::Premium,
-            ThinkingLevel::Medium,
-        ),
-        gpt_5_5_variant(
-            GPT_5_5_THINKING_LOW,
-            SpeedTier::Fast,
-            CostTier::High,
-            ThinkingLevel::Low,
-        ),
-        gpt_5_5_variant(
-            GPT_5_5_THINKING_HIGH,
-            SpeedTier::Slow,
-            CostTier::Premium,
-            ThinkingLevel::High,
-        ),
-        gpt_5_5_variant(
-            GPT_5_5_THINKING_EXTRA_HIGH,
-            SpeedTier::Slow,
-            CostTier::Premium,
-            ThinkingLevel::ExtraHigh,
-        ),
-        KnownModelSpec {
-            provider: ProviderKind::OpenAi,
-            id: GPT_5_4_MINI,
-            provider_model_id: GPT_5_4_MINI,
-            context_window_tokens: 400_000,
-            max_output_tokens: 128_000,
-            intelligence_score: IntelligenceScore::Eight,
-            speed: SpeedTier::Fast,
-            cost: CostTier::Medium,
-            thinking_level: ThinkingLevel::Disabled,
-            features: GPT_5_4_EFFICIENT_FEATURES,
-        },
-        KnownModelSpec {
-            provider: ProviderKind::OpenAi,
-            id: GPT_5_4_NANO,
-            provider_model_id: GPT_5_4_NANO,
-            context_window_tokens: 400_000,
-            max_output_tokens: 128_000,
-            intelligence_score: IntelligenceScore::Six,
-            speed: SpeedTier::VeryFast,
-            cost: CostTier::Low,
-            thinking_level: ThinkingLevel::Disabled,
-            features: GPT_5_4_EFFICIENT_FEATURES,
-        },
-        KnownModelSpec {
-            provider: ProviderKind::OpenAi,
-            id: GPT_IMAGE_2,
-            provider_model_id: GPT_IMAGE_2,
-            context_window_tokens: 0,
-            max_output_tokens: 0,
-            intelligence_score: IntelligenceScore::Ten,
-            speed: SpeedTier::Medium,
-            cost: CostTier::Premium,
-            thinking_level: ThinkingLevel::Disabled,
-            features: GPT_IMAGE_2_FEATURES,
-        },
-        KnownModelSpec {
-            provider: ProviderKind::OpenAi,
-            id: SORA_2,
-            provider_model_id: SORA_2,
-            context_window_tokens: 0,
-            max_output_tokens: 0,
-            intelligence_score: IntelligenceScore::Ten,
-            speed: SpeedTier::Slow,
-            cost: CostTier::Premium,
-            thinking_level: ThinkingLevel::Disabled,
-            features: SORA_2_FEATURES,
-        },
-    ]
+pub fn known_models() -> Vec<ModelSpec> {
+    CATALOG.to_vec()
 }
 
-fn gpt_5_6_sol_variant(
-    id: &'static str,
-    speed: SpeedTier,
-    cost: CostTier,
-    thinking_level: ThinkingLevel,
-) -> KnownModelSpec {
-    KnownModelSpec {
-        provider: ProviderKind::OpenAi,
-        id,
-        provider_model_id: GPT_5_6_SOL,
-        context_window_tokens: 1_050_000,
+const fn gpt_spec(
+    model_id: &'static str,
+    context_window_tokens: u32,
+    efforts: EffortSet,
+    default_effort: Effort,
+    routing: RoutingTiers,
+) -> ModelSpec {
+    ModelSpec {
+        provider: PROVIDER_ID,
+        provider_model_id: Cow::Borrowed(model_id),
+        context_window_tokens,
         max_output_tokens: 128_000,
-        intelligence_score: IntelligenceScore::Ten,
-        speed,
-        cost,
-        thinking_level,
-        features: GPT_5_6_FEATURES,
+        efforts,
+        default_effort,
+        forced_tool_choice: ForcedToolChoice::Always,
+        sampling: Sampling::FixedWhileThinking,
+        supports_stop_sequences: false,
+        supports_deferred: false,
+        requires_output_limit: false,
+        replay_efforts: Cow::Borrowed(&Effort::ALL),
+        features: Cow::Borrowed(GPT_FEATURES),
+        routing: Some(routing),
     }
 }
 
-fn gpt_5_5_variant(
-    id: &'static str,
-    speed: SpeedTier,
-    cost: CostTier,
-    thinking_level: ThinkingLevel,
-) -> KnownModelSpec {
-    KnownModelSpec {
-        provider: ProviderKind::OpenAi,
-        id,
-        provider_model_id: GPT_5_5,
-        context_window_tokens: 400_000,
-        max_output_tokens: 128_000,
-        intelligence_score: IntelligenceScore::Ten,
-        speed,
-        cost,
-        thinking_level,
-        features: GPT_5_5_FEATURES,
+const fn media_spec(
+    model_id: &'static str,
+    features: &'static [ModelFeature],
+    routing: RoutingTiers,
+) -> ModelSpec {
+    ModelSpec {
+        provider: PROVIDER_ID,
+        provider_model_id: Cow::Borrowed(model_id),
+        context_window_tokens: 0,
+        max_output_tokens: 0,
+        efforts: EffortSet::new(Effort::Disabled),
+        default_effort: Effort::Disabled,
+        forced_tool_choice: ForcedToolChoice::Always,
+        sampling: Sampling::FixedWhileThinking,
+        supports_stop_sequences: false,
+        supports_deferred: false,
+        requires_output_limit: false,
+        replay_efforts: Cow::Borrowed(&[]),
+        features: Cow::Borrowed(features),
+        routing: Some(routing),
     }
 }
 

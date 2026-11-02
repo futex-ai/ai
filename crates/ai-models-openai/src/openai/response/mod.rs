@@ -4,8 +4,10 @@ mod finish;
 mod output;
 mod types;
 
-use ai_interface::{FinishReason, ModelError, ModelResponse, ModelUsage, StructuredOutputSchema};
-use ai_models_core::{ThinkingLevel, parse_structured_output};
+use ai_interface::{
+    Effort, FinishReason, ModelError, ModelResponse, ModelUsage, StructuredOutputSchema,
+};
+use ai_models_core::parse_structured_output;
 use serde_json::Value;
 
 use self::finish::finish_reason;
@@ -17,7 +19,7 @@ const PROVIDER: &str = "openai";
 pub(super) fn parse_response(
     catalog_model_id: &str,
     provider_model_id: &str,
-    thinking_level: ThinkingLevel,
+    thinking_level: Effort,
     body: Value,
     response_schema: Option<&StructuredOutputSchema>,
 ) -> std::result::Result<ModelResponse, ModelError> {

@@ -4,22 +4,24 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ai_interface::{
-    ConversationMessage, FinishReason, Model, ModelCallControls, ModelExecutionControls,
+    ConversationMessage, Effort, FinishReason, Model, ModelCallControls, ModelExecutionControls,
     ModelRequest, StructuredOutputSchema,
 };
-use ai_models_core::ThinkingLevel;
 use json_http::StaticHeaderAuth;
 use serde_json::{Value, json};
 
-use super::{OpenAiModel, response::parse_response};
+use crate::GPT_5_5;
+use crate::openai::stream_support::custom_spec;
 use crate::openai::stream_support::{event, recording_streaming_client, terminal_event};
+
+use super::{OpenAiModel, response::parse_response};
 
 #[tokio::test]
 async fn sends_streaming_request_with_completion_deadlines() {
     let body = text_body("Done");
     let events = vec![terminal_event("response.completed", body)];
     let (http_client, requests) = recording_streaming_client(vec![events]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "key");
 
     model
         .complete(&simple_request())
@@ -37,7 +39,7 @@ async fn sends_streaming_request_with_completion_deadlines() {
 async fn explicit_total_timeout_overrides_streaming_default() {
     let events = vec![terminal_event("response.completed", text_body("Done"))];
     let (http_client, requests) = recording_streaming_client(vec![events]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "key");
     let mut request = simple_request();
     request.controls = ModelCallControls {
         execution: ModelExecutionControls {
@@ -73,26 +75,17 @@ async fn completed_stream_matches_rich_buffered_response() {
         terminal_event("response.completed", body.clone()),
     ];
     let (http_client, _) = recording_streaming_client(vec![events]);
-    let model = OpenAiModel::with_catalog_auth(
-        http_client,
-        "gpt-5.5-thinking-high",
-        "gpt-5.5",
-        ThinkingLevel::High,
-        Arc::new(StaticHeaderAuth::default()),
-    );
+    let model =
+        OpenAiModel::with_catalog_auth(http_client, GPT_5_5, Arc::new(StaticHeaderAuth::default()));
 
+    let mut request = simple_request();
+    request.controls.generation.effort = Some(Effort::High);
     let streamed = model
-        .complete(&simple_request())
+        .complete(&request)
         .await
         .expect("streamed response should parse");
-    let buffered = parse_response(
-        "gpt-5.5-thinking-high",
-        "gpt-5.5",
-        ThinkingLevel::High,
-        body,
-        None,
-    )
-    .expect("buffered response should parse");
+    let buffered = parse_response("openai/gpt-5.5", "gpt-5.5", Effort::High, body, None)
+        .expect("buffered response should parse");
 
     assert_eq!(streamed, buffered);
     assert_eq!(streamed.finish_reason, FinishReason::ToolCalls);
@@ -111,7 +104,7 @@ async fn completed_structured_stream_matches_buffered_response() {
     };
     let events = vec![terminal_event("response.completed", body.clone())];
     let (http_client, _) = recording_streaming_client(vec![events]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "key");
     let mut request = simple_request();
     request.response_schema = Some(schema.clone());
 
@@ -120,9 +113,9 @@ async fn completed_structured_stream_matches_buffered_response() {
         .await
         .expect("structured stream should parse");
     let buffered = parse_response(
+        "openai/gpt-5.5",
         "gpt-5.5",
-        "gpt-5.5",
-        ThinkingLevel::Disabled,
+        Effort::Disabled,
         body,
         Some(&schema),
     )
@@ -144,13 +137,13 @@ async fn incomplete_stream_matches_buffered_truncation() {
     });
     let events = vec![terminal_event("response.incomplete", body.clone())];
     let (http_client, _) = recording_streaming_client(vec![events]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "key");
 
     let streamed = model
         .complete(&simple_request())
         .await
         .expect("incomplete response should remain usable");
-    let buffered = parse_response("gpt-5.5", "gpt-5.5", ThinkingLevel::Disabled, body, None)
+    let buffered = parse_response("openai/gpt-5.5", "gpt-5.5", Effort::Disabled, body, None)
         .expect("buffered incomplete response should parse");
 
     assert_eq!(streamed, buffered);

@@ -6,13 +6,15 @@ use ai_interface::{
 };
 use serde_json::json;
 
-use super::OpenAiModel;
 use crate::openai::stream_support::client_for_buffered_bodies;
+use crate::openai::stream_support::custom_spec;
+
+use super::OpenAiModel;
 
 #[tokio::test]
 async fn replays_openai_reasoning_context_before_tool_outputs() {
     let (http_client, requests) = client_for_buffered_bodies(vec![openai_text_response("Done")]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "sk-openai");
     let assistant = ConversationMessage::assistant_with_provider_context(
         "",
         vec![ToolCall {
@@ -103,7 +105,7 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
 #[tokio::test]
 async fn replays_assistant_message_phase_before_function_call_context() {
     let (http_client, requests) = client_for_buffered_bodies(vec![openai_text_response("Done")]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "sk-openai");
     let assistant = ConversationMessage::assistant_with_provider_context(
         "I'll inspect memory.",
         vec![ToolCall {
@@ -156,7 +158,7 @@ async fn replays_assistant_message_phase_before_function_call_context() {
 #[tokio::test]
 async fn replays_phase_less_assistant_message_before_function_call_context() {
     let (http_client, requests) = client_for_buffered_bodies(vec![openai_text_response("Done")]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "sk-openai");
     let assistant = ConversationMessage::assistant_with_provider_context(
         "I'll inspect memory.",
         vec![ToolCall {

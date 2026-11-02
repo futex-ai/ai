@@ -3,8 +3,10 @@
 use ai_interface::{ConversationMessage, Model, ModelError, ModelRequest};
 use serde_json::json;
 
-use super::OpenAiModel;
+use crate::openai::stream_support::custom_spec;
 use crate::openai::stream_support::{event, recording_streaming_client, terminal_event};
+
+use super::OpenAiModel;
 
 #[tokio::test]
 async fn classifies_first_failed_and_error_events() {
@@ -25,7 +27,7 @@ async fn classifies_first_failed_and_error_events() {
         }),
     );
     let (http_client, _) = recording_streaming_client(vec![vec![failed], vec![rate_limit]]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "key");
 
     let failed = model
         .complete(&simple_request())
@@ -62,7 +64,7 @@ async fn terminal_failures_after_progress_are_interruptions() {
         vec![progress_event(), failed],
         vec![progress_event(), native_error],
     ]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "key");
 
     for label in ["failed terminal", "native error"] {
         let error = model
@@ -76,7 +78,7 @@ async fn terminal_failures_after_progress_are_interruptions() {
 #[tokio::test]
 async fn classifies_eof_before_and_after_progress() {
     let (http_client, _) = recording_streaming_client(vec![vec![], vec![progress_event()]]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "key");
 
     let before = model
         .complete(&simple_request())
@@ -97,7 +99,7 @@ async fn classifies_transport_failure_before_and_after_progress() {
         vec![Err(json_http::Error::transport("offline"))],
         vec![progress_event(), Err(json_http::Error::transport("reset"))],
     ]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "key");
 
     let before = model
         .complete(&simple_request())
@@ -118,7 +120,7 @@ async fn malformed_events_follow_progress_classification() {
         vec![malformed_event()],
         vec![progress_event(), malformed_event()],
     ]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "key");
 
     let before = model
         .complete(&simple_request())

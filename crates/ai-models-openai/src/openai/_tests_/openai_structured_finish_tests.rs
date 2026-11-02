@@ -1,7 +1,6 @@
 //! Tests for structured-output terminal finish handling.
 
-use ai_interface::{FinishReason, StructuredOutputSchema};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, FinishReason, StructuredOutputSchema};
 use serde_json::json;
 
 use super::response::parse_response;
@@ -11,7 +10,7 @@ fn structured_output_refusal_preserves_filtered_finish_reason() {
     let response = parse_response(
         "gpt-5.5",
         "gpt-5.5",
-        ThinkingLevel::Medium,
+        Effort::Medium,
         json!({
             "status": "completed",
             "output": [{
@@ -37,7 +36,7 @@ fn structured_output_truncation_preserves_truncated_finish_reason() {
     let response = parse_response(
         "gpt-5.5",
         "gpt-5.5",
-        ThinkingLevel::Medium,
+        Effort::Medium,
         json!({
             "status": "incomplete",
             "incomplete_details": { "reason": "max_output_tokens" },

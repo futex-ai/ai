@@ -4,21 +4,23 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ai_interface::{
-    ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl, ModelError,
-    ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
+    ConversationMessage, Effort, Model, ModelCallControls, ModelCompletionMode, ModelControl,
+    ModelError, ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
+    ToolDefinition,
 };
-use ai_models_core::ThinkingLevel;
 use json_http::{JsonHttpClient, StaticHeaderAuth, TransportBackedJsonHttpClient};
 use serde_json::json;
 use unimock::Unimock;
 
-use super::OpenAiModel;
+use crate::openai::stream_support::custom_spec;
 use crate::openai::stream_support::{RecordedRequests, client_for_buffered_bodies};
+
+use super::OpenAiModel;
 
 #[tokio::test]
 async fn maps_non_reasoning_controls_and_timeout_to_the_final_request() {
     let (http_client, requests) = recording_client();
-    let model = OpenAiModel::new(http_client, "gpt-5.5-mini", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5-mini"), "key");
 
     model
         .complete(&controlled_request())
@@ -42,14 +44,14 @@ async fn reasoning_models_keep_sampling_provider_fixed() {
     let (http_client, requests) = recording_client();
     let model = OpenAiModel::with_catalog_auth(
         http_client,
-        "gpt-5.6-sol",
-        "gpt-5.6",
-        ThinkingLevel::High,
+        custom_spec("gpt-5.6"),
         Arc::new(StaticHeaderAuth::bearer_token("key")),
     );
 
+    let mut request = controlled_request();
+    request.controls.generation.effort = Some(Effort::High);
     model
-        .complete(&controlled_request())
+        .complete(&request)
         .await
         .expect("reasoning response should parse");
 
@@ -63,7 +65,7 @@ async fn reasoning_models_keep_sampling_provider_fixed() {
 #[tokio::test]
 async fn required_or_auto_uses_forced_required_semantics() {
     let (http_client, requests) = recording_client();
-    let model = OpenAiModel::new(http_client, "gpt-5.5-mini", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5-mini"), "key");
     let mut request = base_request();
     request.controls.generation.tool_choice = Some(ModelToolChoice::RequiredOrAuto);
 
@@ -83,7 +85,7 @@ async fn required_or_auto_uses_forced_required_semantics() {
 async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
     for (system_prompt, expected) in [("", None), ("   ", None), ("normal", Some("normal"))] {
         let (http_client, requests) = recording_client();
-        let model = OpenAiModel::new(http_client, "gpt-5.5-mini", "key");
+        let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5-mini"), "key");
         let mut request = base_request();
         request.system_prompt = system_prompt.to_owned();
 
@@ -103,7 +105,7 @@ async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
 
 #[tokio::test]
 async fn rejects_stops_and_required_deferred_mode_before_transport() {
-    let model = OpenAiModel::new(no_call_client(), "gpt-5.5-mini", "key");
+    let model = OpenAiModel::new(no_call_client(), custom_spec("gpt-5.5-mini"), "key");
     let mut stop_request = base_request();
     stop_request.controls.generation.stop_sequences = vec!["stop".to_owned()];
     let stop_error = model
