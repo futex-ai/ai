@@ -113,6 +113,16 @@ before transport. The
 [Qwen](qwen-model-provider.md), and [MiniMax](minimax-model-provider.md)
 provider protocols give the wire mappings of the compatible providers.
 
+These adapters send resolved output limits and stop sequences in these
+native fields. The control matrix above defines model support and limits.
+
+| Provider | Output-limit field | Stop field |
+| --- | --- | --- |
+| OpenAI Responses | `max_output_tokens` | Unsupported |
+| Anthropic Messages | `max_tokens` | `stop_sequences` |
+| Google Gemini | `generationConfig.maxOutputTokens` | `generationConfig.stopSequences` |
+| xAI Chat Completions | `max_tokens` | `stop` |
+
 ## System Instructions
 
 - Blank means `system_prompt.trim().is_empty()`: empty and whitespace-only
