@@ -8,6 +8,8 @@ use ai_models_core::synthetic_tool_call_scope;
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use crate::part_test_support::message;
+
 use super::test_support::custom_spec;
 use super::{XaiModel, response, test_support::recording_http_client};
 
@@ -41,15 +43,14 @@ async fn builds_xai_tool_requests_and_parses_response() {
     let response = model
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
-            messages: vec![ConversationMessage {
-                role: ConversationRole::User,
-                content: "hello".to_owned(),
-                content_parts: Vec::new(),
-                name: None,
-                tool_call_id: None,
-                tool_calls: Vec::new(),
-                provider_context: Vec::new(),
-            }],
+            messages: vec![message(
+                ConversationRole::User,
+                "hello".to_owned(),
+                Vec::new(),
+                None,
+                None,
+                Vec::new(),
+            )],
             tools: vec![ToolDefinition {
                 name: "memory_read".to_owned(),
                 description: "Read memory".to_owned(),
@@ -85,10 +86,10 @@ async fn builds_xai_tool_requests_and_parses_response() {
         "memory_read"
     );
 
-    assert_eq!(response.assistant_message, "Done");
+    assert_eq!(response.text(), "Done");
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
-    assert_eq!(response.tool_calls.len(), 1);
-    assert_eq!(response.tool_calls[0].name, "memory_read");
+    assert_eq!(response.tool_calls().len(), 1);
+    assert_eq!(response.tool_calls()[0].name, "memory_read");
     assert_eq!(response.structured_output, None);
     assert_eq!(response.usage.total_tokens, 152);
     assert_eq!(response.usage.cached_input_tokens, 0);

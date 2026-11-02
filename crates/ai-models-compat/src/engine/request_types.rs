@@ -1,8 +1,9 @@
 //! Shared Chat Completions request DTOs.
 
-use ai_interface::MiniMaxReasoningDetail;
 use serde::Serialize;
 use serde_json::Value;
+
+use crate::minimax::state::ReasoningDetail;
 
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct ChatCompletionsRequest {
@@ -81,7 +82,7 @@ pub(crate) struct ChatCompletionsMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) reasoning_content: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) reasoning_details: Vec<MiniMaxReasoningDetail>,
+    pub(crate) reasoning_details: Vec<ReasoningDetail>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) tool_calls: Vec<ChatCompletionsToolCall>,
     #[serde(skip_serializing_if = "Option::is_none")]

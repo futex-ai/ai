@@ -169,7 +169,8 @@ impl CompatStream {
         let context = self.identity.context();
         let response =
             response::parse_accumulated(context, accumulated, self.response_schema.as_ref())?;
-        self.events.extend(self.parts.finish(context, legacy));
+        self.events
+            .extend(self.parts.finish(context, legacy, &response));
         if let Some(delta) = terminal_text.filter(|delta| !delta.is_empty()) {
             self.events.push_back(self.parts.terminal_text(delta));
         }

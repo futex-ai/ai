@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, VecDeque, btree_map::Entry};
 
-use ai_interface::{ModelEvent, ModelResponse};
+use ai_interface::{ConversationPart, ModelEvent, ModelResponse};
 use ai_models_core::synthetic_tool_call_id;
 
 use crate::{
@@ -54,6 +54,7 @@ impl EventParts {
                     .push_back(PendingEvent::Content(ModelEvent::ReasoningDelta {
                         part_index,
                         delta,
+                        provider_state: None,
                     }));
             }
             if let Some(delta) = nonempty(choice.delta.content.as_deref()) {
@@ -64,6 +65,7 @@ impl EventParts {
                     .push_back(PendingEvent::Content(ModelEvent::TextDelta {
                         part_index,
                         delta,
+                        provider_state: None,
                     }));
             }
             for call in &choice.delta.tool_calls {
@@ -98,13 +100,18 @@ impl EventParts {
         let part_index = *self
             .text
             .get_or_insert_with(|| take_index(&mut self.next_index));
-        ModelEvent::TextDelta { part_index, delta }
+        ModelEvent::TextDelta {
+            part_index,
+            delta,
+            provider_state: None,
+        }
     }
 
     pub(super) fn finish(
         &mut self,
         context: CompletionContext<'_>,
         function: Option<ChatCompletionsToolFunction>,
+        response: &ModelResponse,
     ) -> VecDeque<ModelEvent> {
         if let (Some(legacy), Some(function)) = (self.legacy.as_mut(), function) {
             let id = synthetic_tool_call_id(
@@ -119,18 +126,54 @@ impl EventParts {
         let mut indices = self
             .tools
             .values()
-            .map(ToolPart::part_index)
+            .map(|tool| (tool.part_index(), tool.id()))
             .collect::<Vec<_>>();
         if let Some(legacy) = self.legacy.as_ref() {
-            indices.push(legacy.part_index);
+            indices.push((
+                legacy.part_index,
+                legacy.identity.as_ref().map(|(id, _)| id.as_str()),
+            ));
         }
-        indices.sort_unstable();
-        self.pending.extend(
-            indices
-                .into_iter()
-                .map(|part_index| PendingEvent::Content(ModelEvent::ToolCallEnd { part_index })),
-        );
-        self.ready_events()
+        indices.sort_by_key(|(index, _)| *index);
+        self.pending
+            .extend(indices.into_iter().map(|(part_index, id)| {
+                PendingEvent::Content(ModelEvent::ToolCallEnd {
+                    part_index,
+                    provider_state: response.parts.iter().find_map(|part| match part {
+                        ConversationPart::ToolCall {
+                            call_id,
+                            provider_state,
+                            ..
+                        } if Some(call_id.as_str()) == id => provider_state.clone(),
+                        _ => None,
+                    }),
+                })
+            }));
+        let mut events = self.ready_events();
+        for part in &response.parts {
+            let Some(state) = part.provider_state().cloned() else {
+                continue;
+            };
+            let event = match part {
+                ConversationPart::Text { .. } => ModelEvent::TextDelta {
+                    part_index: *self
+                        .text
+                        .get_or_insert_with(|| take_index(&mut self.next_index)),
+                    delta: String::new(),
+                    provider_state: Some(state),
+                },
+                ConversationPart::Reasoning { .. } => ModelEvent::ReasoningDelta {
+                    part_index: *self
+                        .reasoning
+                        .get_or_insert_with(|| take_index(&mut self.next_index)),
+                    delta: String::new(),
+                    provider_state: Some(state),
+                },
+                _ => continue,
+            };
+            events.push_back(event);
+        }
+        events
     }
 
     fn push_tool(&mut self, call: &ChatCompletionsToolCallDelta) {
@@ -207,7 +250,6 @@ pub(super) fn terminal_events(response: ModelResponse) -> [ModelEvent; 2] {
             catalog_model_id: response.catalog_model_id,
             thinking_level: response.thinking_level,
             structured_output: response.structured_output,
-            provider_context: response.provider_context,
         },
     ]
 }

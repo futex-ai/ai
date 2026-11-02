@@ -2,25 +2,24 @@
 
 use std::sync::Arc;
 
-use ai_interface::{ConversationContentPart, ConversationMessage, Model, ModelError, ModelRequest};
+use ai_interface::{ConversationMessage, ConversationPart, Model, ModelError, ModelRequest};
 use json_http::JsonHttpAuth;
 use unimock::Unimock;
 
 use super::{DeepSeekModel, test_support::unused_http_client};
 
 #[tokio::test]
-async fn rejects_every_non_empty_content_parts_value_before_external_calls() {
+async fn rejects_image_and_video_parts_before_external_calls() {
     let cases = [
-        ConversationContentPart::Text {
-            text: "typed text".to_owned(),
-        },
-        ConversationContentPart::Image {
+        ConversationPart::Image {
             mime_type: "image/png".to_owned(),
             data_base64: "abc123".to_owned(),
+            provider_state: None,
         },
-        ConversationContentPart::Video {
+        ConversationPart::Video {
             mime_type: "video/mp4".to_owned(),
             data_base64: "dmlkZW8=".to_owned(),
+            provider_state: None,
         },
     ];
 
@@ -30,7 +29,7 @@ async fn rejects_every_non_empty_content_parts_value_before_external_calls() {
         let error = model
             .complete(&ModelRequest {
                 system_prompt: "system".to_owned(),
-                messages: vec![ConversationMessage::user_with_parts("fallback", vec![part])],
+                messages: vec![ConversationMessage::user_with_parts(vec![part])],
                 tools: Vec::new(),
                 response_schema: None,
                 controls: Default::default(),

@@ -1,11 +1,10 @@
 //! MiniMax interleaved-thinking replay tests.
 
-use ai_interface::{
-    ConversationMessage, DeepSeekToolCallContext, MiniMaxReasoningDetail, Model, ModelRequest,
-    OpenAiReasoningSummary, ProviderConversationItem, QwenToolCallContext,
-};
+use ai_interface::{ConversationMessage, Model, ModelRequest};
 use json_http::JsonHttpResponse;
 use serde_json::json;
+
+use crate::part_test_support::{assistant_with_items, replay_items};
 
 use crate::minimax::MINIMAX_M3;
 
@@ -21,66 +20,30 @@ async fn preserves_and_replays_complete_reasoning_context_without_disclosure() {
         .await
         .expect("reasoning tool response should parse");
 
-    assert_eq!(first_response.assistant_message, "I will check.");
-    assert!(
-        !first_response
-            .assistant_message
-            .contains("private chain of thought")
-    );
+    assert_eq!(first_response.text(), "I will check.");
+    assert!(!first_response.text().contains("private chain of thought"));
     assert_eq!(
-        first_response.provider_context,
-        vec![ProviderConversationItem::MiniMaxAssistant {
-            reasoning_content: Some("private chain of thought".to_owned()),
-            reasoning_details: vec![MiniMaxReasoningDetail {
-                kind: Some("reasoning.text".to_owned()),
-                id: Some("reasoning-1".to_owned()),
-                format: Some("MiniMax-response-v1".to_owned()),
-                index: Some(0),
-                text: Some("private chain of thought".to_owned()),
-            }],
-        }]
+        replay_items(&first_response),
+        vec![
+            json!({"type": "minimax_assistant", "reasoning_content": Some("private chain of thought".to_owned()), "reasoning_details": vec![json!({"type": Some("reasoning.text".to_owned()), "id": Some("reasoning-1".to_owned()), "format": Some("MiniMax-response-v1".to_owned()), "index": Some(0), "text": Some("private chain of thought".to_owned())})]})
+        ]
     );
 
-    let serialized = serde_json::to_value(&first_response.provider_context)
-        .expect("provider context should serialize");
+    let serialized =
+        serde_json::to_value(&first_response.parts).expect("provider context should serialize");
     let round_tripped =
         serde_json::from_value(serialized).expect("provider context should deserialize");
-    let mut replay_context: Vec<ProviderConversationItem> = round_tripped;
-    replay_context.push(ProviderConversationItem::OpenAiReasoning {
-        id: "foreign".to_owned(),
-        summary: vec![OpenAiReasoningSummary {
-            kind: "summary_text".to_owned(),
-            text: "foreign provider state".to_owned(),
-        }],
-        encrypted_content: None,
-    });
-    replay_context.push(ProviderConversationItem::DeepSeekAssistantMessage {
-        content: "DeepSeek-owned content".to_owned(),
-        reasoning_content: Some("DeepSeek-owned reasoning".to_owned()),
-        tool_calls: vec![DeepSeekToolCallContext {
-            id: "deepseek_call".to_owned(),
-            name: "ignored".to_owned(),
-            arguments: "{\"foreign\":true}".to_owned(),
-        }],
-    });
-    replay_context.push(ProviderConversationItem::QwenAssistantMessage {
-        content: Some("Qwen-owned content".to_owned()),
-        reasoning_content: Some("Qwen-owned reasoning".to_owned()),
-        tool_calls: vec![QwenToolCallContext {
-            id: "qwen_call".to_owned(),
-            name: "ignored".to_owned(),
-            arguments: "{}".to_owned(),
-        }],
-    });
+    let mut replay_parts: Vec<ai_interface::ConversationPart> = round_tripped;
+    let mut replay_context = Vec::new();
+    replay_context.push(json!({"type": "openai_reasoning", "id": "foreign".to_owned(), "summary": vec![json!({"type": "summary_text".to_owned(), "text": "foreign provider state".to_owned()})], "encrypted_content": serde_json::Value::Null}));
+    replay_context.push(json!({"type": "deep_seek_assistant_message", "content": "DeepSeek-owned content".to_owned(), "reasoning_content": Some("DeepSeek-owned reasoning".to_owned()), "tool_calls": vec![json!({"id": "deepseek_call".to_owned(), "name": "ignored".to_owned(), "arguments": "{\"foreign\":true}".to_owned()})]}));
+    replay_context.push(json!({"type": "qwen_assistant_message", "content": Some("Qwen-owned content".to_owned()), "reasoning_content": Some("Qwen-owned reasoning".to_owned()), "tool_calls": vec![json!({"id": "qwen_call".to_owned(), "name": "ignored".to_owned(), "arguments": "{}".to_owned()})]}));
+    replay_parts.extend(assistant_with_items("", Vec::new(), replay_context).parts);
     model
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
             messages: vec![
-                ConversationMessage::assistant_with_provider_context(
-                    first_response.assistant_message,
-                    first_response.tool_calls,
-                    replay_context,
-                ),
+                ConversationMessage::new(ai_interface::ConversationRole::Assistant, replay_parts),
                 ConversationMessage::tool("tool result", "memory_read", "call_1"),
             ],
             tools: Vec::new(),

@@ -12,7 +12,7 @@ use json_http::{
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
-use crate::stream_test_support::observe;
+use crate::stream_test_support::{observe, portable_events};
 
 use super::{XaiModel, deferred::DeferredRuntimeMock, test_support::custom_spec};
 
@@ -25,6 +25,7 @@ async fn deferred_result_emits_reasoning_tools_and_terminal_metadata() {
         ("length", true, "{ \"id\":", 0),
     ] {
         let (response, events) = complete_result(reason, legacy, arguments).await;
+        let events = portable_events(&events);
         assert_eq!(events.len(), 7, "{reason}, legacy={legacy}");
         assert_eq!(
             events[0],
@@ -67,9 +68,9 @@ async fn deferred_result_emits_reasoning_tools_and_terminal_metadata() {
                 "ToolCalls"
             }
         );
-        assert_eq!(response.tool_calls.len(), retained);
+        assert_eq!(response.tool_calls().len(), retained);
         assert_eq!(
-            response.tool_calls.first().map(|call| &call.input),
+            response.tool_calls().first().map(|call| &call.input),
             (retained == 1).then_some(&json!({"id": 7}))
         );
     }

@@ -4,7 +4,10 @@ use ai_interface::{ConversationMessage, Effort, ModelRequest};
 use ai_models_core::test_support::{SseFixture, done_event, event, recording_streaming_client};
 use serde_json::json;
 
-use crate::{deepseek::DeepSeekModel, stream_test_support::observe};
+use crate::{
+    deepseek::DeepSeekModel,
+    stream_test_support::{observe, portable_events},
+};
 
 #[tokio::test]
 async fn delayed_tool_identity_keeps_the_first_part_before_later_content() {
@@ -36,7 +39,7 @@ async fn delayed_tool_identity_keeps_the_first_part_before_later_content() {
     let diagnostic = format!("{result:?}");
     let ids = result.ok().map(|response| {
         response
-            .tool_calls
+            .tool_calls()
             .into_iter()
             .map(|call| call.id)
             .collect::<Vec<_>>()
@@ -47,6 +50,7 @@ async fn delayed_tool_identity_keeps_the_first_part_before_later_content() {
         Some(vec!["call-0".to_owned(), "call-1".to_owned()]),
         "{diagnostic}"
     );
+    let events = portable_events(&events);
     assert_eq!(events.len(), 10);
     assert_eq!(
         events[..6],

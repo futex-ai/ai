@@ -1,6 +1,6 @@
 //! MiniMax multimodal request tests.
 
-use ai_interface::{ConversationContentPart, ConversationMessage, Model, ModelRequest};
+use ai_interface::{ConversationMessage, ConversationPart, Model, ModelRequest};
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
@@ -22,21 +22,21 @@ async fn serializes_ordered_text_and_image_parts_as_data_urls() {
     MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
-            messages: vec![ConversationMessage::user_with_parts(
-                "fallback should not be sent",
-                vec![
-                    ConversationContentPart::Text {
-                        text: "Before".to_owned(),
-                    },
-                    ConversationContentPart::Image {
-                        mime_type: "image/png".to_owned(),
-                        data_base64: "aW1hZ2U=".to_owned(),
-                    },
-                    ConversationContentPart::Text {
-                        text: "After".to_owned(),
-                    },
-                ],
-            )],
+            messages: vec![ConversationMessage::user_with_parts(vec![
+                ConversationPart::Text {
+                    text: "Before".to_owned(),
+                    provider_state: None,
+                },
+                ConversationPart::Image {
+                    mime_type: "image/png".to_owned(),
+                    data_base64: "aW1hZ2U=".to_owned(),
+                    provider_state: None,
+                },
+                ConversationPart::Text {
+                    text: "After".to_owned(),
+                    provider_state: None,
+                },
+            ])],
             tools: Vec::new(),
             response_schema: None,
             controls: Default::default(),
@@ -81,18 +81,17 @@ async fn serializes_video_parts_as_video_url_data_urls() {
     MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
-            messages: vec![ConversationMessage::user_with_parts(
-                "fallback should not be sent",
-                vec![
-                    ConversationContentPart::Text {
-                        text: "What happens in this clip?".to_owned(),
-                    },
-                    ConversationContentPart::Video {
-                        mime_type: "video/mp4".to_owned(),
-                        data_base64: "dmlkZW8=".to_owned(),
-                    },
-                ],
-            )],
+            messages: vec![ConversationMessage::user_with_parts(vec![
+                ConversationPart::Text {
+                    text: "What happens in this clip?".to_owned(),
+                    provider_state: None,
+                },
+                ConversationPart::Video {
+                    mime_type: "video/mp4".to_owned(),
+                    data_base64: "dmlkZW8=".to_owned(),
+                    provider_state: None,
+                },
+            ])],
             tools: Vec::new(),
             response_schema: None,
             controls: Default::default(),

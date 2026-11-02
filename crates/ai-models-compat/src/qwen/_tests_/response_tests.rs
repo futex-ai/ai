@@ -1,10 +1,9 @@
 //! Qwen response, tool-call, replay, usage, and schema tests.
 
-use ai_interface::{
-    Effort, FinishReason, ModelError, ProviderConversationItem, QwenToolCallContext,
-    StructuredOutputSchema,
-};
+use ai_interface::{Effort, FinishReason, ModelError, StructuredOutputSchema};
 use serde_json::{Value, json};
+
+use crate::part_test_support::replay_items;
 
 use crate::qwen::QWEN_3_7_PLUS;
 
@@ -31,16 +30,14 @@ fn maps_text_metadata_finish_and_provider_replay() {
     assert_eq!(response.model_id, QWEN_3_7_PLUS.provider_model_id.as_ref());
     assert_eq!(response.catalog_model_id.as_deref(), Some("catalog-plus"));
     assert_eq!(response.effort().map(Effort::as_str), Some("high"));
-    assert_eq!(response.assistant_message, "Done");
+    assert_eq!(response.text(), "Done");
     assert_eq!(response.finish_reason, FinishReason::Stop);
-    assert!(response.tool_calls.is_empty());
+    assert!(response.tool_calls().is_empty());
     assert_eq!(
-        response.provider_context,
-        vec![ProviderConversationItem::QwenAssistantMessage {
-            content: Some("Done".to_owned()),
-            reasoning_content: Some("private reasoning".to_owned()),
-            tool_calls: Vec::new(),
-        }]
+        replay_items(&response),
+        vec![
+            json!({"type": "qwen_assistant_message", "content": Some("Done".to_owned()), "reasoning_content": Some("private reasoning".to_owned()), "tool_calls": []})
+        ]
     );
 }
 
@@ -67,7 +64,7 @@ fn normalizes_nullable_content_and_every_finish_reason() {
         let response = parse(Effort::High, json!({"choices": [choice]}), None)
             .expect("recognized response shape should parse");
 
-        assert_eq!(response.assistant_message, "");
+        assert_eq!(response.text(), "");
         assert_eq!(response.finish_reason, expected);
     }
 }
@@ -91,31 +88,21 @@ fn parses_parallel_calls_and_preserves_raw_arguments_in_order() {
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
     assert_eq!(
         response
-            .tool_calls
+            .tool_calls()
             .iter()
             .map(|call| (call.id.as_str(), call.name.as_str()))
             .collect::<Vec<_>>(),
         vec![("call_1", "memory_read"), ("call_2", "memory_write")]
     );
-    assert_eq!(response.tool_calls[0].input, json!({"path": "one"}));
+    assert_eq!(response.tool_calls()[0].input, json!({"path": "one"}));
     assert_eq!(
-        response.provider_context,
-        vec![ProviderConversationItem::QwenAssistantMessage {
-            content: None,
-            reasoning_content: Some("Retain this reasoning.".to_owned()),
-            tool_calls: vec![
-                QwenToolCallContext {
-                    id: "call_1".to_owned(),
-                    name: "memory_read".to_owned(),
-                    arguments: "{ \"path\": \"one\" }".to_owned(),
-                },
-                QwenToolCallContext {
-                    id: "call_2".to_owned(),
-                    name: "memory_write".to_owned(),
-                    arguments: "{\n  \"path\": \"two\",\n  \"value\": 2\n}".to_owned(),
-                },
-            ],
-        }]
+        replay_items(&response),
+        vec![
+            json!({"type": "qwen_assistant_message", "content": serde_json::Value::Null, "reasoning_content": Some("Retain this reasoning.".to_owned()), "tool_calls": vec![
+                json!({"id": "call_1".to_owned(), "name": "memory_read".to_owned(), "arguments": "{ \"path\": \"one\" }".to_owned()}),
+                json!({"id": "call_2".to_owned(), "name": "memory_write".to_owned(), "arguments": "{\n  \"path\": \"two\",\n  \"value\": 2\n}".to_owned()}),
+            ]})
+        ]
     );
 }
 
@@ -202,14 +189,12 @@ fn non_tool_finishes_suppress_malformed_tool_payloads() {
     )
     .expect("terminal tool payload should not be parsed");
 
-    assert!(response.tool_calls.is_empty());
+    assert!(response.tool_calls().is_empty());
     assert_eq!(
-        response.provider_context,
-        vec![ProviderConversationItem::QwenAssistantMessage {
-            content: Some("Terminal".to_owned()),
-            reasoning_content: Some("private".to_owned()),
-            tool_calls: Vec::new(),
-        }]
+        replay_items(&response),
+        vec![
+            json!({"type": "qwen_assistant_message", "content": Some("Terminal".to_owned()), "reasoning_content": Some("private".to_owned()), "tool_calls": []})
+        ]
     );
 }
 

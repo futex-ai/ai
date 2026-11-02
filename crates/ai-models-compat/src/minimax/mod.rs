@@ -3,6 +3,7 @@
 mod catalog;
 mod client;
 mod dialect;
+pub(crate) mod state;
 mod stream_normalizer;
 mod stream_quirks;
 
@@ -15,6 +16,7 @@ pub use catalog::{
     known_models,
 };
 pub use client::MiniMaxModel;
+pub use state::LegacyConverter;
 
 #[cfg(test)]
 #[path = "_tests_/error_tests.rs"]

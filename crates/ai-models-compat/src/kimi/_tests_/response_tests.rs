@@ -1,7 +1,9 @@
 //! Kimi normalized response tests.
 
-use ai_interface::{Effort, FinishReason, ModelError, ProviderConversationItem};
+use ai_interface::{Effort, FinishReason, ModelError};
 use serde_json::{Value, json};
+
+use crate::part_test_support::replay_items;
 
 use crate::kimi::KIMI_K3;
 
@@ -20,15 +22,13 @@ fn nullable_content_normalizes_empty_and_reasoning_remains_replay_only() {
     }))
     .expect("nullable Kimi content should parse");
 
-    assert_eq!(response.assistant_message, "");
-    assert!(!response.assistant_message.contains("Never expose"));
+    assert_eq!(response.text(), "");
+    assert!(!response.text().contains("Never expose"));
     assert_eq!(
-        response.provider_context,
-        vec![ProviderConversationItem::KimiAssistantMessage {
-            content: None,
-            reasoning_content: Some("Never expose this.".to_owned()),
-            tool_calls: Vec::new(),
-        }]
+        replay_items(&response),
+        vec![
+            json!({"type": "kimi_assistant_message", "content": serde_json::Value::Null, "reasoning_content": Some("Never expose this.".to_owned()), "tool_calls": []})
+        ]
     );
 }
 

@@ -34,7 +34,7 @@ fn maps_finish_reasons_and_suppresses_non_tool_payloads() {
         .expect("finish response should parse without touching suppressed arguments");
 
         assert_eq!(result.finish_reason, expected);
-        assert_eq!(result.tool_calls.len(), usize::from(exposes_tools));
+        assert_eq!(result.tool_calls().len(), usize::from(exposes_tools));
     }
 }
 

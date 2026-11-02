@@ -36,13 +36,37 @@ pub(crate) fn content_events(events: &[Value]) -> Vec<Value> {
     events
         .iter()
         .filter_map(|event| {
-            if let Some(delta) = event["TextDelta"]["delta"].as_str() {
+            if let Some(delta) = event["TextDelta"]["delta"]
+                .as_str()
+                .filter(|delta| !delta.is_empty())
+            {
                 Some(assistant_delta(delta))
             } else {
                 event["ReasoningDelta"]["delta"]
                     .as_str()
+                    .filter(|delta| !delta.is_empty())
                     .map(reasoning_delta)
             }
+        })
+        .collect()
+}
+
+/// Projects events onto the fields present before parts carried replay state.
+pub(crate) fn portable_events(events: &[Value]) -> Vec<Value> {
+    events
+        .iter()
+        .filter_map(|event| {
+            let mut event = event.clone();
+            let fields = event
+                .as_object_mut()?
+                .values_mut()
+                .next()?
+                .as_object_mut()?;
+            if fields.contains_key("provider_state") && fields.get("delta") == Some(&json!("")) {
+                return None;
+            }
+            fields.remove("provider_state");
+            Some(event)
         })
         .collect()
 }

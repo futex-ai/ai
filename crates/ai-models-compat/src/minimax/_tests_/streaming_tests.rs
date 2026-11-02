@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use ai_interface::{Effort, Model, StructuredOutputSchema};
+use ai_interface::{ConversationPart, Effort, Model, StructuredOutputSchema};
 use ai_models_core::test_support::{SseFixture, done_event, event, recording_streaming_client};
 use serde_json::{Value, json};
 
@@ -62,7 +62,7 @@ async fn normalizes_cumulative_content_and_preserves_reasoning_details() {
         .complete(&simple_request())
         .await
         .expect("MiniMax stream should parse");
-    let parsed = response::parse_response(
+    let mut parsed = response::parse_response(
         &MINIMAX_M2_7.text_id(),
         MINIMAX_M2_7.provider_model_id.as_ref(),
         Effort::Medium,
@@ -71,6 +71,11 @@ async fn normalizes_cumulative_content_and_preserves_reasoning_details() {
     )
     .expect("buffered MiniMax response should parse");
 
+    parsed.parts.sort_by_key(|part| match part {
+        ConversationPart::ToolCall { .. } => 0,
+        ConversationPart::Reasoning { .. } => 1,
+        _ => 2,
+    });
     assert_eq!(streamed, parsed);
     let requests = requests.lock().expect("request lock should be available");
     let request = &requests[0];
@@ -165,7 +170,7 @@ async fn accepts_complete_m3_stream_at_clean_eof() {
         .complete(&simple_request())
         .await
         .expect("complete MiniMax-M3 stream should parse at clean EOF");
-    let parsed = response::parse_response(
+    let mut parsed = response::parse_response(
         &MINIMAX_M3.text_id(),
         MINIMAX_M3.provider_model_id.as_ref(),
         Effort::Medium,
@@ -174,6 +179,9 @@ async fn accepts_complete_m3_stream_at_clean_eof() {
     )
     .expect("buffered MiniMax response should parse");
 
+    parsed
+        .parts
+        .sort_by_key(|part| matches!(part, ConversationPart::Reasoning { .. }));
     assert_eq!(streamed, parsed);
 }
 

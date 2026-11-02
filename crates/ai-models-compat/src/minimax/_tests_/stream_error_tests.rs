@@ -96,7 +96,7 @@ async fn accepts_replaced_cumulative_content_for_buffered_calls() {
         .await
         .expect("replaced cumulative content should complete");
 
-    assert_eq!(response.assistant_message, "replacement");
+    assert_eq!(response.text(), "replacement");
 }
 
 fn progress_event() -> ai_models_core::test_support::StreamItem {

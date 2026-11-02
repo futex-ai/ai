@@ -4,6 +4,7 @@ mod catalog;
 mod client;
 mod deferred;
 mod dialect;
+pub(crate) mod state;
 
 #[cfg(test)]
 #[path = "_tests_/response.rs"]
@@ -13,6 +14,7 @@ pub use catalog::{
     CATALOG, CUSTOM_DEFAULTS, GROK_4_5, GROK_4_20, GROK_4_20_REASONING, PROVIDER_ID, known_models,
 };
 pub use client::XaiModel;
+pub use state::LegacyConverter;
 
 #[cfg(test)]
 #[path = "_tests_/support.rs"]

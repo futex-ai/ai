@@ -23,6 +23,10 @@ impl ToolPart {
         self.part_index
     }
 
+    pub(super) fn id(&self) -> Option<&str> {
+        self.id.as_deref()
+    }
+
     pub(super) fn push(&mut self, call: &ChatCompletionsToolCallDelta) -> Option<ModelEvent> {
         if let Some(id) = call.id.as_ref() {
             self.id = Some(id.clone());
@@ -62,7 +66,7 @@ pub(super) fn remove_part(event: &mut ModelEvent, removed: usize) -> bool {
         | ModelEvent::ReasoningDelta { part_index, .. }
         | ModelEvent::ToolCallStart { part_index, .. }
         | ModelEvent::ToolCallArgumentsDelta { part_index, .. }
-        | ModelEvent::ToolCallEnd { part_index } => part_index,
+        | ModelEvent::ToolCallEnd { part_index, .. } => part_index,
         _ => return false,
     };
     if *part_index == removed {

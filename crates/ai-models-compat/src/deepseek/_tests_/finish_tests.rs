@@ -27,7 +27,7 @@ fn maps_every_normalized_finish_reason() {
             parse(response_body(raw_reason, exposes_tools)).expect("finish response should parse");
 
         assert_eq!(response.finish_reason, expected);
-        assert_eq!(response.tool_calls.len(), usize::from(exposes_tools));
+        assert_eq!(response.tool_calls().len(), usize::from(exposes_tools));
     }
 }
 

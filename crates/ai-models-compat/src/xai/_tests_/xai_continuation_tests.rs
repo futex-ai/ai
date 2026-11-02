@@ -1,11 +1,10 @@
 //! xAI continuation request regression tests.
 
-use ai_interface::{
-    ConversationMessage, DeepSeekToolCallContext, KimiToolCallContext, Model, ModelRequest,
-    ProviderConversationItem, QwenToolCallContext, ToolCall,
-};
+use ai_interface::{ConversationMessage, Model, ModelRequest, ToolCall};
 use json_http::JsonHttpResponse;
 use serde_json::{Value, json};
+
+use crate::part_test_support::assistant_with_items;
 
 use super::test_support::custom_spec;
 use super::{XaiModel, test_support::recording_http_client};
@@ -65,7 +64,7 @@ async fn serializes_legacy_function_call_continuation_messages() {
             system_prompt: "system".to_owned(),
             messages: vec![
                 ConversationMessage::user("start"),
-                ConversationMessage::assistant_with_provider_context(
+                assistant_with_items(
                     "",
                     vec![ToolCall {
                         id: legacy_call_id.to_owned(),
@@ -74,38 +73,10 @@ async fn serializes_legacy_function_call_continuation_messages() {
                         operation_id: None,
                     }],
                     vec![
-                        ProviderConversationItem::DeepSeekAssistantMessage {
-                            content: "DeepSeek-owned content".to_owned(),
-                            reasoning_content: Some("DeepSeek-owned reasoning".to_owned()),
-                            tool_calls: vec![DeepSeekToolCallContext {
-                                id: "deepseek_call".to_owned(),
-                                name: "ignored".to_owned(),
-                                arguments: "{\"foreign\":true}".to_owned(),
-                            }],
-                        },
-                        ProviderConversationItem::KimiAssistantMessage {
-                            content: None,
-                            reasoning_content: Some("Kimi-owned context".to_owned()),
-                            tool_calls: vec![KimiToolCallContext {
-                                id: "kimi_call".to_owned(),
-                                name: "ignored".to_owned(),
-                                arguments: "{}".to_owned(),
-                            }],
-                        },
-                        ProviderConversationItem::QwenAssistantMessage {
-                            content: Some("Qwen-owned content".to_owned()),
-                            reasoning_content: Some("Qwen-owned reasoning".to_owned()),
-                            tool_calls: vec![QwenToolCallContext {
-                                id: "qwen_call".to_owned(),
-                                name: "ignored".to_owned(),
-                                arguments: "{}".to_owned(),
-                            }],
-                        },
-                        ProviderConversationItem::XaiLegacyFunctionCall {
-                            tool_call_id: legacy_call_id.to_owned(),
-                            name: "memory_read".to_owned(),
-                            arguments: "{\"path\":\"root\"}".to_owned(),
-                        },
+                        json!({"type": "deep_seek_assistant_message", "content": "DeepSeek-owned content".to_owned(), "reasoning_content": Some("DeepSeek-owned reasoning".to_owned()), "tool_calls": vec![json!({"id": "deepseek_call".to_owned(), "name": "ignored".to_owned(), "arguments": "{\"foreign\":true}".to_owned()})]}),
+                        json!({"type": "kimi_assistant_message", "content": serde_json::Value::Null, "reasoning_content": Some("Kimi-owned context".to_owned()), "tool_calls": vec![json!({"id": "kimi_call".to_owned(), "name": "ignored".to_owned(), "arguments": "{}".to_owned()})]}),
+                        json!({"type": "qwen_assistant_message", "content": Some("Qwen-owned content".to_owned()), "reasoning_content": Some("Qwen-owned reasoning".to_owned()), "tool_calls": vec![json!({"id": "qwen_call".to_owned(), "name": "ignored".to_owned(), "arguments": "{}".to_owned()})]}),
+                        json!({"type": "xai_legacy_function_call", "tool_call_id": legacy_call_id.to_owned(), "name": "memory_read".to_owned(), "arguments": "{\"path\":\"root\"}".to_owned()}),
                     ],
                 ),
                 ConversationMessage::tool("{\"ok\":true}", "memory_read", legacy_call_id),

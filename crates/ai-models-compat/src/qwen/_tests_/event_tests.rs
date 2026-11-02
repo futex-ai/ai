@@ -36,7 +36,7 @@ async fn emits_reasoning_and_assistant_deltas_in_order_with_parity() {
             assistant_delta("lo"),
         ]
     );
-    assert_eq!(assistant_text(&events), response.assistant_message);
+    assert_eq!(assistant_text(&events), response.text());
 }
 
 #[tokio::test]

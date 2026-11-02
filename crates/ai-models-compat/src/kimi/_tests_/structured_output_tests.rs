@@ -102,7 +102,7 @@ fn tool_call_finish_skips_partial_structured_output() {
     .expect("valid tool-call response should not parse structured output");
 
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
-    assert_eq!(response.tool_calls.len(), 1);
+    assert_eq!(response.tool_calls().len(), 1);
     assert_eq!(response.structured_output, None);
 }
 

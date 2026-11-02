@@ -1,6 +1,6 @@
 //! Tests for xAI synthetic legacy tool-call operation identity.
 
-use ai_interface::{ConversationMessage, Model, ModelRequest, ProviderConversationItem};
+use ai_interface::{ConversationMessage, Model, ModelRequest};
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
@@ -11,8 +11,8 @@ use super::{XaiModel, test_support::recording_http_client};
 async fn legacy_function_calls_get_request_scoped_operation_ids() {
     let first = complete_legacy_tool_call("first request").await;
     let second = complete_legacy_tool_call("second request").await;
-    let first_call = &first.tool_calls[0];
-    let second_call = &second.tool_calls[0];
+    let first_call = &first.tool_calls()[0];
+    let second_call = &second.tool_calls()[0];
 
     assert_ne!(first_call.id, second_call.id);
     assert_eq!(
@@ -59,12 +59,17 @@ async fn complete_legacy_tool_call(content: &str) -> ai_interface::ModelResponse
 
 fn legacy_context_id(response: &ai_interface::ModelResponse) -> Option<&str> {
     response
-        .provider_context
+        .parts
         .iter()
-        .find_map(|item| match item {
-            ProviderConversationItem::XaiLegacyFunctionCall { tool_call_id, .. } => {
-                Some(tool_call_id.as_str())
-            }
-            _ => None,
+        .filter_map(|part| part.provider_state())
+        .find_map(|state| {
+            let call = state.payload.get("call")?;
+            state
+                .payload
+                .get("legacy")
+                .and_then(serde_json::Value::as_bool)
+                .filter(|legacy| *legacy)
+                .and_then(|_| call.get("id"))
+                .and_then(serde_json::Value::as_str)
         })
 }

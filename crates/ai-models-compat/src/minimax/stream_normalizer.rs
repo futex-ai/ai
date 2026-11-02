@@ -2,11 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use ai_interface::MiniMaxReasoningDetail;
 use serde_json::Value;
 use thiserror::Error;
 
-use crate::ChatCompletionsResponse;
+use crate::{ChatCompletionsResponse, minimax::state::ReasoningDetail};
 
 use super::MINIMAX_M3;
 
@@ -27,7 +26,7 @@ pub(super) enum NormalizedEvent {
 pub(super) struct MiniMaxNormalizer {
     content: BTreeMap<u64, String>,
     content_mode: ContentMode,
-    reasoning_details: BTreeMap<u64, Vec<MiniMaxReasoningDetail>>,
+    reasoning_details: BTreeMap<u64, Vec<ReasoningDetail>>,
     shape_evidence: ShapeEvidence,
 }
 
@@ -81,7 +80,7 @@ impl MiniMaxNormalizer {
             if details.is_null() {
                 continue;
             }
-            let current = match serde_json::from_value::<Vec<MiniMaxReasoningDetail>>(details) {
+            let current = match serde_json::from_value::<Vec<ReasoningDetail>>(details) {
                 Ok(current) => current,
                 Err(source) => return Err(MiniMaxStreamError::DeserializeChunk { source }),
             };

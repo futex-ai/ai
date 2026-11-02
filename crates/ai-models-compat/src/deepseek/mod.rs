@@ -3,6 +3,7 @@
 mod catalog;
 mod client;
 mod dialect;
+pub(crate) mod state;
 
 #[cfg(test)]
 #[path = "_tests_/request.rs"]
@@ -15,6 +16,7 @@ pub use catalog::{
     CATALOG, CUSTOM_DEFAULTS, DEEPSEEK_V4_FLASH, DEEPSEEK_V4_PRO, PROVIDER_ID, known_models,
 };
 pub use client::DeepSeekModel;
+pub use state::LegacyConverter;
 
 #[cfg(test)]
 #[path = "_tests_/support.rs"]

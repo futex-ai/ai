@@ -3,6 +3,7 @@
 mod catalog;
 mod client;
 mod dialect;
+pub(crate) mod state;
 
 #[cfg(test)]
 #[path = "_tests_/request.rs"]
@@ -16,6 +17,7 @@ pub use catalog::{
     known_models,
 };
 pub use client::QwenModel;
+pub use state::LegacyConverter;
 
 #[cfg(test)]
 #[path = "_tests_/support.rs"]

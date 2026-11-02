@@ -3,7 +3,8 @@
 use std::collections::VecDeque;
 
 use ai_interface::{
-    DynModelEventStream, ModelEvent, ModelEventStream, ModelResult, StructuredOutputSchema,
+    ConversationPart, DynModelEventStream, ModelEvent, ModelEventStream, ModelResult,
+    StructuredOutputSchema,
 };
 use async_trait::async_trait;
 use serde_json::Value;
@@ -49,20 +50,25 @@ fn result_events(
     let mut events = VecDeque::new();
     let mut part_index = 0;
     if let Some(delta) = content.reasoning.filter(|delta| !delta.is_empty()) {
-        events.push_back(ModelEvent::ReasoningDelta { part_index, delta });
+        events.push_back(ModelEvent::ReasoningDelta {
+            part_index,
+            delta,
+            provider_state: None,
+        });
         part_index += 1;
     }
-    if !response.assistant_message.is_empty() {
+    if !response.text().is_empty() {
         events.push_back(ModelEvent::TextDelta {
             part_index,
-            delta: response.assistant_message.clone(),
+            delta: response.text(),
+            provider_state: None,
         });
         part_index += 1;
     }
     for call in content.calls {
         events.push_back(ModelEvent::ToolCallStart {
             part_index,
-            id: call.id,
+            id: call.id.clone(),
             name: call.name,
             operation_id: call.operation_id,
         });
@@ -72,7 +78,17 @@ fn result_events(
                 delta: call.arguments,
             });
         }
-        events.push_back(ModelEvent::ToolCallEnd { part_index });
+        events.push_back(ModelEvent::ToolCallEnd {
+            part_index,
+            provider_state: response.parts.iter().find_map(|part| match part {
+                ConversationPart::ToolCall {
+                    call_id,
+                    provider_state,
+                    ..
+                } if *call_id == call.id => provider_state.clone(),
+                _ => None,
+            }),
+        });
         part_index += 1;
     }
     events.extend(terminal_events(response));

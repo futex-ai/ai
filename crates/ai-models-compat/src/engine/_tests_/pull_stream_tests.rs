@@ -6,7 +6,7 @@ use ai_models_core::test_support::{
 };
 use serde_json::json;
 
-use crate::deepseek::DeepSeekModel;
+use crate::{deepseek::DeepSeekModel, stream_test_support::portable_events};
 
 #[tokio::test]
 async fn streams_tool_events_before_usage_and_finish() {
@@ -29,6 +29,7 @@ async fn streams_tool_events_before_usage_and_finish() {
         events.push(serde_json::to_value(event).expect("event serializes"));
     }
 
+    let events = portable_events(&events);
     assert_eq!(events.len(), 8);
     assert_eq!(
         events[..6],

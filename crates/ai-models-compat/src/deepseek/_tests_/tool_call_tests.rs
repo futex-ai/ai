@@ -1,10 +1,11 @@
 //! DeepSeek tool request and response tests.
 
 use ai_interface::{
-    ConversationMessage, DeepSeekToolCallContext, Effort, FinishReason, ModelError,
-    ProviderConversationItem, ToolCall, ToolDefinition,
+    ConversationMessage, Effort, FinishReason, ModelError, ToolCall, ToolDefinition,
 };
 use serde_json::{Value, json};
+
+use crate::part_test_support::replay_items;
 
 use crate::deepseek::DEEPSEEK_V4_PRO;
 
@@ -76,31 +77,21 @@ fn parses_parallel_calls_and_preserves_ids_order_and_raw_arguments() {
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
     assert_eq!(
         response
-            .tool_calls
+            .tool_calls()
             .iter()
             .map(|call| (call.id.as_str(), call.name.as_str()))
             .collect::<Vec<_>>(),
         vec![("call_1", "memory_read"), ("call_2", "memory_write")]
     );
-    assert_eq!(response.tool_calls[0].input, json!({"path": "one"}));
+    assert_eq!(response.tool_calls()[0].input, json!({"path": "one"}));
     assert_eq!(
-        response.provider_context,
-        vec![ProviderConversationItem::DeepSeekAssistantMessage {
-            content: String::new(),
-            reasoning_content: Some("Retain this reasoning.".to_owned()),
-            tool_calls: vec![
-                DeepSeekToolCallContext {
-                    id: "call_1".to_owned(),
-                    name: "memory_read".to_owned(),
-                    arguments: "{ \"path\": \"one\" }".to_owned(),
-                },
-                DeepSeekToolCallContext {
-                    id: "call_2".to_owned(),
-                    name: "memory_write".to_owned(),
-                    arguments: "{\n  \"path\": \"two\",\n  \"value\": 2\n}".to_owned(),
-                },
-            ],
-        }]
+        replay_items(&response),
+        vec![
+            json!({"type": "deep_seek_assistant_message", "content": String::new(), "reasoning_content": Some("Retain this reasoning.".to_owned()), "tool_calls": vec![
+                json!({"id": "call_1".to_owned(), "name": "memory_read".to_owned(), "arguments": "{ \"path\": \"one\" }".to_owned()}),
+                json!({"id": "call_2".to_owned(), "name": "memory_write".to_owned(), "arguments": "{\n  \"path\": \"two\",\n  \"value\": 2\n}".to_owned()}),
+            ]})
+        ]
     );
 }
 
@@ -169,8 +160,8 @@ fn non_tool_finishes_ignore_and_suppress_malformed_tool_payloads() {
         )
         .expect("terminal tool payload should not be parsed");
 
-        assert!(response.tool_calls.is_empty());
-        assert!(response.provider_context.is_empty());
+        assert!(response.tool_calls().is_empty());
+        assert!(replay_items(&response).is_empty());
     }
 }
 

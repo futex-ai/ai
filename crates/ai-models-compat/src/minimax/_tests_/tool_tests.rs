@@ -7,6 +7,8 @@ use ai_interface::{
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use crate::part_test_support::message;
+
 use crate::minimax::MINIMAX_M3;
 
 use super::{MiniMaxModel, support::recording_http_client};
@@ -115,16 +117,16 @@ async fn serializes_modern_tool_definitions_and_continuation_messages() {
     assert!(!body.to_string().contains("function_call"));
 
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
-    assert_eq!(response.assistant_message, "I need both results.");
-    assert_eq!(response.tool_calls.len(), 2);
-    assert_eq!(response.tool_calls[0].id, "call_a");
-    assert_eq!(response.tool_calls[0].name, "memory_read");
-    assert_eq!(response.tool_calls[0].input, json!({"path": "root"}));
-    assert_eq!(response.tool_calls[0].operation_id, None);
-    assert_eq!(response.tool_calls[1].id, "call_b");
-    assert_eq!(response.tool_calls[1].name, "clock_read");
-    assert_eq!(response.tool_calls[1].input, json!({}));
-    assert_eq!(response.tool_calls[1].operation_id, None);
+    assert_eq!(response.text(), "I need both results.");
+    assert_eq!(response.tool_calls().len(), 2);
+    assert_eq!(response.tool_calls()[0].id, "call_a");
+    assert_eq!(response.tool_calls()[0].name, "memory_read");
+    assert_eq!(response.tool_calls()[0].input, json!({"path": "root"}));
+    assert_eq!(response.tool_calls()[0].operation_id, None);
+    assert_eq!(response.tool_calls()[1].id, "call_b");
+    assert_eq!(response.tool_calls()[1].name, "clock_read");
+    assert_eq!(response.tool_calls()[1].input, json!({}));
+    assert_eq!(response.tool_calls()[1].operation_id, None);
 }
 
 #[tokio::test]
@@ -230,15 +232,14 @@ async fn rejects_malformed_tool_arguments() {
 fn simple_request() -> ModelRequest {
     ModelRequest {
         system_prompt: "system".to_owned(),
-        messages: vec![ConversationMessage {
-            role: ConversationRole::User,
-            content: "Use tools".to_owned(),
-            content_parts: Vec::new(),
-            name: None,
-            tool_call_id: None,
-            tool_calls: Vec::new(),
-            provider_context: Vec::new(),
-        }],
+        messages: vec![message(
+            ConversationRole::User,
+            "Use tools".to_owned(),
+            Vec::new(),
+            None,
+            None,
+            Vec::new(),
+        )],
         tools: Vec::new(),
         response_schema: None,
         controls: Default::default(),

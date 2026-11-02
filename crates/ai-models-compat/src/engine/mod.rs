@@ -8,6 +8,7 @@ pub(crate) mod errors;
 pub(crate) mod lifecycle;
 mod message_content;
 mod messages;
+pub(crate) mod replay_state;
 pub(crate) mod request;
 mod request_legacy;
 mod request_replay;
@@ -41,3 +42,7 @@ mod delayed_tool_tests;
 #[cfg(test)]
 #[path = "_tests_/finish_state_tests.rs"]
 mod finish_state_tests;
+
+#[cfg(test)]
+#[path = "_tests_/part_replay_tests.rs"]
+mod part_replay_tests;

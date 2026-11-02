@@ -10,7 +10,7 @@ use super::{
     super::dialect::{CompletionContext, ReplayRule},
     eager, legacy,
     mapping::{dispatchable_tool_calls, finish_reason, parse_tool_calls},
-    replay::provider_context,
+    replay::{ResponseContent, parts},
     types::{ChatCompletionsAssistantMessage, ChatCompletionsResponse},
     usage::normalize,
 };
@@ -167,22 +167,21 @@ pub(super) fn map_response(
         model_id: provider_model_id.to_owned(),
         catalog_model_id: Some(catalog_model_id.to_owned()),
         thinking_level: Some(thinking_level),
-        assistant_message,
-        tool_calls,
+        parts: parts(
+            context,
+            ResponseContent {
+                text: assistant_message,
+                raw_content: content,
+                reasoning: reasoning_content,
+                details: reasoning_details,
+                calls: tool_calls,
+                raw_calls: parsed_calls,
+                legacy: legacy_context,
+                dispatchable,
+            },
+        )?,
         finish_reason,
         structured_output,
-        provider_context: if dialect.replay == ReplayRule::Xai {
-            legacy_context
-        } else {
-            provider_context(
-                dialect.replay,
-                dispatchable,
-                content,
-                reasoning_content,
-                &parsed_calls,
-                reasoning_details,
-            )
-        },
         usage,
         attempts: Vec::new(),
     })

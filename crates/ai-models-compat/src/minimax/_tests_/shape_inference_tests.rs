@@ -39,7 +39,7 @@ async fn extending_snapshots_restore_terminal_text_once() {
 
     let (response, events) = observe_stream(events).await;
 
-    assert_eq!(response.assistant_message, "LIVE_MODEL_API_OK");
+    assert_eq!(response.text(), "LIVE_MODEL_API_OK");
     assert_eq!(events, vec![assistant_delta("LIVE_MODEL_API_OK")],);
 }
 
@@ -53,7 +53,7 @@ async fn snapshot_evidence_allows_replacement() {
 
     let (response, events) = observe_stream(events).await;
 
-    assert_eq!(response.assistant_message, "Goodbye");
+    assert_eq!(response.text(), "Goodbye");
     assert_eq!(events, vec![assistant_delta("Goodbye")]);
 }
 
@@ -74,7 +74,7 @@ async fn empty_and_absent_terminal_content_preserve_fragments() {
 
         let (response, events) = observe_stream(events).await;
 
-        assert_eq!(response.assistant_message, "LIVE_MODEL_API_OK");
+        assert_eq!(response.text(), "LIVE_MODEL_API_OK");
         assert_eq!(events, vec![assistant_delta("LIVE_MODEL_API_OK")],);
     }
 }
@@ -181,7 +181,7 @@ async fn repeated_identical_fragments_append_instead_of_collapsing() {
 
     let (response, events) = observe_stream(events).await;
 
-    assert_eq!(response.assistant_message, "haha!");
+    assert_eq!(response.text(), "haha!");
     assert_eq!(events, vec![assistant_delta("haha!")]);
 }
 
@@ -194,7 +194,7 @@ async fn a_value_extending_the_retained_prefix_is_a_snapshot_even_without_prior_
 
     let (response, _) = observe_stream(events).await;
 
-    assert_eq!(response.assistant_message, "LIVE_MODEL_API_OK");
+    assert_eq!(response.text(), "LIVE_MODEL_API_OK");
 }
 
 #[tokio::test]
@@ -207,6 +207,6 @@ async fn a_repeated_snapshot_after_evidence_does_not_duplicate_text() {
 
     let (response, events) = observe_stream(events).await;
 
-    assert_eq!(response.assistant_message, "LIVE_MODEL_API_OK");
+    assert_eq!(response.text(), "LIVE_MODEL_API_OK");
     assert_eq!(events, vec![assistant_delta("LIVE_MODEL_API_OK")]);
 }

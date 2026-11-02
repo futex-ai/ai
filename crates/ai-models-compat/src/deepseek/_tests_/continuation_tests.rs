@@ -1,10 +1,9 @@
 //! DeepSeek raw assistant continuation replay tests.
 
-use ai_interface::{
-    ConversationMessage, DeepSeekToolCallContext, Effort, ModelRequest, ProviderConversationItem,
-    ToolCall,
-};
+use ai_interface::{ConversationMessage, Effort, ModelRequest, ToolCall};
 use serde_json::{Value, json};
+
+use crate::part_test_support::assistant_with_items;
 
 use crate::deepseek::DEEPSEEK_V4_PRO;
 
@@ -34,18 +33,13 @@ fn response_context_survives_serde_and_replays_exactly_before_tool_results() {
         None,
     )
     .expect("tool response should parse");
-    let serialized =
-        serde_json::to_value(&response.provider_context).expect("context should serialize");
-    let provider_context = serde_json::from_value(serialized).expect("context should deserialize");
+    let serialized = serde_json::to_value(&response.parts).expect("context should serialize");
+    let parts = serde_json::from_value(serialized).expect("context should deserialize");
     let request = ModelRequest {
         system_prompt: "system".to_owned(),
         messages: vec![
             ConversationMessage::user("start"),
-            ConversationMessage::assistant_with_provider_context(
-                response.assistant_message,
-                response.tool_calls,
-                provider_context,
-            ),
+            ConversationMessage::new(ai_interface::ConversationRole::Assistant, parts),
             ConversationMessage::tool("first", "memory_read", "call_1"),
             ConversationMessage::tool("second", "memory_write", "call_2"),
         ],
@@ -75,7 +69,7 @@ fn response_context_survives_serde_and_replays_exactly_before_tool_results() {
 fn deepseek_context_precedes_normalized_fields_and_foreign_context_is_ignored() {
     let request = ModelRequest {
         system_prompt: "system".to_owned(),
-        messages: vec![ConversationMessage::assistant_with_provider_context(
+        messages: vec![assistant_with_items(
             "normalized text",
             vec![normalized_call(
                 "normalized_id",
@@ -83,20 +77,8 @@ fn deepseek_context_precedes_normalized_fields_and_foreign_context_is_ignored() 
                 json!({"normalized": true}),
             )],
             vec![
-                ProviderConversationItem::KimiAssistantMessage {
-                    content: Some("foreign content".to_owned()),
-                    reasoning_content: Some("foreign reasoning".to_owned()),
-                    tool_calls: Vec::new(),
-                },
-                ProviderConversationItem::DeepSeekAssistantMessage {
-                    content: "raw text".to_owned(),
-                    reasoning_content: Some("raw reasoning".to_owned()),
-                    tool_calls: vec![DeepSeekToolCallContext {
-                        id: "raw_id".to_owned(),
-                        name: "raw_name".to_owned(),
-                        arguments: "{ \"raw\": true }".to_owned(),
-                    }],
-                },
+                json!({"type": "kimi_assistant_message", "content": Some("foreign content".to_owned()), "reasoning_content": Some("foreign reasoning".to_owned()), "tool_calls": []}),
+                json!({"type": "deep_seek_assistant_message", "content": "raw text".to_owned(), "reasoning_content": Some("raw reasoning".to_owned()), "tool_calls": vec![json!({"id": "raw_id".to_owned(), "name": "raw_name".to_owned(), "arguments": "{ \"raw\": true }".to_owned()})]}),
             ],
         )],
         tools: Vec::new(),

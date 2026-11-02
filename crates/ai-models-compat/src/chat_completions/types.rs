@@ -1,8 +1,9 @@
 //! Typed stream chunks, accumulated response values, and validation errors.
 
-use ai_interface::MiniMaxReasoningDetail;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crate::minimax::state::ReasoningDetail;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 /// Buffered response shape reconstructed from chat-completions deltas.
@@ -33,7 +34,7 @@ pub struct ChatCompletionsMessage {
     pub reasoning_content: Option<String>,
     /// Canonical provider reasoning details retained by MiniMax normalization.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub reasoning_details: Vec<MiniMaxReasoningDetail>,
+    pub(crate) reasoning_details: Vec<ReasoningDetail>,
     /// Complete tool calls ordered by their provider-assigned index.
     pub tool_calls: Vec<ChatCompletionsToolCall>,
     /// Complete legacy function call, when supplied by a compatible provider.

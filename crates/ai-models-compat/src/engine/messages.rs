@@ -1,14 +1,16 @@
 //! Conversation content, participant names, and role mapping.
 
-use ai_interface::{ConversationMessage, ConversationRole, ModelError, ModelRequest, ModelResult};
+use ai_interface::{
+    ConversationMessage, ConversationPart, ConversationRole, ModelError, ModelRequest, ModelResult,
+};
 
 use super::{
     dialect::{Dialect, InputParts, ReplayRule},
     message_content::message_content,
-    request_legacy::{LegacyFunctionCall, legacy_function_call, legacy_tool_name},
-    request_replay::{reasoning_context, replay_message},
+    request_legacy::{LegacyFunctionCall, legacy_tool_name},
+    request_replay::decode_message,
     request_types::{ChatCompletionsContent, ChatCompletionsMessage, ChatCompletionsToolFunction},
-    tools::tool_call,
+    tools::{raw_tool_call, tool_call},
 };
 
 pub(super) fn system_message(content: String) -> ChatCompletionsMessage {
@@ -29,39 +31,27 @@ pub(super) fn validate_content_parts(
     model_id: &str,
     request: &ModelRequest,
 ) -> ModelResult<()> {
-    if matches!(dialect.input, InputParts::PlainText)
-        && request
-            .messages
-            .iter()
-            .any(|message| !message.content_parts.is_empty())
-    {
-        return Err(ModelError::provider(
-            dialect.provider,
-            model_id,
-            format!("{} accepts plain text messages only", dialect.label),
-        ));
-    }
-    if let InputParts::UserTextImage { plain_text_model } = dialect.input {
-        for message in &request.messages {
-            if message.content_parts.is_empty() {
+    request.validate_messages(dialect.provider, model_id)?;
+    for message in &request.messages {
+        for part in &message.parts {
+            if !matches!(
+                part,
+                ConversationPart::Image { .. } | ConversationPart::Video { .. }
+            ) {
                 continue;
             }
-            if model_id == plain_text_model {
-                return Err(ModelError::provider(
-                    dialect.provider,
-                    model_id,
-                    format!("{model_id} accepts plain text messages only"),
-                ));
-            }
-            if message.role != ConversationRole::User {
-                return Err(ModelError::provider(
-                    dialect.provider,
-                    model_id,
-                    format!(
-                        "{} accepts typed content parts only on user messages",
-                        dialect.label
-                    ),
-                ));
+            let error = match dialect.input {
+                InputParts::PlainText => Some(format!(
+                    "{} accepts plain text messages only",
+                    dialect.label
+                )),
+                InputParts::UserTextImage { plain_text_model } if model_id == plain_text_model => {
+                    Some(format!("{model_id} accepts plain text messages only"))
+                }
+                _ => None,
+            };
+            if let Some(error) = error {
+                return Err(ModelError::provider(dialect.provider, model_id, error));
             }
         }
     }
@@ -73,69 +63,95 @@ fn message(
     model_id: &str,
     message: &ConversationMessage,
     legacy_calls: &[LegacyFunctionCall],
-) -> ModelResult<ChatCompletionsMessage> {
+) -> ModelResult<(ChatCompletionsMessage, Option<LegacyFunctionCall>)> {
+    let replay = decode_message(dialect, model_id, message)?;
     if message.role == ConversationRole::Assistant
-        && let Some(replay) = replay_message(dialect.replay, message)
+        && let Some(snapshot) = replay.snapshot
     {
-        return Ok(replay);
+        return Ok((snapshot, None));
     }
-    let legacy_call = (dialect.replay == ReplayRule::Xai)
-        .then(|| legacy_function_call(message))
-        .flatten();
-    let legacy_name = if dialect.replay == ReplayRule::Xai {
-        legacy_tool_name(message, legacy_calls)
+    let legacy = if dialect.replay == ReplayRule::Xai {
+        replay.legacy
     } else {
         None
     };
-    let (reasoning_content, reasoning_details) = reasoning_context(dialect.replay, message);
-    let content = message_content(dialect, model_id, message)?;
-    let content = if dialect.replay == ReplayRule::MiniMax {
-        content.map(Some)
+    let legacy_name = (dialect.replay == ReplayRule::Xai)
+        .then(|| legacy_tool_name(message, legacy_calls))
+        .flatten();
+    let mut content = message_content(dialect, model_id, message)?;
+    if message.role == ConversationRole::Assistant
+        && let Some(raw) = replay.text
+    {
+        content = raw.map(ChatCompletionsContent::Text);
+        if content.is_none()
+            && dialect.replay == ReplayRule::Qwen
+            && message.tool_calls().is_empty()
+        {
+            content = Some(ChatCompletionsContent::Text(String::new()));
+        }
+    }
+    let content =
+        if matches!(dialect.replay, ReplayRule::MiniMax | ReplayRule::Xai) && content.is_none() {
+            None
+        } else {
+            Some(content)
+        };
+    let calls = if legacy.is_none() {
+        message
+            .tool_calls()
+            .iter()
+            .map(|call| {
+                if matches!(
+                    dialect.replay,
+                    ReplayRule::DeepSeek | ReplayRule::Kimi | ReplayRule::Qwen
+                ) && let Some((_, raw)) = replay.calls.iter().find(|(id, _)| *id == call.id)
+                {
+                    raw_tool_call(&raw.id, &raw.name, &raw.arguments)
+                } else {
+                    tool_call(call)
+                }
+            })
+            .collect()
     } else {
-        Some(content)
+        Vec::new()
     };
-    Ok(ChatCompletionsMessage {
-        role: if legacy_name.is_some() {
-            "function"
-        } else {
-            match message.role {
-                ConversationRole::User => "user",
-                ConversationRole::Assistant => "assistant",
-                ConversationRole::Tool => "tool",
-            }
+    Ok((
+        ChatCompletionsMessage {
+            role: if legacy_name.is_some() {
+                "function"
+            } else {
+                match message.role {
+                    ConversationRole::User => "user",
+                    ConversationRole::Assistant => "assistant",
+                    ConversationRole::Tool => "tool",
+                }
+            },
+            content,
+            name: if let Some(name) = legacy_name {
+                Some(name.to_owned())
+            } else if dialect.names && message.role != ConversationRole::Tool {
+                message.name.clone()
+            } else {
+                None
+            },
+            tool_call_id: if legacy_name.is_none() {
+                message.parts.iter().find_map(|part| match part {
+                    ConversationPart::ToolResult { call_id, .. } => Some(call_id.clone()),
+                    _ => None,
+                })
+            } else {
+                None
+            },
+            reasoning_content: replay.reasoning_content,
+            reasoning_details: replay.reasoning_details,
+            tool_calls: calls,
+            function_call: legacy.as_ref().map(|call| ChatCompletionsToolFunction {
+                name: call.name.clone(),
+                arguments: call.arguments.clone(),
+            }),
         },
-        content,
-        name: if let Some(name) = legacy_name {
-            Some(name.to_owned())
-        } else if dialect.names && message.role != ConversationRole::Tool {
-            message.name.clone()
-        } else {
-            None
-        },
-        tool_call_id: if legacy_name.is_some() {
-            None
-        } else if message.role == ConversationRole::Tool
-            || matches!(dialect.replay, ReplayRule::Kimi | ReplayRule::Xai)
-        {
-            message.tool_call_id.clone()
-        } else {
-            None
-        },
-        reasoning_content,
-        reasoning_details,
-        tool_calls: if legacy_call.is_none()
-            && (message.role == ConversationRole::Assistant
-                || matches!(dialect.replay, ReplayRule::MiniMax | ReplayRule::Xai))
-        {
-            message.tool_calls.iter().map(tool_call).collect()
-        } else {
-            Vec::new()
-        },
-        function_call: legacy_call.map(|call| ChatCompletionsToolFunction {
-            name: call.name,
-            arguments: call.arguments,
-        }),
-    })
+        legacy,
+    ))
 }
 
 pub(super) fn conversation_messages(
@@ -146,10 +162,9 @@ pub(super) fn conversation_messages(
     let mut legacy_calls = Vec::new();
     let mut output = Vec::new();
     for input in messages {
-        output.push(message(dialect, model_id, input, &legacy_calls)?);
-        if dialect.replay == ReplayRule::Xai
-            && let Some(call) = legacy_function_call(input)
-        {
+        let (mapped, legacy) = message(dialect, model_id, input, &legacy_calls)?;
+        output.push(mapped);
+        if let Some(call) = legacy {
             legacy_calls.push(call);
         }
     }

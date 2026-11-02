@@ -50,7 +50,7 @@ async fn polls_one_accepted_completion_and_emits_result_events() {
     .await
     .expect("deferred completion should eventually succeed");
 
-    assert_eq!(result.assistant_message, "Done");
+    assert_eq!(result.text(), "Done");
     assert_eq!(content_events(&recorded), vec![assistant_delta("Done")]);
     assert_eq!(recorded.len(), 3);
     assert_eq!(recorded[2]["Finish"]["finish_reason"], "Stop");

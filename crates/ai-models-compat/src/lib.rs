@@ -23,3 +23,7 @@ pub use engine::errors::classify_chat_completions_provider_error;
 #[cfg(test)]
 #[path = "_tests_/stream_support.rs"]
 pub(crate) mod stream_test_support;
+
+#[cfg(test)]
+#[path = "_tests_/part_support.rs"]
+mod part_test_support;

@@ -41,7 +41,7 @@ async fn emits_terminal_cumulative_content_and_append_only_reasoning_with_parity
             assistant_delta("Hello"),
         ]
     );
-    assert_eq!(assistant_text(&events), response.assistant_message);
+    assert_eq!(assistant_text(&events), response.text());
 }
 
 #[tokio::test]
@@ -101,7 +101,7 @@ async fn revised_cumulative_content_emits_only_the_terminal_snapshot() {
     let events = content_events(&recorded);
 
     assert_eq!(events, vec![assistant_delta("replacement")]);
-    assert_eq!(assistant_text(&events), response.assistant_message);
+    assert_eq!(assistant_text(&events), response.text());
 }
 
 fn completed_stream(chunks: Vec<Value>) -> Vec<ai_models_core::test_support::StreamItem> {
