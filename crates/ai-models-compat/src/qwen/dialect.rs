@@ -3,7 +3,7 @@
 use super::{QWEN_3_7_FLASH, QWEN_3_7_MAX, QWEN_3_7_PLUS};
 use crate::engine::dialect::{
     Dialect, InputParts, OutputLimit, ReplayRule, Sampling, StructuredOutput, ThinkingFormat,
-    ToolChoiceRule,
+    ToolChoiceRule, UsageFields,
 };
 use ai_interface::ModelError;
 use ai_models_core::classify_json_http_error;
@@ -13,6 +13,7 @@ pub(super) static DIALECT: Dialect = Dialect {
     provider: "qwen",
     label: "Qwen",
     endpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+    usage: UsageFields::CachedInput,
     replay: ReplayRule::Qwen,
     thinking: ThinkingFormat::Flags,
     output_limit: OutputLimit::MaxCompletionTokens,

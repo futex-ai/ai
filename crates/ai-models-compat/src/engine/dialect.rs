@@ -16,6 +16,7 @@ pub(crate) struct Dialect {
     pub(crate) label: &'static str,
     pub(crate) endpoint: &'static str,
     pub(crate) replay: ReplayRule,
+    pub(crate) usage: UsageFields,
     pub(crate) thinking: ThinkingFormat,
     pub(crate) output_limit: OutputLimit,
     pub(crate) structured_output: StructuredOutput,
@@ -40,6 +41,15 @@ pub(crate) enum ReplayRule {
     Qwen,
     MiniMax,
     Xai,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum UsageFields {
+    CacheHitMiss,
+    DirectCached,
+    CachedInput,
+    CachedAndReasoning,
+    BoundedCachedAndReasoning,
 }
 
 #[derive(Clone, Copy)]

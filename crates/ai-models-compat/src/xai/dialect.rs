@@ -2,7 +2,7 @@
 
 use crate::engine::dialect::{
     Dialect, InputParts, OutputLimit, ReplayRule, Sampling, StructuredOutput, ThinkingFormat,
-    ToolChoiceRule,
+    ToolChoiceRule, UsageFields,
 };
 use std::time::Duration;
 
@@ -10,6 +10,7 @@ pub(super) static DIALECT: Dialect = Dialect {
     provider: "xai",
     label: "xAI",
     endpoint: "https://api.x.ai/v1/chat/completions",
+    usage: UsageFields::BoundedCachedAndReasoning,
     replay: ReplayRule::Xai,
     thinking: ThinkingFormat::GrokEffort {
         fixed_prefix: "grok-4.20",

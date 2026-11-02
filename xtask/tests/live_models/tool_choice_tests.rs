@@ -6,8 +6,8 @@ use ai_interface::{
     ConversationMessage, FinishReason, Model, ModelCallControls, ModelExecutionControls,
     ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
 };
+use ai_models_compat::minimax::MINIMAX_M3;
 use ai_models_core::RetryingModel;
-use ai_models_minimax::MINIMAX_M3;
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use serde_json::json;
 

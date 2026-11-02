@@ -3,7 +3,6 @@
 #![warn(unreachable_pub)]
 
 mod catalog;
-mod chat_completions;
 mod concurrency;
 mod errors;
 mod http_status;
@@ -20,18 +19,11 @@ pub use catalog::{
     CostTier, IntelligenceScore, KnownModelCatalog, KnownModelSpec, ModelFeature, ProviderKind,
     SpeedTier, ThinkingLevel, known_mock_models, resolve_catalog_thinking_level,
 };
-pub use chat_completions::{
-    ChatCompletionsAccumulator, ChatCompletionsChoice, ChatCompletionsCompletionTokenDetails,
-    ChatCompletionsDelta, ChatCompletionsMessage, ChatCompletionsPromptTokenDetails,
-    ChatCompletionsResponse, ChatCompletionsStreamError, ChatCompletionsStreamStatus,
-    ChatCompletionsStreamUpdate, ChatCompletionsToolCall, ChatCompletionsToolFunction,
-    ChatCompletionsUsage,
-};
 pub use concurrency::ConcurrencyLimitedModel;
 pub use errors::{
-    assistant_text, classify_chat_completions_provider_error, classify_json_http_error,
-    classify_json_http_stream_error, classify_stream_error, parse_structured_output,
-    parse_tool_call_arguments, validate_structured_output,
+    assistant_text, classify_json_http_error, classify_json_http_stream_error,
+    classify_stream_error, parse_structured_output, parse_tool_call_arguments,
+    validate_structured_output,
 };
 pub use http_status::{HttpFailureClass, classify_http_status};
 #[cfg(any(test, doctest, feature = "test-support"))]

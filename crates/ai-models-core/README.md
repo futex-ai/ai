@@ -12,8 +12,7 @@
   operations that must poll within a total deadline
 - Offer a boundary-neutral HTTP failure classifier and provider-agnostic
   JSON/error helpers shared by model crates
-- Classify stream failures by provider-event progress and accumulate
-  OpenAI-compatible chat-completions deltas into buffered response shapes
+- Classify stream failures by provider-event progress
 - Provide shared known-model catalog metadata used by composition roots
 - Provide provider-agnostic model usage pricing wrappers and integer cost
   calculation
@@ -22,16 +21,8 @@
 
 `ai-models-core` exposes wrappers such as `RetryingModel` and `ConcurrencyLimitedModel` so composition roots can assemble policy layers around provider clients. It also includes provider-facing helpers for common response/error handling, including the boundary-neutral `classify_http_status`, structured context-window overflow detection, tool-call JSON parsing, and deterministic local ids for provider tool calls that arrive without upstream ids. The classifier returns `None` below 400 and distinguishes rate-limited, transient, and terminal failures without depending on a modality-specific error type. HTTP 408, 409, 425, and 5xx responses are transient so retry wrappers can apply the configured schedule. Streaming helpers classify failures before any provider event as transient and failures after progress as `ModelError::Interrupted`.
 
-`ChatCompletionsAccumulator` is the shared typed merger for compatible
-provider streams. It joins visible content and reasoning independently,
-reassembles indexed tool calls and legacy function-call argument fragments,
-retains terminal finish reasons and final usage, recognizes standard provider
-error events, and requires the `[DONE]` sentinel before producing a buffered
-response-shaped value. Its opt-in `push_data_with_deltas` path also returns
-ordered nonempty assistant and reasoning fragments for the primary choice
-without changing the buffered result. Its usage superset retains nested cache
-details plus Kimi's direct `cached_tokens` field for provider-specific
-normalization.
+The Chat Completions engine and its accumulator live in
+[`ai-models-compat`](../ai-models-compat/README.md).
 
 It also defines `KnownModelSpec`, `KnownModelCatalog`, coarse `SpeedTier` and
 `CostTier` values, `ThinkingLevel`, and the 1-to-10 `IntelligenceScore` used
@@ -88,7 +79,6 @@ use std::sync::Arc;
 
 use ai_interface::{DynModel, MockModel};
 use ai_models_core::{
-    ChatCompletionsAccumulator, ChatCompletionsResponse, ChatCompletionsStreamError,
     ConcurrencyLimitedModel, KnownModelCatalog, ModelPricing, RetryingModel, ThinkingLevel,
     UsagePricingModel, known_mock_models,
 };
@@ -108,15 +98,6 @@ fn mock_thinking_level() -> ThinkingLevel {
     ThinkingLevel::Disabled
 }
 
-fn accumulate_chat_completion(
-    data: &[&str],
-) -> Result<ChatCompletionsResponse, ChatCompletionsStreamError> {
-    let mut accumulator = ChatCompletionsAccumulator::new();
-    for payload in data {
-        accumulator.push_data(payload)?;
-    }
-    accumulator.finish()
-}
 ```
 
 ## Development
@@ -136,7 +117,6 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - `src/http_status.rs` - boundary-neutral HTTP failure classification
 - `src/errors.rs` - provider-agnostic JSON error mapping, parsing, and
   structured-output validation helpers
-- `src/chat_completions/` - typed OpenAI-compatible stream accumulator
 - `src/tool_call_identity/` - deterministic synthetic tool-call ids and
   hashing of normalized requests and provider replay state
 - `src/sleeper.rs` - abstract sleeper boundary for retry testing

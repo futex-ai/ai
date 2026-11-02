@@ -4,14 +4,14 @@ use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
 use ai_interface::DynModel;
 use ai_models_anthropic::AnthropicModel;
+use ai_models_compat::deepseek::DeepSeekModel;
+use ai_models_compat::kimi::KimiModel;
+use ai_models_compat::minimax::MiniMaxModel;
+use ai_models_compat::qwen::QwenModel;
+use ai_models_compat::xai::XaiModel;
 use ai_models_core::{KnownModelSpec, ModelFeature};
-use ai_models_deepseek::DeepSeekModel;
 use ai_models_google::GoogleModel;
-use ai_models_kimi::KimiModel;
-use ai_models_minimax::MiniMaxModel;
 use ai_models_openai::OpenAiModel;
-use ai_models_qwen::QwenModel;
-use ai_models_xai::XaiModel;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use serde::{Deserialize, Serialize};
 
@@ -75,11 +75,11 @@ impl Provider {
             Self::Anthropic => ai_models_anthropic::known_models(),
             Self::Openai => ai_models_openai::known_models(),
             Self::Google => ai_models_google::known_models(),
-            Self::Deepseek => ai_models_deepseek::known_models(),
-            Self::Kimi => ai_models_kimi::known_models(),
-            Self::Qwen => ai_models_qwen::known_models(),
-            Self::Minimax => ai_models_minimax::known_models(),
-            Self::Xai => ai_models_xai::known_models(),
+            Self::Deepseek => ai_models_compat::deepseek::known_models(),
+            Self::Kimi => ai_models_compat::kimi::known_models(),
+            Self::Qwen => ai_models_compat::qwen::known_models(),
+            Self::Minimax => ai_models_compat::minimax::known_models(),
+            Self::Xai => ai_models_compat::xai::known_models(),
         };
         catalog
             .into_iter()

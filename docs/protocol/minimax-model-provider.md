@@ -21,7 +21,7 @@ shared engine that serves this provider.
 
 - `ai-interface` owns the stable `minimax` provider identifier and typed
   MiniMax conversation context required for stateless replay.
-- `ai-models-minimax` owns MiniMax catalog metadata, request and response DTOs,
+- `ai-models-compat` owns MiniMax catalog metadata, request and response DTOs,
   authentication, transport dispatch, provider error handling, and response
   normalization.
 - `ai-models-core` continues to own provider-agnostic HTTP classification,

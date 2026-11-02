@@ -126,17 +126,11 @@ boundary they need:
   model-visible tool output envelopes
 - `ai-models-core`: reusable model wrappers and provider helper logic
 - `ai-models-anthropic`: Anthropic model adapter
-- `ai-models-deepseek`: DeepSeek V4 Pro/Flash model adapter and known-model
-  catalog
+- `ai-models-compat`: one Chat Completions engine with public `deepseek`,
+  `kimi`, `qwen`, `minimax`, and `xai` dialect modules and their catalogs
 - `ai-models-google`: Google Gemini chat/image and Veo video adapters
-- `ai-models-kimi`: Kimi K3 model adapter
-- `ai-models-minimax`: MiniMax Chat Completions model adapter and known-model
-  catalog
 - `ai-models-openai`: OpenAI model, transcription, image, and video adapters
-- `ai-models-qwen`: Qwen 3.7 Max/Plus/Flash Chat Completions adapter and
-  known-model catalog
 - `ai-models-typesafe`: TypeSafe Jev judgment adapter and known-model catalog
-- `ai-models-xai`: xAI model adapter
 - `ai-models-multi`: ordered fallback model adapter
 - `ai-tool-calling`: in-memory tool-calling runtime with output policy, output
   store integration, and the intrinsic `tool_output_read` reader
@@ -266,14 +260,8 @@ cargo xtask review
 - `crates/ai-interface`: shared AI contracts, including call controls,
   `src/model_completion_events.rs`, and `src/output/` envelope DTOs
 - `crates/ai-models-core`: provider-agnostic model wrappers and helpers
-- `crates/ai-models-deepseek`: DeepSeek V4 catalog, typed client, thinking,
-  request/replay, structured-output, response, usage, and error mapping
-- `crates/ai-models-kimi`: Kimi K3 catalog, client, request, replay, response,
-  and usage mapping
-- `crates/ai-models-minimax`: MiniMax catalog plus request, replay, response,
-  usage, and provider-error mapping
-- `crates/ai-models-qwen`: Qwen 3.7 catalog, typed client, thinking, vision,
-  request/replay, structured output, usage, and error mapping
+- `crates/ai-models-compat`: shared request mapping, streaming, response,
+  usage, and errors, with DeepSeek, Kimi, Qwen, MiniMax, and xAI dialects
 - `crates/ai-models-typesafe`: TypeSafe Jev catalog, judgment request/response
   mapping, validation, usage, authentication, and provider-error translation
 - `crates/ai-models-*`: concrete provider and fallback adapters

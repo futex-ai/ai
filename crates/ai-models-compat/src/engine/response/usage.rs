@@ -4,7 +4,7 @@ use ai_interface::ModelUsage;
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::{super::dialect::ReplayRule, xai_usage::XaiUsage};
+use super::{super::dialect::UsageFields, xai_usage::XaiUsage};
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct DeepSeekUsage {
@@ -75,11 +75,11 @@ struct PromptTokenDetails {
 }
 
 pub(super) fn normalize(
-    rule: ReplayRule,
+    rule: UsageFields,
     raw: Option<Value>,
 ) -> Result<ModelUsage, serde_json::Error> {
     let (prompt, completion, cached, cache_miss, reasoning, total) = match rule {
-        ReplayRule::DeepSeek => {
+        UsageFields::CacheHitMiss => {
             let usage: DeepSeekUsage = match raw {
                 Some(raw) => serde_json::from_value(raw)?,
                 None => DeepSeekUsage::default(),
@@ -93,7 +93,7 @@ pub(super) fn normalize(
                 usage.total_tokens,
             )
         }
-        ReplayRule::Kimi => {
+        UsageFields::DirectCached => {
             let usage: KimiUsage = match raw {
                 Some(raw) => serde_json::from_value(raw)?,
                 None => KimiUsage::default(),
@@ -109,7 +109,7 @@ pub(super) fn normalize(
                 usage.total_tokens,
             )
         }
-        ReplayRule::Qwen => {
+        UsageFields::CachedInput => {
             let usage: QwenUsage = match raw {
                 Some(raw) => serde_json::from_value(raw)?,
                 None => QwenUsage::default(),
@@ -123,7 +123,7 @@ pub(super) fn normalize(
                 usage.total_tokens,
             )
         }
-        ReplayRule::MiniMax => {
+        UsageFields::CachedAndReasoning => {
             let usage: NativeUsage = match raw {
                 Some(raw) => serde_json::from_value(raw)?,
                 None => NativeUsage::default(),
@@ -137,7 +137,7 @@ pub(super) fn normalize(
                 usage.total_tokens,
             )
         }
-        ReplayRule::Xai => {
+        UsageFields::BoundedCachedAndReasoning => {
             let usage: XaiUsage = match raw {
                 Some(raw) => serde_json::from_value(raw)?,
                 None => XaiUsage::default(),

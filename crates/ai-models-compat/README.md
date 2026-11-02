@@ -13,19 +13,24 @@ credentials and an injected `json-http` client.
 
 ## What This Crate Does
 
-One engine serves provider dialects. The public `deepseek`, `kimi`, `qwen`, `minimax`, and `xai` modules
-export their models, configuration errors, catalog constants, and `known_models()`.
+One engine serves five provider dialects. The public modules are `deepseek`,
+`kimi`, `qwen`, `minimax`, and `xai`. Each module exports its model, catalog
+constants, and `known_models()`. DeepSeek, Kimi, and Qwen also export their
+configuration errors.
+
 The engine keeps the current buffered `complete` and opt-in
 `complete_with_events` methods. Schema calls suppress public text events.
 Stream failures after progress return `ModelError::Interrupted`.
+Moved errors retain their existing message prefixes for response parity.
+
 MiniMax retains M2.x snapshot recovery, M3 deltas, reasoning details, numeric
 provider errors, and structurally validated clean EOF.
 xAI retains legacy function calls, deterministic call ids, final usage
 replacement, and buffered deferred submission and polling. Deferred calls
 suppress events. Their existing timeout classification remains unchanged.
 
-A dialect supplies its endpoint and provider settings. Model wrappers validate
-construction and delegate execution to the engine. Callers supply credentials
+A dialect supplies its endpoint, usage fields, replay rule, and wire settings.
+Model wrappers validate construction and delegate execution to the engine. Callers supply credentials
 and apply retry, concurrency, and pricing wrappers at the composition root.
 
 ## Quick Start
@@ -65,4 +70,7 @@ stream, response, validation, and usage code. Put dialect tests in its
 - [Current streaming contract](../../docs/protocol/model-completion-streaming.md)
 - [Provider controls](../../docs/protocol/provider-call-controls.md)
 - [DeepSeek](../../docs/protocol/deepseek-model-provider.md)
+- [Kimi](../../docs/protocol/kimi-model-provider.md)
+- [Qwen](../../docs/protocol/qwen-model-provider.md)
+- [MiniMax](../../docs/protocol/minimax-model-provider.md)
 - [Adapter helpers](../ai-models-core/README.md)

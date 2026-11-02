@@ -12,3 +12,15 @@ pub use types::{
     ChatCompletionsStreamError, ChatCompletionsStreamStatus, ChatCompletionsStreamUpdate,
     ChatCompletionsToolCall, ChatCompletionsToolFunction, ChatCompletionsUsage,
 };
+
+#[cfg(test)]
+#[path = "_tests_/chat_completions_compatibility_tests.rs"]
+mod chat_completions_compatibility_tests;
+
+#[cfg(test)]
+#[path = "_tests_/chat_completions_event_tests.rs"]
+mod chat_completions_event_tests;
+
+#[cfg(test)]
+#[path = "_tests_/chat_completions_tests.rs"]
+mod chat_completions_tests;

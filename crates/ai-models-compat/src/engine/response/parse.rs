@@ -54,7 +54,7 @@ pub(crate) fn parse_response(
         Ok(parsed) => parsed,
         Err(source) => return Err(parse_error(source)),
     };
-    let usage = match normalize(dialect.replay, parsed.usage) {
+    let usage = match normalize(dialect.usage, parsed.usage) {
         Ok(usage) => usage,
         Err(source) => return Err(parse_error(source)),
     };

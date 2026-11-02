@@ -4,7 +4,7 @@ use super::{MINIMAX_M3, stream_quirks::normalizer};
 use crate::engine::{
     dialect::{
         Dialect, InputParts, OutputLimit, ReplayRule, Sampling, StructuredOutput, ThinkingFormat,
-        ToolChoiceRule,
+        ToolChoiceRule, UsageFields,
     },
     response::BaseResponse,
 };
@@ -14,6 +14,7 @@ pub(super) static DIALECT: Dialect = Dialect {
     provider: "minimax",
     label: "MiniMax",
     endpoint: "https://api.minimax.io/v1/chat/completions",
+    usage: UsageFields::CachedAndReasoning,
     replay: ReplayRule::MiniMax,
     thinking: ThinkingFormat::Adaptive,
     output_limit: OutputLimit::MaxCompletionTokens,

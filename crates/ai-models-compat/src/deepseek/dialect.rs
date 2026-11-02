@@ -2,13 +2,14 @@
 
 use crate::engine::dialect::{
     Dialect, InputParts, OutputLimit, ReplayRule, Sampling, StructuredOutput, ThinkingFormat,
-    ToolChoiceRule,
+    ToolChoiceRule, UsageFields,
 };
 
 pub(super) static DIALECT: Dialect = Dialect {
     provider: "deepseek",
     label: "DeepSeek",
     endpoint: "https://api.deepseek.com/chat/completions",
+    usage: UsageFields::CacheHitMiss,
     replay: ReplayRule::DeepSeek,
     thinking: ThinkingFormat::ToggleEffort,
     output_limit: OutputLimit::MaxTokens,

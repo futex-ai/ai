@@ -2,13 +2,14 @@
 
 use crate::engine::dialect::{
     Dialect, InputParts, OutputLimit, ReplayRule, Sampling, StructuredOutput, ThinkingFormat,
-    ToolChoiceRule,
+    ToolChoiceRule, UsageFields,
 };
 
 pub(super) static DIALECT: Dialect = Dialect {
     provider: "kimi",
     label: "Kimi",
     endpoint: "https://api.moonshot.ai/v1/chat/completions",
+    usage: UsageFields::DirectCached,
     replay: ReplayRule::Kimi,
     thinking: ThinkingFormat::Effort,
     output_limit: OutputLimit::MaxCompletionTokens,

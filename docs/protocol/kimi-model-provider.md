@@ -8,7 +8,7 @@ output, routing, usage, and error contracts.
 
 ## Status
 
-This contract is implemented by `ai-models-kimi`, with shared routing and
+This contract is implemented by `ai-models-compat`, with shared routing and
 replay types in `ai-interface`. The
 [Add Kimi Model Provider plan](../../plans/add-kimi-model-provider.md) records
 the completed implementation milestones.
@@ -37,7 +37,7 @@ a typed provider error before transport.
 
 - `ai-interface` owns the `Kimi` provider identifier and typed Kimi assistant
   replay context.
-- `ai-models-kimi` owns Kimi catalog entries, authentication, request and
+- `ai-models-compat` owns Kimi catalog entries, authentication, request and
   response mapping, replay behavior, and provider error translation.
 - `ai-models-core` owns shared HTTP error classification, tool-argument
   parsing, structured-output parsing and validation, and model metadata types.

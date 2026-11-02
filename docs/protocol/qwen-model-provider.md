@@ -8,7 +8,7 @@ structured-output, usage, and error contracts.
 
 ## Status
 
-Implemented by `ai-models-qwen`, with shared routing and replay types in
+Implemented by `ai-models-compat`, with shared routing and replay types in
 `ai-interface`.
 
 Once implemented, the
@@ -37,7 +37,7 @@ partial support.
 
 - `ai-interface` owns the stable `Qwen` provider identifier and typed Qwen
   assistant replay context.
-- `ai-models-qwen` owns catalog metadata, configuration validation,
+- `ai-models-compat` owns catalog metadata, configuration validation,
   authentication, request and response mapping, replay, and Qwen-specific
   error translation.
 - `ai-models-core` owns shared HTTP classification, tool-argument parsing,

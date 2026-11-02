@@ -38,8 +38,9 @@ of scope.
 - `json-http` owns SSE framing, stream opening, connect/idle/deadline
   enforcement, and transport progress errors. It does not inspect provider
   event JSON.
-- `ai-models-core` owns shared stream-error classification and the pure
-  OpenAI-compatible chat-completions accumulator.
+- `ai-models-core` owns shared stream-error classification.
+- `ai-models-compat` owns the pure OpenAI-compatible chat-completions
+  accumulator and the shared engine for its five dialects.
 - Each provider adapter owns its stream request fields, native event DTOs,
   terminal conditions, provider errors, and conversion through its existing
   response mapper.
@@ -151,7 +152,7 @@ must warn that this can bill both the interrupted provider and the fallback.
 ## Shared Chat-Completions Accumulator
 
 DeepSeek, Kimi, MiniMax, QwenCloud, and synchronous xAI use one pure
-`ai-models-core` accumulator for OpenAI-compatible chat-completions chunks. It:
+`ai-models-compat` accumulator for OpenAI-compatible chat-completions chunks. It:
 
 - concatenates `choices[].delta.content` in arrival order;
 - concatenates `delta.reasoning_content` independently;

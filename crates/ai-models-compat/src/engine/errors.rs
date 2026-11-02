@@ -61,3 +61,7 @@ pub fn classify_chat_completions_provider_error(
     }
     ModelError::provider(provider, model_id, message)
 }
+
+#[cfg(test)]
+#[path = "_tests_/stream_errors_tests.rs"]
+mod stream_errors_tests;

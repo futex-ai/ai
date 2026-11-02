@@ -153,13 +153,13 @@ fn registered_catalogs_are_non_empty_and_constructible() {
 fn all_known_models() -> Vec<KnownModelSpec> {
     [
         ai_models_anthropic::known_models(),
-        ai_models_deepseek::known_models(),
+        ai_models_compat::deepseek::known_models(),
         ai_models_google::known_models(),
-        ai_models_kimi::known_models(),
-        ai_models_minimax::known_models(),
+        ai_models_compat::kimi::known_models(),
+        ai_models_compat::minimax::known_models(),
         ai_models_openai::known_models(),
-        ai_models_qwen::known_models(),
-        ai_models_xai::known_models(),
+        ai_models_compat::qwen::known_models(),
+        ai_models_compat::xai::known_models(),
     ]
     .into_iter()
     .flatten()

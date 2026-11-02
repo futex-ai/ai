@@ -72,6 +72,7 @@ pub(crate) struct ChatCompletionsNamedFunction {
 pub(crate) struct ChatCompletionsMessage {
     pub(crate) role: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// The outer absence omits content; the inner absence sends JSON null.
     pub(crate) content: Option<Option<ChatCompletionsContent>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) name: Option<String>,

@@ -6,20 +6,20 @@ use std::task::{Context, Poll, Waker};
 
 use ai_interface::{ConversationMessage, DynModel, NoopLogger, Tool};
 use ai_models_anthropic::{AnthropicModel, CLAUDE_SONNET_5};
-use ai_models_deepseek::DeepSeekModel;
+use ai_models_compat::deepseek::DeepSeekModel;
+use ai_models_compat::kimi::KimiModel;
+use ai_models_compat::minimax::{MINIMAX_M3, MiniMaxModel};
+use ai_models_compat::qwen::QwenModel;
+use ai_models_compat::xai::{GROK_4_5, XaiModel};
 use ai_models_google::{
     GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, GoogleImageGenerator, GoogleModel,
     GoogleVideoGenerator, VEO_3_1_GENERATE_PREVIEW,
 };
-use ai_models_kimi::KimiModel;
-use ai_models_minimax::{MINIMAX_M3, MiniMaxModel};
 use ai_models_openai::{
     GPT_5_6_SOL, GPT_IMAGE_2, OpenAiAudioTranscriber, OpenAiImageGenerator, OpenAiModel,
     OpenAiVideoGenerator, SORA_2,
 };
-use ai_models_qwen::QwenModel;
 use ai_models_typesafe::{JEV_LATEST, TypeSafeJudgmentModel};
-use ai_models_xai::{GROK_4_5, XaiModel};
 use ai_tool_calling::{
     InMemoryToolOutputStore, RunOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn,
 };

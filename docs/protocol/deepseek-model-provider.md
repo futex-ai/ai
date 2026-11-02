@@ -37,7 +37,7 @@ require separate contracts rather than silent partial support.
 
 - `ai-interface` owns the stable `DeepSeek` provider identifier and typed
   DeepSeek assistant replay context.
-- `ai-models-deepseek` owns DeepSeek catalog metadata, configuration
+- `ai-models-compat` owns DeepSeek catalog metadata, configuration
   validation, authentication, request and response mapping, replay behavior,
   and provider error translation.
 - `ai-models-core` owns shared HTTP classification, tool and structured-output
