@@ -115,6 +115,10 @@ fn message(
     } else {
         Vec::new()
     };
+    let (reasoning_content, reasoning_details) = match replay.reasoning_snapshot {
+        Some(snapshot) => (snapshot.content, snapshot.details),
+        None => (replay.reasoning_content, replay.reasoning_details),
+    };
     Ok((
         ChatCompletionsMessage {
             role: if legacy_name.is_some() {
@@ -142,8 +146,8 @@ fn message(
             } else {
                 None
             },
-            reasoning_content: replay.reasoning_content,
-            reasoning_details: replay.reasoning_details,
+            reasoning_content,
+            reasoning_details,
             tool_calls: calls,
             function_call: legacy.as_ref().map(|call| ChatCompletionsToolFunction {
                 name: call.name.clone(),

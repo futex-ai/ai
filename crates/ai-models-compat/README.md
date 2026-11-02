@@ -70,7 +70,10 @@ items, such as `deepseek::LegacyConverter`. The DeepSeek, Kimi, Qwen, and
 MiniMax converters put the item on a new reasoning part. The xAI converter
 puts its legacy function call on the matching tool-call part. The parts come
 in the order reasoning, text, then portable tool calls. Add each converter to
-the `LegacyMessageConverter` of the host.
+the `LegacyMessageConverter` of the host. MiniMax replays only the reasoning
+and details of the first version 1 `minimax_assistant` item, also on plain
+serde reads without a converter. Native version 2 reasoning parts retain
+their separate accumulation.
 
 A dialect supplies its endpoint, usage fields, replay rule, and wire settings.
 Model wrappers hold the spec and delegate execution to the engine. Callers

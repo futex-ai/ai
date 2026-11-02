@@ -97,5 +97,8 @@ fn legacy_fixture(provider: Provider) -> &'static str {
 #[path = "legacy_request_support.rs"]
 mod legacy_request_support;
 #[cfg(test)]
+#[path = "minimax_legacy_replay_tests.rs"]
+mod minimax_legacy_replay_tests;
+#[cfg(test)]
 #[path = "mixed_native_replay_tests.rs"]
 mod mixed_native_replay_tests;

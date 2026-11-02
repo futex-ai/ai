@@ -277,6 +277,7 @@ These order rules give the order of the parts of an assistant message:
     items. The text part comes first.
 - The OpenAI text part takes the phase of the first `openai_message` item.
   Later `openai_message` items add nothing.
+- Later `minimax_assistant` items of a message add nothing to the request.
 - Every other provider conversion gives the reasoning parts of its items
   first, in the order of `provider_context`. Then comes the text part, then
   the tool-call parts in the order of `tool_calls`.

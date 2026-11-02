@@ -87,6 +87,8 @@ transport. They check native content with only its converter and with all
 converters installed. They cover repeated text, native block order, calls
 without portable entries, repeated native calls, and OpenAI item order when
 a full native item comes first. The recorded requests stay unchanged.
+MiniMax regressions check that only the first version 1 reasoning item and
+its details reach the request, through conversion and plain serde reads.
 
 The rate-limit fixtures use these official error references.
 Messages and request ids are synthetic examples, without account details.
@@ -157,6 +159,8 @@ See `json-http` for the transport boundary's status and failure limits.
   loops from `tests/fixtures/version1/`.
 - `tests/_tests_/mixed_native_replay_tests.rs` checks mixed version 1 native
   requests and the reverse OpenAI item order.
+- `tests/_tests_/minimax_legacy_replay_tests.rs` checks first-item reasoning
+  replay through both version 1 read paths.
 - `recordings/` holds the sanitized exchange files.
 
 ### Related Docs

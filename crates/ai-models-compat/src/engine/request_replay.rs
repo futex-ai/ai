@@ -1,4 +1,4 @@
-//! Decode all own state before transport and retain each part's replay data.
+//! Decode own state and keep legacy snapshots separate from native part replay.
 
 use ai_interface::{ConversationMessage, ConversationPart, ModelResult};
 
@@ -15,11 +15,20 @@ use super::{
 #[derive(Default)]
 pub(super) struct MessageReplay {
     pub(super) snapshot: Option<ChatCompletionsMessage>,
+    pub(super) reasoning_snapshot: Option<ReasoningSnapshot>,
     pub(super) text: Option<Option<String>>,
     pub(super) reasoning_content: Option<String>,
     pub(super) reasoning_details: Vec<ReasoningDetail>,
     pub(super) calls: Vec<(String, RawToolCall)>,
     pub(super) legacy: Option<LegacyFunctionCall>,
+}
+
+/// The first version one MiniMax item, separate from native part accumulation.
+pub(super) struct ReasoningSnapshot {
+    /// Whole-message reasoning from the first item.
+    pub(super) content: Option<String>,
+    /// Whole-message details from the same item.
+    pub(super) details: Vec<ReasoningDetail>,
 }
 
 pub(super) fn decode_message(
@@ -84,11 +93,7 @@ pub(super) fn decode_message(
             DecodedState::Part(PartState::Reasoning {
                 reasoning_content,
                 reasoning_details,
-            })
-            | DecodedState::Reasoning {
-                reasoning_content,
-                reasoning_details,
-            } => {
+            }) => {
                 if matches!(part, ConversationPart::Reasoning { .. }) {
                     if let Some(reasoning) = reasoning_content {
                         replay
@@ -97,6 +102,19 @@ pub(super) fn decode_message(
                             .push_str(&reasoning);
                     }
                     replay.reasoning_details.extend(reasoning_details);
+                }
+            }
+            DecodedState::Reasoning {
+                reasoning_content,
+                reasoning_details,
+            } => {
+                if matches!(part, ConversationPart::Reasoning { .. })
+                    && replay.reasoning_snapshot.is_none()
+                {
+                    replay.reasoning_snapshot = Some(ReasoningSnapshot {
+                        content: reasoning_content,
+                        details: reasoning_details,
+                    });
                 }
             }
             DecodedState::Part(PartState::ToolCall { call, legacy }) => {
