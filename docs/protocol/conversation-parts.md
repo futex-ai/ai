@@ -210,7 +210,7 @@ It is one-way: no function writes version 1.
 | --- | --- | --- |
 | `openai_message` | `openai` | The text part, for the first `openai_message` item only |
 | `openai_reasoning` | `openai` | A new reasoning part with empty text |
-| `openai_function_call` | `openai` | The tool-call part whose call id is the item's `call_id` |
+| `openai_function_call` | `openai` | The tool-call part whose call id is the item's `call_id`, or a new reasoning part with empty text when no call matches |
 | `minimax_assistant` | `minimax` | A new reasoning part with the item's `reasoning_content` as text |
 | `xai_legacy_function_call` | `xai` | The tool-call part whose call id is the item's `tool_call_id` |
 | `deep_seek_assistant_message` | `deepseek` | A new reasoning part with the item's `reasoning_content` as text |
@@ -245,8 +245,8 @@ It is one-way: no function writes version 1.
   rejected alternative attached their blocks to shared portable parts,
   which can repeat text, move blocks, or lose calls.
 - When the part for an individual item does not exist, the converter drops
-  the item and writes a `tracing` warning. This rule never drops a block or
-  part of a full content item.
+  the item and writes a `tracing` warning. This rule never drops an
+  `openai_function_call` item or a block or part of a full content item.
 - When the registry does not include the provider of an item, the converter
   keeps the item as provider state of that provider, with version 1 and the
   fields of the item as the payload. The state goes on the part that the
@@ -279,6 +279,9 @@ These order rules give the order of the parts of an assistant message:
   - A text part without an `openai_message` item, and the tool-call parts
     without an `openai_function_call` item, come after the parts of the
     items. The text part comes first.
+- When a version 1 message has an `openai_function_call` item, its portable
+  calls without a matching item stay in storage but add nothing to OpenAI
+  requests. A native call without a portable call still reaches OpenAI.
 - The OpenAI text part takes the phase of the first `openai_message` item.
   Later `openai_message` items add nothing.
 - Later `minimax_assistant` items of a message add nothing to the request.

@@ -120,8 +120,11 @@ that does not decode fails before transport with `ModelError::Provider`.
 `openai_reasoning`, and `openai_function_call` items. It keeps their
 `provider_context` order, and the text part takes the phase of the first
 `openai_message` item only. Text and portable tool calls without an item come
-after the parts of the items. Add it to the `LegacyMessageConverter` of the
-host.
+after the parts of the items. When a native call item exists, an unmatched
+portable call carries a private skip marker and adds nothing to OpenAI
+requests. It keeps its position after the text. Native call items without a
+portable call stay on empty reasoning parts and still reach OpenAI.
+Add the converter to the `LegacyMessageConverter` of the host.
 
 `OpenAiAudioTranscriber` submits completed audio recordings to the OpenAI
 transcription endpoint using `gpt-4o-mini-transcribe` or another caller-chosen

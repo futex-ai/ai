@@ -63,6 +63,11 @@ pub enum LegacyPartTarget {
         /// Identifier of the call that receives the state.
         call_id: String,
     },
+    /// A portable call that receives state without taking an item's position.
+    UnorderedToolCall {
+        /// Identifier of the call that receives the state.
+        call_id: String,
+    },
     /// A new reasoning part at this item's position.
     Reasoning {
         /// Provider-exposed reasoning, when available.

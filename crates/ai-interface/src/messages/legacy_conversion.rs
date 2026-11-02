@@ -93,8 +93,12 @@ pub fn compose_legacy_message(
             None => (vec![preserve_item(item)], false),
         };
         for attachment in attachments {
+            let ordered = !matches!(
+                attachment.target,
+                LegacyPartTarget::UnorderedToolCall { .. }
+            );
             if let Some(position) = attach(&mut result.parts, attachment, installed) {
-                if !positions.contains(&position) {
+                if ordered && !positions.contains(&position) {
                     positions.push(position);
                 }
             } else {
@@ -154,7 +158,7 @@ fn attach(
 ) -> Option<usize> {
     let target = match &attachment.target {
         LegacyPartTarget::Text => parts.iter().position(|part| matches!(part, ConversationPart::Text { .. })),
-        LegacyPartTarget::ToolCall { call_id } => parts.iter().position(|part| matches!(part, ConversationPart::ToolCall { call_id: existing, .. } if existing == call_id)),
+        LegacyPartTarget::ToolCall { call_id } | LegacyPartTarget::UnorderedToolCall { call_id } => parts.iter().position(|part| matches!(part, ConversationPart::ToolCall { call_id: existing, .. } if existing == call_id)),
         LegacyPartTarget::Reasoning { text } => {
             parts.push(ConversationPart::reasoning(text).with_provider_state(attachment.provider_state));
             return Some(parts.len() - 1);

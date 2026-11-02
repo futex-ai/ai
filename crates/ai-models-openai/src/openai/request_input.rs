@@ -68,6 +68,7 @@ fn assistant_items(
     let mut carried_phase = None;
     for (part, state) in parts.iter().zip(states) {
         match state {
+            Some(ReplayState::Skip(_)) => continue,
             Some(ReplayState::Reasoning(state)) => {
                 items.push(ResponsesInputItem::Reasoning(ResponsesReasoningInput {
                     kind: "reasoning".to_owned(),

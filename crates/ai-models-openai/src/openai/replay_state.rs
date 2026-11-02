@@ -12,6 +12,19 @@ pub(super) enum ReplayState {
     FunctionCall(FunctionCallState),
     Reasoning(ReasoningState),
     Message(MessageState),
+    Skip(SkipState),
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SkipState {
+    pub(super) replay: SkipReplay,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum SkipReplay {
+    Skip,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

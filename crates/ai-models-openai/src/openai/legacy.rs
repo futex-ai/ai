@@ -7,6 +7,8 @@ use ai_interface::{
 
 use crate::PROVIDER_ID;
 
+use super::replay_state::{ReplayState, SkipReplay, SkipState};
+
 #[derive(Clone, Copy, Debug, Default)]
 /// Converts stored version one OpenAI items into ordered conversation parts.
 pub struct OpenAiLegacyConverter;
@@ -43,8 +45,13 @@ impl LegacyProviderConverter for OpenAiLegacyConverter {
             },
             "openai_function_call" => {
                 match item.fields.get("call_id").and_then(|value| value.as_str()) {
-                    Some(call_id) => LegacyPartTarget::ToolCall {
-                        call_id: call_id.to_owned(),
+                    Some(call_id) if message.tool_calls.iter().any(|call| call.id == call_id) => {
+                        LegacyPartTarget::ToolCall {
+                            call_id: call_id.to_owned(),
+                        }
+                    }
+                    Some(_) => LegacyPartTarget::Reasoning {
+                        text: String::new(),
                     },
                     None => {
                         return Some(vec![LegacyPartAttachment {
@@ -63,7 +70,7 @@ impl LegacyProviderConverter for OpenAiLegacyConverter {
             }
             _ => return None,
         };
-        Some(vec![LegacyPartAttachment {
+        let mut attachments = vec![LegacyPartAttachment {
             target,
             provider_state: ProviderState {
                 provider: PROVIDER_ID,
@@ -71,6 +78,34 @@ impl LegacyProviderConverter for OpenAiLegacyConverter {
                 version: 1,
                 payload: item.fields.clone(),
             },
-        }])
+        }];
+        if item.kind == "openai_function_call"
+            && !message
+                .provider_context
+                .iter()
+                .take(item_index)
+                .any(|item| item.kind == "openai_function_call")
+        {
+            let state = ReplayState::Skip(SkipState {
+                replay: SkipReplay::Skip,
+            })
+            .encode("")
+            .ok()?;
+            for call in &message.tool_calls {
+                if !message.provider_context.iter().any(|item| {
+                    item.kind == "openai_function_call"
+                        && item.fields.get("call_id").and_then(|value| value.as_str())
+                            == Some(call.id.as_str())
+                }) {
+                    attachments.push(LegacyPartAttachment {
+                        target: LegacyPartTarget::UnorderedToolCall {
+                            call_id: call.id.clone(),
+                        },
+                        provider_state: state.clone(),
+                    });
+                }
+            }
+        }
+        Some(attachments)
     }
 }

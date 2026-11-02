@@ -80,6 +80,8 @@ runtime implementation.
   or `Context`. Its `convert_item` returns `LegacyPartAttachment` values with a
   `LegacyPartTarget`, and its optional `convert_message` rebuilds the parts of
   a message whose item holds the exact block order.
+  `UnorderedToolCall` attaches state to a portable call without moving that
+  call to the item's position.
   `compose_legacy_message` applies a list of converters. In a message with
   items from several providers, it keeps each full content item whole on
   one reasoning part with its converter's provider id.

@@ -98,6 +98,10 @@ async fn mixed_messages_keep_openai_order_when_full_content_is_first() {
                 let (item, _) = native_item(provider, NativeCase::RepeatedNativeCall);
                 let mut context = vec![item];
                 context.extend(items.clone());
+                let calls = json!([
+                    {"id": "call", "name": "lookup", "input": {"id": 7}},
+                    {"id": "unmatched", "name": "omitted", "input": {}}
+                ]);
                 let converter = if native_installed {
                     converter()
                 } else {
@@ -107,7 +111,7 @@ async fn mixed_messages_keep_openai_order_when_full_content_is_first() {
                 };
                 let message = converter
                     .read(json!({
-                        "role": "assistant", "content": "visible", "tool_calls": portable_calls(),
+                        "role": "assistant", "content": "visible", "tool_calls": calls,
                         "provider_context": context
                     }))
                     .unwrap();
