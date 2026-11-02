@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use ai_interface::{
     ConversationMessage, DynModelEventStream, FinishReason, MockModel, Model, ModelAttemptError,
-    ModelRequest, ModelResult, ModelUsage, StructuredOutputSchema,
+    ModelRequest, ModelResult, ModelUsage, ProviderId, ProviderState, StructuredOutputSchema,
 };
 use ai_testkit::event_snapshot::ModelEventSnapshot;
 use async_trait::async_trait;
@@ -38,7 +38,7 @@ async fn observing_model_routes_complete_through_the_public_event_boundary() {
         completion_event_failures(
             "eventing-probe",
             CompletionEventExpectation::AssistantTextParity,
-            &response.assistant_message,
+            &response.text(),
             &events.recorded()
         )
         .is_empty()
@@ -71,6 +71,7 @@ fn assistant_event_validation_accepts_reasoning_and_terminal_parity() {
         "hello world",
         with_terminal(vec![
             ModelEventSnapshot::ReasoningDelta {
+                provider_state: None,
                 part_index: 0,
                 delta: "thinking".to_owned(),
             },
@@ -79,6 +80,34 @@ fn assistant_event_validation_accepts_reasoning_and_terminal_parity() {
         ]),
     );
     assert!(failures.is_empty());
+}
+
+#[test]
+fn assistant_event_validation_accepts_state_only_deltas() {
+    let state = ProviderState {
+        provider: ProviderId::new("sample"),
+        model: "model".to_owned(),
+        version: 1,
+        payload: Default::default(),
+    };
+    let failures = validate(
+        "with-state",
+        "visible",
+        with_terminal(vec![
+            text(0, "visible"),
+            ModelEventSnapshot::TextDelta {
+                part_index: 0,
+                delta: String::new(),
+                provider_state: Some(state.clone()),
+            },
+            ModelEventSnapshot::ReasoningDelta {
+                part_index: 1,
+                delta: String::new(),
+                provider_state: Some(state),
+            },
+        ]),
+    );
+    assert_eq!(failures, Vec::<String>::new());
 }
 
 #[test]
@@ -107,6 +136,7 @@ fn assistant_event_validation_rejects_empty_deltas_and_restarts() {
         with_terminal(vec![
             text(0, ""),
             ModelEventSnapshot::ReasoningDelta {
+                provider_state: None,
                 part_index: 1,
                 delta: String::new(),
             },
@@ -176,7 +206,7 @@ async fn observing_model_records_schema_text_usage_and_finish() {
         completion_event_failures(
             "schema-probe",
             CompletionEventExpectation::AssistantTextParity,
-            &response.assistant_message,
+            &response.text(),
             &events.recorded()
         ),
         Vec::<String>::new()
@@ -194,6 +224,7 @@ fn validate(model_id: &str, message: &str, events: Vec<ModelEventSnapshot>) -> V
 
 fn text(part_index: usize, delta: &str) -> ModelEventSnapshot {
     ModelEventSnapshot::TextDelta {
+        provider_state: None,
         part_index,
         delta: delta.to_owned(),
     }
@@ -210,7 +241,6 @@ fn with_terminal(mut events: Vec<ModelEventSnapshot>) -> Vec<ModelEventSnapshot>
         catalog_model_id: None,
         thinking_level: None,
         structured_output: None,
-        provider_context: Vec::new(),
     });
     events
 }

@@ -1,9 +1,6 @@
 //! Stable field hashing for normalized requests.
 
-use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, StructuredOutputSchema,
-    ToolCall, ToolDefinition,
-};
+use ai_interface::{ConversationPart, ConversationRole, StructuredOutputSchema, ToolDefinition};
 use serde_json::Value;
 
 const FNV_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
@@ -25,26 +22,7 @@ impl StableHasher {
         format!("{:016x}", self.value)
     }
 
-    pub(super) fn write_message(&mut self, message: &ConversationMessage) {
-        self.write_role(message.role);
-        self.write_str(&message.content);
-        self.write_usize(message.content_parts.len());
-        for part in &message.content_parts {
-            self.write_content_part(part);
-        }
-        self.write_optional_str(message.name.as_deref());
-        self.write_optional_str(message.tool_call_id.as_deref());
-        self.write_usize(message.tool_calls.len());
-        for call in &message.tool_calls {
-            self.write_tool_call(call);
-        }
-        self.write_usize(message.provider_context.len());
-        for item in &message.provider_context {
-            self.write_provider_context(item);
-        }
-    }
-
-    fn write_role(&mut self, role: ConversationRole) {
+    pub(super) fn write_role(&mut self, role: ConversationRole) {
         match role {
             ConversationRole::User => self.write_str("user"),
             ConversationRole::Assistant => self.write_str("assistant"),
@@ -52,36 +30,59 @@ impl StableHasher {
         }
     }
 
-    fn write_content_part(&mut self, part: &ConversationContentPart) {
+    pub(super) fn write_part(&mut self, part: &ConversationPart) {
         match part {
-            ConversationContentPart::Text { text } => {
+            ConversationPart::Text { text, .. } => {
                 self.write_str("text");
                 self.write_str(text);
             }
-            ConversationContentPart::Image {
+            ConversationPart::Image {
                 mime_type,
                 data_base64,
+                ..
             } => {
                 self.write_str("image");
                 self.write_str(mime_type);
                 self.write_str(data_base64);
             }
-            ConversationContentPart::Video {
+            ConversationPart::Video {
                 mime_type,
                 data_base64,
+                ..
             } => {
                 self.write_str("video");
                 self.write_str(mime_type);
                 self.write_str(data_base64);
             }
+            ConversationPart::Reasoning { text, .. } => {
+                self.write_str("reasoning");
+                self.write_str(text);
+            }
+            ConversationPart::ToolCall {
+                call_id,
+                tool_name,
+                arguments,
+                operation_id,
+                ..
+            } => {
+                self.write_str("tool_call");
+                self.write_str(call_id);
+                self.write_str(tool_name);
+                self.write_json(arguments);
+                self.write_optional_str(operation_id.as_deref());
+            }
+            ConversationPart::ToolResult {
+                call_id,
+                tool_name,
+                content,
+                ..
+            } => {
+                self.write_str("tool_result");
+                self.write_str(call_id);
+                self.write_str(tool_name);
+                self.write_str(content);
+            }
         }
-    }
-
-    fn write_tool_call(&mut self, call: &ToolCall) {
-        self.write_str(&call.id);
-        self.write_str(&call.name);
-        self.write_json(&call.input);
-        self.write_optional_str(call.operation_id.as_deref());
     }
 
     pub(super) fn write_tool(&mut self, tool: &ToolDefinition) {

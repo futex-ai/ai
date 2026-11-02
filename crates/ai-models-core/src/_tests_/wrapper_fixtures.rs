@@ -26,6 +26,7 @@ pub(super) fn request() -> ModelRequest {
 
 pub(super) fn text(delta: &str) -> ModelEvent {
     ModelEvent::TextDelta {
+        provider_state: None,
         part_index: 0,
         delta: delta.to_owned(),
     }
@@ -37,11 +38,10 @@ pub(super) fn response(message: &str) -> ModelResponse {
         model_id: "mock".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: message.to_owned(),
-        tool_calls: Vec::new(),
+        parts: vec![ai_interface::ConversationPart::text(message.to_owned())],
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
+
         usage: ModelUsage::default(),
         attempts: Vec::new(),
     }

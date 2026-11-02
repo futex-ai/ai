@@ -216,11 +216,12 @@ fn valid_response(spec: &ModelSpec, assistant_message: &str) -> ModelResponse {
         model_id: spec.provider_model_id.to_string(),
         catalog_model_id: Some(spec.text_id().to_owned()),
         thinking_level: Some(spec.default_effort),
-        assistant_message: assistant_message.to_owned(),
-        tool_calls: Vec::new(),
+        parts: vec![ai_interface::ConversationPart::text(
+            assistant_message.to_owned(),
+        )],
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
+
         attempts: Vec::new(),
         usage: ModelUsage {
             input_tokens: 1,

@@ -1,0 +1,33 @@
+{
+  "role": "assistant",
+  "content": "",
+  "content_parts": [],
+  "name": null,
+  "tool_call_id": null,
+  "tool_calls": [
+    {
+      "id": "call-lookup-7",
+      "name": "lookup",
+      "input": {
+        "id": 7
+      }
+    }
+  ],
+  "provider_context": [
+    {
+      "type": "google_assistant_message",
+      "parts": [
+        {
+          "functionCall": {
+            "id": "call-lookup-7",
+            "name": "lookup",
+            "args": {
+              "id": 7
+            }
+          },
+          "thoughtSignature": "synthetic-thought-signature"
+        }
+      ]
+    }
+  ]
+}

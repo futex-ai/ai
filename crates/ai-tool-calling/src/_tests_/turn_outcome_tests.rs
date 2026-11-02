@@ -1,13 +1,12 @@
 //! Terminal turn log outcomes and cached terminal results.
 
-use crate::tests::support::stream_result;
-
 use std::sync::{Arc, Mutex};
 
 use ai_interface::{FinishReason, LoggerMock, ModelMock, ModelResponse, ModelUsage, TurnOutcome};
 use unimock::{MockFn, Unimock, matching};
 
 use crate::Turn;
+use crate::tests::support::{response_parts, stream_result};
 
 use super::support::{runtime_with_logger, user_message};
 
@@ -40,11 +39,9 @@ async fn terminal_logs_distinguish_completed_truncated_and_capped() {
                             model_id: "mock".to_owned(),
                             catalog_model_id: None,
                             thinking_level: None,
-                            assistant_message: "partial".to_owned(),
-                            tool_calls: Vec::new(),
+                            parts: response_parts("partial".to_owned(), Vec::new(), Vec::new()),
                             finish_reason: reason,
                             structured_output: None,
-                            provider_context: Vec::new(),
                             usage: ModelUsage::default(),
                         })),
                     )),

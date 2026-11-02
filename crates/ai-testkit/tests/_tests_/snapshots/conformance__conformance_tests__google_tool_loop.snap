@@ -24,7 +24,34 @@ expression: outcome
         },
         {
           "ToolCallEnd": {
-            "part_index": 0
+            "part_index": 0,
+            "provider_state": {
+              "provider": "google",
+              "model": "gemini-3.6-flash",
+              "version": 1,
+              "payload": {
+                "parts": [
+                  {
+                    "functionCall": {
+                      "args": {
+                        "id": 7
+                      },
+                      "id": "call-lookup-7",
+                      "name": "lookup"
+                    },
+                    "thoughtSignature": "synthetic-thought-signature"
+                  }
+                ],
+                "scope": "part",
+                "unsigned_call": {
+                  "args": {
+                    "id": 7
+                  },
+                  "id": "call-lookup-7",
+                  "name": "lookup"
+                }
+              }
+            }
           }
         },
         {
@@ -45,24 +72,7 @@ expression: outcome
             "provider": "google",
             "model_id": "gemini-3.6-flash",
             "catalog_model_id": "google/gemini-3.6-flash",
-            "effort": "medium",
-            "provider_context": [
-              {
-                "type": "google_assistant_message",
-                "parts": [
-                  {
-                    "functionCall": {
-                      "id": "call-lookup-7",
-                      "name": "lookup",
-                      "args": {
-                        "id": 7
-                      }
-                    },
-                    "thoughtSignature": "synthetic-thought-signature"
-                  }
-                ]
-              }
-            ]
+            "effort": "medium"
           }
         }
       ],
@@ -71,34 +81,44 @@ expression: outcome
         "model_id": "gemini-3.6-flash",
         "catalog_model_id": "google/gemini-3.6-flash",
         "effort": "medium",
-        "assistant_message": "",
-        "tool_calls": [
+        "parts": [
           {
-            "id": "call-lookup-7",
-            "name": "lookup",
-            "input": {
+            "type": "tool_call",
+            "call_id": "call-lookup-7",
+            "tool_name": "lookup",
+            "arguments": {
               "id": 7
+            },
+            "provider_state": {
+              "provider": "google",
+              "model": "gemini-3.6-flash",
+              "version": 1,
+              "payload": {
+                "parts": [
+                  {
+                    "functionCall": {
+                      "args": {
+                        "id": 7
+                      },
+                      "id": "call-lookup-7",
+                      "name": "lookup"
+                    },
+                    "thoughtSignature": "synthetic-thought-signature"
+                  }
+                ],
+                "scope": "part",
+                "unsigned_call": {
+                  "args": {
+                    "id": 7
+                  },
+                  "id": "call-lookup-7",
+                  "name": "lookup"
+                }
+              }
             }
           }
         ],
         "finish_reason": "ToolCalls",
-        "provider_context": [
-          {
-            "type": "google_assistant_message",
-            "parts": [
-              {
-                "functionCall": {
-                  "id": "call-lookup-7",
-                  "name": "lookup",
-                  "args": {
-                    "id": 7
-                  }
-                },
-                "thoughtSignature": "synthetic-thought-signature"
-              }
-            ]
-          }
-        ],
         "usage": {
           "input_tokens": 15,
           "output_tokens": 9,
@@ -151,8 +171,12 @@ expression: outcome
         "model_id": "gemini-3.6-flash",
         "catalog_model_id": "google/gemini-3.6-flash",
         "effort": "medium",
-        "assistant_message": "Done",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "Done"
+          }
+        ],
         "finish_reason": "Stop",
         "usage": {
           "input_tokens": 15,

@@ -1,7 +1,7 @@
 //! Typed, serializable snapshots of public model events.
 
 use ai_interface::{
-    Effort, FinishReason, ModelAttemptError, ModelEvent, ModelUsage, ProviderConversationItem,
+    Effort, FinishReason, ModelAttemptError, ModelEvent, ModelUsage, ProviderState,
 };
 use json_http::test_support::Redactor;
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,9 @@ pub enum ModelEventSnapshot {
         part_index: usize,
         /// Exact nonempty text to append to the part.
         delta: String,
+        /// Opaque replay state of this part.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        provider_state: Option<ProviderState>,
     },
     /// An append-only fragment of provider-exposed reasoning.
     ReasoningDelta {
@@ -26,6 +29,9 @@ pub enum ModelEventSnapshot {
         part_index: usize,
         /// Exact nonempty reasoning text to append to the part.
         delta: String,
+        /// Opaque replay state of this part.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        provider_state: Option<ProviderState>,
     },
     /// The start of one tool call.
     ToolCallStart {
@@ -50,6 +56,9 @@ pub enum ModelEventSnapshot {
     ToolCallEnd {
         /// Zero-based position of the started tool-call part.
         part_index: usize,
+        /// Opaque replay state of this call.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        provider_state: Option<ProviderState>,
     },
     /// The final usage of one successful attempt.
     Usage {
@@ -73,9 +82,6 @@ pub enum ModelEventSnapshot {
         /// Validated structured output, when requested and completed.
         #[serde(skip_serializing_if = "Option::is_none")]
         structured_output: Option<Value>,
-        /// Interim message-level replay context until parts own provider state.
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        provider_context: Vec<ProviderConversationItem>,
     },
     /// A failed attempt whose events the consumer must discard.
     Fallback {

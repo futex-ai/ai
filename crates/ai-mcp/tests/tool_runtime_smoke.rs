@@ -131,11 +131,9 @@ impl Model for FixtureModel {
             model_id: "fixture".to_owned(),
             catalog_model_id: None,
             thinking_level: None,
-            assistant_message,
-            tool_calls,
+            parts: ConversationMessage::assistant(assistant_message, tool_calls).parts,
             finish_reason,
             structured_output: None,
-            provider_context: Vec::new(),
             usage: ModelUsage::default(),
             attempts: Vec::new(),
         }))

@@ -12,7 +12,15 @@ expression: outcome
         {
           "TextDelta": {
             "part_index": 0,
-            "delta": "{\"ok\":true}"
+            "delta": "{\"ok\":true}",
+            "provider_state": {
+              "provider": "openai",
+              "model": "gpt-5.6-sol",
+              "version": 1,
+              "payload": {
+                "phase": "final_answer"
+              }
+            }
           }
         },
         {
@@ -36,13 +44,7 @@ expression: outcome
             "effort": "medium",
             "structured_output": {
               "ok": true
-            },
-            "provider_context": [
-              {
-                "type": "openai_message",
-                "phase": "final_answer"
-              }
-            ]
+            }
           }
         }
       ],
@@ -51,18 +53,24 @@ expression: outcome
         "model_id": "gpt-5.6-sol",
         "catalog_model_id": "openai/gpt-5.6-sol",
         "effort": "medium",
-        "assistant_message": "{\"ok\":true}",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "{\"ok\":true}",
+            "provider_state": {
+              "provider": "openai",
+              "model": "gpt-5.6-sol",
+              "version": 1,
+              "payload": {
+                "phase": "final_answer"
+              }
+            }
+          }
+        ],
         "finish_reason": "Stop",
         "structured_output": {
           "ok": true
         },
-        "provider_context": [
-          {
-            "type": "openai_message",
-            "phase": "final_answer"
-          }
-        ],
         "usage": {
           "input_tokens": 15,
           "output_tokens": 5,

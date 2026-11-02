@@ -1,16 +1,15 @@
 //! Runtime tests through the model stream contract.
 
-use crate::tests::support::stream_result;
-use ai_interface::test_support::model_response_stream;
 use std::sync::Arc;
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
-    ConversationMessage, ConversationRole, FinishReason, Model, ModelMock, ModelResponse,
-    ModelUsage,
+    ConversationMessage, FinishReason, Model, ModelMock, ModelResponse, ModelUsage,
 };
 use unimock::{MockFn, Unimock, matching};
 
 use crate::Turn;
+use crate::tests::support::{response_parts, stream_result};
 
 use super::support::{runtime, user_message};
 
@@ -25,11 +24,9 @@ async fn conversation_mutation_and_send_flow_work() {
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
                 thinking_level: None,
-                assistant_message: "done".to_owned(),
-                tool_calls: Vec::new(),
+                parts: response_parts("done".to_owned(), Vec::new(), Vec::new()),
                 finish_reason: FinishReason::Stop,
                 structured_output: None,
-                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             }))),
     ));
@@ -39,15 +36,7 @@ async fn conversation_mutation_and_send_flow_work() {
     runtime.push_assistant_message("seed assistant");
     assert_eq!(runtime.conversation().len(), 2);
 
-    runtime.replace_conversation(vec![ConversationMessage {
-        role: ConversationRole::User,
-        content: "replaced".to_owned(),
-        content_parts: Vec::new(),
-        name: None,
-        tool_call_id: None,
-        tool_calls: Vec::new(),
-        provider_context: Vec::new(),
-    }]);
+    runtime.replace_conversation(vec![ConversationMessage::user("replaced")]);
     assert_eq!(runtime.conversation().len(), 1);
 
     let mut turn = runtime.send(user_message("hello"), Some(4));
@@ -73,18 +62,16 @@ async fn resume_starts_turn_without_appending_user_message() {
             .answers(&|_, request| {
                 {
                     assert_eq!(request.messages.len(), 1);
-                    assert_eq!(request.messages[0].content, "already retained");
+                    assert_eq!(request.messages[0].text(), "already retained");
                     Ok(ModelResponse {
                         attempts: Vec::new(),
                         provider: "mock".to_owned(),
                         model_id: "mock-model".to_owned(),
                         catalog_model_id: None,
                         thinking_level: None,
-                        assistant_message: "done".to_owned(),
-                        tool_calls: Vec::new(),
+                        parts: response_parts("done".to_owned(), Vec::new(), Vec::new()),
                         finish_reason: FinishReason::Stop,
                         structured_output: None,
-                        provider_context: Vec::new(),
                         usage: ModelUsage::default(),
                     })
                 }

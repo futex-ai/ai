@@ -1,6 +1,5 @@
 //! Runtime tests through the model stream contract.
 
-use crate::tests::support::stream_result;
 use std::sync::Arc;
 
 use ai_interface::{
@@ -9,6 +8,7 @@ use ai_interface::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::support::{response_parts, stream_result};
 use crate::{RunOutcome, StepOutcome, Turn};
 
 use super::super::support::{TypedEchoTool, runtime, user_message};
@@ -176,11 +176,9 @@ fn model_response(finish_reason: FinishReason, tool_calls: Vec<ToolCall>) -> Mod
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "done".to_owned(),
-        tool_calls,
+        parts: response_parts("done".to_owned(), tool_calls, Vec::new()),
         finish_reason,
         structured_output: None,
-        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }

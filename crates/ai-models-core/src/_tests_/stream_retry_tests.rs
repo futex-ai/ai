@@ -43,7 +43,7 @@ async fn retry_reopens_before_first_event_and_shares_the_delay_budget() {
 
     let result = model.complete(&request()).await;
 
-    assert!(matches!(result, Ok(response) if response.assistant_message == "retained"));
+    assert!(matches!(result, Ok(response) if response.text() == "retained"));
     assert_eq!(calls.load(Ordering::SeqCst), 3);
     assert_eq!(
         *sleeps.lock().unwrap(),

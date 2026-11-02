@@ -23,16 +23,14 @@ async fn execute_keeps_effort_on_the_initial_and_follow_up_requests() {
         model_id: "model".to_owned(),
         catalog_model_id: Some("provider-a/model".to_owned()),
         thinking_level: Some(Effort::Low),
-        assistant_message: String::new(),
-        tool_calls: vec![ToolCall {
+        parts: vec![ai_interface::ConversationPart::from_tool_call(ToolCall {
             id: "call_1".to_owned(),
             name: "lookup".to_owned(),
             input: json!({"id": 7}),
             operation_id: None,
-        }],
+        })],
         finish_reason: FinishReason::ToolCalls,
         structured_output: None,
-        provider_context: Vec::new(),
         usage: Default::default(),
         attempts: Vec::new(),
     };

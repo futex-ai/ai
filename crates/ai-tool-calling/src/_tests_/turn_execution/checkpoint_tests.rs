@@ -1,18 +1,18 @@
 //! Runtime tests through the model stream contract.
 
-use crate::tests::support::stream_result;
-use ai_interface::test_support::model_response_stream;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
 };
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     ConversationRole, FinishReason, Model, ModelMock, ModelResponse, ModelUsage, ToolCall,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::support::{response_parts, stream_result, tool_result_id};
 use crate::{Error, StepOutcome, TurnCheckpointMock};
 
 use super::super::support::{TypedEchoTool, runtime, user_message};
@@ -58,17 +58,12 @@ async fn checkpoint_runs_before_each_tool_and_after_completed_tools() {
     let conversation = runtime.conversation();
     let tool_messages = conversation
         .iter()
-        .filter(|message| message.tool_call_id.is_some())
+        .filter(|message| tool_result_id(message).is_some())
         .collect::<Vec<_>>();
     assert_eq!(tool_messages.len(), 2);
-    assert!(tool_messages[0].content.contains("\"echo\":\"first\""));
-    assert!(tool_messages[1].content.contains("\"echo\":\"second\""));
-    assert_eq!(
-        conversation
-            .last()
-            .and_then(|message| message.tool_call_id.as_deref()),
-        Some("call-2")
-    );
+    assert!(tool_messages[0].text().contains("\"echo\":\"first\""));
+    assert!(tool_messages[1].text().contains("\"echo\":\"second\""));
+    assert_eq!(conversation.last().and_then(tool_result_id), Some("call-2"));
 }
 
 #[tokio::test]
@@ -144,24 +139,26 @@ fn two_tool_response() -> ModelResponse {
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "trying tools".to_owned(),
-        tool_calls: vec![
-            ToolCall {
-                id: "call-1".to_owned(),
-                name: "echo".to_owned(),
-                input: json!({ "message": "first" }),
-                operation_id: None,
-            },
-            ToolCall {
-                id: "call-2".to_owned(),
-                name: "echo".to_owned(),
-                input: json!({ "message": "second" }),
-                operation_id: None,
-            },
-        ],
+        parts: response_parts(
+            "trying tools".to_owned(),
+            vec![
+                ToolCall {
+                    id: "call-1".to_owned(),
+                    name: "echo".to_owned(),
+                    input: json!({ "message": "first" }),
+                    operation_id: None,
+                },
+                ToolCall {
+                    id: "call-2".to_owned(),
+                    name: "echo".to_owned(),
+                    input: json!({ "message": "second" }),
+                    operation_id: None,
+                },
+            ],
+            Vec::new(),
+        ),
         finish_reason: FinishReason::ToolCalls,
         structured_output: None,
-        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }
@@ -173,11 +170,9 @@ fn terminal_response() -> ModelResponse {
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "done".to_owned(),
-        tool_calls: Vec::new(),
+        parts: response_parts("done".to_owned(), Vec::new(), Vec::new()),
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }

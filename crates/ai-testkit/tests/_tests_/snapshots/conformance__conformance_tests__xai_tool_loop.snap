@@ -42,7 +42,21 @@ expression: outcome
         },
         {
           "ToolCallEnd": {
-            "part_index": 1
+            "part_index": 1,
+            "provider_state": {
+              "provider": "xai",
+              "model": "grok-4.5",
+              "version": 2,
+              "payload": {
+                "call": {
+                  "arguments": "{\"id\":7}",
+                  "id": "call_1",
+                  "name": "lookup"
+                },
+                "kind": "tool_call",
+                "legacy": false
+              }
+            }
           }
         },
         {
@@ -72,13 +86,31 @@ expression: outcome
         "model_id": "grok-4.5",
         "catalog_model_id": "xai/grok-4.5",
         "effort": "high",
-        "assistant_message": "Checking now",
-        "tool_calls": [
+        "parts": [
           {
-            "id": "call_1",
-            "name": "lookup",
-            "input": {
+            "type": "text",
+            "text": "Checking now"
+          },
+          {
+            "type": "tool_call",
+            "call_id": "call_1",
+            "tool_name": "lookup",
+            "arguments": {
               "id": 7
+            },
+            "provider_state": {
+              "provider": "xai",
+              "model": "grok-4.5",
+              "version": 2,
+              "payload": {
+                "call": {
+                  "arguments": "{\"id\":7}",
+                  "id": "call_1",
+                  "name": "lookup"
+                },
+                "kind": "tool_call",
+                "legacy": false
+              }
             }
           }
         ],
@@ -135,8 +167,12 @@ expression: outcome
         "model_id": "grok-4.5",
         "catalog_model_id": "xai/grok-4.5",
         "effort": "high",
-        "assistant_message": "Done",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "Done"
+          }
+        ],
         "finish_reason": "Stop",
         "usage": {
           "input_tokens": 15,

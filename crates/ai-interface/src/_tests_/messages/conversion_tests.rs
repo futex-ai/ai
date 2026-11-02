@@ -10,7 +10,7 @@ use crate::{
     LegacyPartTarget, LegacyProviderConverterMock, ProviderId, ProviderState, read_stored_message,
 };
 
-fn converter(provider: &'static str, order: LegacyPartOrder) -> Unimock {
+pub(super) fn converter(provider: &'static str, order: LegacyPartOrder) -> Unimock {
     let items = LegacyProviderConverterMock::convert_item
         .each_call(matching!(_, _, _))
         .answers_arc(Arc::new(move |_, item, _, _| {

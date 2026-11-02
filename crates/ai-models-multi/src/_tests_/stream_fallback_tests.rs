@@ -25,7 +25,7 @@ async fn fallback_records_every_failed_open_before_the_first_event() {
     ]);
     let (response, events) = collect(&model).await;
 
-    assert!(matches!(&response, Ok(response) if response.assistant_message == "done"));
+    assert!(matches!(&response, Ok(response) if response.text() == "done"));
     assert_eq!(
         events,
         vec![
@@ -63,7 +63,7 @@ async fn fallback_moves_after_a_read_failure_and_failed_later_opens() {
     ]);
     let (response, events) = collect(&model).await;
 
-    assert!(matches!(&response, Ok(response) if response.assistant_message == "done"));
+    assert!(matches!(&response, Ok(response) if response.text() == "done"));
     assert_eq!(
         events,
         vec![

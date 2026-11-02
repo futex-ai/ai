@@ -1,5 +1,6 @@
 use ai_interface::{
-    ConversationMessage, ModelRequest, ProviderConversationItem, QwenToolCallContext,
+    ConversationMessage, ConversationPart, ConversationRole, ModelRequest, ProviderId,
+    ProviderState,
 };
 
 use crate::synthetic_tool_call_scope;
@@ -66,18 +67,22 @@ fn qwen_request(
 ) -> ModelRequest {
     ModelRequest {
         system_prompt: "system".to_owned(),
-        messages: vec![ConversationMessage::assistant_with_provider_context(
-            content.unwrap_or_default(),
-            Vec::new(),
-            vec![ProviderConversationItem::QwenAssistantMessage {
-                content: content.map(str::to_owned),
-                reasoning_content: reasoning_content.map(str::to_owned),
-                tool_calls: vec![QwenToolCallContext {
-                    id: id.to_owned(),
-                    name: name.to_owned(),
-                    arguments: arguments.to_owned(),
-                }],
-            }],
+        messages: vec![ConversationMessage::new(
+            ConversationRole::Assistant,
+            vec![
+                ConversationPart::reasoning("").with_provider_state(ProviderState {
+                    provider: ProviderId::new("qwen"),
+                    model: String::new(),
+                    version: 1,
+                    payload: serde_json::json!({
+                        "content": content, "reasoning_content": reasoning_content,
+                        "tool_calls": [{"id": id, "name": name, "arguments": arguments}],
+                    })
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+                }),
+            ],
         )],
         tools: Vec::new(),
         response_schema: None,

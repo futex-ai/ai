@@ -42,7 +42,45 @@ expression: outcome
         },
         {
           "ToolCallEnd": {
-            "part_index": 1
+            "part_index": 1,
+            "provider_state": {
+              "provider": "minimax",
+              "model": "MiniMax-M3",
+              "version": 2,
+              "payload": {
+                "call": {
+                  "arguments": "{\"id\":7}",
+                  "id": "call_1",
+                  "name": "lookup"
+                },
+                "kind": "tool_call",
+                "legacy": false
+              }
+            }
+          }
+        },
+        {
+          "ReasoningDelta": {
+            "part_index": 2,
+            "delta": "",
+            "provider_state": {
+              "provider": "minimax",
+              "model": "MiniMax-M3",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": null,
+                "reasoning_details": [
+                  {
+                    "format": "MiniMax-response-v1",
+                    "id": "reasoning-1",
+                    "index": 0,
+                    "text": "Use lookup.",
+                    "type": "reasoning.text"
+                  }
+                ]
+              }
+            }
           }
         },
         {
@@ -63,21 +101,7 @@ expression: outcome
             "provider": "minimax",
             "model_id": "MiniMax-M3",
             "catalog_model_id": "minimax/MiniMax-M3",
-            "effort": "medium",
-            "provider_context": [
-              {
-                "type": "minimax_assistant",
-                "reasoning_details": [
-                  {
-                    "type": "reasoning.text",
-                    "id": "reasoning-1",
-                    "format": "MiniMax-response-v1",
-                    "index": 0,
-                    "text": "Use lookup."
-                  }
-                ]
-              }
-            ]
+            "effort": "medium"
           }
         }
       ],
@@ -86,31 +110,57 @@ expression: outcome
         "model_id": "MiniMax-M3",
         "catalog_model_id": "minimax/MiniMax-M3",
         "effort": "medium",
-        "assistant_message": "Checking now",
-        "tool_calls": [
+        "parts": [
           {
-            "id": "call_1",
-            "name": "lookup",
-            "input": {
+            "type": "text",
+            "text": "Checking now"
+          },
+          {
+            "type": "tool_call",
+            "call_id": "call_1",
+            "tool_name": "lookup",
+            "arguments": {
               "id": 7
+            },
+            "provider_state": {
+              "provider": "minimax",
+              "model": "MiniMax-M3",
+              "version": 2,
+              "payload": {
+                "call": {
+                  "arguments": "{\"id\":7}",
+                  "id": "call_1",
+                  "name": "lookup"
+                },
+                "kind": "tool_call",
+                "legacy": false
+              }
+            }
+          },
+          {
+            "type": "reasoning",
+            "text": "",
+            "provider_state": {
+              "provider": "minimax",
+              "model": "MiniMax-M3",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": null,
+                "reasoning_details": [
+                  {
+                    "format": "MiniMax-response-v1",
+                    "id": "reasoning-1",
+                    "index": 0,
+                    "text": "Use lookup.",
+                    "type": "reasoning.text"
+                  }
+                ]
+              }
             }
           }
         ],
         "finish_reason": "ToolCalls",
-        "provider_context": [
-          {
-            "type": "minimax_assistant",
-            "reasoning_details": [
-              {
-                "type": "reasoning.text",
-                "id": "reasoning-1",
-                "format": "MiniMax-response-v1",
-                "index": 0,
-                "text": "Use lookup."
-              }
-            ]
-          }
-        ],
         "usage": {
           "input_tokens": 15,
           "output_tokens": 5,
@@ -163,8 +213,12 @@ expression: outcome
         "model_id": "MiniMax-M3",
         "catalog_model_id": "minimax/MiniMax-M3",
         "effort": "medium",
-        "assistant_message": "Done",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "Done"
+          }
+        ],
         "finish_reason": "Stop",
         "usage": {
           "input_tokens": 15,

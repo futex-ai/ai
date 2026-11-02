@@ -22,6 +22,27 @@ expression: outcome
           }
         },
         {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "",
+            "provider_state": {
+              "provider": "anthropic",
+              "model": "claude-sonnet-5",
+              "version": 1,
+              "payload": {
+                "blocks": [
+                  {
+                    "text": "{\"ok\":true}",
+                    "type": "text"
+                  }
+                ],
+                "mode": "normalized_text",
+                "scope": "part"
+              }
+            }
+          }
+        },
+        {
           "Usage": {
             "usage": {
               "input_tokens": 22,
@@ -51,8 +72,27 @@ expression: outcome
         "model_id": "claude-sonnet-5",
         "catalog_model_id": "anthropic/claude-sonnet-5",
         "effort": "high",
-        "assistant_message": "{\"ok\":true}",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "{\"ok\":true}",
+            "provider_state": {
+              "provider": "anthropic",
+              "model": "claude-sonnet-5",
+              "version": 1,
+              "payload": {
+                "blocks": [
+                  {
+                    "text": "{\"ok\":true}",
+                    "type": "text"
+                  }
+                ],
+                "mode": "normalized_text",
+                "scope": "part"
+              }
+            }
+          }
+        ],
         "finish_reason": "Stop",
         "structured_output": {
           "ok": true

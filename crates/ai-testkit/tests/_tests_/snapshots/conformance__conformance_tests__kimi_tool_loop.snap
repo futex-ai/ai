@@ -54,7 +54,52 @@ expression: outcome
         },
         {
           "ToolCallEnd": {
-            "part_index": 2
+            "part_index": 2,
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "call": {
+                  "arguments": "{\"id\":7}",
+                  "id": "call_1",
+                  "name": "lookup"
+                },
+                "kind": "tool_call",
+                "legacy": false
+              }
+            }
+          }
+        },
+        {
+          "ReasoningDelta": {
+            "part_index": 0,
+            "delta": "",
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": "Use lookup.",
+                "reasoning_details": []
+              }
+            }
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 1,
+            "delta": "",
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "content": "Checking now",
+                "kind": "text"
+              }
+            }
           }
         },
         {
@@ -75,21 +120,7 @@ expression: outcome
             "provider": "kimi",
             "model_id": "kimi-k3",
             "catalog_model_id": "kimi/kimi-k3",
-            "effort": "max",
-            "provider_context": [
-              {
-                "type": "kimi_assistant_message",
-                "content": "Checking now",
-                "reasoning_content": "Use lookup.",
-                "tool_calls": [
-                  {
-                    "id": "call_1",
-                    "name": "lookup",
-                    "arguments": "{\"id\":7}"
-                  }
-                ]
-              }
-            ]
+            "effort": "max"
           }
         }
       ],
@@ -98,31 +129,58 @@ expression: outcome
         "model_id": "kimi-k3",
         "catalog_model_id": "kimi/kimi-k3",
         "effort": "max",
-        "assistant_message": "Checking now",
-        "tool_calls": [
+        "parts": [
           {
-            "id": "call_1",
-            "name": "lookup",
-            "input": {
+            "type": "reasoning",
+            "text": "Use lookup.",
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": "Use lookup.",
+                "reasoning_details": []
+              }
+            }
+          },
+          {
+            "type": "text",
+            "text": "Checking now",
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "content": "Checking now",
+                "kind": "text"
+              }
+            }
+          },
+          {
+            "type": "tool_call",
+            "call_id": "call_1",
+            "tool_name": "lookup",
+            "arguments": {
               "id": 7
+            },
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "call": {
+                  "arguments": "{\"id\":7}",
+                  "id": "call_1",
+                  "name": "lookup"
+                },
+                "kind": "tool_call",
+                "legacy": false
+              }
             }
           }
         ],
         "finish_reason": "ToolCalls",
-        "provider_context": [
-          {
-            "type": "kimi_assistant_message",
-            "content": "Checking now",
-            "reasoning_content": "Use lookup.",
-            "tool_calls": [
-              {
-                "id": "call_1",
-                "name": "lookup",
-                "arguments": "{\"id\":7}"
-              }
-            ]
-          }
-        ],
         "usage": {
           "input_tokens": 15,
           "output_tokens": 9,
@@ -149,6 +207,37 @@ expression: outcome
           }
         },
         {
+          "ReasoningDelta": {
+            "part_index": 1,
+            "delta": "",
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": null,
+                "reasoning_details": []
+              }
+            }
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "",
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "content": "Done",
+                "kind": "text"
+              }
+            }
+          }
+        },
+        {
           "Usage": {
             "usage": {
               "input_tokens": 15,
@@ -166,13 +255,7 @@ expression: outcome
             "provider": "kimi",
             "model_id": "kimi-k3",
             "catalog_model_id": "kimi/kimi-k3",
-            "effort": "max",
-            "provider_context": [
-              {
-                "type": "kimi_assistant_message",
-                "content": "Done"
-              }
-            ]
+            "effort": "max"
           }
         }
       ],
@@ -181,15 +264,36 @@ expression: outcome
         "model_id": "kimi-k3",
         "catalog_model_id": "kimi/kimi-k3",
         "effort": "max",
-        "assistant_message": "Done",
-        "tool_calls": [],
-        "finish_reason": "Stop",
-        "provider_context": [
+        "parts": [
           {
-            "type": "kimi_assistant_message",
-            "content": "Done"
+            "type": "text",
+            "text": "Done",
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "content": "Done",
+                "kind": "text"
+              }
+            }
+          },
+          {
+            "type": "reasoning",
+            "text": "",
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": null,
+                "reasoning_details": []
+              }
+            }
           }
         ],
+        "finish_reason": "Stop",
         "usage": {
           "input_tokens": 15,
           "output_tokens": 9,

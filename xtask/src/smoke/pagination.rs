@@ -99,11 +99,10 @@ impl SmokePaginationModel {
             model_id: "smoke-model".to_owned(),
             catalog_model_id: None,
             thinking_level: None,
-            assistant_message: "done".to_owned(),
-            tool_calls: Vec::new(),
+            parts: vec![ai_interface::ConversationPart::text("done".to_owned())],
             finish_reason: FinishReason::Stop,
             structured_output: None,
-            provider_context: Vec::new(),
+
             usage: ModelUsage::default(),
             attempts: Vec::new(),
         })
@@ -154,7 +153,7 @@ fn last_tool_window(request: &ModelRequest) -> ModelResult<ai_interface::ToolOut
             SmokeModelError::MissingToolWindow,
         ));
     };
-    let envelope = match serde_json::from_str::<ToolOutputEnvelope>(&message.content) {
+    let envelope = match serde_json::from_str::<ToolOutputEnvelope>(&message.text()) {
         Ok(envelope) => envelope,
         Err(source) => {
             return Err(ai_interface::ModelError::internal(
@@ -185,11 +184,10 @@ fn tool_call_response(call: ToolCall) -> ModelResponse {
         model_id: "smoke-model".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "calling tool".to_owned(),
-        tool_calls: vec![call],
+        parts: ai_interface::ConversationMessage::assistant("calling tool", vec![call]).parts,
         finish_reason: FinishReason::ToolCalls,
         structured_output: None,
-        provider_context: Vec::new(),
+
         usage: ModelUsage::default(),
         attempts: Vec::new(),
     }

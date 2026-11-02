@@ -51,8 +51,12 @@ expression: outcome
         "model_id": "deepseek-v4-pro",
         "catalog_model_id": "deepseek/deepseek-v4-pro",
         "effort": "high",
-        "assistant_message": "{\"ok\":true}",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "{\"ok\":true}"
+          }
+        ],
         "finish_reason": "Stop",
         "structured_output": {
           "ok": true

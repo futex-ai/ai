@@ -1,6 +1,5 @@
 //! Runtime tests through the model stream contract.
 
-use crate::tests::support::stream_result;
 use std::sync::Arc;
 
 use ai_interface::{
@@ -11,6 +10,7 @@ use parking_lot::Mutex;
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::support::{response_parts, stream_result};
 use crate::{InMemoryToolOutputStore, StepOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn};
 
 use super::super::support::user_message;
@@ -27,16 +27,18 @@ async fn tool_dispatch_passes_operation_id_to_tool_boundary() {
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
                 thinking_level: None,
-                assistant_message: "calling tool".to_owned(),
-                tool_calls: vec![ToolCall {
-                    id: "call-1".to_owned(),
-                    name: "echo".to_owned(),
-                    input: json!({ "message": "hello" }),
-                    operation_id: Some("operation-1".to_owned()),
-                }],
+                parts: response_parts(
+                    "calling tool".to_owned(),
+                    vec![ToolCall {
+                        id: "call-1".to_owned(),
+                        name: "echo".to_owned(),
+                        input: json!({ "message": "hello" }),
+                        operation_id: Some("operation-1".to_owned()),
+                    }],
+                    Vec::new(),
+                ),
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
-                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             }))),
     ));

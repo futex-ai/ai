@@ -1,9 +1,8 @@
 //! Runtime tests through the model stream contract.
 
-use crate::tests::support::stream_result;
-use ai_interface::test_support::model_response_stream;
 use std::sync::Arc;
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     ConversationRole, FinishReason, Logger, LoggerMock, Model, ModelMock, ModelRequest,
     ModelResponse, ModelUsage, ToolActivityLogEntry, ToolActivityPhase, ToolCall, ToolCallLogEntry,
@@ -12,6 +11,7 @@ use ai_interface::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::support::{response_parts, stream_result};
 use crate::{
     InMemoryToolOutputStore, StepOutcome, ToolCallingRuntime, ToolOutputPolicy, ToolOutputStore,
     ToolOutputWriteRequest, Turn,
@@ -185,7 +185,7 @@ async fn replaced_output_store_makes_previous_ids_unavailable_and_run_recovers()
                         .iter()
                         .find(|message| message.role == ConversationRole::Tool)
                         .expect("tool error should be retained")
-                        .content
+                        .text()
                         .clone();
                     assert!(content.contains("\"ok\":false"));
                     assert!(content.contains("no longer available"));
@@ -265,11 +265,9 @@ fn tool_call_response(call: ToolCall) -> ModelResponse {
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "calling tool".to_owned(),
-        tool_calls: vec![call],
+        parts: response_parts("calling tool".to_owned(), vec![call], Vec::new()),
         finish_reason: FinishReason::ToolCalls,
         structured_output: None,
-        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }
@@ -281,11 +279,9 @@ fn stop_response(message: &str) -> ModelResponse {
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: message.to_owned(),
-        tool_calls: Vec::new(),
+        parts: response_parts(message.to_owned(), Vec::new(), Vec::new()),
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }

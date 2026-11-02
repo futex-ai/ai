@@ -51,8 +51,12 @@ expression: outcome
         "model_id": "grok-4.5",
         "catalog_model_id": "xai/grok-4.5",
         "effort": "high",
-        "assistant_message": "{\"ok\":true}",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "{\"ok\":true}"
+          }
+        ],
         "finish_reason": "Stop",
         "structured_output": {
           "ok": true

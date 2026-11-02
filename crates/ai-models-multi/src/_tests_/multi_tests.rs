@@ -265,11 +265,10 @@ fn success_response(provider: &str, model_id: &str) -> ModelResponse {
         model_id: model_id.to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "ok".to_owned(),
-        tool_calls: Vec::new(),
+        parts: vec![ai_interface::ConversationPart::text("ok".to_owned())],
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
+
         usage: ModelUsage::default(),
         attempts: Vec::new(),
     }

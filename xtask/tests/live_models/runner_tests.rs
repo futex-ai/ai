@@ -125,7 +125,7 @@ pub(super) async fn run_probe_with_marker_retry(
         let event_failures = completion_event_failures(
             &spec.text_id(),
             event_expectation,
-            &completion.response.assistant_message,
+            &completion.response.text(),
             &completion.events,
         );
         if retry_available && should_retry_marker_miss(&response_failures, &event_failures) {

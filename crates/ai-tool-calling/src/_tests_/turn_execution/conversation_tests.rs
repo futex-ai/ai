@@ -1,18 +1,19 @@
 //! Runtime tests through the model stream contract.
 
-use crate::tests::support::stream_result;
-use ai_interface::test_support::model_response_stream;
 use std::sync::Arc;
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
-    ConversationRole, Effort, FinishReason, KimiToolCallContext, Logger, LoggerMock, Model,
-    ModelMock, ModelRequest, ModelResponse, ModelUsage, OpenAiReasoningSummary,
-    ProviderConversationItem, ToolActivityLogEntry, ToolActivityPhase, ToolCall, ToolCallLogEntry,
+    ConversationRole, Effort, FinishReason, Logger, LoggerMock, Model, ModelMock, ModelRequest,
+    ModelResponse, ModelUsage, ToolActivityLogEntry, ToolActivityPhase, ToolCall, ToolCallLogEntry,
     ToolCallLogResult,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::support::{
+    provider_reasoning, replay_parts, response_parts, stream_result, tool_result_name,
+};
 use crate::{RunOutcome, StepOutcome, Turn};
 
 use super::super::support::{TypedEchoTool, runtime, runtime_with_logger, user_message};
@@ -28,11 +29,9 @@ async fn retained_conversation_is_used_across_future_sends() {
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
                 thinking_level: None,
-                assistant_message: "first response".to_owned(),
-                tool_calls: Vec::new(),
+                parts: response_parts("first response".to_owned(), Vec::new(), Vec::new()),
                 finish_reason: FinishReason::Stop,
                 structured_output: None,
-                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             }))),
         ModelMock::stream
@@ -41,7 +40,7 @@ async fn retained_conversation_is_used_across_future_sends() {
                 {
                     assert!(request.messages.iter().any(|message| {
                         message.role == ConversationRole::Assistant
-                            && message.content == "first response"
+                            && message.text() == "first response"
                     }));
                     Ok(ModelResponse {
                         attempts: Vec::new(),
@@ -49,11 +48,9 @@ async fn retained_conversation_is_used_across_future_sends() {
                         model_id: "mock-model".to_owned(),
                         catalog_model_id: None,
                         thinking_level: None,
-                        assistant_message: "second response".to_owned(),
-                        tool_calls: Vec::new(),
+                        parts: response_parts("second response".to_owned(), Vec::new(), Vec::new()),
                         finish_reason: FinishReason::Stop,
                         structured_output: None,
-                        provider_context: Vec::new(),
                         usage: ModelUsage::default(),
                     })
                 }
@@ -78,14 +75,15 @@ async fn retained_conversation_is_used_across_future_sends() {
 
 #[tokio::test]
 async fn provider_context_is_retained_with_assistant_tool_calls() {
-    let provider_context = vec![ProviderConversationItem::OpenAiReasoning {
-        id: "rs_1".to_owned(),
-        summary: vec![OpenAiReasoningSummary {
-            kind: "summary_text".to_owned(),
-            text: "Need the tool.".to_owned(),
-        }],
-        encrypted_content: Some("encrypted-reasoning".to_owned()),
-    }];
+    let provider_context = vec![provider_reasoning(
+        "openai",
+        "gpt-5.5",
+        "Need the tool.",
+        json!({
+            "id": "rs_1", "summary": [{"type": "summary_text", "text": "Need the tool."}],
+            "encrypted_content": "encrypted-reasoning"
+        }),
+    )];
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
         ModelMock::stream
             .next_call(matching!(_))
@@ -95,16 +93,18 @@ async fn provider_context_is_retained_with_assistant_tool_calls() {
                 model_id: "gpt-5.5".to_owned(),
                 catalog_model_id: None,
                 thinking_level: Some(Effort::ExtraHigh),
-                assistant_message: "calling tool".to_owned(),
-                tool_calls: vec![ToolCall {
-                    id: "call-1".to_owned(),
-                    name: "echo".to_owned(),
-                    input: json!({ "message": "hello" }),
-                    operation_id: None,
-                }],
+                parts: response_parts(
+                    "calling tool".to_owned(),
+                    vec![ToolCall {
+                        id: "call-1".to_owned(),
+                        name: "echo".to_owned(),
+                        input: json!({ "message": "hello" }),
+                        operation_id: None,
+                    }],
+                    provider_context.clone(),
+                ),
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
-                provider_context: provider_context.clone(),
                 usage: ModelUsage::default(),
             }))),
     ));
@@ -119,21 +119,21 @@ async fn provider_context_is_retained_with_assistant_tool_calls() {
         .iter()
         .find(|message| message.role == ConversationRole::Assistant)
         .expect("assistant message should be retained");
-    assert_eq!(assistant.provider_context, provider_context);
+    assert_eq!(replay_parts(&assistant.parts), provider_context);
 }
 
 #[tokio::test]
 async fn kimi_reasoning_is_retained_without_becoming_visible_output() {
     let reasoning = "private Kimi reasoning";
-    let provider_context = vec![ProviderConversationItem::KimiAssistantMessage {
-        content: Some("calling echo".to_owned()),
-        reasoning_content: Some(reasoning.to_owned()),
-        tool_calls: vec![KimiToolCallContext {
-            id: "call-1".to_owned(),
-            name: "echo".to_owned(),
-            arguments: "{\"message\":\"hello\"}".to_owned(),
-        }],
-    }];
+    let provider_context = vec![provider_reasoning(
+        "kimi",
+        "kimi-k3",
+        reasoning,
+        json!({
+            "content": "calling echo", "reasoning_content": reasoning,
+            "tool_calls": [{"id": "call-1", "name": "echo", "arguments": "{\"message\":\"hello\"}"}]
+        }),
+    )];
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
         ModelMock::stream
             .next_call(matching!(_))
@@ -143,16 +143,18 @@ async fn kimi_reasoning_is_retained_without_becoming_visible_output() {
                 model_id: "kimi-k3".to_owned(),
                 catalog_model_id: Some("kimi-k3".to_owned()),
                 thinking_level: Some(Effort::Max),
-                assistant_message: "calling echo".to_owned(),
-                tool_calls: vec![ToolCall {
-                    id: "call-1".to_owned(),
-                    name: "echo".to_owned(),
-                    input: json!({"message": "hello"}),
-                    operation_id: None,
-                }],
+                parts: response_parts(
+                    "calling echo".to_owned(),
+                    vec![ToolCall {
+                        id: "call-1".to_owned(),
+                        name: "echo".to_owned(),
+                        input: json!({"message": "hello"}),
+                        operation_id: None,
+                    }],
+                    provider_context.clone(),
+                ),
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
-                provider_context: provider_context.clone(),
                 usage: ModelUsage::default(),
             }))),
     ));
@@ -171,10 +173,10 @@ async fn kimi_reasoning_is_retained_without_becoming_visible_output() {
         .iter()
         .find(|message| message.role == ConversationRole::Tool)
         .expect("tool result should be retained");
-    assert_eq!(assistant.content, "calling echo");
-    assert_eq!(assistant.provider_context, provider_context);
-    assert!(!assistant.content.contains(reasoning));
-    assert!(!tool_result.content.contains(reasoning));
+    assert_eq!(assistant.text(), "calling echo");
+    assert_eq!(replay_parts(&assistant.parts), provider_context);
+    assert!(!assistant.text().contains(reasoning));
+    assert!(!tool_result.text().contains(reasoning));
 }
 
 #[tokio::test]
@@ -188,16 +190,18 @@ async fn step_and_run_handle_tool_rounds_and_logger_callbacks() {
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
                 thinking_level: None,
-                assistant_message: "calling tool".to_owned(),
-                tool_calls: vec![ToolCall {
-                    id: "call-1".to_owned(),
-                    name: "echo".to_owned(),
-                    input: json!({ "message": "hello" }),
-                    operation_id: None,
-                }],
+                parts: response_parts(
+                    "calling tool".to_owned(),
+                    vec![ToolCall {
+                        id: "call-1".to_owned(),
+                        name: "echo".to_owned(),
+                        input: json!({ "message": "hello" }),
+                        operation_id: None,
+                    }],
+                    Vec::new(),
+                ),
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
-                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             }))),
         ModelMock::stream
@@ -206,13 +210,13 @@ async fn step_and_run_handle_tool_rounds_and_logger_callbacks() {
                 {
                     assert!(request.messages.iter().any(|message| {
                         message.role == ConversationRole::Assistant
-                            && message.content == "calling tool"
-                            && message.tool_calls.iter().any(|call| call.id == "call-1")
+                            && message.text() == "calling tool"
+                            && message.tool_calls().iter().any(|call| call.id == "call-1")
                     }));
                     assert!(request.messages.iter().any(|message| {
                         message.role == ConversationRole::Tool
-                            && message.name.as_deref() == Some("echo")
-                            && message.content.contains("\"hello\"")
+                            && tool_result_name(message) == Some("echo")
+                            && message.text().contains("\"hello\"")
                     }));
                     Ok(ModelResponse {
                         attempts: Vec::new(),
@@ -220,11 +224,9 @@ async fn step_and_run_handle_tool_rounds_and_logger_callbacks() {
                         model_id: "mock-model".to_owned(),
                         catalog_model_id: None,
                         thinking_level: None,
-                        assistant_message: "all done".to_owned(),
-                        tool_calls: Vec::new(),
+                        parts: response_parts("all done".to_owned(), Vec::new(), Vec::new()),
                         finish_reason: FinishReason::Stop,
                         structured_output: None,
-                        provider_context: Vec::new(),
                         usage: ModelUsage::default(),
                     })
                 }

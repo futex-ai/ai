@@ -37,7 +37,7 @@ async fn retries_transient_failures_using_the_configured_schedule() {
         .await
         .expect("third attempt should succeed");
 
-    assert_eq!(response.assistant_message, "ok");
+    assert_eq!(response.text(), "ok");
     assert_eq!(
         *sleeps.lock().expect("sleep lock should not be poisoned"),
         vec![Duration::from_millis(100), Duration::from_millis(250)]
@@ -165,11 +165,10 @@ fn success_response() -> ModelResponse {
         model_id: "gpt-5.5".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "ok".to_owned(),
-        tool_calls: Vec::new(),
+        parts: vec![ai_interface::ConversationPart::text("ok".to_owned())],
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
+
         usage: ModelUsage::default(),
         attempts: Vec::new(),
     }

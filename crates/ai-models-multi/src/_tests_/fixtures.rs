@@ -24,10 +24,12 @@ pub(super) enum Observed {
 
 pub(super) fn observe(event: &ModelEvent) -> Observed {
     match event {
-        ModelEvent::TextDelta { part_index, delta } => Observed::Text(*part_index, delta.clone()),
-        ModelEvent::ReasoningDelta { part_index, delta } => {
-            Observed::Reasoning(*part_index, delta.clone())
-        }
+        ModelEvent::TextDelta {
+            part_index, delta, ..
+        } => Observed::Text(*part_index, delta.clone()),
+        ModelEvent::ReasoningDelta {
+            part_index, delta, ..
+        } => Observed::Reasoning(*part_index, delta.clone()),
         ModelEvent::Fallback { error } => Observed::Fallback(ModelAttempt::from(error)),
         ModelEvent::Usage { usage } => Observed::Usage(usage.clone()),
         ModelEvent::Finish {
@@ -77,11 +79,10 @@ pub(super) fn response(message: &str) -> ModelResponse {
         model_id: "mock".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: message.to_owned(),
-        tool_calls: Vec::new(),
+        parts: vec![ai_interface::ConversationPart::text(message.to_owned())],
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
+
         usage: ModelUsage::default(),
         attempts: Vec::new(),
     }
@@ -89,6 +90,7 @@ pub(super) fn response(message: &str) -> ModelResponse {
 
 pub(super) fn text(delta: &str) -> ModelEvent {
     ModelEvent::TextDelta {
+        provider_state: None,
         part_index: 0,
         delta: delta.to_owned(),
     }

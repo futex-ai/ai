@@ -1,9 +1,8 @@
 //! Runtime tests through the model stream contract.
 
-use crate::tests::support::stream_result;
-use ai_interface::test_support::model_response_stream;
 use std::sync::Arc;
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     ConversationRole, DynModel, DynTool, FinishReason, ModelMock, ModelRequest, ModelResponse,
     ModelUsage, ToolCall, ToolDefinition, ToolMock, ToolOutputEnvelope,
@@ -11,6 +10,7 @@ use ai_interface::{
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::support::{response_parts, stream_result, tool_result_id};
 use crate::{InMemoryToolOutputStore, RunOutcome, ToolOutputPolicy, Turn};
 
 use super::super::support::{runtime_with_store_and_policy, user_message};
@@ -110,14 +110,14 @@ fn assert_first_window_does_not_expose_full_raw_output(request: &ModelRequest) {
     let tool_message = request
         .messages
         .iter()
-        .find(|message| message.tool_call_id.as_deref() == Some("call-big"))
+        .find(|message| tool_result_id(message) == Some("call-big"))
         .expect("first tool message should be retained");
     assert!(
         tool_message
-            .content
+            .text()
             .contains("\"type\":\"tool_output_window\"")
     );
-    assert!(!tool_message.content.contains("abcdefghij"));
+    assert!(!tool_message.text().contains("abcdefghij"));
 }
 
 fn last_tool_window(request: &ModelRequest) -> ai_interface::ToolOutputWindowEnvelope {
@@ -128,7 +128,7 @@ fn last_tool_window(request: &ModelRequest) -> ai_interface::ToolOutputWindowEnv
         .find(|message| message.role == ConversationRole::Tool)
         .expect("tool message should be retained");
     let envelope: ToolOutputEnvelope =
-        serde_json::from_str(&message.content).expect("tool message should be an envelope");
+        serde_json::from_str(&message.text()).expect("tool message should be an envelope");
     match envelope {
         ToolOutputEnvelope::Window(window) => window,
         ToolOutputEnvelope::Inline(_) => panic!("expected window envelope"),
@@ -167,11 +167,9 @@ fn tool_call_response(call: ToolCall) -> ModelResponse {
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "calling tool".to_owned(),
-        tool_calls: vec![call],
+        parts: response_parts("calling tool".to_owned(), vec![call], Vec::new()),
         finish_reason: FinishReason::ToolCalls,
         structured_output: None,
-        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }
@@ -183,11 +181,9 @@ fn stop_response() -> ModelResponse {
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "done".to_owned(),
-        tool_calls: Vec::new(),
+        parts: response_parts("done".to_owned(), Vec::new(), Vec::new()),
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }

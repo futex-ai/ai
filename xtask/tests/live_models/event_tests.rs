@@ -98,9 +98,13 @@ pub(super) fn completion_event_failures(
     let mut finish_event_count = 0;
     for event in events {
         match event {
-            ModelEventSnapshot::TextDelta { part_index, delta } => {
+            ModelEventSnapshot::TextDelta {
+                part_index,
+                delta,
+                provider_state,
+            } => {
                 assistant_event_count += 1;
-                if delta.is_empty() {
+                if delta.is_empty() && provider_state.is_none() {
                     failures.push(format!("{model_id}: emitted an empty assistant delta"));
                 }
                 assistant_parts
@@ -108,7 +112,11 @@ pub(super) fn completion_event_failures(
                     .or_insert_with(String::new)
                     .push_str(delta);
             }
-            ModelEventSnapshot::ReasoningDelta { delta, .. } if delta.is_empty() => {
+            ModelEventSnapshot::ReasoningDelta {
+                delta,
+                provider_state,
+                ..
+            } if delta.is_empty() && provider_state.is_none() => {
                 failures.push(format!("{model_id}: emitted an empty reasoning delta"))
             }
             ModelEventSnapshot::Fallback { .. } => failures.push(format!(

@@ -1,0 +1,34 @@
+{
+  "role": "assistant",
+  "content": "Checking now",
+  "content_parts": [],
+  "name": null,
+  "tool_call_id": null,
+  "tool_calls": [
+    {
+      "id": "call_1",
+      "name": "lookup",
+      "input": {
+        "id": 7
+      }
+    }
+  ],
+  "provider_context": [
+    {
+      "type": "openai_reasoning",
+      "id": "rs_1",
+      "encrypted_content": "synthetic-encrypted-reasoning"
+    },
+    {
+      "type": "openai_message",
+      "phase": "commentary"
+    },
+    {
+      "type": "openai_function_call",
+      "id": "fc_1",
+      "call_id": "call_1",
+      "name": "lookup",
+      "arguments": "{\"id\":7}"
+    }
+  ]
+}

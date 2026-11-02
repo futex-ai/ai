@@ -1,6 +1,5 @@
 //! Runtime tests through the model stream contract.
 
-use crate::tests::support::stream_result;
 use std::sync::Arc;
 
 use ai_interface::{
@@ -12,6 +11,7 @@ use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
 use crate::Turn;
+use crate::tests::support::{response_parts, stream_result};
 
 use super::support::{TypedEchoTool, runtime_with_logger, user_message};
 
@@ -57,16 +57,18 @@ async fn tool_errors_include_debug_details_in_logger_callbacks() {
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
                 thinking_level: None,
-                assistant_message: "trying tool".to_owned(),
-                tool_calls: vec![ToolCall {
-                    id: "call-1".to_owned(),
-                    name: "echo".to_owned(),
-                    input: json!({ "message": "hello" }),
-                    operation_id: None,
-                }],
+                parts: response_parts(
+                    "trying tool".to_owned(),
+                    vec![ToolCall {
+                        id: "call-1".to_owned(),
+                        name: "echo".to_owned(),
+                        input: json!({ "message": "hello" }),
+                        operation_id: None,
+                    }],
+                    Vec::new(),
+                ),
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
-                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             }))),
     ));

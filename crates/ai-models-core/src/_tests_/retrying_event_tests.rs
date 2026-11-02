@@ -35,7 +35,7 @@ async fn transient_retry_emits_only_the_successful_attempt_events() {
     let (response, events) = collect_model_events(&model, &empty_request()).await;
     let response = response.expect("second attempt should succeed");
 
-    assert_eq!(response.assistant_message, "ok");
+    assert_eq!(response.text(), "ok");
     assert_eq!(calls.load(Ordering::SeqCst), 2);
     assert_eq!(recorded_events(events), vec![assistant_delta("ok")]);
 }

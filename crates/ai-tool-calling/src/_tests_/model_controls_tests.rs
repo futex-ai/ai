@@ -1,9 +1,8 @@
 //! Tool-calling model-control propagation tests.
 
-use ai_interface::test_support::model_response_stream;
-
 use std::sync::Arc;
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     ConversationMessage, FinishReason, Model, ModelCallControls, ModelCompletionMode,
     ModelExecutionControls, ModelGenerationControls, ModelMock, ModelRequest, ModelResponse,
@@ -12,6 +11,7 @@ use ai_interface::{
 use unimock::{MockFn, Unimock, matching};
 
 use crate::Turn;
+use crate::tests::support::response_parts;
 
 use super::support::runtime;
 
@@ -62,11 +62,9 @@ fn response() -> ModelResponse {
         model_id: "test-model".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "done".to_owned(),
-        tool_calls: Vec::new(),
+        parts: response_parts("done".to_owned(), Vec::new(), Vec::new()),
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }

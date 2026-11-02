@@ -1,6 +1,5 @@
 //! Runtime tests through the model stream contract.
 
-use crate::tests::support::stream_result;
 use std::sync::Arc;
 
 use ai_interface::{
@@ -10,6 +9,7 @@ use ai_interface::{
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::support::{response_parts, stream_result, tool_result_id};
 use crate::{
     DynToolOutputStore, InMemoryToolOutputStore, StepOutcome, ToolOutputPolicy,
     ToolOutputStoreError, ToolOutputStoreMock, ToolOutputStoreWindow, Turn,
@@ -124,11 +124,11 @@ async fn aggregate_overflow_degrades_one_sibling_without_pinning_order() {
     let tool_messages = runtime
         .conversation()
         .into_iter()
-        .filter(|message| message.tool_call_id.is_some())
+        .filter(|message| tool_result_id(message).is_some())
         .collect::<Vec<_>>();
     assert_eq!(tool_messages.len(), 2);
-    assert_eq!(tool_messages[0].tool_call_id.as_deref(), Some("call-1"));
-    assert_eq!(tool_messages[1].tool_call_id.as_deref(), Some("call-2"));
+    assert_eq!(tool_result_id(&tool_messages[0]), Some("call-1"));
+    assert_eq!(tool_result_id(&tool_messages[1]), Some("call-2"));
 }
 
 #[tokio::test]
@@ -252,11 +252,9 @@ fn model_for_calls(tool_calls: Vec<ToolCall>) -> DynModel {
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
                 thinking_level: None,
-                assistant_message: "calling tool".to_owned(),
-                tool_calls,
+                parts: response_parts("calling tool".to_owned(), tool_calls, Vec::new()),
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
-                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
             }))),
     ))

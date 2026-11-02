@@ -1,8 +1,7 @@
 //! Concrete turn state machine for the in-memory tool-calling runtime.
 
 use ai_interface::{
-    ConversationMessage, FinishReason, ModelCallControls, ModelRequest, TurnOutcome,
-    TurnOutcomeLogEntry,
+    FinishReason, ModelCallControls, ModelRequest, ModelResponse, TurnOutcome, TurnOutcomeLogEntry,
 };
 use async_trait::async_trait;
 
@@ -83,7 +82,7 @@ impl<'a> ActiveTurn<'a> {
             return Ok(outcome);
         }
 
-        let tool_calls = response.tool_calls;
+        let tool_calls = response.tool_calls();
         let mut tool_results = Vec::new();
         let mut first_tool_error = None;
         checkpoint.check()?;
@@ -180,33 +179,26 @@ impl<'a> ActiveTurn<'a> {
         }
     }
 
-    fn store_assistant_response(&mut self, response: &ai_interface::ModelResponse) -> Result<()> {
-        if response.finish_reason != FinishReason::ToolCalls && !response.tool_calls.is_empty() {
+    fn store_assistant_response(&mut self, response: &ModelResponse) -> Result<()> {
+        if response.finish_reason != FinishReason::ToolCalls && !response.tool_calls().is_empty() {
             return Err(provider_error(
                 response,
                 "model returned tool calls without a tool-call finish reason",
             ));
         }
-        if !response.assistant_message.trim().is_empty() {
-            self.assistant_message = response.assistant_message.clone();
+        let text = response.text();
+        if !text.trim().is_empty() {
+            self.assistant_message = text;
         }
-        if !response.assistant_message.trim().is_empty()
-            || !response.tool_calls.is_empty()
-            || !response.provider_context.is_empty()
-        {
-            self.runtime
-                .append_message(ConversationMessage::assistant_with_provider_context(
-                    response.assistant_message.clone(),
-                    response.tool_calls.clone(),
-                    response.provider_context.clone(),
-                ));
+        if !response.parts.is_empty() {
+            self.runtime.append_message(response.to_assistant_message());
         }
         Ok(())
     }
 
     fn terminal_response_outcome(
         &mut self,
-        response: &ai_interface::ModelResponse,
+        response: &ModelResponse,
     ) -> Result<Option<StepOutcome>> {
         match &response.finish_reason {
             FinishReason::Stop | FinishReason::Truncated => {
@@ -238,7 +230,7 @@ impl<'a> ActiveTurn<'a> {
                 "model response was filtered by the provider",
             )),
             FinishReason::Other(raw) => Err(provider_error(response, raw.clone())),
-            FinishReason::ToolCalls if response.tool_calls.is_empty() => Err(provider_error(
+            FinishReason::ToolCalls if response.tool_calls().is_empty() => Err(provider_error(
                 response,
                 "model reported tool calls without any tool call payloads",
             )),

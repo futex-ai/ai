@@ -27,6 +27,7 @@ async fn post_delta_fallback_emits_restart_before_the_next_lane() {
         model(vec![Ok(stream(vec![
             Ok(Some(text("partial"))),
             Ok(Some(ModelEvent::ReasoningDelta {
+                provider_state: None,
                 part_index: 1,
                 delta: "thought".to_owned(),
             })),
@@ -46,7 +47,7 @@ async fn post_delta_fallback_emits_restart_before_the_next_lane() {
             assistant_delta("done"),
         ]
     );
-    assert_eq!(response.assistant_message, "done");
+    assert_eq!(response.text(), "done");
 }
 
 #[tokio::test]

@@ -1,0 +1,36 @@
+{
+  "role": "assistant",
+  "content": "",
+  "content_parts": [],
+  "name": null,
+  "tool_call_id": null,
+  "tool_calls": [
+    {
+      "id": "call_1",
+      "name": "lookup",
+      "input": {
+        "id": 7
+      }
+    }
+  ],
+  "provider_context": [
+    {
+      "type": "anthropic_assistant_message",
+      "blocks": [
+        {
+          "type": "thinking",
+          "thinking": "",
+          "signature": "synthetic-signature"
+        },
+        {
+          "type": "tool_use",
+          "id": "call_1",
+          "name": "lookup",
+          "input": {
+            "id": 7
+          }
+        }
+      ]
+    }
+  ]
+}

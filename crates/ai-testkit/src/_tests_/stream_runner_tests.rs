@@ -7,7 +7,7 @@ use std::{
 
 use ai_interface::{
     DynModel, DynModelEventStream, Effort, FinishReason, ModelError, ModelEvent,
-    ModelEventStreamMock, ModelMock, ModelUsage, ProviderConversationItem,
+    ModelEventStreamMock, ModelMock, ModelUsage, ProviderId, ProviderState,
     test_support::model_event_stream,
 };
 use json_http::test_support::Redactor;
@@ -26,8 +26,18 @@ async fn execute_snapshots_interleaved_events_and_the_folded_response() {
         ModelEvent::ReasoningDelta {
             part_index: 0,
             delta: "secret-token".to_owned(),
+            provider_state: None,
         },
-        text(1, "he"),
+        ModelEvent::TextDelta {
+            part_index: 1,
+            delta: "he".to_owned(),
+            provider_state: Some(ProviderState {
+                provider: ProviderId::new("openai"),
+                model: "snapshot".to_owned(),
+                version: 1,
+                payload: json!({"phase":"final"}).as_object().unwrap().clone(),
+            }),
+        },
         text(2, " world"),
         text(1, "llo"),
         ModelEvent::Usage {
@@ -45,9 +55,6 @@ async fn execute_snapshots_interleaved_events_and_the_folded_response() {
             catalog_model_id: Some("mock/snapshot".to_owned()),
             thinking_level: Some(Effort::High),
             structured_output: None,
-            provider_context: vec![ProviderConversationItem::OpenAiMessage {
-                phase: Some("final".to_owned()),
-            }],
         },
     ]));
     let runner = ScenarioRunner::new(Arc::new(ProviderModelFactory));
@@ -68,19 +75,17 @@ async fn execute_snapshots_interleaved_events_and_the_folded_response() {
                 "kind": "response",
                 "events": [
                     {"ReasoningDelta": {"part_index": 0, "delta": "[redacted]"}},
-                    {"TextDelta": {"part_index": 1, "delta": "he"}},
+                    {"TextDelta": {"part_index": 1, "delta": "he", "provider_state": {"provider":"openai", "model":"snapshot", "version":1, "payload":{"phase":"final"}}}},
                     {"TextDelta": {"part_index": 2, "delta": " world"}},
                     {"TextDelta": {"part_index": 1, "delta": "llo"}},
                     {"Usage": {"usage": {"input_tokens": 1, "output_tokens": 2, "cached_input_tokens": 0,
                         "reasoning_tokens": 0, "total_tokens": 3, "estimated_cost_microusd": 0}}},
                     {"Finish": {"finish_reason": "Stop", "provider": "mock", "model_id": "snapshot",
-                        "catalog_model_id": "mock/snapshot", "effort": "high",
-                        "provider_context": [{"type": "openai_message", "phase": "final"}]}}
+                        "catalog_model_id": "mock/snapshot", "effort": "high"}}
                 ],
                 "response": {
                     "provider": "mock", "model_id": "snapshot", "catalog_model_id": "mock/snapshot", "effort": "high",
-                    "assistant_message": "hello world", "tool_calls": [], "finish_reason": "Stop",
-                    "provider_context": [{"type": "openai_message", "phase": "final"}],
+                    "parts": [{"type":"reasoning", "text":"[redacted]"}, {"type":"text", "text":"hello", "provider_state":{"provider":"openai", "model":"snapshot", "version":1, "payload":{"phase":"final"}}}, {"type":"text", "text":" world"}], "finish_reason": "Stop",
                     "usage": {"input_tokens": 1, "output_tokens": 2, "cached_input_tokens": 0,
                         "reasoning_tokens": 0, "total_tokens": 3, "estimated_cost_microusd": 0}
                 }
@@ -139,6 +144,7 @@ fn text(part_index: usize, delta: &str) -> ModelEvent {
     ModelEvent::TextDelta {
         part_index,
         delta: delta.to_owned(),
+        provider_state: None,
     }
 }
 
