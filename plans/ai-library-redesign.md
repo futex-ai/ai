@@ -337,23 +337,23 @@ Depends on: 1
 Capture what each adapter does today, so that later milestones can prove
 that they keep it.
 
-- [ ] Add a recording transport and a replay transport to `json-http`
+- [x] Add a recording transport and a replay transport to `json-http`
       behind its `test-support` feature. A recording holds the request and
       the raw response bytes.
-- [ ] Add the `ai-testkit` crate with scenarios, recording storage, and a
+- [x] Add the `ai-testkit` crate with scenarios, recording storage, and a
       conformance runner. The runner snapshots each result with
       file-based `insta` snapshots.
-- [ ] Define the scenarios: one text turn, a two-turn tool loop with
+- [x] Define the scenarios: one text turn, a two-turn tool loop with
       thinking on, a schema call, an image input, a rate-limit error, and a
       stream cut after progress.
-- [ ] Add a manual workflow that records the success scenarios for each
+- [x] Add a manual workflow that records the success scenarios for each
       provider. The user runs it, because it needs the provider secrets.
-- [ ] Build the rate-limit and stream-cut scenarios from documented
+- [x] Build the rate-limit and stream-cut scenarios from documented
       provider error bodies, because a live provider does not produce them
       on demand.
-- [ ] Commit the recordings, and snapshot today's results, errors
+- [x] Commit the recordings, and snapshot today's results, errors
       included.
-- [ ] Run `cargo xtask check`, then commit and push.
+- [x] Run `cargo xtask check`, then commit and push.
 
 ## Milestone 3: Fixes in the current design
 

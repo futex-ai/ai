@@ -1,0 +1,62 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "qwen3.7-max",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "enable_thinking": true,
+            "messages": [
+              {
+                "content": "Follow the user's instructions. Keep answers short.",
+                "role": "system"
+              },
+              {
+                "content": "Reply with exactly Done.",
+                "role": "user"
+              }
+            ],
+            "model": "qwen3.7-max",
+            "preserve_thinking": true,
+            "stream": true,
+            "stream_options": {
+              "include_usage": true
+            }
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"Do\"},\"finish_reason\":null,\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"ne\"},\"finish_reason\":\"stop\",\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[],\"usage\":{\"completion_tokens\":9,\"completion_tokens_details\":{\"reasoning_tokens\":4},\"prompt_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":5},\"total_tokens\":29}}"
+          },
+          {
+            "event": null,
+            "data": "[DONE]"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    }
+  ]
+}

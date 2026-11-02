@@ -15,6 +15,7 @@ members = [
     "crates/ai-models-typesafe",
     "crates/ai-models-xai",
     "crates/ai-tool-calling",
+    "crates/ai-testkit",
     "crates/json-http",
     "xtask",
 ]
@@ -42,5 +43,6 @@ ai-models-qwen = { version = "0.3.0", path = "crates/ai-models-qwen" }
 ai-models-typesafe = { version = "0.3.0", path = "crates/ai-models-typesafe" }
 ai-models-xai = { version = "0.3.0", path = "crates/ai-models-xai" }
 ai-tool-calling = { version = "0.3.0", path = "crates/ai-tool-calling" }
+ai-testkit = { version = "0.3.0", path = "crates/ai-testkit" }
 internal-error = { version = "0.1.0", git = "https://github.com/futex-ai/internal-error.git", rev = "6477922a1c4db8c3e35189af69f0147464004b99", package = "internal-error" }
 json-http = { version = "0.3.0", path = "crates/json-http" }

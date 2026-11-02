@@ -1,0 +1,19 @@
+---
+source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+description: "Today's xai adapter result for stream_cut using grok-4.5 synthetic recordings."
+expression: outcome
+---
+{
+  "steps": [
+    {
+      "kind": "error",
+      "error": {
+        "variant": "Interrupted",
+        "provider": "xai",
+        "model_id": "grok-4.5",
+        "message": "[json_http/error] SSE transport failed after 1 events: builder error"
+      }
+    }
+  ],
+  "remaining_exchanges": 0
+}

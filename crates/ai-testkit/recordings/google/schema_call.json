@@ -1,0 +1,72 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "gemini-3.6-flash",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse",
+        "headers": {
+          "x-goog-api-key": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "contents": [
+              {
+                "parts": [
+                  {
+                    "text": "Return a JSON object with ok set to true."
+                  }
+                ],
+                "role": "user"
+              }
+            ],
+            "generationConfig": {
+              "responseJsonSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "ok": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "ok"
+                ],
+                "type": "object"
+              },
+              "responseMimeType": "application/json",
+              "thinkingConfig": {
+                "thinkingLevel": "medium"
+              }
+            },
+            "systemInstruction": {
+              "parts": [
+                {
+                  "text": "Follow the user's instructions. Keep answers short."
+                }
+              ]
+            }
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": null,
+            "data": "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"{\\\"ok\\\"\"}],\"role\":\"model\"}}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\":true}\"}],\"role\":\"model\"},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"cachedContentTokenCount\":5,\"candidatesTokenCount\":9,\"promptTokenCount\":20,\"thoughtsTokenCount\":4,\"totalTokenCount\":33}}"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    }
+  ]
+}

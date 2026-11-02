@@ -10,6 +10,16 @@ mod reqwest_sse;
 mod reqwest_transport;
 mod sse;
 
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
+
+#[cfg(any(test, feature = "test-support"))]
+pub use test_support::{
+    MemoryRecordingLog, MultipartSummary, RecordedBody, RecordedEvent, RecordedFailure,
+    RecordedMethod, RecordedRequest, RecordedResponse, Recording, RecordingLog, RecordingTransport,
+    Redactor, ReplayControl, ReplayError, ReplayTransport, StreamEnd,
+};
+
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use auth::JsonHttpAuthMock;
 pub use auth::{DynJsonHttpAuth, JsonHttpAuth, StaticHeaderAuth};

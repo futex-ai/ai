@@ -1,0 +1,19 @@
+---
+source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+description: "Today's deepseek adapter result for image_input using deepseek-v4-pro synthetic recordings."
+expression: outcome
+---
+{
+  "steps": [
+    {
+      "kind": "error",
+      "error": {
+        "variant": "Provider",
+        "provider": "deepseek",
+        "model_id": "deepseek-v4-pro",
+        "message": "DeepSeek accepts plain text messages only"
+      }
+    }
+  ],
+  "remaining_exchanges": 0
+}

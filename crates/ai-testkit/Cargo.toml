@@ -1,0 +1,35 @@
+[package]
+name = "ai-testkit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+ai-interface = { workspace = true }
+ai-models-core = { workspace = true }
+ai-models-anthropic = { workspace = true }
+ai-models-openai = { workspace = true }
+ai-models-google = { workspace = true }
+ai-models-deepseek = { workspace = true }
+ai-models-kimi = { workspace = true }
+ai-models-qwen = { workspace = true }
+ai-models-minimax = { workspace = true }
+ai-models-xai = { workspace = true }
+internal-error = { workspace = true }
+json-http = { workspace = true, features = ["test-support"] }
+async-trait = "0.1.92"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+unimock = { version = "0.6.8", optional = true }
+
+[dev-dependencies]
+insta = { version = "1.49.0", features = ["json"] }
+tempfile = "3.27.0"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread"] }
+unimock = "0.6.8"
+
+[features]
+test-support = ["dep:unimock"]

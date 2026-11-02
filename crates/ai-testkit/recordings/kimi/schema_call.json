@@ -1,0 +1,80 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "kimi-k3",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.moonshot.ai/v1/chat/completions",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "messages": [
+              {
+                "content": "Follow the user's instructions. Keep answers short.",
+                "role": "system"
+              },
+              {
+                "content": "Return a JSON object with ok set to true.",
+                "role": "user"
+              }
+            ],
+            "model": "kimi-k3",
+            "reasoning_effort": "max",
+            "response_format": {
+              "json_schema": {
+                "name": "result",
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                },
+                "strict": false
+              },
+              "type": "json_schema"
+            },
+            "stream": true,
+            "stream_options": {
+              "include_usage": true
+            }
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"{\\\"ok\\\"\"},\"finish_reason\":null,\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\":true}\"},\"finish_reason\":\"stop\",\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[],\"usage\":{\"cached_tokens\":5,\"completion_tokens\":9,\"completion_tokens_details\":{\"reasoning_tokens\":4},\"prompt_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":5},\"total_tokens\":29}}"
+          },
+          {
+            "event": null,
+            "data": "[DONE]"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    }
+  ]
+}

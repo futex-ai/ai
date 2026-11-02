@@ -1,0 +1,48 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "gpt-5.6-sol",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "input": [
+              {
+                "content": "Reply with exactly Done.",
+                "role": "user"
+              }
+            ],
+            "instructions": "Follow the user's instructions. Keep answers short.",
+            "model": "gpt-5.6-sol",
+            "reasoning": {
+              "effort": "medium"
+            },
+            "store": false,
+            "stream": true
+          }
+        }
+      },
+      "response": {
+        "kind": "json",
+        "status": 429,
+        "body": {
+          "error": {
+            "code": "slow_down",
+            "message": "Request rate increased too quickly.",
+            "param": null,
+            "type": "rate_limit_error"
+          }
+        }
+      }
+    }
+  ]
+}

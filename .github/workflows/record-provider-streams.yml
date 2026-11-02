@@ -1,0 +1,95 @@
+name: Record provider streams
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types:
+      - labeled
+
+permissions:
+  contents: read
+
+concurrency:
+  group: record-provider-streams-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  provider:
+    name: ${{ matrix.provider }} recordings
+    if: >-
+      (github.event_name == 'pull_request' &&
+      github.event.label.name == 'record-provider-streams' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]') ||
+      (github.event_name == 'workflow_dispatch' &&
+      github.ref_name == github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - provider: anthropic
+            api_key: ANTHROPIC_API_KEY
+          - provider: openai
+            api_key: OPENAI_API_KEY
+          - provider: google
+            api_key: GOOGLE_API_KEY
+          - provider: deepseek
+            api_key: DEEPSEEK_API_KEY
+          - provider: kimi
+            api_key: KIMI_API_KEY
+          - provider: qwen
+            api_key: QWEN_API_KEY
+          - provider: minimax
+            api_key: MINIMAX_API_KEY
+          - provider: xai
+            api_key: XAI_API_KEY
+    steps:
+      - name: Require provider credential
+        env:
+          RECORD_API_KEY: ${{ secrets[matrix.api_key] }}
+        run: |
+          if [[ -z "$RECORD_API_KEY" ]]; then
+            echo "::error::Missing required Actions secret ${{ matrix.api_key }}"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup default 1.95.0
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: recordings-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'crates/**/Cargo.toml', 'xtask/Cargo.toml') }}
+          restore-keys: |
+            recordings-${{ runner.os }}-
+            cargo-${{ runner.os }}-
+
+      - name: Record success scenarios
+        env:
+          RECORD_API_KEY: ${{ secrets[matrix.api_key] }}
+        run: cargo xtask record-streams --provider "${{ matrix.provider }}"
+
+      - name: Upload provider recordings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-streams-${{ matrix.provider }}
+          path: |
+            crates/ai-testkit/recordings/${{ matrix.provider }}/text_turn.json
+            crates/ai-testkit/recordings/${{ matrix.provider }}/tool_loop.json
+            crates/ai-testkit/recordings/${{ matrix.provider }}/schema_call.json
+            crates/ai-testkit/recordings/${{ matrix.provider }}/image_input.json

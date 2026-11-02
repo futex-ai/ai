@@ -1,0 +1,19 @@
+---
+source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+description: "Today's xai adapter result for rate_limit using grok-4.5 synthetic recordings."
+expression: outcome
+---
+{
+  "steps": [
+    {
+      "kind": "error",
+      "error": {
+        "variant": "RateLimited",
+        "provider": "xai",
+        "model_id": "grok-4.5",
+        "message": "HTTP 429: HTTP 429"
+      }
+    }
+  ],
+  "remaining_exchanges": 0
+}

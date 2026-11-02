@@ -1,0 +1,76 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "gpt-5.6-sol",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "input": [
+              {
+                "content": "Return a JSON object with ok set to true.",
+                "role": "user"
+              }
+            ],
+            "instructions": "Follow the user's instructions. Keep answers short.",
+            "model": "gpt-5.6-sol",
+            "reasoning": {
+              "effort": "medium"
+            },
+            "store": false,
+            "stream": true,
+            "text": {
+              "format": {
+                "name": "result",
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                },
+                "strict": false,
+                "type": "json_schema"
+              }
+            }
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": "response.created",
+            "data": "{\"response\":{\"status\":\"in_progress\"},\"type\":\"response.created\"}"
+          },
+          {
+            "event": "response.output_text.delta",
+            "data": "{\"delta\":\"{\\\"ok\\\":true}\",\"type\":\"response.output_text.delta\"}"
+          },
+          {
+            "event": "response.completed",
+            "data": "{\"response\":{\"output\":[{\"content\":[{\"text\":\"{\\\"ok\\\":true}\",\"type\":\"output_text\"}],\"phase\":\"final_answer\",\"type\":\"message\"}],\"status\":\"completed\",\"usage\":{\"input_tokens\":20,\"input_tokens_details\":{\"cached_tokens\":5},\"output_tokens\":9,\"output_tokens_details\":{\"reasoning_tokens\":4},\"total_tokens\":29}},\"type\":\"response.completed\"}"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    }
+  ]
+}

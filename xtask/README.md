@@ -14,11 +14,12 @@ file-length audits, or AI review.
 - Host credentialed integration tests for every chat, image-provider,
   video-provider, and judgment-provider catalog against real APIs
 - Delegate local AI review to the Codex CLI
+- Record sanitized chat scenarios through the production provider adapters
 
 ## What This Crate Does
 
-The crate exposes the `check`, `rust-file-length-lint`, `smoke-test`, and
-`review` commands. `check` runs formatting, Clippy, tests, the file-length lint,
+The crate exposes the `check`, `rust-file-length-lint`, `smoke-test`,
+`record-streams`, and `review` commands. `check` runs formatting, Clippy, tests, the file-length lint,
 and the smoke test in the same order expected by CI.
 
 `smoke-test` constructs the Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
@@ -86,6 +87,23 @@ probe shape, retry behavior, normalized validation, and workflow boundaries.
 None of the four live suites makes provider calls during `check` or
 `smoke-test`.
 
+`record-streams --provider <name>` reads `RECORD_API_KEY` and records the
+text, two-turn tool, schema, and image scenarios from `ai-testkit`.
+Provider names are `anthropic`, `openai`, `google`, `deepseek`, `kimi`,
+`qwen`, `minimax`, and `xai`. The command uses the first chat catalog model
+and prefers thinking for the tool scenario. xAI stays synchronous.
+It writes four files under `crates/ai-testkit/recordings/<provider>/`
+with `source: "recorded"`. It preserves errors and reports their count.
+It never retries model calls. Rate-limit and stream-cut files stay synthetic.
+These billable calls run only when the recorder is invoked explicitly.
+
+The `Record provider streams` workflow runs on manual dispatch from the
+default branch and on the `record-provider-streams` label for trusted
+same-repository pull requests. It uses the eight existing provider secrets
+as `RECORD_API_KEY`, runs one provider at a time, and uploads the four
+scenario files as artifacts. It does not commit or push the recordings.
+It does not run during ordinary CI or `cargo xtask check`.
+
 ## Quick Start
 
 ```sh
@@ -93,6 +111,9 @@ cargo xtask check
 cargo xtask rust-file-length-lint --all
 cargo xtask smoke-test
 cargo xtask review
+
+# Billable. Set RECORD_API_KEY in your shell first.
+cargo xtask record-streams --provider openai
 
 # Credential-free: runs image registry, runner, retry, and workflow guards.
 cargo test --locked -p xtask --test live_images
@@ -146,10 +167,13 @@ cargo clippy -p xtask --all-targets --all-features
 - `tests/live_judgments/mod.rs` - ignored credentialed tests and
   credential-free guards over judgment-provider catalogs
 - `src/review.rs` - Codex CLI review delegation
+- `src/record_streams/` - explicit recording command with injected transport,
+  model, scenario runner, and recording storage boundaries
 
 ### Related Docs
 
 - [`../README.md`](../README.md)
+- [`../crates/ai-testkit/README.md`](../crates/ai-testkit/README.md)
 - [`../docs/protocol/live-model-api-tests.md`](../docs/protocol/live-model-api-tests.md)
 - [`../docs/protocol/live-image-api-tests.md`](../docs/protocol/live-image-api-tests.md)
 - [`../docs/protocol/live-video-api-tests.md`](../docs/protocol/live-video-api-tests.md)

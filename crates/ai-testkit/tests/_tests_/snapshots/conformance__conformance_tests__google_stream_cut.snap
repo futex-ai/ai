@@ -1,0 +1,19 @@
+---
+source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+description: "Today's google adapter result for stream_cut using gemini-3.6-flash synthetic recordings."
+expression: outcome
+---
+{
+  "steps": [
+    {
+      "kind": "error",
+      "error": {
+        "variant": "Interrupted",
+        "provider": "google",
+        "model_id": "gemini-3.6-flash",
+        "message": "[json_http/error] SSE transport failed after 1 events: builder error"
+      }
+    }
+  ],
+  "remaining_exchanges": 0
+}
