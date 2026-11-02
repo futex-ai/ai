@@ -273,6 +273,19 @@ All calls are mine, made on 2026-11-01.
     message. Every tool event names its call id.
 - The plan has about 520 lines, above the 300-line target, because it
   covers eight pull requests. A split would scatter the shared decisions.
+- 2026-11-02, before Milestone 4:
+  - Milestone 11 depends on Milestone 1 only. It reads and writes a
+    comparison under `.context/`, so it can run beside the code
+    milestones, and the MCP decision reaches the user sooner. Milestone 12
+    depends on Milestones 8 and 11, because one of its options builds on
+    the `json-http` work of Milestone 8.
+  - Milestone 4 moves the Chat Completions types of `ai-models-core` into
+    `ai-models-compat`. Only the five ported crates use them, and
+    `docs/architecture.md` gives `ai-models-core` no Chat Completions
+    role.
+  - Milestone 9 marks `chat-completions-dialects.md` implemented. The doc
+    describes the engine on the specs, events, parts, error kinds, and
+    base URLs of Milestones 5 to 9.
 
 ## Pull requests
 
@@ -377,8 +390,7 @@ Apply the answers to items 1 to 4 on today's types.
       `RunOutcome`. Mark that requirement implemented in `agent-loop.md`.
 - [x] Delete each follow-up item in the commit that applies it.
 - [x] Re-record the affected scenarios, and update their snapshots.
-- [x] Run `cargo xtask check`, then commit. The orchestrator handles the
-      push.
+- [x] Run `cargo xtask check`, then commit and push.
 - [ ] Run the ship steps for pull request 2.
 
 ## Milestone 4: Chat Completions engine
@@ -497,7 +509,8 @@ Build any catalog entry from one config shape.
 - [ ] Replace the provider match in
       `xtask/tests/live_models/provider_tests.rs` and in the smoke test
       with the registry.
-- [ ] Mark `provider-registry.md` implemented.
+- [ ] Mark `provider-registry.md` and `chat-completions-dialects.md`
+      implemented.
 - [ ] Run `cargo xtask check` and `cargo xtask smoke-test`, then commit
       and push.
 - [ ] Run the ship steps for pull request 5.
@@ -531,7 +544,7 @@ Rebuild the tool loop on the stream and the caller-owned conversation.
 
 ## Milestone 11: MCP evaluation
 
-Depends on: 8
+Depends on: 1
 
 Decide with evidence whether `rmcp` replaces the custom MCP client.
 
@@ -545,7 +558,7 @@ Decide with evidence whether `rmcp` replaces the custom MCP client.
 
 ## Milestone 12: MCP change
 
-Depends on: 11
+Depends on: 8, 11
 
 Apply the MCP decision.
 
