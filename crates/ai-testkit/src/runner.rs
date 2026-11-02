@@ -6,11 +6,14 @@ use ai_interface::{DynModel, ModelResponse};
 use async_trait::async_trait;
 use json_http::{
     TransportBackedJsonHttpClient,
-    test_support::{Redactor, ReplayControl, ReplayTransport},
+    test_support::{
+        MemoryRecordingLog, Recording, RecordingLog, RecordingTransport, Redactor, ReplayControl,
+        ReplayTransport,
+    },
 };
 
 use crate::{
-    error::{ErrorResultExt, Result},
+    error::{Error, ErrorResultExt, Result},
     outcome::{ErrorOutcome, ScenarioOutcome, StepOutcome},
     provider::{ModelFactory, Provider},
     scenario::Scenario,
@@ -20,7 +23,7 @@ use crate::{
 /// Shared execution boundary used by snapshot tests and the explicit recorder.
 #[async_trait]
 pub trait ConformanceRunner: Send + Sync {
-    /// Replays a recording through its provider's production adapter.
+    /// Replays a recording and compares every sanitized outbound request with its exchange.
     async fn replay(
         &self,
         provider: Provider,
@@ -58,7 +61,10 @@ impl ConformanceRunner for ScenarioRunner {
     ) -> Result<ScenarioOutcome> {
         let transport = Arc::new(ReplayTransport::new(recording.exchanges.clone()));
         let cursor: Arc<dyn ReplayControl + Send + Sync> = transport.clone();
-        let client = Arc::new(TransportBackedJsonHttpClient::new(transport.clone()));
+        let log: Arc<dyn RecordingLog + Send + Sync> = Arc::new(MemoryRecordingLog::default());
+        let client = Arc::new(TransportBackedJsonHttpClient::new(Arc::new(
+            RecordingTransport::new(transport, log.clone()),
+        )));
         let model = self.factory.build(
             provider,
             &recording.catalog_model_id,
@@ -66,6 +72,7 @@ impl ConformanceRunner for ScenarioRunner {
             provider.auth("conformance-placeholder-key".to_owned()),
         )?;
         let mut outcome = self.execute(model, scenario, &Redactor::default()).await?;
+        compare_requests(provider, scenario, &recording.exchanges, &log.snapshot())?;
         outcome.remaining_exchanges = cursor.remaining();
         Ok(outcome)
     }
@@ -117,3 +124,33 @@ fn sanitized_response(response: ModelResponse, redactor: &Redactor) -> Result<Mo
     let value = serde_json::to_value(response).context("serialize model response")?;
     serde_json::from_value(redactor.value(&value)).context("sanitize model response")
 }
+
+fn compare_requests(
+    provider: Provider,
+    scenario: Scenario,
+    expected: &[Recording],
+    actual: &[Recording],
+) -> Result<()> {
+    for exchange_index in 0..expected.len().max(actual.len()) {
+        let expected = expected
+            .get(exchange_index)
+            .map(|exchange| &exchange.request);
+        let actual = actual.get(exchange_index).map(|exchange| &exchange.request);
+        if actual != expected {
+            return Err(Error::RequestMismatch {
+                provider,
+                scenario,
+                exchange_index,
+                expected: serde_json::to_string_pretty(&expected)
+                    .context("format expected conformance request")?,
+                actual: serde_json::to_string_pretty(&actual)
+                    .context("format actual conformance request")?,
+            });
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "_tests_/runner_tests.rs"]
+mod runner_tests;

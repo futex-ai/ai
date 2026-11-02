@@ -9,6 +9,7 @@ Product libraries do not depend on this crate.
 - Build the same six scenarios for each chat provider.
 - Store sanitized HTTP exchanges with their source and catalog model id.
 - Run production adapters against ordered replay transports.
+- Compare every sanitized outbound request with its recorded exchange.
 - Snapshot complete responses and typed errors without provider credentials.
 
 ## What This Crate Does
@@ -34,6 +35,11 @@ The second tool step retains the assistant message, tool calls, and provider
 context. It appends the tool result and asks for the final answer.
 The runner stops at the first model error and stores its variant and fields.
 It does not retry or change provider behavior.
+
+Replay compares the method, URL, sanitized body, and all recorded headers.
+It also checks for missing or extra requests.
+A mismatch names the provider, scenario, and zero-based exchange index.
+It shows both requests as pretty JSON.
 
 Recordings live at `recordings/<provider>/<scenario>.json`.
 Each JSON file has `source`, `catalog_model_id`, and `exchanges` fields.

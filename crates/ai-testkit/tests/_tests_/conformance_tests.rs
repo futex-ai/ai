@@ -25,7 +25,7 @@ async fn snapshots_every_available_provider_scenario() {
             let outcome = runner
                 .replay(provider, scenario, &recording)
                 .await
-                .expect("run conformance scenario");
+                .unwrap_or_else(|error| panic!("run conformance scenario: {error}"));
             let name = format!("{}_{}", provider.name(), scenario.name());
             insta::with_settings!({description => format!("Today's {} adapter result for {} using {} {} recordings.", provider.name(), scenario.name(), recording.catalog_model_id, match recording.source { ai_testkit::storage::RecordingSource::Synthetic => "synthetic", ai_testkit::storage::RecordingSource::Recorded => "live" })}, {
                 insta::assert_json_snapshot!(name, outcome);
