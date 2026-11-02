@@ -21,7 +21,7 @@ async fn complete_folds_the_mocked_event_stream_through_the_public_traits() {
 
     let response = model.complete(&request()).await.unwrap();
 
-    assert_eq!(response.assistant_message, "hello world");
+    assert_eq!(response.text(), "hello world");
     assert_eq!(response.usage.total_tokens, 10);
 }
 

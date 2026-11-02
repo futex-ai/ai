@@ -17,7 +17,10 @@ fn fold_rejects_invalid_event_order_with_an_internal_error() {
         ("arguments without start", vec![arguments(0, "{}")]),
         (
             "end without start",
-            vec![ModelEvent::ToolCallEnd { part_index: 0 }],
+            vec![ModelEvent::ToolCallEnd {
+                part_index: 0,
+                provider_state: None,
+            }],
         ),
         (
             "duplicate start",
@@ -31,7 +34,10 @@ fn fold_rejects_invalid_event_order_with_an_internal_error() {
             "arguments after end",
             vec![
                 tool_start(0, "one"),
-                ModelEvent::ToolCallEnd { part_index: 0 },
+                ModelEvent::ToolCallEnd {
+                    part_index: 0,
+                    provider_state: None,
+                },
                 arguments(0, "{}"),
             ],
         ),
@@ -39,8 +45,14 @@ fn fold_rejects_invalid_event_order_with_an_internal_error() {
             "duplicate end",
             vec![
                 tool_start(0, "one"),
-                ModelEvent::ToolCallEnd { part_index: 0 },
-                ModelEvent::ToolCallEnd { part_index: 0 },
+                ModelEvent::ToolCallEnd {
+                    part_index: 0,
+                    provider_state: None,
+                },
+                ModelEvent::ToolCallEnd {
+                    part_index: 0,
+                    provider_state: None,
+                },
             ],
         ),
         ("open call at usage", vec![tool_start(0, "one"), usage()]),
@@ -62,7 +74,10 @@ fn fold_rejects_invalid_event_order_with_an_internal_error() {
             vec![
                 tool_start(0, "one"),
                 arguments(0, "{"),
-                ModelEvent::ToolCallEnd { part_index: 0 },
+                ModelEvent::ToolCallEnd {
+                    part_index: 0,
+                    provider_state: None,
+                },
                 usage(),
                 finish(FinishReason::ToolCalls),
             ],
@@ -100,7 +115,10 @@ fn fold_discards_invalid_arguments_when_the_finish_has_no_tool_calls() {
     for event in [
         tool_start(0, "unused"),
         arguments(0, "incomplete JSON"),
-        ModelEvent::ToolCallEnd { part_index: 0 },
+        ModelEvent::ToolCallEnd {
+            part_index: 0,
+            provider_state: None,
+        },
         usage(),
         finish(FinishReason::Truncated),
     ] {
@@ -109,5 +127,5 @@ fn fold_discards_invalid_arguments_when_the_finish_has_no_tool_calls() {
 
     let response = fold.finish().unwrap();
     assert_eq!(response.finish_reason, FinishReason::Truncated);
-    assert_eq!(response.tool_calls, Vec::new());
+    assert_eq!(response.tool_calls(), Vec::new());
 }

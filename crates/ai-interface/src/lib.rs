@@ -21,6 +21,7 @@ mod model_catalog;
 mod model_controls;
 mod model_error;
 mod model_event;
+mod model_helpers;
 mod model_response_fold;
 mod model_spec;
 mod model_stream;
@@ -59,9 +60,10 @@ pub use logger::{
     TurnOutcome, TurnOutcomeLogEntry,
 };
 pub use messages::{
-    AnthropicAssistantBlock, ConversationContentPart, ConversationMessage, ConversationRole,
-    DeepSeekToolCallContext, GoogleAssistantPart, GoogleFunctionCallContext, KimiToolCallContext,
-    MiniMaxReasoningDetail, OpenAiReasoningSummary, ProviderConversationItem, QwenToolCallContext,
+    ConversationMessage, ConversationPart, ConversationRole, LegacyConversationMessage,
+    LegacyMessageConverter, LegacyPartAttachment, LegacyPartOrder, LegacyPartTarget,
+    LegacyProviderConverter, LegacyProviderItem, ProviderState, StoredMessageError,
+    compose_legacy_message, read_stored_message,
 };
 pub use mock_audio_transcriber::MockAudioTranscriber;
 pub use mock_catalog::{MOCK_CATALOG, MOCK_CUSTOM_DEFAULTS, MOCK_MODEL};
@@ -112,6 +114,8 @@ pub use image_generator::ImageGeneratorMock;
 pub use judgment::JudgmentModelMock;
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use logger::LoggerMock;
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub use messages::LegacyProviderConverterMock;
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use model::ModelMock;
 #[cfg(any(test, doctest, feature = "test-support"))]

@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    ConversationMessage, DynModelEventStream, Effort, ModelAttempt, ModelCallControls, ModelError,
-    ModelResponseFold, ProviderConversationItem, ToolCall, ToolDefinition, usage::ModelUsage,
+    ConversationMessage, ConversationPart, DynModelEventStream, Effort, ModelAttempt,
+    ModelCallControls, ModelError, ModelResponseFold, ToolDefinition, usage::ModelUsage,
 };
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -72,18 +72,13 @@ pub struct ModelResponse {
     /// Resolved portable effort selected for this call, when available.
     #[serde(rename = "effort", skip_serializing_if = "Option::is_none")]
     pub thinking_level: Option<Effort>,
-    /// Assistant text returned by the model.
-    pub assistant_message: String,
-    /// Tool calls requested by the model.
-    pub tool_calls: Vec<ToolCall>,
+    /// Assistant parts in their generated order.
+    pub parts: Vec<ConversationPart>,
     /// Normalized provider finish reason for this response.
     pub finish_reason: FinishReason,
     /// Parsed structured output when the request required a schema.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub structured_output: Option<Value>,
-    /// Provider-specific items that must be retained for future turns.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub provider_context: Vec<ProviderConversationItem>,
     /// Usage and estimated cost information for the call.
     pub usage: ModelUsage,
     /// Failed fallback attempts in the order they occurred.

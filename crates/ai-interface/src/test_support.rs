@@ -5,8 +5,8 @@ use std::vec::IntoIter;
 use async_trait::async_trait;
 
 use crate::{
-    DynModelEventStream, ModelAttemptError, ModelError, ModelEvent, ModelEventStream,
-    ModelResponse, ModelResult,
+    ConversationPart, DynModelEventStream, ModelAttemptError, ModelError, ModelEvent,
+    ModelEventStream, ModelResponse, ModelResult,
 };
 
 /// Boxes literal events in a stream that stays exhausted after its last event.
@@ -25,27 +25,48 @@ pub fn model_response_stream(response: ModelResponse) -> DynModelEventStream {
             error: restore_error(attempt.error),
         })
         .collect::<Vec<_>>();
-    let mut part_index = 0;
-    if !response.assistant_message.is_empty() {
-        events.push(ModelEvent::TextDelta {
-            part_index,
-            delta: response.assistant_message,
-        });
-        part_index += 1;
-    }
-    for call in response.tool_calls {
-        events.push(ModelEvent::ToolCallStart {
-            part_index,
-            id: call.id,
-            name: call.name,
-            operation_id: call.operation_id,
-        });
-        events.push(ModelEvent::ToolCallArgumentsDelta {
-            part_index,
-            delta: call.input.to_string(),
-        });
-        events.push(ModelEvent::ToolCallEnd { part_index });
-        part_index += 1;
+    for (part_index, part) in response.parts.into_iter().enumerate() {
+        match part {
+            ConversationPart::Text {
+                text,
+                provider_state,
+            } => events.push(ModelEvent::TextDelta {
+                part_index,
+                delta: text,
+                provider_state,
+            }),
+            ConversationPart::Reasoning {
+                text,
+                provider_state,
+            } => events.push(ModelEvent::ReasoningDelta {
+                part_index,
+                delta: text,
+                provider_state,
+            }),
+            ConversationPart::ToolCall {
+                call_id,
+                tool_name,
+                arguments,
+                operation_id,
+                provider_state,
+            } => {
+                events.push(ModelEvent::ToolCallStart {
+                    part_index,
+                    id: call_id,
+                    name: tool_name,
+                    operation_id,
+                });
+                events.push(ModelEvent::ToolCallArgumentsDelta {
+                    part_index,
+                    delta: arguments.to_string(),
+                });
+                events.push(ModelEvent::ToolCallEnd {
+                    part_index,
+                    provider_state,
+                });
+            }
+            _ => {}
+        }
     }
     events.push(ModelEvent::Usage {
         usage: response.usage,
@@ -57,7 +78,6 @@ pub fn model_response_stream(response: ModelResponse) -> DynModelEventStream {
         catalog_model_id: response.catalog_model_id,
         thinking_level: response.thinking_level,
         structured_output: response.structured_output,
-        provider_context: response.provider_context,
     });
     model_event_stream(events)
 }

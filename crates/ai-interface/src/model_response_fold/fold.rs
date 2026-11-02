@@ -1,7 +1,8 @@
 //! Event reduction and terminal response construction.
 
 use crate::{
-    FinishReason, ModelAttempt, ModelError, ModelEvent, ModelResponse, ModelResult, ModelUsage,
+    ConversationPart, FinishReason, ModelAttempt, ModelError, ModelEvent, ModelResponse,
+    ModelResult, ModelUsage, ProviderState,
 };
 
 use super::{
@@ -33,11 +34,19 @@ impl ModelResponseFold {
             return Err(ModelError::internal(ModelEventOrderError::AfterUsage));
         }
         match event {
-            ModelEvent::TextDelta { part_index, delta } => {
-                self.push_delta(part_index, &delta, DeltaKind::Text)?;
+            ModelEvent::TextDelta {
+                part_index,
+                delta,
+                provider_state,
+            } => {
+                self.push_delta(part_index, &delta, DeltaKind::Text, provider_state)?;
             }
-            ModelEvent::ReasoningDelta { part_index, delta } => {
-                self.push_delta(part_index, &delta, DeltaKind::Reasoning)?;
+            ModelEvent::ReasoningDelta {
+                part_index,
+                delta,
+                provider_state,
+            } => {
+                self.push_delta(part_index, &delta, DeltaKind::Reasoning, provider_state)?;
             }
             ModelEvent::ToolCallStart {
                 part_index,
@@ -52,6 +61,7 @@ impl ModelResponseFold {
                     operation_id,
                     arguments: String::new(),
                     ended: false,
+                    provider_state: None,
                 });
             }
             ModelEvent::ToolCallArgumentsDelta { part_index, delta } => {
@@ -61,8 +71,12 @@ impl ModelResponseFold {
                 self.existing_part(part_index)?
                     .push_arguments(part_index, &delta)?;
             }
-            ModelEvent::ToolCallEnd { part_index } => {
-                self.existing_part(part_index)?.end_tool_call(part_index)?;
+            ModelEvent::ToolCallEnd {
+                part_index,
+                provider_state,
+            } => {
+                self.existing_part(part_index)?
+                    .end_tool_call(part_index, provider_state)?;
             }
             ModelEvent::Usage { usage } => {
                 if self.parts.iter().any(Part::is_open_tool_call) {
@@ -77,26 +91,22 @@ impl ModelResponseFold {
                 catalog_model_id,
                 thinking_level,
                 structured_output,
-                provider_context,
             } => {
                 let usage = self
                     .usage
                     .take()
                     .ok_or_else(|| ModelError::internal(ModelEventOrderError::MissingUsage))?;
-                let mut assistant_message = String::new();
-                let mut tool_calls = Vec::new();
+                let mut parts = Vec::new();
                 for part in std::mem::take(&mut self.parts) {
-                    match part {
-                        Part::Text(text) => assistant_message.push_str(&text),
-                        part if finish_reason == FinishReason::ToolCalls => {
-                            if let Some(call) = part.into_tool_call()? {
-                                tool_calls.push(call);
-                            }
-                        }
-                        _ => {}
+                    if let Some(part) = part.into_part(finish_reason == FinishReason::ToolCalls)? {
+                        parts.push(part);
                     }
                 }
-                if finish_reason == FinishReason::ToolCalls && tool_calls.is_empty() {
+                if finish_reason == FinishReason::ToolCalls
+                    && !parts
+                        .iter()
+                        .any(|part| matches!(part, ConversationPart::ToolCall { .. }))
+                {
                     return Err(ModelError::internal(ModelEventOrderError::MissingToolCalls));
                 }
                 self.response = Some(ModelResponse {
@@ -104,11 +114,9 @@ impl ModelResponseFold {
                     model_id,
                     catalog_model_id,
                     thinking_level,
-                    assistant_message,
-                    tool_calls,
+                    parts,
                     finish_reason,
                     structured_output,
-                    provider_context,
                     usage,
                     attempts: std::mem::take(&mut self.attempts),
                 });
@@ -147,14 +155,20 @@ impl ModelResponseFold {
         })
     }
 
-    fn push_delta(&mut self, part_index: usize, delta: &str, kind: DeltaKind) -> ModelResult<()> {
-        if delta.is_empty() {
+    fn push_delta(
+        &mut self,
+        part_index: usize,
+        delta: &str,
+        kind: DeltaKind,
+        state: Option<ProviderState>,
+    ) -> ModelResult<()> {
+        if delta.is_empty() && state.is_none() {
             return Err(ModelError::internal(ModelEventOrderError::EmptyDelta));
         }
         if part_index == self.parts.len() {
             self.parts.push(Part::new_delta(kind));
         }
         self.existing_part(part_index)?
-            .push_delta(part_index, delta, kind)
+            .push_delta(part_index, delta, kind, state)
     }
 }

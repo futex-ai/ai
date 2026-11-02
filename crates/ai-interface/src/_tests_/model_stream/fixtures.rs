@@ -11,7 +11,7 @@ use unimock::{MockFn, Unimock, matching};
 use crate::{
     ConversationMessage, DynModelEventStream, Effort, FinishReason, ModelEvent,
     ModelEventStreamMock, ModelMock, ModelRequest, ModelResponse, ModelResponseFold, ModelResult,
-    ModelUsage, ProviderConversationItem,
+    ModelUsage,
 };
 
 pub(super) fn request() -> ModelRequest {
@@ -28,6 +28,7 @@ pub(super) fn text(part_index: usize, delta: &str) -> ModelEvent {
     ModelEvent::TextDelta {
         part_index,
         delta: delta.to_owned(),
+        provider_state: None,
     }
 }
 
@@ -35,6 +36,7 @@ pub(super) fn reasoning(part_index: usize, delta: &str) -> ModelEvent {
     ModelEvent::ReasoningDelta {
         part_index,
         delta: delta.to_owned(),
+        provider_state: None,
     }
 }
 
@@ -73,9 +75,6 @@ pub(super) fn finish(finish_reason: FinishReason) -> ModelEvent {
         catalog_model_id: Some("mock/mock-dev".to_owned()),
         thinking_level: Some(Effort::High),
         structured_output: Some(json!({"answer": "ready"})),
-        provider_context: vec![ProviderConversationItem::OpenAiMessage {
-            phase: Some("final_answer".to_owned()),
-        }],
     }
 }
 

@@ -1,122 +1,137 @@
-//! Conversation roles, retained messages, and message constructors.
+//! Conversation roles, ordered messages, and portable access.
 
 use serde::{Deserialize, Serialize};
 
-use crate::ToolCall;
+use crate::{ModelError, ModelResult, ToolCall};
 
-use super::content::ConversationContentPart;
-use super::provider_context::ProviderConversationItem;
+use super::part::ConversationPart;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-/// Model-visible role assigned to a conversation message.
+/// Model-visible actor of a conversation message.
 pub enum ConversationRole {
-    /// Human or synthetic caller input provided to the model.
+    /// Caller input containing text, images, or videos.
     User,
-    /// Assistant text produced by the model.
+    /// Generated text, reasoning, or tool calls.
     Assistant,
-    /// Tool output injected back into the conversation.
+    /// Exactly one tool result.
     Tool,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-/// One message in the retained conversation state.
+#[derive(Clone, Debug, Eq, PartialEq)]
+/// One retained message with ordered parts and an optional participant name.
 pub struct ConversationMessage {
-    /// Actor role associated with this message.
+    /// Actor that produced this message.
     pub role: ConversationRole,
-    /// Plain-text message content.
-    pub content: String,
-    #[serde(default)]
-    /// Typed multimodal content parts. Empty means use `content` as plain text.
-    pub content_parts: Vec<ConversationContentPart>,
-    #[serde(default)]
-    /// Optional participant or tool name.
+    /// Parts in their original order.
+    pub parts: Vec<ConversationPart>,
+    /// Optional name of the user or assistant participant.
     pub name: Option<String>,
-    #[serde(default)]
-    /// Optional provider-generated tool call identifier.
-    pub tool_call_id: Option<String>,
-    #[serde(default)]
-    /// Optional tool calls attached to an assistant message.
-    pub tool_calls: Vec<ToolCall>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    /// Provider-specific items that must be replayed for future turns.
-    pub provider_context: Vec<ProviderConversationItem>,
 }
 
 impl ConversationMessage {
-    /// Builds a caller/user message.
-    pub fn user(content: impl Into<String>) -> Self {
+    /// Builds a message from its role and ordered parts.
+    pub fn new(role: ConversationRole, parts: Vec<ConversationPart>) -> Self {
         Self {
-            role: ConversationRole::User,
-            content: content.into(),
-            content_parts: Vec::new(),
+            role,
+            parts,
             name: None,
-            tool_call_id: None,
-            tool_calls: Vec::new(),
-            provider_context: Vec::new(),
         }
     }
 
-    /// Builds an assistant message with optional tool calls.
-    pub fn assistant(content: impl Into<String>, tool_calls: Vec<ToolCall>) -> Self {
-        Self {
-            role: ConversationRole::Assistant,
-            content: content.into(),
-            content_parts: Vec::new(),
-            name: None,
-            tool_call_id: None,
-            tool_calls,
-            provider_context: Vec::new(),
-        }
+    /// Builds a caller message with one text part.
+    pub fn user(text: impl Into<String>) -> Self {
+        Self::new(ConversationRole::User, vec![ConversationPart::text(text)])
     }
 
-    /// Builds an assistant message with provider-specific replay context.
-    pub fn assistant_with_provider_context(
-        content: impl Into<String>,
-        tool_calls: Vec<ToolCall>,
-        provider_context: Vec<ProviderConversationItem>,
-    ) -> Self {
-        Self {
-            role: ConversationRole::Assistant,
-            content: content.into(),
-            content_parts: Vec::new(),
-            name: None,
-            tool_call_id: None,
-            tool_calls,
-            provider_context,
-        }
+    /// Builds a caller message from ordered media and text parts.
+    pub fn user_with_parts(parts: Vec<ConversationPart>) -> Self {
+        Self::new(ConversationRole::User, parts)
     }
 
-    /// Builds a tool message.
+    /// Builds assistant text followed by its requested tool calls.
+    pub fn assistant(text: impl Into<String>, tool_calls: Vec<ToolCall>) -> Self {
+        let text = text.into();
+        let mut parts = Vec::new();
+        if !text.is_empty() {
+            parts.push(ConversationPart::text(text));
+        }
+        parts.extend(tool_calls.into_iter().map(ConversationPart::from_tool_call));
+        Self::new(ConversationRole::Assistant, parts)
+    }
+
+    /// Builds the one result part of a tool message.
     pub fn tool(
         content: impl Into<String>,
         name: impl Into<String>,
-        tool_call_id: impl Into<String>,
+        call_id: impl Into<String>,
     ) -> Self {
-        Self {
-            role: ConversationRole::Tool,
-            content: content.into(),
-            content_parts: Vec::new(),
-            name: Some(name.into()),
-            tool_call_id: Some(tool_call_id.into()),
-            tool_calls: Vec::new(),
-            provider_context: Vec::new(),
+        Self::new(
+            ConversationRole::Tool,
+            vec![ConversationPart::tool_result(content, name, call_id)],
+        )
+    }
+
+    /// Concatenates portable text and tool-result content in part order.
+    pub fn text(&self) -> String {
+        self.parts
+            .iter()
+            .filter_map(|part| match part {
+                ConversationPart::Text { text, .. } => Some(text.as_str()),
+                ConversationPart::ToolResult { content, .. } => Some(content.as_str()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns portable tool calls in part order.
+    pub fn tool_calls(&self) -> Vec<ToolCall> {
+        self.parts
+            .iter()
+            .filter_map(ConversationPart::as_tool_call)
+            .collect()
+    }
+
+    /// Checks the role table before an adapter opens transport.
+    pub fn validate(&self, provider: &str, model_id: &str) -> ModelResult<()> {
+        let valid = match self.role {
+            ConversationRole::User => self.parts.iter().all(|part| {
+                matches!(
+                    part,
+                    ConversationPart::Text { .. }
+                        | ConversationPart::Image { .. }
+                        | ConversationPart::Video { .. }
+                )
+            }),
+            ConversationRole::Assistant => self.parts.iter().all(|part| {
+                matches!(
+                    part,
+                    ConversationPart::Text { .. }
+                        | ConversationPart::Reasoning { .. }
+                        | ConversationPart::ToolCall { .. }
+                )
+            }),
+            ConversationRole::Tool => {
+                matches!(self.parts.as_slice(), [ConversationPart::ToolResult { .. }])
+            }
+        };
+        if valid {
+            Ok(())
+        } else {
+            Err(ModelError::provider(
+                provider,
+                model_id,
+                "conversation parts do not match the message role",
+            ))
         }
     }
 
-    /// Builds a caller/user message from typed content parts and a text fallback.
-    pub fn user_with_parts(
-        content: impl Into<String>,
-        content_parts: Vec<ConversationContentPart>,
-    ) -> Self {
+    /// Keeps each part while removing replay state and reasoning text.
+    pub fn log_copy(&self) -> Self {
         Self {
-            role: ConversationRole::User,
-            content: content.into(),
-            content_parts,
-            name: None,
-            tool_call_id: None,
-            tool_calls: Vec::new(),
-            provider_context: Vec::new(),
+            role: self.role,
+            parts: self.parts.iter().map(ConversationPart::log_copy).collect(),
+            name: self.name.clone(),
         }
     }
 }

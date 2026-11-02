@@ -4,7 +4,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::{
-    Effort, FinishReason, ModelError, ModelUsage, ProviderConversationItem,
+    Effort, FinishReason, ModelError, ModelUsage, ProviderState,
     model_attempt::serialize_model_error,
 };
 
@@ -16,15 +16,21 @@ pub enum ModelEvent {
     TextDelta {
         /// Zero-based position of this text part.
         part_index: usize,
-        /// Exact nonempty text to append to the part.
+        /// Exact text to append, empty only when state is present.
         delta: String,
+        /// Latest replay state produced for this part.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        provider_state: Option<ProviderState>,
     },
     /// An append-only fragment of provider-exposed reasoning.
     ReasoningDelta {
         /// Zero-based position of this reasoning part.
         part_index: usize,
-        /// Exact nonempty reasoning text to append to the part.
+        /// Exact reasoning text to append, empty only when state is present.
         delta: String,
+        /// Latest replay state produced for this part.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        provider_state: Option<ProviderState>,
     },
     /// The start of one tool call.
     ToolCallStart {
@@ -49,6 +55,9 @@ pub enum ModelEvent {
     ToolCallEnd {
         /// Zero-based position of the started tool-call part.
         part_index: usize,
+        /// Replay state produced with this completed call.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        provider_state: Option<ProviderState>,
     },
     /// The final usage of one successful attempt.
     Usage {
@@ -72,9 +81,6 @@ pub enum ModelEvent {
         /// Validated structured output, when requested and completed.
         #[serde(skip_serializing_if = "Option::is_none")]
         structured_output: Option<Value>,
-        /// Interim message-level replay context until parts own provider state.
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        provider_context: Vec<ProviderConversationItem>,
     },
     /// A failed attempt whose events the consumer must discard.
     Fallback {

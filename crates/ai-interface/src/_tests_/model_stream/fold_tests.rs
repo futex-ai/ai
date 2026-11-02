@@ -3,8 +3,8 @@
 use serde_json::json;
 
 use crate::{
-    Effort, FinishReason, ModelAttempt, ModelAttemptError, ModelError, ModelEvent, ModelResponse,
-    ModelUsage, ProviderConversationItem, ToolCall,
+    ConversationPart, Effort, FinishReason, ModelAttempt, ModelAttemptError, ModelError,
+    ModelEvent, ModelResponse, ModelUsage, ToolCall,
 };
 
 use super::fixtures::{arguments, finish, fold, reasoning, text, tool_start, usage};
@@ -21,9 +21,15 @@ fn fold_orders_interleaved_parts_and_keeps_terminal_metadata() {
         text(1, " middle "),
         tool_start(4, "two"),
         arguments(4, "[1,true]"),
-        ModelEvent::ToolCallEnd { part_index: 4 },
+        ModelEvent::ToolCallEnd {
+            part_index: 4,
+            provider_state: None,
+        },
         arguments(2, "\"value\"}"),
-        ModelEvent::ToolCallEnd { part_index: 2 },
+        ModelEvent::ToolCallEnd {
+            part_index: 2,
+            provider_state: None,
+        },
         usage(),
         finish(FinishReason::ToolCalls),
     ])
@@ -36,26 +42,25 @@ fn fold_orders_interleaved_parts_and_keeps_terminal_metadata() {
             model_id: "mock-dev".to_owned(),
             catalog_model_id: Some("mock/mock-dev".to_owned()),
             thinking_level: Some(Effort::High),
-            assistant_message: "first middle last".to_owned(),
-            tool_calls: vec![
-                ToolCall {
+            parts: vec![
+                ConversationPart::reasoning("private thought"),
+                ConversationPart::text("first middle "),
+                ConversationPart::from_tool_call(ToolCall {
                     id: "one".to_owned(),
                     name: "lookup".to_owned(),
                     input: json!({"key": "value"}),
                     operation_id: Some("operation-one".to_owned()),
-                },
-                ToolCall {
+                }),
+                ConversationPart::text("last"),
+                ConversationPart::from_tool_call(ToolCall {
                     id: "two".to_owned(),
                     name: "lookup".to_owned(),
                     input: json!([1, true]),
                     operation_id: Some("operation-two".to_owned()),
-                },
+                }),
             ],
             finish_reason: FinishReason::ToolCalls,
             structured_output: Some(json!({"answer": "ready"})),
-            provider_context: vec![ProviderConversationItem::OpenAiMessage {
-                phase: Some("final_answer".to_owned()),
-            }],
             usage: ModelUsage {
                 input_tokens: 3,
                 output_tokens: 7,
@@ -79,7 +84,10 @@ fn fold_keeps_tool_calls_only_for_the_tool_calls_finish() {
         let response = fold(vec![
             tool_start(0, "one"),
             arguments(0, "{}"),
-            ModelEvent::ToolCallEnd { part_index: 0 },
+            ModelEvent::ToolCallEnd {
+                part_index: 0,
+                provider_state: None,
+            },
             usage(),
             finish(reason.clone()),
         ])
@@ -94,7 +102,7 @@ fn fold_keeps_tool_calls_only_for_the_tool_calls_finish() {
             }],
             _ => Vec::new(),
         };
-        assert_eq!(response.tool_calls, expected, "finish reason: {reason:?}");
+        assert_eq!(response.tool_calls(), expected, "finish reason: {reason:?}");
     }
 }
 
@@ -115,8 +123,8 @@ fn fallback_discards_partial_parts_and_records_each_failure() {
     ])
     .expect("fallback must reset unfinished content and part positions");
 
-    assert_eq!(response.assistant_message, "retained");
-    assert_eq!(response.tool_calls, Vec::new());
+    assert_eq!(response.text(), "retained");
+    assert_eq!(response.tool_calls(), Vec::new());
     assert_eq!(
         response.attempts,
         vec![

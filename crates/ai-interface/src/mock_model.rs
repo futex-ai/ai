@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use serde_json::{Map, Value};
 
 use crate::{
-    ConversationRole, DynModelEventStream, FinishReason, Model, ModelError, ModelEvent,
-    ModelEventStream, ModelRequest, ModelResult, ModelUsage,
+    ConversationPart, ConversationRole, DynModelEventStream, FinishReason, Model, ModelError,
+    ModelEvent, ModelEventStream, ModelRequest, ModelResult, ModelUsage,
 };
 
 /// Simple deterministic mock model used by development and tests.
@@ -72,7 +72,11 @@ impl Model for MockModel {
                 request
                     .messages
                     .iter()
-                    .map(|message| message.content.as_str()),
+                    .flat_map(|message| message.parts.iter())
+                    .filter_map(|part| match part {
+                        ConversationPart::Text { text, .. } => Some(text.as_str()),
+                        _ => None,
+                    }),
             ),
         );
         let output_tokens = estimate_tokens(std::iter::once(assistant_message.as_str()));
@@ -89,6 +93,7 @@ impl Model for MockModel {
             ModelEvent::TextDelta {
                 part_index: 0,
                 delta: assistant_message,
+                provider_state: None,
             },
             ModelEvent::Usage { usage },
             ModelEvent::Finish {
@@ -98,7 +103,6 @@ impl Model for MockModel {
                 thinking_level: None,
                 finish_reason: FinishReason::Stop,
                 structured_output,
-                provider_context: Vec::new(),
             },
         ];
         Ok(Box::new(MockModelStream {
@@ -128,7 +132,7 @@ fn extract_mock_subject(request: &ModelRequest) -> String {
         return "no current task".to_owned();
     };
 
-    for line in message.content.lines() {
+    for line in message.text().lines() {
         if let Some(body) = line.trim().strip_prefix("- body: ") {
             return body.trim().to_owned();
         }
@@ -138,7 +142,7 @@ fn extract_mock_subject(request: &ModelRequest) -> String {
     }
 
     message
-        .content
+        .text()
         .lines()
         .rev()
         .find_map(|line| {

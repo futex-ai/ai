@@ -5,3 +5,4 @@ mod fixtures;
 mod fold_tests;
 mod order_tests;
 mod serialization_tests;
+mod state_tests;
