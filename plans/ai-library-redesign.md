@@ -1,7 +1,7 @@
 # AI library redesign
 
-Status: Active. On branch `calummoore/ai-repo-overview`, no pull request yet.
-The work spans eight stacked pull requests. Each earlier pull request keeps
+Status: Active. [PR #24](https://github.com/futex-ai/ai/pull/24) is open for
+the first pull request. The work spans eight stacked pull requests. Each earlier pull request keeps
 this plan. The last one deletes it, as the final milestone says.
 
 The workspace puts nine AI providers behind one interface, with a
@@ -328,7 +328,7 @@ status "Approved, not implemented".
       item 4. Align `tool-output-management.md`.
 - [x] Update the protocol list of the workspace `README.md`.
 - [x] Check every relative link in the changed Markdown.
-- [ ] Commit and push. Run the ship steps for pull request 1.
+- [x] Commit and push. Run the ship steps for pull request 1.
 
 ## Milestone 2: Recordings and conformance runner
 
