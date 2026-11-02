@@ -3,8 +3,10 @@
 use ai_interface::{ConversationMessage, Model, ModelError, ModelRequest};
 use serde_json::json;
 
-use super::AnthropicModel;
+use crate::CLAUDE_SONNET_4_6;
 use crate::anthropic::stream_support::{event, recording_streaming_client};
+
+use super::AnthropicModel;
 
 #[tokio::test]
 async fn classifies_first_provider_error_without_partial_generation() {
@@ -16,7 +18,7 @@ async fn classifies_first_provider_error_without_partial_generation() {
         }),
     );
     let (http_client, _) = recording_streaming_client(vec![vec![error_event]]);
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
 
     let error = model
         .complete(&simple_request())
@@ -36,7 +38,7 @@ async fn preserves_first_rate_limit_event_as_rate_limited() {
         }),
     );
     let (http_client, _) = recording_streaming_client(vec![vec![error_event]]);
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
 
     let error = model
         .complete(&simple_request())
@@ -59,7 +61,7 @@ async fn classifies_provider_error_after_progress_as_interrupted() {
         ),
     ];
     let (http_client, _) = recording_streaming_client(vec![events]);
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
 
     let error = model
         .complete(&simple_request())
@@ -72,7 +74,7 @@ async fn classifies_provider_error_after_progress_as_interrupted() {
 #[tokio::test]
 async fn classifies_eof_before_and_after_progress() {
     let (http_client, _) = recording_streaming_client(vec![vec![], vec![message_start()]]);
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
 
     let before = model
         .complete(&simple_request())
@@ -93,7 +95,7 @@ async fn classifies_transport_failure_before_and_after_progress() {
         vec![Err(json_http::Error::transport("offline"))],
         vec![message_start(), Err(json_http::Error::transport("reset"))],
     ]);
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
 
     let before = model
         .complete(&simple_request())
@@ -139,7 +141,7 @@ async fn invalid_fragmented_tool_json_is_an_interruption() {
         ),
     ];
     let (http_client, _) = recording_streaming_client(vec![events]);
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
 
     let error = model
         .complete(&simple_request())

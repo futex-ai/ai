@@ -2,13 +2,12 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use ai_interface::{ConversationMessage, Model, ModelRequest};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{ConversationMessage, Effort, Model, ModelRequest};
 use json_http::{JsonHttpClient, JsonHttpResponse, StaticHeaderAuth};
 use serde_json::json;
 
-use crate::CLAUDE_SONNET_5;
 use crate::anthropic::stream_support::{RecordedRequests, client_for_buffered_bodies};
+use crate::{CLAUDE_OPUS_4_7, CLAUDE_SONNET_5};
 
 use super::AnthropicModel;
 
@@ -30,17 +29,17 @@ async fn builds_anthropic_thinking_variant_requests_and_ignores_hidden_blocks() 
     });
     let model = AnthropicModel::with_catalog_auth(
         http_client,
-        "claude-opus-4-7-thinking-max",
-        "claude-opus-4-7",
-        ThinkingLevel::Max,
+        CLAUDE_OPUS_4_7,
         Arc::new(StaticHeaderAuth::new(BTreeMap::from([(
             "x-api-key".to_owned(),
             "anthropic-key".to_owned(),
         )]))),
     );
 
+    let mut request = simple_request();
+    request.controls.generation.effort = Some(Effort::Max);
     let response = model
-        .complete(&simple_request())
+        .complete(&request)
         .await
         .expect("Anthropic thinking response should parse");
 
@@ -54,7 +53,7 @@ async fn builds_anthropic_thinking_variant_requests_and_ignores_hidden_blocks() 
     assert_eq!(body["output_config"]["effort"], "max");
     assert_eq!(
         response.catalog_model_id.as_deref(),
-        Some("claude-opus-4-7-thinking-max")
+        Some("anthropic/claude-opus-4-7")
     );
     assert_eq!(response.thinking_level.as_deref(), Some("max"));
     assert_eq!(response.model_id, "claude-opus-4-7");
@@ -74,14 +73,14 @@ async fn downgrades_max_to_sonnet_high() {
     });
     let model = AnthropicModel::with_catalog_auth(
         http_client,
-        "custom-sonnet-max",
         CLAUDE_SONNET_5,
-        ThinkingLevel::Max,
         Arc::new(StaticHeaderAuth::default()),
     );
 
+    let mut request = simple_request();
+    request.controls.generation.effort = Some(Effort::Max);
     let response = model
-        .complete(&simple_request())
+        .complete(&request)
         .await
         .expect("Anthropic downgraded response should parse");
 

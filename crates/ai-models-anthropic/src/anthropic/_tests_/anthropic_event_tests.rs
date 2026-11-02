@@ -9,10 +9,12 @@ use ai_interface::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
-use super::AnthropicModel;
+use crate::CLAUDE_SONNET_4_6;
 use crate::anthropic::stream_support::{
     event, events_from_buffered_body, recording_streaming_client,
 };
+
+use super::AnthropicModel;
 
 #[tokio::test]
 async fn emits_ordered_reasoning_and_assistant_deltas_with_terminal_parity() {
@@ -26,7 +28,7 @@ async fn emits_ordered_reasoning_and_assistant_deltas_with_terminal_parity() {
         "usage": {"input_tokens": 4, "output_tokens": 3}
     });
     let (http_client, _) = recording_streaming_client(vec![events_from_buffered_body(body)]);
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
     let events = Arc::new(Mutex::new(Vec::new()));
     let sink = recording_sink(events.clone());
 
@@ -55,7 +57,7 @@ async fn structured_completion_suppresses_deltas() {
         "usage": {"input_tokens": 4, "output_tokens": 3}
     });
     let (http_client, _) = recording_streaming_client(vec![events_from_buffered_body(body)]);
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
     let sink = Unimock::new(());
     let mut request = simple_request();
     request.response_schema = Some(summary_schema());
@@ -97,7 +99,7 @@ async fn emits_partial_text_before_an_interruption() {
         Err(json_http::Error::transport("reset")),
     ];
     let (http_client, _) = recording_streaming_client(vec![events]);
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
     let recorded = Arc::new(Mutex::new(Vec::new()));
     let sink = recording_sink(recorded.clone());
 

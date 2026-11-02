@@ -1,10 +1,10 @@
 //! Anthropic SSE loop and model-error classification.
 
 use ai_interface::{
-    ModelCompletionEvent, ModelCompletionEventSink, ModelError, ModelResponse, ModelResult,
+    Effort, ModelCompletionEvent, ModelCompletionEventSink, ModelError, ModelResponse, ModelResult,
     StructuredOutputSchema,
 };
-use ai_models_core::{ThinkingLevel, classify_json_http_stream_error, classify_stream_error};
+use ai_models_core::{classify_json_http_stream_error, classify_stream_error};
 use json_http::DynJsonHttpSseStream;
 
 use super::{
@@ -22,7 +22,7 @@ pub(in crate::anthropic) async fn complete(
     mut stream: DynJsonHttpSseStream,
     catalog_model_id: &str,
     provider_model_id: &str,
-    thinking_level: ThinkingLevel,
+    thinking_level: Effort,
     response_schema: Option<&StructuredOutputSchema>,
     event_sink: &dyn ModelCompletionEventSink,
 ) -> ModelResult<ModelResponse> {

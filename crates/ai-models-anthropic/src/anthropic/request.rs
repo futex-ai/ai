@@ -1,58 +1,36 @@
 //! Anthropic messages request mapping.
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, ModelControl, ModelError,
-    ModelRequest, ModelResult, ModelToolChoice, ProviderConversationItem, ToolDefinition,
+    ConversationContentPart, ConversationMessage, ConversationRole, Effort, ModelError,
+    ModelRequest, ModelResult, ProviderConversationItem, ToolDefinition,
 };
-use ai_models_core::ThinkingLevel;
-
-use crate::catalog::known_models;
+use ai_models_core::{ResolvedModelControls, ResolvedToolChoice};
 
 use super::request_types::{
     AnthropicBlock, AnthropicImageSource, AnthropicMessage, AnthropicOutputConfig,
     AnthropicRequest, AnthropicThinking, AnthropicTool, AnthropicToolChoice,
 };
 
-const UNKNOWN_MODEL_MAX_OUTPUT_TOKENS: u32 = 64_000;
 const PROVIDER: &str = "anthropic";
 
 pub(super) fn build_request(
     model_id: &str,
-    thinking_level: ThinkingLevel,
     request: &ModelRequest,
+    controls: &ResolvedModelControls,
 ) -> ModelResult<AnthropicRequest> {
-    let max_output_tokens = known_models()
-        .into_iter()
-        .find(|model| model.provider_model_id == model_id)
-        .map_or(UNKNOWN_MODEL_MAX_OUTPUT_TOKENS, |model| {
-            model.max_output_tokens
-        });
     Ok(AnthropicRequest {
         stream: true,
         model: model_id.to_owned(),
-        max_tokens: request
-            .controls
-            .generation
-            .max_output_tokens
-            .unwrap_or(max_output_tokens)
-            .min(max_output_tokens),
+        max_tokens: controls.max_output_tokens,
         system: system_prompt(request),
         messages: anthropic_messages(model_id, &request.messages)?,
         tools: request.tools.iter().map(tool).collect(),
-        thinking: thinking(thinking_level),
-        output_config: output_config(thinking_level),
-        temperature: (!thinking_level.is_enabled())
-            .then_some(request.controls.generation.temperature)
-            .flatten(),
-        top_p: (!thinking_level.is_enabled())
-            .then_some(request.controls.generation.top_p)
-            .flatten(),
-        stop_sequences: request.controls.generation.stop_sequences.clone(),
-        tool_choice: tool_choice(
-            model_id,
-            thinking_level,
-            request.controls.generation.tool_choice.as_ref(),
-        )?,
+        thinking: thinking(controls.effort),
+        output_config: output_config(controls.effort),
+        temperature: controls.temperature,
+        top_p: controls.top_p,
+        stop_sequences: controls.stop_sequences.clone(),
+        tool_choice: tool_choice(controls.tool_choice.as_ref()),
     })
 }
 
@@ -66,50 +44,26 @@ fn system_prompt(request: &ModelRequest) -> Option<String> {
     ))
 }
 
-fn tool_choice(
-    model_id: &str,
-    thinking_level: ThinkingLevel,
-    choice: Option<&ModelToolChoice>,
-) -> ModelResult<Option<AnthropicToolChoice>> {
-    if thinking_level.is_enabled() {
-        match choice {
-            Some(ModelToolChoice::Required | ModelToolChoice::Function(_)) => {
-                return Err(ModelError::unsupported_control(
-                    PROVIDER,
-                    model_id,
-                    ModelControl::ToolChoice,
-                ));
-            }
-            Some(ModelToolChoice::RequiredOrAuto) => {
-                return Ok(Some(AnthropicToolChoice {
-                    kind: "auto".to_owned(),
-                    name: None,
-                }));
-            }
-            _ => {}
-        }
-    }
-    Ok(match choice {
-        Some(ModelToolChoice::None) => Some(AnthropicToolChoice {
+fn tool_choice(choice: Option<&ResolvedToolChoice>) -> Option<AnthropicToolChoice> {
+    match choice {
+        Some(ResolvedToolChoice::None) => Some(AnthropicToolChoice {
             kind: "none".to_owned(),
             name: None,
         }),
-        Some(ModelToolChoice::Auto) => Some(AnthropicToolChoice {
+        Some(ResolvedToolChoice::Auto) => Some(AnthropicToolChoice {
             kind: "auto".to_owned(),
             name: None,
         }),
-        Some(ModelToolChoice::Required | ModelToolChoice::RequiredOrAuto) => {
-            Some(AnthropicToolChoice {
-                kind: "any".to_owned(),
-                name: None,
-            })
-        }
-        Some(ModelToolChoice::Function(name)) => Some(AnthropicToolChoice {
+        Some(ResolvedToolChoice::Required) => Some(AnthropicToolChoice {
+            kind: "any".to_owned(),
+            name: None,
+        }),
+        Some(ResolvedToolChoice::Function(name)) => Some(AnthropicToolChoice {
             kind: "tool".to_owned(),
             name: Some(name.clone()),
         }),
         None => None,
-    })
+    }
 }
 
 fn anthropic_messages(
@@ -227,26 +181,26 @@ fn tool(tool: &ToolDefinition) -> AnthropicTool {
     }
 }
 
-fn thinking(thinking_level: ThinkingLevel) -> Option<AnthropicThinking> {
+fn thinking(thinking_level: Effort) -> Option<AnthropicThinking> {
     thinking_level.is_enabled().then(|| AnthropicThinking {
         kind: "adaptive".to_owned(),
         display: "omitted".to_owned(),
     })
 }
 
-fn output_config(thinking_level: ThinkingLevel) -> Option<AnthropicOutputConfig> {
+fn output_config(thinking_level: Effort) -> Option<AnthropicOutputConfig> {
     effort(thinking_level).map(|effort| AnthropicOutputConfig {
         effort: effort.to_owned(),
     })
 }
 
-fn effort(thinking_level: ThinkingLevel) -> Option<&'static str> {
+fn effort(thinking_level: Effort) -> Option<&'static str> {
     match thinking_level {
-        ThinkingLevel::Disabled => None,
-        ThinkingLevel::Low => Some("low"),
-        ThinkingLevel::Medium => Some("medium"),
-        ThinkingLevel::High => Some("high"),
-        ThinkingLevel::ExtraHigh => Some("xhigh"),
-        ThinkingLevel::Max => Some("max"),
+        Effort::Disabled => None,
+        Effort::Low => Some("low"),
+        Effort::Medium => Some("medium"),
+        Effort::High => Some("high"),
+        Effort::ExtraHigh => Some("xhigh"),
+        Effort::Max => Some("max"),
     }
 }

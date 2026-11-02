@@ -2,21 +2,22 @@
 
 use std::time::Duration;
 
-use ai_interface::{ConversationMessage, Model, ModelRequest};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{ConversationMessage, Effort, Model, ModelRequest};
 use json_http::StaticHeaderAuth;
 use serde_json::json;
 
-use super::{AnthropicModel, response::parse_response};
+use crate::CLAUDE_SONNET_4_6;
 use crate::anthropic::stream_support::{
     client_for_buffered_bodies, event, recording_streaming_client,
 };
+
+use super::{AnthropicModel, response::parse_response, stream_support::custom_spec};
 
 #[tokio::test]
 async fn sends_streaming_request_with_completion_deadlines() {
     let body = text_response_body();
     let (http_client, requests) = client_for_buffered_bodies(vec![body]);
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
 
     model
         .complete(&simple_request())
@@ -35,7 +36,7 @@ async fn sends_streaming_request_with_completion_deadlines() {
 #[tokio::test]
 async fn explicit_total_timeout_overrides_streaming_default() {
     let (http_client, requests) = client_for_buffered_bodies(vec![text_response_body()]);
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
     let mut request = simple_request();
     request.controls.execution.total_timeout = Some(Duration::from_secs(75));
 
@@ -231,9 +232,7 @@ async fn streamed_deltas_match_the_buffered_response_mapper() {
     let (http_client, _) = recording_streaming_client(vec![events]);
     let model = AnthropicModel::with_catalog_auth(
         http_client,
-        "claude-opus-streaming",
-        "claude-opus-streaming",
-        ThinkingLevel::Disabled,
+        custom_spec("claude-opus-streaming"),
         std::sync::Arc::new(StaticHeaderAuth::default()),
     );
 
@@ -242,9 +241,9 @@ async fn streamed_deltas_match_the_buffered_response_mapper() {
         .await
         .expect("streamed response should parse");
     let buffered = parse_response(
+        "anthropic/claude-opus-streaming",
         "claude-opus-streaming",
-        "claude-opus-streaming",
-        ThinkingLevel::Disabled,
+        Effort::Disabled,
         buffered,
         None,
     )

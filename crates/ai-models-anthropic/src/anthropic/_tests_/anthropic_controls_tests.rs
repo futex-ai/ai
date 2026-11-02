@@ -4,28 +4,27 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use ai_interface::{
-    ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl, ModelError,
-    ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
+    ConversationMessage, Effort, Model, ModelCallControls, ModelCompletionMode, ModelControl,
+    ModelError, ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
 };
-use ai_models_core::ThinkingLevel;
 use json_http::{JsonHttpClient, JsonHttpRequest, StaticHeaderAuth, TransportBackedJsonHttpClient};
 use serde_json::json;
 use unimock::Unimock;
 
+use crate::CLAUDE_SONNET_4_6;
 use crate::anthropic::stream_support::client_for_buffered_bodies;
-use crate::{CLAUDE_FABLE_5, CLAUDE_OPUS_5, CLAUDE_OPUS_5_THINKING_MAX};
+use crate::{CLAUDE_FABLE_5, CLAUDE_OPUS_5, CLAUDE_SONNET_5};
 
 use super::AnthropicModel;
+use super::stream_support::custom_spec;
 
 #[tokio::test]
 async fn maps_controls_bounds_output_and_keeps_thinking_sampling_fixed() {
     let (http_client, requests) = recording_client();
-    let disabled = AnthropicModel::new(http_client.clone(), "claude-sonnet-4-6", "key");
+    let disabled = AnthropicModel::new(http_client.clone(), CLAUDE_SONNET_4_6, "key");
     let thinking = AnthropicModel::with_catalog_auth(
         http_client,
-        "claude-sonnet-5-thinking-high",
-        "claude-sonnet-5",
-        ThinkingLevel::High,
+        CLAUDE_SONNET_5,
         Arc::new(StaticHeaderAuth::new(Default::default())),
     );
 
@@ -70,25 +69,27 @@ async fn known_fable_constructor_omits_temperature_for_adaptive_thinking() {
 
     let requests = requests.lock().expect("request lock should be available");
     let body = requests[0].body.as_ref().expect("request body");
-    assert_eq!(body["model"], CLAUDE_FABLE_5);
+    assert_eq!(body["model"], CLAUDE_FABLE_5.provider_model_id.as_ref());
     assert_eq!(body["thinking"]["type"], "adaptive");
     assert_eq!(body["output_config"]["effort"], "high");
     assert!(body.get("temperature").is_none());
 }
 
 #[tokio::test]
-async fn known_catalog_alias_constructor_resolves_provider_model_and_effort() {
+async fn catalog_spec_uses_provider_model_and_requested_effort() {
     let (http_client, requests) = recording_client();
-    let model = AnthropicModel::new(http_client, CLAUDE_OPUS_5_THINKING_MAX, "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_OPUS_5, "key");
 
+    let mut request = base_request();
+    request.controls.generation.effort = Some(Effort::Max);
     model
-        .complete(&base_request())
+        .complete(&request)
         .await
         .expect("Opus max-thinking response should parse");
 
     let requests = requests.lock().expect("request lock should be available");
     let body = requests[0].body.as_ref().expect("request body");
-    assert_eq!(body["model"], CLAUDE_OPUS_5);
+    assert_eq!(body["model"], CLAUDE_OPUS_5.provider_model_id.as_ref());
     assert_eq!(body["thinking"]["type"], "adaptive");
     assert_eq!(body["output_config"]["effort"], "max");
 }
@@ -96,7 +97,7 @@ async fn known_catalog_alias_constructor_resolves_provider_model_and_effort() {
 #[tokio::test]
 async fn unknown_model_constructor_remains_direct_with_thinking_disabled() {
     let (http_client, requests) = recording_client();
-    let model = AnthropicModel::new(http_client, "custom-claude", "key");
+    let model = AnthropicModel::new(http_client, custom_spec("custom-claude"), "key");
     let mut request = base_request();
     request.controls.generation.temperature = Some(0.0);
 
@@ -114,7 +115,7 @@ async fn unknown_model_constructor_remains_direct_with_thinking_disabled() {
 
 #[tokio::test]
 async fn rejects_required_deferred_mode_before_transport() {
-    let model = AnthropicModel::new(no_call_client(), "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(no_call_client(), CLAUDE_SONNET_4_6, "key");
     let mut request = base_request();
     request.controls.execution.completion_mode = ModelCompletionMode::RequireDeferred;
 
@@ -135,7 +136,7 @@ async fn rejects_required_deferred_mode_before_transport() {
 #[tokio::test]
 async fn required_or_auto_uses_forced_required_semantics() {
     let (http_client, requests) = recording_client();
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
     let mut request = base_request();
     request.controls.generation.tool_choice = Some(ModelToolChoice::RequiredOrAuto);
 
@@ -155,7 +156,7 @@ async fn required_or_auto_uses_forced_required_semantics() {
 async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
     for (system_prompt, expected) in [("", None), ("   ", None), ("normal", Some("normal"))] {
         let (http_client, requests) = recording_client();
-        let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "key");
+        let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "key");
         let mut request = base_request();
         request.system_prompt = system_prompt.to_owned();
 

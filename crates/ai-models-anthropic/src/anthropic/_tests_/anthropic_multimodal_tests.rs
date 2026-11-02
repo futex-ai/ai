@@ -9,13 +9,15 @@ use json_http::{JsonHttpClient, TransportBackedJsonHttpClient};
 use serde_json::json;
 use unimock::Unimock;
 
-use super::AnthropicModel;
+use crate::CLAUDE_SONNET_4_6;
 use crate::anthropic::stream_support::{RecordedRequests, client_for_buffered_bodies};
+
+use super::AnthropicModel;
 
 #[tokio::test]
 async fn serializes_image_context_message() {
     let (http_client, requests) = recording_http_client();
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "anthropic-key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "anthropic-key");
 
     model
         .complete(&ModelRequest {
@@ -76,7 +78,7 @@ async fn rejects_video_content_parts_before_transport() {
     let http_client: Arc<dyn JsonHttpClient> = Arc::new(TransportBackedJsonHttpClient::new(
         Arc::new(Unimock::new(())),
     ));
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "anthropic-key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "anthropic-key");
 
     let error = model
         .complete(&ModelRequest {
