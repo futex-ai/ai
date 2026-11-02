@@ -24,6 +24,10 @@ mod streaming_tests;
 mod structured_finish_tests;
 mod thinking_tests;
 
+#[cfg(test)]
+#[path = "request_effort_tests.rs"]
+mod request_effort_tests;
+
 fn recording_http_client(
     response: JsonHttpResponse<serde_json::Value>,
 ) -> (Arc<dyn JsonHttpClient>, stream_support::RecordedRequests) {

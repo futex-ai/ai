@@ -1,10 +1,10 @@
 //! Google Gemini response parsing.
 
 use ai_interface::{
-    FinishReason, GoogleAssistantPart, GoogleFunctionCallContext, ModelError, ModelResponse,
-    ModelUsage, ProviderConversationItem, StructuredOutputSchema, ToolCall,
+    Effort, FinishReason, GoogleAssistantPart, GoogleFunctionCallContext, ModelError,
+    ModelResponse, ModelUsage, ProviderConversationItem, StructuredOutputSchema, ToolCall,
 };
-use ai_models_core::{ThinkingLevel, parse_structured_output, synthetic_tool_call_id};
+use ai_models_core::{parse_structured_output, synthetic_tool_call_id};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
@@ -14,7 +14,7 @@ const SYNTHETIC_TOOL_CALL_ID_PREFIX: &str = "google_function_call:";
 pub(super) fn parse_response(
     catalog_model_id: &str,
     provider_model_id: &str,
-    thinking_level: ThinkingLevel,
+    thinking_level: Effort,
     synthetic_tool_call_scope: &str,
     body: Value,
     response_schema: Option<&StructuredOutputSchema>,
@@ -214,7 +214,7 @@ fn finish_reason(value: Option<&str>, has_tool_calls: bool) -> FinishReason {
 fn prompt_block_response(
     catalog_model_id: &str,
     provider_model_id: &str,
-    thinking_level: ThinkingLevel,
+    thinking_level: Effort,
     usage: GoogleUsageMetadata,
 ) -> ModelResponse {
     ModelResponse {

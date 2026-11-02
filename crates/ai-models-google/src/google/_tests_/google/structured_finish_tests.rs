@@ -1,7 +1,6 @@
 //! Tests for structured-output terminal finish handling.
 
-use ai_interface::{FinishReason, StructuredOutputSchema};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, FinishReason, StructuredOutputSchema};
 use serde_json::json;
 
 use super::super::response::parse_response;
@@ -11,7 +10,7 @@ fn structured_output_filter_preserves_filtered_finish_reason() {
     let response = parse_response(
         "gemini-2.5-pro",
         "gemini-2.5-pro",
-        ThinkingLevel::Disabled,
+        Effort::Disabled,
         "test_scope",
         json!({
             "candidates": [{
@@ -32,7 +31,7 @@ fn structured_output_truncation_preserves_truncated_finish_reason() {
     let response = parse_response(
         "gemini-2.5-pro",
         "gemini-2.5-pro",
-        ThinkingLevel::Disabled,
+        Effort::Disabled,
         "test_scope",
         json!({
             "candidates": [{

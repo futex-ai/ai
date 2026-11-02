@@ -1,6 +1,6 @@
 //! Gemini thinking-control mapping.
 
-use ai_models_core::ThinkingLevel;
+use ai_interface::Effort;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -13,7 +13,7 @@ pub(super) struct GoogleThinkingConfig {
 
 pub(super) fn thinking_config(
     model_id: &str,
-    thinking_level: ThinkingLevel,
+    thinking_level: Effort,
 ) -> Option<GoogleThinkingConfig> {
     if model_id.starts_with("gemini-3") {
         return thinking_level_for_gemini_3(thinking_level).map(|thinking_level| {
@@ -29,22 +29,22 @@ pub(super) fn thinking_config(
     })
 }
 
-fn thinking_level_for_gemini_3(thinking_level: ThinkingLevel) -> Option<&'static str> {
+fn thinking_level_for_gemini_3(thinking_level: Effort) -> Option<&'static str> {
     match thinking_level {
-        ThinkingLevel::Disabled => None,
-        ThinkingLevel::Low => Some("low"),
-        ThinkingLevel::Medium => Some("medium"),
-        ThinkingLevel::High | ThinkingLevel::ExtraHigh | ThinkingLevel::Max => Some("high"),
+        Effort::Disabled => None,
+        Effort::Low => Some("low"),
+        Effort::Medium => Some("medium"),
+        Effort::High | Effort::ExtraHigh | Effort::Max => Some("high"),
     }
 }
 
-fn thinking_budget(thinking_level: ThinkingLevel) -> Option<i32> {
+fn thinking_budget(thinking_level: Effort) -> Option<i32> {
     match thinking_level {
-        ThinkingLevel::Disabled => None,
-        ThinkingLevel::Low => Some(1024),
-        ThinkingLevel::Medium => Some(4096),
-        ThinkingLevel::High => Some(8192),
-        ThinkingLevel::ExtraHigh => Some(16_384),
-        ThinkingLevel::Max => Some(32_768),
+        Effort::Disabled => None,
+        Effort::Low => Some(1024),
+        Effort::Medium => Some(4096),
+        Effort::High => Some(8192),
+        Effort::ExtraHigh => Some(16_384),
+        Effort::Max => Some(32_768),
     }
 }

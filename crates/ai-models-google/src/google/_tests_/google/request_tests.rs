@@ -5,6 +5,7 @@ use ai_interface::{
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use super::stream_support::custom_spec;
 use super::{GoogleModel, recording_http_client, simple_request};
 
 #[tokio::test]
@@ -34,7 +35,7 @@ async fn builds_google_tool_requests_and_parses_response() {
             }
         }),
     });
-    let model = GoogleModel::new(http_client, "gemini-2.5-pro", "google-key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-2.5-pro"), "google-key");
 
     let response = model
         .complete(&ModelRequest {
@@ -108,7 +109,7 @@ async fn google_function_call_without_args_uses_empty_object_input() {
             }]
         }),
     });
-    let model = GoogleModel::new(http_client, "gemini-2.5-pro", "google-key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-2.5-pro"), "google-key");
 
     let response = model
         .complete(&simple_request())
@@ -142,7 +143,7 @@ async fn builds_google_structured_output_requests_and_parses_response() {
             }
         }),
     });
-    let model = GoogleModel::new(http_client, "gemini-2.5-pro", "google-key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-2.5-pro"), "google-key");
 
     let response = model
         .complete(&ModelRequest {
@@ -201,7 +202,7 @@ async fn missing_google_total_tokens_falls_back_to_normalized_usage_sum() {
             }
         }),
     });
-    let model = GoogleModel::new(http_client, "gemini-2.5-pro", "google-key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-2.5-pro"), "google-key");
 
     let response = model
         .complete(&simple_request())

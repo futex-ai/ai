@@ -4,6 +4,7 @@ use ai_interface::{ConversationMessage, Model, ModelRequest};
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use super::stream_support::custom_spec;
 use super::{GoogleModel, recording_http_client};
 
 #[tokio::test]
@@ -41,7 +42,7 @@ async fn complete_no_id_tool_call(content: &str) -> ai_interface::ModelResponse 
             }]
         }),
     });
-    let model = GoogleModel::new(http_client, "gemini-2.5-pro", "google-key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-2.5-pro"), "google-key");
 
     model
         .complete(&ModelRequest {

@@ -8,6 +8,7 @@ use ai_interface::{
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
+use super::stream_support::custom_spec;
 use super::{GoogleModel, simple_request, stream_support};
 
 #[tokio::test]
@@ -74,7 +75,7 @@ async fn schema_boolean_split_at_signed_boundary_parses_without_events() {
         json!([{"text": "ue}", "thoughtSignature": "signed-json-tail"}]),
     ];
     let (client, _) = stream_support::recording_streaming_client(vec![text_stream(chunks)]);
-    let model = GoogleModel::new(client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(client, custom_spec("gemini-3.6-flash"), "key");
     let mut request = simple_request();
     request.response_schema = Some(StructuredOutputSchema {
         name: "status".to_owned(),
@@ -102,7 +103,7 @@ async fn assert_signed_text(
     replay_parts: Value,
 ) {
     let (client, _) = stream_support::recording_streaming_client(vec![text_stream(chunks)]);
-    let model = GoogleModel::new(client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(client, custom_spec("gemini-3.6-flash"), "key");
     let events = Arc::new(Mutex::new(Vec::new()));
     let sink = Unimock::new(
         ModelCompletionEventSinkMock::emit

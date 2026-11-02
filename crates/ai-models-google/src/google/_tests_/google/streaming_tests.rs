@@ -3,19 +3,21 @@
 use std::time::Duration;
 
 use ai_interface::{
-    FinishReason, Model, ModelCallControls, ModelExecutionControls, StructuredOutputSchema,
+    Effort, FinishReason, Model, ModelCallControls, ModelExecutionControls, StructuredOutputSchema,
 };
-use ai_models_core::{ThinkingLevel, synthetic_tool_call_scope};
+use ai_models_core::synthetic_tool_call_scope;
 use serde_json::{Value, json};
 
-use super::{GoogleModel, simple_request, stream_support};
 use crate::google::response::parse_response;
+
+use super::stream_support::custom_spec;
+use super::{GoogleModel, simple_request, stream_support};
 
 #[tokio::test]
 async fn uses_streaming_endpoint_auth_and_completion_deadlines() {
     let events = vec![stream_support::event(text_chunk("Done", Some("STOP")))];
     let (http_client, requests) = stream_support::recording_streaming_client(vec![events]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "google-key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "google-key");
 
     model
         .complete(&simple_request())
@@ -41,7 +43,7 @@ async fn uses_streaming_endpoint_auth_and_completion_deadlines() {
 async fn explicit_total_timeout_overrides_streaming_default() {
     let events = vec![stream_support::event(text_chunk("Done", Some("STOP")))];
     let (http_client, requests) = stream_support::recording_streaming_client(vec![events]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
     let mut request = simple_request();
     request.controls = ModelCallControls {
         execution: ModelExecutionControls {
@@ -87,16 +89,16 @@ async fn merged_fragments_match_rich_buffered_response() {
     ];
     let events = chunks.into_iter().map(stream_support::event).collect();
     let (http_client, _) = stream_support::recording_streaming_client(vec![events]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
 
     let streamed = model
         .complete(&request)
         .await
         .expect("streamed response should parse");
     let buffered = parse_response(
+        "google/gemini-3.6-flash",
         "gemini-3.6-flash",
-        "gemini-3.6-flash",
-        ThinkingLevel::Disabled,
+        Effort::Disabled,
         &synthetic_tool_call_scope(&request),
         buffered_body,
         None,
@@ -135,7 +137,7 @@ async fn structured_fragments_match_buffered_response() {
         })),
     ];
     let (http_client, _) = stream_support::recording_streaming_client(vec![events]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
     let mut request = simple_request();
     request.response_schema = Some(schema.clone());
 
@@ -144,9 +146,9 @@ async fn structured_fragments_match_buffered_response() {
         .await
         .expect("structured stream should parse");
     let buffered = parse_response(
+        "google/gemini-3.6-flash",
         "gemini-3.6-flash",
-        "gemini-3.6-flash",
-        ThinkingLevel::Disabled,
+        Effort::Disabled,
         &synthetic_tool_call_scope(&request),
         buffered_body,
         Some(&schema),
@@ -164,7 +166,7 @@ async fn prompt_block_stream_matches_buffered_response() {
     });
     let events = vec![stream_support::event(body.clone())];
     let (http_client, _) = stream_support::recording_streaming_client(vec![events]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
     let request = simple_request();
 
     let streamed = model
@@ -172,9 +174,9 @@ async fn prompt_block_stream_matches_buffered_response() {
         .await
         .expect("prompt block should remain a filtered response");
     let buffered = parse_response(
+        "google/gemini-3.6-flash",
         "gemini-3.6-flash",
-        "gemini-3.6-flash",
-        ThinkingLevel::Disabled,
+        Effort::Disabled,
         &synthetic_tool_call_scope(&request),
         body,
         None,
@@ -194,7 +196,7 @@ async fn same_chunk_text_parts_preserve_buffered_boundaries() {
     });
     let events = vec![stream_support::event(body.clone())];
     let (http_client, _) = stream_support::recording_streaming_client(vec![events]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
     let request = simple_request();
 
     let streamed = model
@@ -202,9 +204,9 @@ async fn same_chunk_text_parts_preserve_buffered_boundaries() {
         .await
         .expect("streamed text parts should parse");
     let buffered = parse_response(
+        "google/gemini-3.6-flash",
         "gemini-3.6-flash",
-        "gemini-3.6-flash",
-        ThinkingLevel::Disabled,
+        Effort::Disabled,
         &synthetic_tool_call_scope(&request),
         body,
         None,

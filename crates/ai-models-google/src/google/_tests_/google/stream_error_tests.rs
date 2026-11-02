@@ -3,6 +3,7 @@
 use ai_interface::{Model, ModelError};
 use serde_json::json;
 
+use super::stream_support::custom_spec;
 use super::{GoogleModel, simple_request, stream_support};
 
 #[tokio::test]
@@ -11,7 +12,7 @@ async fn first_provider_error_preserves_status_classification() {
         "error": {"code": 503, "message": "Unavailable", "status": "UNAVAILABLE"}
     }))];
     let (http_client, _) = stream_support::recording_streaming_client(vec![events]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
 
     let error = model
         .complete(&simple_request())
@@ -30,7 +31,7 @@ async fn provider_error_after_progress_is_an_interruption() {
         })),
     ];
     let (http_client, _) = stream_support::recording_streaming_client(vec![events]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
 
     let error = model
         .complete(&simple_request())
@@ -44,7 +45,7 @@ async fn provider_error_after_progress_is_an_interruption() {
 async fn classifies_eof_before_and_after_progress() {
     let (http_client, _) =
         stream_support::recording_streaming_client(vec![vec![], vec![progress_event()]]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
 
     let before = model
         .complete(&simple_request())
@@ -65,7 +66,7 @@ async fn classifies_transport_failure_before_and_after_progress() {
         vec![Err(json_http::Error::transport("offline"))],
         vec![progress_event(), Err(json_http::Error::transport("reset"))],
     ]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
 
     let before = model
         .complete(&simple_request())
@@ -86,7 +87,7 @@ async fn malformed_events_follow_progress_classification() {
         vec![malformed_event()],
         vec![progress_event(), malformed_event()],
     ]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
 
     let before = model
         .complete(&simple_request())
