@@ -10,7 +10,6 @@ mod request_types;
 mod response;
 mod stream;
 mod transcription;
-mod video_generation;
 
 use std::{sync::Arc, time::Duration};
 
@@ -22,7 +21,6 @@ use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 pub use image_generation::OpenAiImageGenerator;
 pub use legacy::OpenAiLegacyConverter;
 pub use transcription::OpenAiAudioTranscriber;
-pub use video_generation::OpenAiVideoGenerator;
 
 const OPENAI_RESPONSES_URL: &str = "https://api.openai.com/v1/responses";
 const COMPLETION_TIMEOUT: Duration = Duration::from_secs(3_600);

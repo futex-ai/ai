@@ -13,11 +13,10 @@ use ai_models_compat::qwen::QwenModel;
 use ai_models_compat::xai::{GROK_4_5, XaiModel};
 use ai_models_google::{
     GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, GoogleImageGenerator, GoogleModel,
-    GoogleVideoGenerator, VEO_3_1_GENERATE_PREVIEW,
+    GoogleVideoGenerator,
 };
 use ai_models_openai::{
     GPT_5_6_SOL, GPT_IMAGE_2, OpenAiAudioTranscriber, OpenAiImageGenerator, OpenAiModel,
-    OpenAiVideoGenerator, SORA_2,
 };
 use ai_models_typesafe::{JEV_LATEST, TypeSafeJudgmentModel};
 use ai_tool_calling::{
@@ -41,22 +40,13 @@ pub(crate) fn run() -> Result<()> {
         GEMINI_3_1_FLASH_IMAGE.provider_model_id.as_ref(),
         "google-key",
     );
-    let _google_video = GoogleVideoGenerator::new(
-        client.clone(),
-        VEO_3_1_GENERATE_PREVIEW.provider_model_id.as_ref(),
-        "google-key",
-    );
+    let _google_video = GoogleVideoGenerator::new(client.clone(), "smoke-veo-model", "google-key");
     let _kimi = KimiModel::new(client.clone(), "kimi-key");
     let _minimax = MiniMaxModel::new(client.clone(), MINIMAX_M3, "minimax-key");
     let _openai = OpenAiModel::new(client.clone(), GPT_5_6_SOL, "openai-key");
     let _openai_image = OpenAiImageGenerator::new(
         client.clone(),
         GPT_IMAGE_2.provider_model_id.as_ref(),
-        "openai-key",
-    );
-    let _openai_video = OpenAiVideoGenerator::new(
-        client.clone(),
-        SORA_2.provider_model_id.as_ref(),
         "openai-key",
     );
     let _qwen = QwenModel::new(client.clone(), "qwen-key");

@@ -2,7 +2,7 @@
 
 `ai-models-openai` is the OpenAI-specific `ai-interface` implementation crate
 for the workspace. Depend on it when you want to call OpenAI Responses
-generation models, image or video generation, image editing, or the audio
+generation models, image generation, image editing, or the audio
 transcription endpoint with explicit auth and shared runtime wrappers from
 neighboring crates.
 
@@ -12,7 +12,6 @@ neighboring crates.
 - Implement the OpenAI speech-to-text client behind
   `ai_interface::AudioTranscriber`
 - Implement the OpenAI image client behind `ai_interface::ImageGenerator`
-- Implement the OpenAI video client behind `ai_interface::VideoGenerator`
 - Export the OpenAI `PROVIDER_ID`, one `ModelSpec` constant for each known
   model, the `CATALOG` slice, and the `CUSTOM_DEFAULTS` of unlisted models
 - Map shared model/tool DTOs to the OpenAI Responses API
@@ -20,7 +19,6 @@ neighboring crates.
   text, reasoning, function calls, usage, and finish
 - Map shared audio transcription DTOs to `v1/audio/transcriptions`
 - Map shared image DTOs to `v1/images/generations` and `v1/images/edits`
-- Map shared video DTOs to asynchronous `v1/videos` jobs and downloads
 - Map Responses terminal events and failures to finish events, usage events,
   and typed model errors
 
@@ -89,7 +87,7 @@ against the spec before transport. The adapter handles:
 This crate does not load config, read environment variables, or resolve
 credentials on its own. It exports one `ModelSpec` constant for each catalog
 model: `GPT_5_6_SOL`, `GPT_5_6_TERRA`, `GPT_5_6_LUNA`, `GPT_5_5`,
-`GPT_5_4_MINI`, `GPT_5_4_NANO`, `GPT_IMAGE_2`, and `SORA_2`. `CATALOG` lists
+`GPT_5_4_MINI`, `GPT_5_4_NANO`, and `GPT_IMAGE_2`. `CATALOG` lists
 them in that order, and `known_models()` returns a copy of it.
 `GPT_5_6_SOL` is the first catalog spec and the default used by workspace
 examples. Its default effort is medium, and it also lists low, high, extra
@@ -145,26 +143,17 @@ test. The adapter rejects empty decoded payloads, preserves any revised prompt,
 normalizes usage, and keeps content-policy refusals distinct from retryable
 provider failures.
 
-`OpenAiVideoGenerator` submits text-to-video JSON or first-frame multipart
-requests to `v1/videos`, polls queued jobs through `GET /v1/videos/{id}`, then
-downloads the completed MP4 through the authenticated binary transport path.
-The `SORA_2` spec identifies the 720p video catalog model, and its
-`provider_model_id` is the id to pass. The adapter supports portable
-landscape/portrait and four/eight-second controls, enforces one ten-minute total
-deadline with an injected polling runtime, and keeps policy, timeout, rate
-limit, transient, and terminal failures typed. This upstream API is currently
-scheduled to shut down on September 24, 2026, so consumers should treat the
-adapter as a time-bounded compatibility integration.
+The crate has no video adapter, because OpenAI no longer serves its video API.
 
 ## Quick Start
 
 ```rust
 use std::sync::Arc;
 
-use ai_interface::{AudioTranscriber, ImageGenerator, Model, ModelSpec, VideoGenerator};
+use ai_interface::{AudioTranscriber, ImageGenerator, Model, ModelSpec};
 use ai_models_openai::{
-    CUSTOM_DEFAULTS, GPT_5_6_SOL, GPT_IMAGE_2, PROVIDER_ID, SORA_2, OpenAiAudioTranscriber,
-    OpenAiImageGenerator, OpenAiModel, OpenAiVideoGenerator, known_models,
+    CUSTOM_DEFAULTS, GPT_5_6_SOL, GPT_IMAGE_2, PROVIDER_ID, OpenAiAudioTranscriber,
+    OpenAiImageGenerator, OpenAiModel, known_models,
 };
 use json_http::ReqwestJsonHttpClient;
 
@@ -199,14 +188,6 @@ fn build_image_generator() -> OpenAiImageGenerator {
         "sk-demo",
     )
 }
-
-fn build_video_generator() -> OpenAiVideoGenerator {
-    OpenAiVideoGenerator::new(
-        Arc::new(ReqwestJsonHttpClient::new()),
-        SORA_2.provider_model_id,
-        "sk-demo",
-    )
-}
 ```
 
 ## Development
@@ -235,8 +216,6 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
   and interruption coverage
 - `src/openai/transcription.rs` - OpenAI audio transcription implementation
 - `src/openai/image_generation/` - OpenAI image request, response, and error mapping
-- `src/openai/video_generation/` - OpenAI asynchronous video submission,
-  polling, download, request, response, and error mapping
 
 ### Related Docs
 
@@ -249,8 +228,6 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - [OpenAI Responses streaming reference](https://developers.openai.com/api/reference/typescript/resources/beta/subresources/responses/methods/create)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/live-image-api-tests.md`](../../docs/protocol/live-image-api-tests.md)
-- [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
-- [`../../docs/protocol/live-video-api-tests.md`](../../docs/protocol/live-video-api-tests.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
