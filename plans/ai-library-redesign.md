@@ -642,11 +642,11 @@ Depends on: 10
 Finish the safety net. `AGENTS.md` already follows the shared skills since
 pull request #23.
 
-- [ ] Run every adapter through every conformance scenario.
-- [ ] Check replay for each spec that has the replay need, as
+- [x] Run every adapter through every conformance scenario.
+- [x] Check replay for each spec that has the replay need, as
       `model-capabilities.md` requires.
-- [ ] Update the workspace `README.md`.
-- [ ] Run `cargo xtask check`, then commit and push.
+- [x] Update the workspace `README.md`.
+- [x] Run `cargo xtask check`, then commit and push.
 
 ## Milestone 14: Verification, review, and close
 
