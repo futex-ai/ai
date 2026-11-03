@@ -323,6 +323,17 @@ All calls are mine, made on 2026-11-01.
     drops the auth on cross-origin redirect hops, which adds no new
     failure. `plans/follow-ups/json-http-redirect-leaks-keys.md` then keeps
     only the question whether to disable redirects entirely.
+- 2026-11-03:
+  - The user said: "you can merge PRs as they are ready if there are no
+    active findings". Pull requests #22, #24, and #25 merged into `main`
+    under that rule. #26 and #27 wait for their open findings.
+  - A stack sync merged the Sora and Veo removal of #22 (user decision of
+    2026-11-01, item 9, option E) into every stack branch. So the
+    registry builds Google video from custom specs and OpenAI has no
+    video adapter, as `provider-registry.md` says.
+  - When `main` holds the squash of the pull request before a branch, the
+    branch records `main` with an `ours` merge, because `main`'s tree
+    equals an ancestor of the branch.
 
 ## Pull requests
 
