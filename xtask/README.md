@@ -11,8 +11,8 @@ file-length audits, or AI review.
 - Run a credential-free smoke test for chat, transcription, image-provider,
   video-provider, and TypeSafe judgment-provider construction, tool-calling
   registration, MCP tools, and the resource-bound MCP OAuth hook
-- Host credentialed integration tests for every chat, image-provider,
-  video-provider, and judgment-provider catalog against real APIs
+- Host credentialed integration tests for every chat, image-provider, and
+  judgment-provider catalog against real APIs
 - Delegate local AI review to the Codex CLI
 - Record sanitized chat scenarios through the production provider adapters
 
@@ -24,7 +24,7 @@ and the smoke test in the same order expected by CI.
 
 `smoke-test` constructs the Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
 OpenAI, QwenCloud, and xAI model adapters, the OpenAI transcriber, and the
-Google and OpenAI image and video generators, plus the TypeSafe Jev judgment
+Google and OpenAI image generators, the Google video generator, plus the TypeSafe Jev judgment
 adapter, with placeholder credentials. It also runs an in-memory tool-output
 pagination flow. Provider construction does not send network requests or
 require real credentials.
@@ -67,15 +67,7 @@ bytes and the expected provider/model identity. Credential-free tests enforce
 catalog registration, adapter construction, retry classes, response
 validation, and workflow secret/event boundaries.
 
-`tests/live_videos/mod.rs` is the corresponding ignored video suite. It selects
-every Google and OpenAI catalog entry advertising `VideoGeneration`, constructs
-the production adapter behind `DynVideoGenerator`, and submits one safe
-four-second landscape 720p request per entry sequentially. Successful responses
-must contain an MP4 signature, normalized metadata, and expected provider/model
-identity. The runner does not automatically retry submissions: a transport
-failure can leave the upstream job running, so retrying could create duplicate
-billable renders. Credential-free guards cover catalog registration, adapter
-construction, request shape, response validation, and workflow boundaries.
+No live suite covers video generation, because no catalog lists a video model.
 
 `tests/live_judgments/mod.rs` is the corresponding ignored judgment suite. It
 selects every TypeSafe catalog entry advertising `Judgment`, constructs the
@@ -118,9 +110,6 @@ cargo xtask record-streams --provider openai
 # Credential-free: runs image registry, runner, retry, and workflow guards.
 cargo test --locked -p xtask --test live_images
 
-# Credential-free: runs video registry, runner, validation, and workflow guards.
-cargo test --locked -p xtask --test live_videos
-
 # Credential-free: runs judgment registry, runner, retry, and workflow guards.
 cargo test --locked -p xtask --test live_judgments
 
@@ -134,10 +123,6 @@ LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_mo
 # Billable: tests every image-capable OpenAI catalog entry against the real API.
 LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_images \
   catalog_tests::openai_image_catalog -- --ignored --exact --nocapture
-
-# Billable: tests every video-capable OpenAI catalog entry against the real API.
-LIVE_VIDEO_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_videos \
-  catalog_tests::openai_video_catalog -- --ignored --exact --nocapture
 
 # Billable: tests every TypeSafe judgment catalog entry against the real API.
 LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
@@ -162,8 +147,6 @@ cargo clippy -p xtask --all-targets --all-features
   plus credential-free event, catalog, runner, tool-choice, and workflow guards
 - `tests/live_images/mod.rs` - ignored credentialed tests and credential-free
   guards over image-provider catalogs
-- `tests/live_videos/mod.rs` - ignored credentialed tests and credential-free
-  guards over video-provider catalogs
 - `tests/live_judgments/mod.rs` - ignored credentialed tests and
   credential-free guards over judgment-provider catalogs
 - `src/review.rs` - Codex CLI review delegation
@@ -176,5 +159,4 @@ cargo clippy -p xtask --all-targets --all-features
 - [`../crates/ai-testkit/README.md`](../crates/ai-testkit/README.md)
 - [`../docs/protocol/live-model-api-tests.md`](../docs/protocol/live-model-api-tests.md)
 - [`../docs/protocol/live-image-api-tests.md`](../docs/protocol/live-image-api-tests.md)
-- [`../docs/protocol/live-video-api-tests.md`](../docs/protocol/live-video-api-tests.md)
 - [`../docs/protocol/live-judgment-api-tests.md`](../docs/protocol/live-judgment-api-tests.md)

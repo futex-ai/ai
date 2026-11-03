@@ -28,10 +28,9 @@ belong to the consumer.
 - `duration: VideoGenerationDuration`: `Seconds4` (default) or `Seconds8`.
 - `resolution: VideoGenerationResolution`: currently `P720` (default).
 
-The controls are the exact portable intersection of the initial OpenAI Sora 2
-and Google Veo 3.1 adapters. OpenAI-only durations and resolutions and
-Google-only durations and resolutions are intentionally excluded instead of
-being silently changed by one provider.
+The controls are the portable intersection of the Sora 2 and Veo 3.1 APIs
+that the boundary first targeted. Provider-only durations and resolutions are
+excluded instead of being silently changed by one provider.
 
 `VideoGenerationResponse` contains provider and configured provider-model
 identity, exactly one non-empty `GeneratedVideo`, and `ModelUsage`. The video
@@ -68,34 +67,17 @@ advance time. The deadline covers job submission, polling sleeps, status
 requests, and the final download. A provider job that is still queued or
 running at the deadline returns `TimedOut`.
 
-## OpenAI Mapping
+## Providers
 
-The catalog model is `sora-2` (`SORA_2`). It advertises
-`ModelFeature::VideoGeneration` and `Vision` and has no chat context window.
-
-`OpenAiVideoGenerator` uses injected JSON HTTP and auth collaborators:
-
-1. `POST https://api.openai.com/v1/videos` submits JSON for text-to-video or
-   multipart form data with `input_reference` for image-to-video.
-2. `GET /v1/videos/{id}` is polled while status is `queued` or `in_progress`.
-3. `GET /v1/videos/{id}/content` downloads the completed MP4 bytes.
-
-Landscape maps to `1280x720`, portrait to `720x1280`, and duration maps to the
-provider string `4` or `8`. Input image bytes are sent unchanged after local
-MIME validation. A failed job is `ContentPolicy` for normalized safety or
-moderation error codes and `Provider` otherwise.
-
-OpenAI's video API is deprecated and scheduled to shut down on September 24,
-2026. The shared boundary remains provider-neutral, while `SORA_2` and its
-adapter are isolated compatibility code that can be replaced or removed
-without changing Google callers.
+The Google adapter is the only video adapter. No provider catalog lists a
+video model. OpenAI has no video adapter, because OpenAI no longer serves its
+video API.
 
 ## Google Mapping
 
-The catalog model is `veo-3.1-generate-preview`
-(`VEO_3_1_GENERATE_PREVIEW`). It advertises
-`ModelFeature::VideoGeneration` and `Vision` and has a 1,024-token text input
-limit.
+The Google catalog lists no video model. Google no longer serves
+`veo-3.1-generate-preview`, and no successor model has passed a live check.
+Callers pass the provider model id to `GoogleVideoGenerator`.
 
 `GoogleVideoGenerator` uses injected JSON HTTP and auth collaborators:
 
@@ -119,15 +101,9 @@ Credential-free tests cover DTO serde/defaults, the deterministic mock,
 routing capability, request mapping, first-frame validation, provider status
 and safety classification, job polling, timeouts, authenticated binary
 downloads, MP4 non-empty enforcement, catalog metadata, and production-adapter
-construction. Catalog-driven ignored live tests exercise every Google and
-OpenAI entry advertising video generation with the shortest portable request
-and validate provider/model identity plus the MP4 signature.
-The full credential, cost, and CI boundary is defined by the
-[live video API test protocol](live-video-api-tests.md).
+construction. No live test covers video generation, because no catalog lists
+a video model.
 
 ## Official References
 
-- [OpenAI video generation guide](https://developers.openai.com/api/docs/guides/video-generation)
-- [OpenAI create-video reference](https://developers.openai.com/api/reference/resources/videos/methods/create)
-- [OpenAI Sora 2 model](https://developers.openai.com/api/docs/models/sora-2)
 - [Google Veo video generation guide](https://ai.google.dev/gemini-api/docs/veo)
