@@ -1,17 +1,25 @@
 //! Dispatches one call against the immutable dependencies of a turn.
 
-use ai_interface::{SafeErrorSource, ToolCall, ToolError, ToolInvocation, ToolOutputReadRequest};
+use ai_interface::{
+    ConversationMessage, SafeErrorSource, ToolCall, ToolError, ToolInvocation,
+    ToolOutputReadRequest,
+};
 
 use crate::intrinsic::is_intrinsic_tool;
 use crate::runtime::RuntimeConfig;
 use crate::tool_output::{
-    TOOL_OUTPUT_READ, envelope_value, manage_successful_tool_output, readable_envelope,
+    TOOL_OUTPUT_READ, envelope_json, envelope_value, prepare_successful_tool_output,
+    readable_envelope,
 };
 use crate::{Error, Result, ToolExecutionRecord, ToolOutputStoreReadRequest};
+
+use super::pending::PendingMessages;
 
 pub(super) async fn dispatch_tool_call(
     config: RuntimeConfig,
     call: ToolCall,
+    pending: PendingMessages,
+    index: usize,
 ) -> Result<ToolExecutionRecord> {
     let operation_id = call.operation_id.clone().unwrap_or_else(|| call.id.clone());
     if is_intrinsic_tool(&call.name) {
@@ -27,7 +35,17 @@ pub(super) async fn dispatch_tool_call(
             operation_id: operation_id.clone(),
         })
         .await?;
-    let managed = manage_successful_tool_output(&config, &call.name, raw_output).await?;
+    let prepared = prepare_successful_tool_output(config.output_policy, &call.name, raw_output)?;
+    pending.publish(
+        index,
+        ConversationMessage::tool(
+            envelope_json(&prepared.fallback, &call.name)?,
+            call.name.clone(),
+            call.id.clone(),
+        ),
+        false,
+    );
+    let managed = prepared.finish(&config.output_store).await?;
     Ok(ToolExecutionRecord {
         call_id: call.id,
         operation_id,

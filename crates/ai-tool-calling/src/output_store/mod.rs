@@ -20,6 +20,7 @@ pub use types::{
 pub(crate) use id_generator::{DynToolOutputIdGenerator, SystemToolOutputIdGenerator};
 #[cfg(test)]
 pub(crate) use id_generator::{OutputIdGenerationError, ToolOutputIdGeneratorMock};
+pub(crate) use windowing::prefix_window;
 
 #[cfg_attr(
     any(test, doctest, feature = "test-support"),

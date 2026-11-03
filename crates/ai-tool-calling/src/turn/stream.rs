@@ -1,31 +1,26 @@
 //! Pull-driven turn state and synchronous conversation appends.
 
-use std::{future::Future, pin::Pin, time::Instant};
+use std::time::Instant;
 
 use ai_interface::{
     ConversationMessage, DynLogger, DynModel, DynModelEventStream, ModelCallLogEntry,
-    ModelCallLogResult, ModelRequest, ModelResponse, ModelResponseFold, ToolActivityPhase,
-    ToolCall, ToolCallLogEntry, ToolCallLogResult,
+    ModelCallLogResult, ModelRequest, ModelResponse, ModelResponseFold,
 };
 use async_trait::async_trait;
 
 use crate::intrinsic::tool_output_read_definition;
 use crate::runtime::RuntimeConfig;
-use crate::tool_output::envelope_json;
 use crate::{
-    AgentEvent, AgentEventStream, AgentRequest, Error, ModelResponseCheckpoint, Result, RunOutcome,
-    ToolCallingRuntime, ToolExecutionRecord, TurnCheckpoint,
+    AgentEvent, AgentEventStream, AgentRequest, ModelResponseCheckpoint, Result, RunOutcome,
+    ToolCallingRuntime, TurnCheckpoint,
 };
 
 use super::{
+    batch::ToolBatch,
     event_copy::copy_for_fold,
-    failures::{tool_error_log_result, tool_error_message},
-    observer::{log_tool_activity, log_turn_outcome},
+    observer::log_turn_outcome,
     response::{response_outcome, validate_response},
-    tool_dispatch::dispatch_tool_call,
 };
-
-type ToolFuture = Pin<Box<dyn Future<Output = Result<ToolExecutionRecord>> + Send>>;
 
 pub(crate) struct TurnStream<'a> {
     model: DynModel,
@@ -40,9 +35,7 @@ pub(crate) struct TurnStream<'a> {
     fold: Option<ModelResponseFold>,
     model_request: Option<ModelRequest>,
     started_at: Instant,
-    tool_future: Option<ToolFuture>,
-    calls: Vec<ToolCall>,
-    call_index: usize,
+    tools: Option<ToolBatch>,
     steps_taken: usize,
     step_start: usize,
     assistant_message: String,
@@ -81,9 +74,7 @@ impl<'a> TurnStream<'a> {
             fold: None,
             model_request: None,
             started_at: Instant::now(),
-            tool_future: None,
-            calls: Vec::new(),
-            call_index: 0,
+            tools: None,
             steps_taken: 0,
             step_start: 0,
             assistant_message: String::new(),
@@ -119,13 +110,15 @@ impl<'a> TurnStream<'a> {
                     self.check()?;
                     self.step_start = self.conversation.len();
                     let mut tools = self.config.tools.definitions.clone();
-                    tools.push(tool_output_read_definition());
+                    if self.config.output_store.has_outputs() {
+                        tools.push(tool_output_read_definition());
+                    }
                     self.model_request = Some(ModelRequest {
                         system_prompt: self.request.system_prompt.clone(),
                         messages: self.conversation.clone(),
                         tools,
                         controls: self.request.controls.clone(),
-                        response_schema: None,
+                        response_schema: self.request.final_answer_schema.clone(),
                     });
                     self.started_at = Instant::now();
                     if let Some(request) = &self.model_request {
@@ -156,73 +149,22 @@ impl<'a> TurnStream<'a> {
                     self.stage = Stage::Tools;
                 }
                 Stage::Tools => {
-                    if self.call_index >= self.calls.len() {
-                        self.stage = Stage::StepEnd;
-                        continue;
+                    let event = match &mut self.tools {
+                        Some(tools) => tools.next_event(self.conversation).await?,
+                        None => None,
+                    };
+                    match event {
+                        Some(event) => {
+                            if matches!(&event, AgentEvent::ToolFinished { .. }) {
+                                self.check()?;
+                            }
+                            return Ok(Some(event));
+                        }
+                        None => {
+                            self.tools = None;
+                            self.stage = Stage::StepEnd;
+                        }
                     }
-                    let call = self.calls[self.call_index].clone();
-                    if self.tool_future.is_none() {
-                        log_tool_activity(
-                            &self.logger,
-                            &self.config,
-                            &call,
-                            ToolActivityPhase::Started,
-                        )?;
-                        self.started_at = Instant::now();
-                        self.tool_future = Some(Box::pin(dispatch_tool_call(
-                            self.config.clone(),
-                            call.clone(),
-                        )));
-                        return Ok(Some(AgentEvent::ToolStarted {
-                            call_id: call.id,
-                            tool_name: call.name,
-                        }));
-                    }
-                    let result = match &mut self.tool_future {
-                        Some(future) => future.await,
-                        None => continue,
-                    };
-                    self.tool_future = None;
-                    let result = match result {
-                        Ok(record) => Ok(record),
-                        Err(Error::Tool(error)) => Err(error),
-                        Err(error) => return Err(error),
-                    };
-                    let (message, logged_result) = match &result {
-                        Ok(record) => (
-                            ConversationMessage::tool(
-                                envelope_json(&record.model_visible_output, &call.name)?,
-                                call.name.clone(),
-                                call.id.clone(),
-                            ),
-                            ToolCallLogResult::Success {
-                                output: record.model_visible_output.clone(),
-                            },
-                        ),
-                        Err(error) => (
-                            tool_error_message(&call, error),
-                            tool_error_log_result(error),
-                        ),
-                    };
-                    self.conversation.push(message);
-                    self.logger.log_tool_call(&ToolCallLogEntry {
-                        call: call.clone(),
-                        tool_group: self.config.tools.groups_by_name.get(&call.name).cloned(),
-                        result: logged_result,
-                        latency_ms: self.started_at.elapsed().as_millis(),
-                    })?;
-                    log_tool_activity(
-                        &self.logger,
-                        &self.config,
-                        &call,
-                        ToolActivityPhase::Completed,
-                    )?;
-                    self.call_index += 1;
-                    self.check()?;
-                    return Ok(Some(AgentEvent::ToolFinished {
-                        call_id: call.id,
-                        result,
-                    }));
                 }
                 Stage::StepEnd => {
                     self.stage = if self.outcome.is_some() {
@@ -269,8 +211,11 @@ impl<'a> TurnStream<'a> {
         if !response.parts.is_empty() {
             self.conversation.push(response.to_assistant_message());
         }
-        self.calls = response.tool_calls();
-        self.call_index = 0;
+        self.tools = Some(ToolBatch::new(
+            self.config.clone(),
+            self.logger.clone(),
+            response.tool_calls(),
+        ));
         self.outcome = response_outcome(&response, &self.assistant_message, self.steps_taken);
         self.stage = if self.outcome.is_some() {
             Stage::StepEnd
@@ -288,10 +233,21 @@ impl AgentEventStream for TurnStream<'_> {
             Ok(event) => Ok(event),
             Err(error) => {
                 self.stage = Stage::Done;
-                self.tool_future = None;
+                if let Some(tools) = &mut self.tools {
+                    tools.drain(self.conversation).await;
+                }
+                self.tools = None;
                 self.model_stream = None;
                 Err(error)
             }
+        }
+    }
+}
+
+impl Drop for TurnStream<'_> {
+    fn drop(&mut self) {
+        if let Some(tools) = &mut self.tools {
+            tools.flush(self.conversation, true);
         }
     }
 }

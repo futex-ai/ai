@@ -1,8 +1,10 @@
 //! Turn outcomes, execution records, and checkpoint hooks.
 
+mod batch;
 mod event_copy;
 mod failures;
 mod observer;
+mod pending;
 mod response;
 pub(crate) mod stream;
 mod tool_dispatch;
