@@ -1,6 +1,9 @@
 //! Public agent-loop regression contracts.
 
 #[cfg(test)]
+#[path = "_tests_/catalog_tests.rs"]
+mod catalog_tests;
+#[cfg(test)]
 #[path = "_tests_/checkpoint_tests.rs"]
 mod checkpoint_tests;
 #[cfg(test)]
@@ -21,6 +24,9 @@ mod parallel_tests;
 #[cfg(test)]
 #[path = "_tests_/reader_tests.rs"]
 mod reader_tests;
+#[cfg(test)]
+#[path = "_tests_/response_checkpoint_tests.rs"]
+mod response_checkpoint_tests;
 #[cfg(test)]
 #[path = "_tests_/storage_stop_tests.rs"]
 mod storage_stop_tests;

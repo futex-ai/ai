@@ -582,24 +582,24 @@ Depends on: 9
 
 Rebuild the tool loop on the stream and the caller-owned conversation.
 
-- [ ] Change `run` to take the caller's conversation and the request.
-- [ ] Stream agent events, including tool and fallback events. The tool
+- [x] Change `run` to take the caller's conversation and the request.
+- [x] Stream agent events, including tool and fallback events. The tool
       finished event carries the tool execution record, and the step
       finished event carries the messages that the step appended.
-- [ ] Build each step response with the shared fold of `ai-interface`,
+- [x] Build each step response with the shared fold of `ai-interface`,
       the same fold that `Model::complete` uses.
-- [ ] Run tool calls in parallel up to a limit, and append the results in
+- [x] Run tool calls in parallel up to a limit, and append the results in
       call order.
-- [ ] Append the assistant message before the tool calls of its step run,
+- [x] Append the assistant message before the tool calls of its step run,
       and each tool result as its call completes, so that a stopped turn
       keeps every completed tool result.
-- [ ] Send observer errors to `tracing`. Never fail a turn on them.
-- [ ] Keep the `Truncated` outcome of item 4 in the new loop.
-- [ ] Accept a schema for the final answer.
-- [ ] Offer `tool_output_read` only after a windowed output exists.
-- [ ] Add `TypedTool`. Add `schemars` with `cargo add`.
-- [ ] Mark `agent-loop.md` implemented.
-- [ ] Run `cargo xtask check` and `cargo xtask smoke-test`, then commit
+- [x] Send observer errors to `tracing`. Never fail a turn on them.
+- [x] Keep the `Truncated` outcome of item 4 in the new loop.
+- [x] Accept a schema for the final answer.
+- [x] Offer `tool_output_read` only after a windowed output exists.
+- [x] Add `TypedTool`. Add `schemars` with `cargo add`.
+- [x] Mark `agent-loop.md` implemented.
+- [x] Run `cargo xtask check` and `cargo xtask smoke-test`, then commit
       and push.
 - [ ] Run the ship steps for pull request 6.
 
