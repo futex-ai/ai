@@ -29,8 +29,8 @@ in-memory tool-calling runtime behavior.
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, Google and MiniMax inline video
   input, OpenAI and Gemini image generation, a Google Veo video adapter for
-  caller-named models, model events mapped directly from each provider stream (also
-  for calls with a response schema and for xAI's deferred path), structured
+  caller-named models, model events mapped directly from each provider stream
+  (also for calls with a response schema and for xAI's deferred path), structured
   output, usage normalization, effort lowering to the efforts of each model
   spec, and typed errors
 - TypeSafe Jev judgment evaluation through a provider-neutral typed boundary
