@@ -2,6 +2,8 @@
 
 use std::collections::BTreeMap;
 
+use json_http::credential_values;
+
 const REDACTED: &str = "[redacted]";
 
 /// Replaces every non-empty secret occurrence in one diagnostic message.
@@ -33,12 +35,7 @@ pub(super) fn secrets_from_headers(
         .chain(headers.values())
         .filter(|value| !value.is_empty())
     {
-        secrets.push(value.clone());
-        if let Some(suffix) = value.split_whitespace().next_back()
-            && suffix != value.as_str()
-        {
-            secrets.push(suffix.to_owned());
-        }
+        secrets.extend(credential_values(value).map(ToOwned::to_owned));
     }
     secrets
 }

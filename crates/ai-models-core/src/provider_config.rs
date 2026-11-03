@@ -3,7 +3,7 @@
 use std::{collections::BTreeMap, fmt, time::Duration};
 
 use ai_interface::ProviderId;
-use json_http::{DynJsonHttpAuth, JsonHttpRequestBuilder};
+use json_http::{DynJsonHttpAuth, JsonHttpRequestBuilder, credential_values};
 
 use crate::{ApiKeyScheme, ErrorContext, provider_auth::ProviderAuth};
 
@@ -124,16 +124,21 @@ impl ProviderConfig {
             .into_iter()
             .chain(self.extra_headers.values().map(String::as_str))
         {
-            context.add_secret(value);
-            if let Some(token) = value.split_whitespace().last() {
-                context.add_secret(token);
+            for secret in credential_values(value) {
+                context.add_secret(secret);
             }
         }
     }
 
     /// Adds extra headers without replacing adapter or authentication headers.
-    pub fn apply_headers(&self, builder: JsonHttpRequestBuilder) -> JsonHttpRequestBuilder {
-        builder.default_headers(self.extra_headers.clone())
+    pub fn apply_headers(
+        &self,
+        builder: JsonHttpRequestBuilder,
+        origin: &str,
+    ) -> JsonHttpRequestBuilder {
+        builder
+            .credentials_for_origin(origin)
+            .default_headers(self.extra_headers.clone())
     }
 }
 

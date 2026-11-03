@@ -38,10 +38,15 @@ sanitized headers for these failures and restore their failure class on replay.
 
 Request headers compare without case. `default_headers` adds values after
 auth and keeps adapter headers, auth headers, and generated body content types.
-Auth hooks run once before dispatch. `auth_for_origin` skips a hook when
+Auth hooks run once before dispatch. `credentials_for_origin` limits all
+credential headers to the supplied scheme, host, and port.
+`auth_for_origin` skips a hook when
 the request has a different scheme, host, or port from the supplied origin.
+Every header is a credential unless the adapter supplied it through `header`
+or `headers` and no auth hook changed it. Standard credential headers always
+remain credentials. The builder marks credential names in `auth_headers`.
 Requests follow up to ten redirects. Redirects preserve credentials on the
-original origin and remove hook-added or hook-changed headers elsewhere.
+original origin and remove credential headers elsewhere.
 The transport also protects standard authorization, cookie, and API-key headers.
 It restores credentials only when a redirect returns to the original origin.
 Redirect hops share one total timeout budget.
@@ -82,7 +87,7 @@ so that repeated and binary values survive replay. Existing recordings without
 response headers remain readable and replay with an empty header map.
 Credential header names are case-insensitive. The values of `authorization`,
 `x-api-key`, `x-goog-api-key`, and `api-key` become `[redacted]`.
-The recorder also removes custom auth header values that the builder tracks.
+The recorder also removes every credential header value that the builder tracks.
 The recorder also removes credential URL fields, named JSON credentials,
 and known secret values from responses. It forwards the original requests
 and responses unchanged. Raw transport error text is never persisted.

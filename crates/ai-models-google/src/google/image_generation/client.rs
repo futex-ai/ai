@@ -135,6 +135,7 @@ impl ImageGenerator for GoogleImageGenerator {
                             .capture_auth(self.config.auth(ApiKeyScheme::Header("x-goog-api-key"))),
                     )
                     .timeout(self.timeout),
+                &self.endpoint(),
             )
             .json(body)
         {

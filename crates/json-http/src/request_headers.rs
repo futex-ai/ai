@@ -7,7 +7,8 @@ pub(crate) fn insert(headers: &mut BTreeMap<String, String>, name: String, value
     headers.insert(name, value);
 }
 
-pub(crate) fn credential_header(name: &str) -> bool {
+/// Identifies standard credential headers for dispatch, redirects, capture, and recordings.
+pub fn credential_header(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),
         "authorization"
@@ -19,6 +20,18 @@ pub(crate) fn credential_header(name: &str) -> bool {
             | "x-goog-api-key"
             | "api-key"
     )
+}
+
+/// Derives full credential values and long component words without hiding short common words.
+pub fn credential_values(value: &str) -> impl Iterator<Item = &str> {
+    std::iter::once(value)
+        .filter(|value| !value.is_empty())
+        .chain(
+            value
+                .split_whitespace()
+                .next_back()
+                .filter(move |word| word.len() >= 6 && *word != value),
+        )
 }
 
 pub(crate) fn same_origin(left: &str, right: &str) -> bool {

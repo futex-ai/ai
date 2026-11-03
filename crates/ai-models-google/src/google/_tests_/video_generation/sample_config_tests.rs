@@ -46,7 +46,10 @@ async fn config_video_accepts_https_base_host_and_scopes_download_auth() {
         let mut generator = GoogleVideoGenerator::from_config(
             client,
             video_spec(),
-            ProviderConfig::new(PROVIDER_ID, "config-key").with_base_url(base),
+            ProviderConfig::new(PROVIDER_ID, "config-key")
+                .with_base_url(base)
+                .with_header("x-gateway-key", "gateway-secret")
+                .with_header("X-GOOG-API-KEY", "extra-key"),
         );
         generator.runtime = stationary_runtime();
 
@@ -63,6 +66,24 @@ async fn config_video_accepts_https_base_host_and_scopes_download_auth() {
         let requests = requests.lock().unwrap();
         assert_eq!(requests.len(), 2);
         assert_eq!(requests[1].url, sample);
+        assert_eq!(
+            requests[0].headers.get("x-gateway-key").map(String::as_str),
+            Some("gateway-secret")
+        );
+        assert_eq!(
+            requests[1].headers.get("x-gateway-key").map(String::as_str),
+            expected_key.map(|_| "gateway-secret"),
+            "{base} -> {sample}"
+        );
+        assert_eq!(
+            requests[1]
+                .headers
+                .iter()
+                .find(|(name, _)| name.eq_ignore_ascii_case("x-goog-api-key"))
+                .map(|(_, value)| value.as_str()),
+            expected_key,
+            "{base} -> {sample}"
+        );
         assert_eq!(
             requests[1]
                 .headers

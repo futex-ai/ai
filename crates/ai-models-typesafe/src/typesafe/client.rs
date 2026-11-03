@@ -146,6 +146,7 @@ impl JudgmentModel for TypeSafeJudgmentModel {
                     .post(&self.endpoint)
                     .auth(Arc::new(StaticHeaderAuth::new(headers)))
                     .timeout(self.timeout),
+                &self.endpoint,
             )
             .json(body)
         {

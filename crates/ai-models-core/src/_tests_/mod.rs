@@ -1,6 +1,7 @@
 //! Shared provider helper tests.
 
 mod catalog_tests;
+mod credential_recording_tests;
 mod error_context_tests;
 mod error_metadata_tests;
 mod errors_tests;

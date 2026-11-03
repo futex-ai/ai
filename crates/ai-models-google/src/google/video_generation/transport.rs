@@ -57,6 +57,7 @@ impl GoogleVideoGenerator {
                             .capture_auth(self.config.auth(ApiKeyScheme::Header("x-goog-api-key"))),
                     )
                     .timeout(timeout),
+                &self.base_url,
             )
             .json(build_request(context, request)?)
         {
@@ -82,6 +83,7 @@ impl GoogleVideoGenerator {
                             .capture_auth(self.config.auth(ApiKeyScheme::Header("x-goog-api-key"))),
                     )
                     .timeout(timeout),
+                &self.base_url,
             ),
         )
         .await
@@ -110,6 +112,7 @@ impl GoogleVideoGenerator {
                         self.base_url.clone(),
                     )
                     .timeout(timeout),
+                &self.base_url,
             )
             .send_bytes()
             .await;

@@ -120,6 +120,7 @@ impl AudioTranscriber for OpenAiAudioTranscriber {
                     .post(&self.endpoint)
                     .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
                     .timeout(self.timeout),
+                &self.endpoint,
             )
             .multipart(vec![
                 JsonHttpMultipartField::bytes("model", self.model_id.as_bytes().to_vec()),

@@ -60,8 +60,12 @@ treats base URLs with and without a trailing slash the same.
 Adapters select `ApiKeyScheme::Bearer` or `ApiKeyScheme::Header(name)`.
 They call `capture_secrets` before validation and wrap `auth(scheme)` with
 the call context's `capture_auth` before dispatch.
-`apply_headers` adds extra headers after auth. Adapter headers, auth headers,
-and body content types take precedence without regard to header-name case.
+`apply_headers(builder, origin)` binds auth and extra headers to the configured
+scheme, host, and port. Every extra header is a credential for redirects and
+recordings. Adapter headers, auth headers, and body content types take precedence
+without regard to header-name case.
+Credential capture redacts full values and their last word when it has at least
+six bytes. Short common words in longer header values remain readable elsewhere.
 Config and static-auth debug output omit credential and header values.
 
 `resolve_controls(&request, &spec)` is the shared capability check. Every

@@ -117,7 +117,7 @@ impl CompatModel {
             .endpoint(self.dialect.base_url, self.dialect.path);
         let builder = self
             .config
-            .apply_headers(self.http_client.post(&endpoint))
+            .apply_headers(self.http_client.post(&endpoint), &endpoint)
             .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
             .timeout(
                 controls

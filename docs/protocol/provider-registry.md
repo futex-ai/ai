@@ -33,8 +33,8 @@ combined catalog.
 - Each adapter builds every request URL from the base URL of its config and
   a fixed path.
 - A trailing slash on the base URL changes no URL.
-- An adapter sends the credentials of its config only to URLs on the host of
-  its base URL.
+- An adapter sends the credentials of its config only to the origin of its
+  base URL. An origin is the scheme, host, and port.
 - The Google video adapter downloads a sample URI that the provider returns
   only when the URI uses HTTPS on the host of the base URL. Otherwise the
   call fails with the invalid output kind.
@@ -75,7 +75,9 @@ regional endpoint covered only part of a provider.
 
 ## Extra headers
 
-- Each adapter adds every extra header of its config to every request.
+- Every extra header counts as a credential of its config.
+- Each adapter adds every extra header only to requests on the origin of
+  the base URL.
 - Header names compare without case.
 - When an extra header has the name of a header that the adapter or the
   auth sets, the request carries the value of the adapter or the auth.

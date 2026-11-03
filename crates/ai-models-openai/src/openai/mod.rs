@@ -124,6 +124,7 @@ impl Model for OpenAiModel {
                         .idle_timeout
                         .unwrap_or(STREAM_IDLE_TIMEOUT),
                 ),
+            &self.endpoint,
         );
         let builder = match builder.json(request::build_request(
             &context,

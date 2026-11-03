@@ -69,7 +69,7 @@ impl XaiDeferredCompletion {
         let endpoint = self.config.endpoint(DIALECT.base_url, DIALECT.path);
         let builder = self
             .config
-            .apply_headers(self.http_client.post(&endpoint))
+            .apply_headers(self.http_client.post(&endpoint), &endpoint)
             .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
             .timeout(total_timeout);
         let request = match builder.json(request) {
@@ -121,7 +121,7 @@ impl XaiDeferredCompletion {
         let url = self.config.endpoint(DIALECT.base_url, &path);
         let response = self
             .config
-            .apply_headers(self.http_client.get(&url))
+            .apply_headers(self.http_client.get(&url), &url)
             .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
             .timeout(timeout)
             .send_value()

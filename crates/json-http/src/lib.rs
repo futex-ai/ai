@@ -39,6 +39,7 @@ pub use client::{
 pub use error::{Error, Result};
 pub use headers::JsonHttpHeaders;
 pub use request::JsonHttpRequestBuilder;
+pub use request_headers::{credential_header, credential_values};
 pub use request_types::{
     JsonHttpBody, JsonHttpMethod, JsonHttpMultipart, JsonHttpMultipartField, JsonHttpRequest,
     JsonHttpResponse,

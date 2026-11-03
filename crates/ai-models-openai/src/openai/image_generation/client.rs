@@ -119,6 +119,7 @@ impl OpenAiImageGenerator {
                     .post(&self.generation_endpoint)
                     .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
                     .timeout(self.timeout),
+                &self.generation_endpoint,
             )
             .json(body)
         {
@@ -143,6 +144,7 @@ impl OpenAiImageGenerator {
                     .post(&self.edit_endpoint)
                     .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
                     .timeout(self.timeout),
+                &self.edit_endpoint,
             )
             .multipart(edit_fields(body))
             .send_value()

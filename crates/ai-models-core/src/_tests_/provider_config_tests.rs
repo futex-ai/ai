@@ -64,6 +64,17 @@ fn debug_and_local_errors_hide_all_configured_secret_values() {
     );
 }
 
+#[test]
+fn extra_headers_redact_full_values_without_hiding_common_short_words() {
+    let config = ProviderConfig::new(PROVIDER, "api-secret").with_header("X-Title", "My App");
+    let context = context();
+    config.capture_secrets(&context);
+    assert_eq!(
+        context.redact("The App field rejected My App"),
+        "The App field rejected [redacted]"
+    );
+}
+
 #[tokio::test]
 async fn config_applies_key_scheme_with_auth_and_adapter_header_precedence() {
     for (scheme, name, expected) in [
@@ -132,6 +143,7 @@ async fn config_applies_key_scheme_with_auth_and_adapter_header_precedence() {
                 client
                     .post("https://gateway.test/v1/messages")
                     .header("Content-Type", "application/json"),
+                "https://gateway.test",
             )
             .auth(context.capture_auth(config.auth(scheme)))
             .send_value()

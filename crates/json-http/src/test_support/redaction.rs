@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use reqwest::header::HeaderValue;
 use serde_json::Value;
 
-use crate::{JsonHttpBody, JsonHttpHeaders, JsonHttpRequest};
+use crate::{JsonHttpBody, JsonHttpHeaders, JsonHttpRequest, credential_header, credential_values};
 
 use super::types::{MultipartSummary, RecordedBody, RecordedMethod, RecordedRequest};
 
@@ -38,10 +38,7 @@ impl Redactor {
                     .iter()
                     .any(|key| key.eq_ignore_ascii_case(name))
             {
-                secrets.push(value.clone());
-                if let Some(token) = value.split_whitespace().last() {
-                    secrets.push(token.to_owned());
-                }
+                secrets.extend(credential_values(value).map(ToOwned::to_owned));
             }
         }
         if let Ok(url) = reqwest::Url::parse(&request.url) {
@@ -199,23 +196,19 @@ impl Redactor {
 }
 
 fn sensitive(name: &str) -> bool {
-    matches!(
-        name.to_ascii_lowercase().replace('_', "-").as_str(),
-        "authorization"
-            | "proxy-authorization"
-            | "x-api-key"
-            | "x-goog-api-key"
-            | "api-key"
-            | "key"
-            | "token"
-            | "access-token"
-            | "refresh-token"
-            | "password"
-            | "secret"
-            | "client-secret"
-            | "cookie"
-            | "set-cookie"
-    )
+    let name = name.to_ascii_lowercase().replace('_', "-");
+    credential_header(&name)
+        || matches!(
+            name.as_str(),
+            "key"
+                | "token"
+                | "access-token"
+                | "refresh-token"
+                | "password"
+                | "secret"
+                | "client-secret"
+                | "set-cookie"
+        )
 }
 
 fn collect_secrets(value: &Value, secrets: &mut Vec<String>) {

@@ -80,6 +80,6 @@ async fn config_hooks_refresh_once_track_all_headers_and_redact_provider_failure
         );
         assert!(request.auth_headers.contains("x-auth"));
         assert!(request.auth_headers.contains("x-second"));
-        assert!(!request.auth_headers.contains("x-tenant"));
+        assert!(request.auth_headers.contains("x-tenant"));
     }
 }

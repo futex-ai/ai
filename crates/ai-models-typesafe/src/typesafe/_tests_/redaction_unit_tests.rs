@@ -47,3 +47,15 @@ fn overlapping_secrets_are_redacted_longest_first() {
         "rejected [redacted]"
     );
 }
+
+#[test]
+fn extra_headers_redact_full_values_without_hiding_common_short_words() {
+    let secrets = secrets_from_headers(
+        &[],
+        &BTreeMap::from([("X-Title".to_owned(), "My App".to_owned())]),
+    );
+    assert_eq!(
+        redact_secrets("The App field rejected My App", &secrets),
+        "The App field rejected [redacted]"
+    );
+}

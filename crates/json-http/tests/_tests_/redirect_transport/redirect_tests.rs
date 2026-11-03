@@ -67,10 +67,10 @@ async fn redirect_hops_keep_auth_only_on_the_original_origin() {
                 "CONTENT-TYPE".to_owned(),
                 "extra-content".to_owned(),
             )]))
-            .default_headers(BTreeMap::from([(
-                "X-Session-Key".to_owned(),
-                "hook-secret".to_owned(),
-            )]))
+            .default_headers(BTreeMap::from([
+                ("X-Session-Key".to_owned(), "hook-secret".to_owned()),
+                ("x-gateway-key".to_owned(), "gateway-secret".to_owned()),
+            ]))
             .header("x-public", "visible")
             .header("x-changed", "public-before")
             .auth(Arc::new(StaticHeaderAuth::new(BTreeMap::from([
@@ -100,6 +100,7 @@ async fn redirect_hops_keep_auth_only_on_the_original_origin() {
             assert_eq!(request.headers.get("authorization"), None, "{mode:?}");
             assert_eq!(request.headers.get("x-session-key"), None, "{mode:?}");
             assert_eq!(request.headers.get("x-changed"), None, "{mode:?}");
+            assert_eq!(request.headers.get("x-gateway-key"), None, "{mode:?}");
             assert_eq!(
                 request.headers.get("x-public").map(String::as_str),
                 Some("visible")
@@ -107,6 +108,10 @@ async fn redirect_hops_keep_auth_only_on_the_original_origin() {
             assert_eq!(request.method, redirected_method, "{mode:?}");
         }
         for (index, request) in original.iter().enumerate() {
+            assert_eq!(
+                request.headers.get("x-gateway-key").map(String::as_str),
+                Some("gateway-secret")
+            );
             assert_eq!(
                 request.headers.get("x-api-key").map(String::as_str),
                 Some("api-secret"),

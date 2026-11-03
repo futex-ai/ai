@@ -13,7 +13,7 @@ use crate::{
     DynJsonHttpAuth, DynJsonHttpSseStream, DynJsonHttpTransport, Error, JsonHttpBody,
     JsonHttpMethod, JsonHttpMultipart, JsonHttpMultipartField, JsonHttpRequest, JsonHttpResponse,
     Result,
-    request_headers::{insert, same_origin},
+    request_headers::{credential_header, insert, same_origin},
 };
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(600);
@@ -25,6 +25,7 @@ pub struct JsonHttpRequestBuilder {
     request: JsonHttpRequest,
     auth_hooks: Vec<(DynJsonHttpAuth, Option<String>)>,
     default_headers: BTreeMap<String, String>,
+    credential_origin: Option<String>,
 }
 
 impl JsonHttpRequestBuilder {
@@ -47,6 +48,7 @@ impl JsonHttpRequestBuilder {
             },
             auth_hooks: Vec::new(),
             default_headers: BTreeMap::new(),
+            credential_origin: None,
         }
     }
 
@@ -69,6 +71,12 @@ impl JsonHttpRequestBuilder {
         for (name, value) in headers {
             insert(&mut self.default_headers, name, value);
         }
+        self
+    }
+
+    /// Sends credential headers only to this scheme, host, and port.
+    pub fn credentials_for_origin(mut self, origin: impl Into<String>) -> Self {
+        self.credential_origin = Some(origin.into());
         self
     }
 
@@ -169,8 +177,15 @@ impl JsonHttpRequestBuilder {
     }
 
     async fn build_request(mut self) -> Result<JsonHttpRequest> {
+        let adapter_headers = self.request.headers.clone();
+        let credentials_allowed = self
+            .credential_origin
+            .as_deref()
+            .is_none_or(|origin| same_origin(origin, &self.request.url));
         for (auth, origin) in self.auth_hooks {
-            if origin.is_some_and(|origin| !same_origin(&origin, &self.request.url)) {
+            if !credentials_allowed
+                || origin.is_some_and(|origin| !same_origin(&origin, &self.request.url))
+            {
                 continue;
             }
             let before = self.request.headers.clone();
@@ -188,6 +203,9 @@ impl JsonHttpRequestBuilder {
             }
         }
         for (name, value) in self.default_headers {
+            if !credentials_allowed {
+                continue;
+            }
             if self.request.body.is_some() && name.eq_ignore_ascii_case("content-type") {
                 continue;
             }
@@ -200,6 +218,23 @@ impl JsonHttpRequestBuilder {
                 continue;
             }
             insert(&mut self.request.headers, name, value);
+        }
+        for (name, value) in &self.request.headers {
+            if credential_header(name)
+                || !adapter_headers
+                    .iter()
+                    .any(|(key, original)| key.eq_ignore_ascii_case(name) && original == value)
+            {
+                self.request.auth_headers.insert(name.to_ascii_lowercase());
+            }
+        }
+        if !credentials_allowed {
+            self.request.headers.retain(|name, _| {
+                !self
+                    .request
+                    .auth_headers
+                    .contains(&name.to_ascii_lowercase())
+            });
         }
         Ok(self.request)
     }
