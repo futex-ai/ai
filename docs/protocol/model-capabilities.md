@@ -33,8 +33,8 @@ a spec for short.
 - The speed tiers are slow, medium, fast, and very fast. The cost tiers are
   low, medium, high, and premium.
 - The routing tiers describe the model at its default effort.
-- The replay need is data for callers and for the test kit. The planned
-  conformance milestone checks replay for each spec that has this need.
+- The replay need is data for callers and for the test kit. The conformance
+  runner checks replay for each spec that has this need.
 - Model specs hold no prices. Decision: prices come from the deployment, as
   [model policies](model-policies.md) says, because deployment prices
   change without a release. The rejected alternative put prices in specs.
