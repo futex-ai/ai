@@ -9,10 +9,7 @@ impl fmt::Debug for Error {
         match self {
             Self::ResponseContext { headers, source } => formatter
                 .debug_struct("ResponseContext")
-                .field(
-                    "headers",
-                    &headers.keys().map(|name| name.as_str()).collect::<Vec<_>>(),
-                )
+                .field("headers", headers)
                 .field("source", source)
                 .finish(),
             Self::HttpStatus {
@@ -22,10 +19,7 @@ impl fmt::Debug for Error {
             } => formatter
                 .debug_struct("HttpStatus")
                 .field("status", status)
-                .field(
-                    "headers",
-                    &headers.keys().map(|name| name.as_str()).collect::<Vec<_>>(),
-                )
+                .field("headers", headers)
                 .field(
                     "body_size",
                     &serde_json::to_vec(body)

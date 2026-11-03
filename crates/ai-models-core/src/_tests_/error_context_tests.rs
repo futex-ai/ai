@@ -23,8 +23,12 @@ pub(super) fn context(provider: &str, model: &str) -> ErrorContext {
 
 fn headers(id: &str, wait: &str) -> JsonHttpHeaders {
     let mut headers = JsonHttpHeaders::new();
-    headers.insert("request-id", id.parse().unwrap());
-    headers.insert("retry-after", wait.parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("request-id", id.parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("retry-after", wait.parse().unwrap());
     headers
 }
 

@@ -33,15 +33,23 @@ fn retry_after_handles_seconds_dates_and_invalid_optional_values() {
 #[test]
 fn metadata_uses_adapter_header_order_and_reads_clock_only_for_valid_dates() {
     let mut headers = JsonHttpHeaders::new();
-    headers.insert("retry-after", "7".parse().unwrap());
-    headers.insert("primary-id", "first".parse().unwrap());
-    headers.insert("fallback-id", "second".parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("retry-after", "7".parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("primary-id", "first".parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("fallback-id", "second".parse().unwrap());
     let metadata =
         ErrorMetadata::from_headers(&headers, &["Primary-Id", "fallback-id"], &Unimock::new(()));
     assert_eq!(metadata.retry_after, Some(Duration::from_secs(7)));
     assert_eq!(metadata.provider_request_id.as_deref(), Some("first"));
-    headers.insert("primary-id", "  ".parse().unwrap());
-    headers.insert(
+    headers
+        .as_raw_mut()
+        .insert("primary-id", "  ".parse().unwrap());
+    headers.as_raw_mut().insert(
         "retry-after",
         "Thu, 01 Jan 1970 00:00:10 GMT".parse().unwrap(),
     );
@@ -53,7 +61,9 @@ fn metadata_uses_adapter_header_order_and_reads_clock_only_for_valid_dates() {
     let metadata = ErrorMetadata::from_headers(&headers, &["primary-id", "fallback-id"], &clock);
     assert_eq!(metadata.retry_after, Some(Duration::from_secs(5)));
     assert_eq!(metadata.provider_request_id.as_deref(), Some("second"));
-    headers.insert("retry-after", "invalid".parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("retry-after", "invalid".parse().unwrap());
     assert_eq!(
         ErrorMetadata::from_headers(&headers, &[], &Unimock::new(())).retry_after,
         None

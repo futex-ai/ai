@@ -18,7 +18,7 @@ use super::{
 #[tokio::test]
 async fn chat_status_and_late_failures_keep_safe_response_metadata() {
     let mut source_headers = headers("req-specific", "3");
-    source_headers.remove("request-id");
+    source_headers.as_raw_mut().remove("request-id");
     for (case, kind, fixture, schema, id, retry, json_source) in [
         (
             "status",

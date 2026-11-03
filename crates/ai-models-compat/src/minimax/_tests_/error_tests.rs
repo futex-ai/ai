@@ -49,9 +49,15 @@ async fn classifies_http_and_transport_failures() {
         (400, 1002, ErrorKind::InvalidRequest),
     ] {
         let mut headers = JsonHttpHeaders::new();
-        headers.insert("Trace-Id", "req-context".parse().unwrap());
-        headers.insert("x-request-id", "secondary-id".parse().unwrap());
-        headers.insert("Retry-After", "7".parse().unwrap());
+        headers
+            .as_raw_mut()
+            .insert("Trace-Id", "req-context".parse().unwrap());
+        headers
+            .as_raw_mut()
+            .insert("x-request-id", "secondary-id".parse().unwrap());
+        headers
+            .as_raw_mut()
+            .insert("Retry-After", "7".parse().unwrap());
         let (client, requests) = recording_streaming_client(vec![SseFixture::OpeningError(
             json_http::Error::HttpStatus {
                 status,

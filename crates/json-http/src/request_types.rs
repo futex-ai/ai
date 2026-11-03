@@ -105,7 +105,7 @@ pub struct JsonHttpRequest {
     pub idle_timeout: Option<Duration>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 /// Typed JSON HTTP response returned from the client.
 pub struct JsonHttpResponse<T> {
     /// HTTP status code.
@@ -114,6 +114,17 @@ pub struct JsonHttpResponse<T> {
     pub headers: JsonHttpHeaders,
     /// Parsed JSON body.
     pub body: T,
+}
+
+impl<T> fmt::Debug for JsonHttpResponse<T> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("JsonHttpResponse")
+            .field("status", &self.status)
+            .field("headers", &self.headers)
+            .field("body", &"[redacted]")
+            .finish()
+    }
 }
 
 impl fmt::Debug for JsonHttpRequest {

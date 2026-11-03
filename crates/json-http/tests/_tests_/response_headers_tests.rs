@@ -40,12 +40,14 @@ async fn buffered_and_byte_responses_keep_response_headers() {
         };
         assert_eq!(
             headers
+                .as_raw()
                 .get("X-Request-Id")
                 .and_then(|value| value.to_str().ok()),
             Some("req-buffered")
         );
         assert_eq!(
             headers
+                .as_raw()
                 .get_all("x-trace")
                 .iter()
                 .map(|value| value.to_str().unwrap())
@@ -69,6 +71,7 @@ async fn successful_sse_opening_keeps_response_headers() {
     assert_eq!(
         stream
             .headers()
+            .as_raw()
             .get("request-id")
             .and_then(|value| value.to_str().ok()),
         Some("req-stream")
@@ -77,6 +80,7 @@ async fn successful_sse_opening_keeps_response_headers() {
     assert_eq!(
         stream
             .headers()
+            .as_raw()
             .get("request-id")
             .and_then(|value| value.to_str().ok()),
         Some("req-stream")
@@ -114,12 +118,14 @@ async fn failed_sse_opening_keeps_status_headers_and_body() {
     assert_eq!(body, json!({"error":"slow down"}));
     assert_eq!(
         headers
+            .as_raw()
             .get("retry-after")
             .and_then(|value| value.to_str().ok()),
         Some("7")
     );
     assert_eq!(
         headers
+            .as_raw()
             .get("request-id")
             .and_then(|value| value.to_str().ok()),
         Some("req-failed")

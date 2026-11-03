@@ -13,7 +13,9 @@ use crate::{
 #[test]
 fn http_error_debug_reports_structure_without_header_values_or_body_text() {
     let mut headers = JsonHttpHeaders::new();
-    headers.insert("x-request-id", "placeholder-header-key".parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("x-request-id", "placeholder-header-key".parse().unwrap());
     let error = Error::HttpStatus {
         status: 401,
         headers: Box::new(headers.clone()),

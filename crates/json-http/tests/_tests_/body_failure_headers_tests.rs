@@ -35,7 +35,7 @@ async fn buffered_and_rejected_stream_body_failures_keep_headers() {
         assert_eq!(
             error
                 .response_headers()
-                .and_then(|headers| headers.get("x-request-id"))
+                .and_then(|headers| headers.as_raw().get("x-request-id"))
                 .and_then(|value| value.to_str().ok()),
             Some("req-body-read"),
             "{path}"

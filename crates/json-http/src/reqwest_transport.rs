@@ -9,8 +9,9 @@ use tokio::time::timeout;
 
 use crate::error_url::sanitize_reqwest;
 use crate::{
-    DynJsonHttpSseStream, Error, JsonHttpBody, JsonHttpMethod, JsonHttpMultipartField,
-    JsonHttpRequest, JsonHttpResponse, JsonHttpTransport, Result, reqwest_redirect,
+    DynJsonHttpSseStream, Error, JsonHttpBody, JsonHttpHeaders, JsonHttpMethod,
+    JsonHttpMultipartField, JsonHttpRequest, JsonHttpResponse, JsonHttpTransport, Result,
+    reqwest_redirect,
     reqwest_sse::{ReqwestJsonHttpSseStream, SseTimer},
 };
 
@@ -101,7 +102,7 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
     async fn execute(&self, request: &JsonHttpRequest) -> Result<JsonHttpResponse<Value>> {
         let response = self.execute_buffered_request(request).await?;
         let status = response.status().as_u16();
-        let headers = response.headers().clone();
+        let headers = JsonHttpHeaders::from(response.headers().clone());
         let text = match response.text().await {
             Ok(text) => text,
             Err(source) => {
@@ -122,7 +123,7 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
     async fn execute_bytes(&self, request: &JsonHttpRequest) -> Result<JsonHttpResponse<Vec<u8>>> {
         let response = self.execute_buffered_request(request).await?;
         let status = response.status().as_u16();
-        let headers = response.headers().clone();
+        let headers = JsonHttpHeaders::from(response.headers().clone());
         let body = match response.bytes().await {
             Ok(body) => body.to_vec(),
             Err(source) => {
@@ -160,7 +161,7 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
 
         if !response.status().is_success() {
             let status = response.status().as_u16();
-            let headers = response.headers().clone();
+            let headers = JsonHttpHeaders::from(response.headers().clone());
             let body = match read_error_body(&mut response, &timer).await {
                 Ok(body) => body,
                 Err(source) => return Err(source.with_response_headers(headers)),
@@ -178,7 +179,7 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
             .map(ToOwned::to_owned);
         if !content_type.as_deref().is_some_and(is_event_stream) {
             return Err(Error::InvalidSseContentType { content_type }
-                .with_response_headers(response.headers().clone()));
+                .with_response_headers(JsonHttpHeaders::from(response.headers().clone())));
         }
 
         Ok(Box::new(ReqwestJsonHttpSseStream::new(response, timer)))

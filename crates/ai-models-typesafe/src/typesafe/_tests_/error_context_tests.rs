@@ -215,7 +215,11 @@ async fn request_failures_keep_their_headers_kinds_and_tracked_original_sources(
 
 pub(super) fn headers(id: &str, retry: &str) -> JsonHttpHeaders {
     let mut headers = JsonHttpHeaders::new();
-    headers.insert("x-request-id", id.parse().unwrap());
-    headers.insert("retry-after", retry.parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("x-request-id", id.parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("retry-after", retry.parse().unwrap());
     headers
 }

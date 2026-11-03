@@ -24,8 +24,11 @@ or attached as multipart byte fields, and responses can be read as raw bytes,
 Typed request bodies serialize directly into JSON bytes. Object keys keep
 their sorted wire order. Buffered responses expose `headers`, and successful
 SSE streams expose `headers()`. Both use `JsonHttpHeaders`, a case-insensitive
-header map that keeps repeated and binary values. SSE status errors carry the
-same headers with their status and bounded body. `Error::is_transport_failure`
+header collection that keeps repeated and binary values. Its `Debug` output
+prints header names only. `as_raw()` gives explicit access to values for
+retry-after and request-id parsing. `as_raw_mut()` permits raw header changes.
+SSE status errors carry the same headers with their status and bounded body.
+`Error::is_transport_failure`
 identifies network failures without classifying auth or local errors as network
 failures.
 
@@ -53,6 +56,8 @@ The transport also protects standard authorization, cookie, and API-key headers.
 It restores credentials only when a redirect returns to the original origin.
 Redirect hops share one total timeout budget.
 Request and static-auth debug output omit header values.
+Buffered response debug output reports the status, header names, and
+`[redacted]` for the body.
 Error debug output reports the variant, status, header names, and body size.
 It omits header values and body text. Stored transport URLs omit user info,
 queries, and fragments.

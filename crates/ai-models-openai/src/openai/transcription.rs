@@ -82,7 +82,7 @@ impl OpenAiAudioTranscriber {
         context: &ErrorContext,
         response: reqwest::Response,
     ) -> TranscriptionResult<AudioTranscriptionResponse> {
-        let headers = response.headers().clone();
+        let headers = JsonHttpHeaders::from(response.headers().clone());
         let context = context.for_response(&headers);
         let status = response.status();
         let response = match SuccessfulResponse::check(status.as_u16(), response) {
@@ -151,7 +151,7 @@ impl AudioTranscriber for OpenAiAudioTranscriber {
                 ));
             }
         };
-        *buffered.headers_mut() = response.headers;
+        *buffered.headers_mut() = response.headers.as_raw().clone();
         self.read_response(&context, reqwest::Response::from(buffered))
             .await
     }

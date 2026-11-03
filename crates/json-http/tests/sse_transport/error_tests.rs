@@ -75,7 +75,7 @@ async fn successful_non_sse_content_type_is_rejected() {
     assert_eq!(
         error
             .response_headers()
-            .and_then(|headers| headers.get("x-request-id"))
+            .and_then(|headers| headers.as_raw().get("x-request-id"))
             .and_then(|value| value.to_str().ok()),
         Some("req-wrong-type")
     );

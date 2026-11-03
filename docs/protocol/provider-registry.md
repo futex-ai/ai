@@ -72,6 +72,8 @@ regional endpoint covered only part of a provider.
 - The Anthropic adapter also sends `anthropic-version: 2023-06-01`.
 - An API key never appears in an error, a log, `Debug` output, or a
   snapshot.
+- HTTP response, stream, and error `Debug` output omits header values and
+  response bodies.
 
 ## Extra headers
 

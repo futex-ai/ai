@@ -115,7 +115,7 @@ impl Redactor {
 
     pub(super) fn headers(&self, headers: &JsonHttpHeaders) -> JsonHttpHeaders {
         let mut sanitized = JsonHttpHeaders::new();
-        for (name, value) in headers {
+        for (name, value) in headers.as_raw() {
             let bytes = if sensitive(name.as_str()) {
                 REDACTED.as_bytes().to_vec()
             } else {
@@ -123,7 +123,7 @@ impl Redactor {
             };
             let value = HeaderValue::from_bytes(&bytes)
                 .unwrap_or_else(|_| HeaderValue::from_static(REDACTED));
-            sanitized.append(name.clone(), value);
+            sanitized.as_raw_mut().append(name.clone(), value);
         }
         sanitized
     }

@@ -49,7 +49,9 @@ async fn audio_status_and_decode_failures_keep_headers_identity_and_reqwest_sour
         let transcriber =
             OpenAiAudioTranscriber::new("audio-current", "audio-secret").with_clock(frozen_clock());
         let mut response = http::Response::builder().status(status).body(body).unwrap();
-        *response.headers_mut() = headers("req-audio-secret", "Wed, 21 Oct 2015 07:28:10 GMT");
+        *response.headers_mut() = headers("req-audio-secret", "Wed, 21 Oct 2015 07:28:10 GMT")
+            .as_raw()
+            .clone();
         let error = transcriber
             .read_response(&transcriber.context(), Response::from(response))
             .await

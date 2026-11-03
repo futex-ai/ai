@@ -12,7 +12,7 @@ where
     S: Serializer,
 {
     let mut values = BTreeMap::<&str, Vec<&[u8]>>::new();
-    for (name, value) in headers {
+    for (name, value) in headers.as_raw() {
         values
             .entry(name.as_str())
             .or_default()
@@ -37,7 +37,7 @@ where
                 Ok(value) => value,
                 Err(error) => return Err(D::Error::custom(error)),
             };
-            headers.append(name.clone(), value);
+            headers.as_raw_mut().append(name.clone(), value);
         }
     }
     Ok(headers)

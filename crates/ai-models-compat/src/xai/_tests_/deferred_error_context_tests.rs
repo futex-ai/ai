@@ -221,8 +221,12 @@ fn with_headers(
     retry: &str,
 ) -> json_http::Result<JsonHttpResponse<Value>> {
     let mut headers = JsonHttpHeaders::new();
-    headers.insert("x-request-id", id.parse().unwrap());
-    headers.insert("retry-after", retry.parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("x-request-id", id.parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("retry-after", retry.parse().unwrap());
     Ok(JsonHttpResponse {
         status,
         headers,

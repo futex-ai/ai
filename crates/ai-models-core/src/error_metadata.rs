@@ -35,6 +35,7 @@ impl ErrorMetadata {
         clock: &dyn Clock,
     ) -> Self {
         let retry_after = headers
+            .as_raw()
             .get_all("retry-after")
             .iter()
             .filter_map(|value| value.to_str().ok())
@@ -49,6 +50,7 @@ impl ErrorMetadata {
             });
         let provider_request_id = request_id_headers.iter().find_map(|name| {
             headers
+                .as_raw()
                 .get_all(*name)
                 .iter()
                 .filter_map(|value| value.to_str().ok())

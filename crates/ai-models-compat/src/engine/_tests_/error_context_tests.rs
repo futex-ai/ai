@@ -48,7 +48,9 @@ async fn dialect_http_errors_keep_provider_detail_identity_and_response_metadata
     ] {
         let mut response_headers = headers("req-status", "Wed, 21 Oct 2015 07:28:10 GMT");
         if provider == "minimax" {
-            response_headers.insert("trace-id", "req-trace".parse().unwrap());
+            response_headers
+                .as_raw_mut()
+                .insert("trace-id", "req-trace".parse().unwrap());
         }
         let (client, requests) = recording_streaming_client(vec![SseFixture::OpeningError(
             json_http::Error::HttpStatus {

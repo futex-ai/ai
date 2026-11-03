@@ -43,8 +43,12 @@ pub(super) fn request() -> ModelRequest {
 
 pub(super) fn headers(id: &str, retry: &str) -> JsonHttpHeaders {
     let mut headers = JsonHttpHeaders::new();
-    headers.insert("x-request-id", id.parse().unwrap());
-    headers.insert("retry-after", retry.parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("x-request-id", id.parse().unwrap());
+    headers
+        .as_raw_mut()
+        .insert("retry-after", retry.parse().unwrap());
     headers
 }
 

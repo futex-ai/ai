@@ -39,8 +39,10 @@ async fn response_context_failures_record_safe_headers_and_replay_the_cause() {
         ),
     ]);
     let mut safe = original.clone();
-    safe.insert("x-echo", HeaderValue::from_static("[redacted]"));
-    safe.insert("set-cookie", HeaderValue::from_static("[redacted]"));
+    safe.as_raw_mut()
+        .insert("x-echo", HeaderValue::from_static("[redacted]"));
+    safe.as_raw_mut()
+        .insert("set-cookie", HeaderValue::from_static("[redacted]"));
     let upstream_headers = original.clone();
     let upstream = Unimock::new(
         JsonHttpTransportMock::execute_sse

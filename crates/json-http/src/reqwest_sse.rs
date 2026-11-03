@@ -69,6 +69,7 @@ impl SseTimer {
 
 pub(crate) struct ReqwestJsonHttpSseStream {
     response: reqwest::Response,
+    headers: JsonHttpHeaders,
     decoder: JsonHttpSseDecoder,
     timer: SseTimer,
     events_received: u64,
@@ -78,6 +79,7 @@ pub(crate) struct ReqwestJsonHttpSseStream {
 impl ReqwestJsonHttpSseStream {
     pub(crate) fn new(response: reqwest::Response, timer: SseTimer) -> Self {
         Self {
+            headers: JsonHttpHeaders::from(response.headers().clone()),
             response,
             decoder: JsonHttpSseDecoder::new(),
             timer,
@@ -90,7 +92,7 @@ impl ReqwestJsonHttpSseStream {
 #[async_trait]
 impl JsonHttpSseStream for ReqwestJsonHttpSseStream {
     fn headers(&self) -> &JsonHttpHeaders {
-        self.response.headers()
+        &self.headers
     }
 
     async fn next(&mut self) -> Result<Option<JsonHttpSseEvent>> {

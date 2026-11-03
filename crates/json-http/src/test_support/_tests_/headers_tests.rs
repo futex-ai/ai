@@ -79,8 +79,10 @@ async fn recording_and_replay_keep_safe_headers_and_forward_original_headers() {
         ),
     ]);
     let mut safe = original.clone();
-    safe.insert("set-cookie", HeaderValue::from_static("[redacted]"));
-    safe.insert("x-echo", HeaderValue::from_static("[redacted]"));
+    safe.as_raw_mut()
+        .insert("set-cookie", HeaderValue::from_static("[redacted]"));
+    safe.as_raw_mut()
+        .insert("x-echo", HeaderValue::from_static("[redacted]"));
     for path in [Path::Json, Path::Bytes, Path::Sse, Path::Rejected] {
         let upstream = match path {
             Path::Json => Unimock::new(
