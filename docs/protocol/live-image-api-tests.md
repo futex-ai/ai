@@ -42,13 +42,11 @@ provider test:
 3. Erases the concrete adapter behind `DynImageGenerator`.
 4. Calls models sequentially and collects all failures for the provider before
    failing the job.
-5. Retries only `RateLimited` and `TransientProvider`, with at most three total
-   attempts. The two retry delays are exactly the shared
-   `ai_models_core::STANDARD_TRANSIENT_RETRY_DELAYS` schedule: 100 milliseconds,
+5. Retries only the rate limited and transient error kinds, with at most
+   three total attempts. The two fixed retry delays are 100 milliseconds,
    then 250 milliseconds. The adapters retain their two-minute per-attempt
    timeout, while the workflow's 20-minute job timeout is the outer bound.
-   Request, content-policy, no-image, terminal provider, and internal failures
-   are not retried.
+   Every other error kind stops the call without a retry.
 
 The probe request contains:
 

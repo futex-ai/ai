@@ -65,7 +65,7 @@ test:
    Each probe uses the production adapter lifecycle without a live-test-only
    branch.
 3. Erases the concrete adapter behind `DynModel` and applies the standard
-   transient retry wrapper.
+   retry layer for the rate limited and transient error kinds.
 4. Wraps the dynamic model in a test-only `Model` whose `stream` forwards
    the events of the inner model's `stream` and records them in order.
    `ToolCallingRuntime` folds the same events through the provided
@@ -125,7 +125,7 @@ parity.
 A marker-only miss receives one bounded retry because model replies can vary;
 the second result must satisfy the complete contract. The retry does not mask
 identity, finish-reason, tool, usage, request, or non-parity event failures and
-does not alter the separate transient transport retry policy. Its maximum cost
+does not alter the separate rate limited and transient retry policy. Its maximum cost
 is one additional billable call for each synchronous probe or catalog probe.
 A provider job fails if any final probe result violates this contract. For an
 eligible event, missing credentials also fail explicitly and must never be

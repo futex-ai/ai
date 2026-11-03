@@ -34,9 +34,8 @@ transport rules of the HTTP component.
   `content_filter`, and other otherwise. The other value is the raw reason,
   or `incomplete` when the provider gives no reason.
 - OpenAI: `response.failed` and `error` events are failures under the
-  progress rule. Before progress, a rate-limit code has the rate limited
-  kind, a server or overload code has the transient kind, and another code
-  has the invalid request kind.
+  progress rule. Before progress, their codes follow the
+  [shared error kinds rule](model-policies.md#error-kinds).
 - Google: the first text part of a chunk continues the last text part of
   the previous chunk when both are thought text or both are not. Separate
   text parts of one chunk are separate blocks.

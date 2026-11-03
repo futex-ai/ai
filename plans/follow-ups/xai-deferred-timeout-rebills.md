@@ -8,7 +8,7 @@
 
 - **Terms:**
   - **Deferred completion:** an xAI lifecycle that submits a job once, then polls for its result. The provider can bill the job also when nobody reads the result.
-  - **Retry layer:** the wrapper that calls a model again after some errors. Today it is `RetryingModel` in `ai-models-core`, and it retries only the transient provider error.
+  - **Retry layer:** `RetryingModel` in `ai-models-policy` calls a model again after rate limited or transient failures.
 - **Background:** The xAI adapter submits a deferred job, gets a request id, and polls until the result arrives or the total timeout ends. When the total timeout ends after the job was accepted, the adapter returns a transient provider error. `docs/protocol/provider-call-controls.md` requires this classification. The retry layer retries transient errors.
 - **Problem:** After a timeout, the retry layer calls the adapter again, and the adapter submits a second deferred job. The first job can still finish and bill. AGENTS.md lists "no duplicate billable submission" in its review focus.
 - **Impact if no action:** A slow deferred job can bill two or three times, once for each retry attempt.

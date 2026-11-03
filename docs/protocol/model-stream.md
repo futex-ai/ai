@@ -2,9 +2,8 @@
 
 Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
-Deadline defaults from a provider config apply when the
-[provider registry](provider-registry.md) is implemented. Every other rule
-of this protocol is in force.
+The [provider registry](provider-registry.md) defines deadline defaults
+from a provider config.
 
 This protocol defines the single entry point of a model call. It covers the
 stream method, the model events and their order, and the fold into a
@@ -174,8 +173,8 @@ A failed attempt emits no usage event and no finish event.
 - Decision: no layer repeats an interrupted attempt on the same model,
   because the provider can bill the partial generation twice. A move to
   another model after an interruption follows the fallback policy.
-- Until Milestone 8, each kind stands for a current model error, as
-  [model policies](model-policies.md#rules-in-force-until-milestone-8) says.
+- The [shared error kinds rule](model-policies.md#error-kinds) defines the
+  kinds and provider-specific exceptions.
 
 ## Cancellation
 
@@ -205,8 +204,8 @@ A failed attempt emits no usage event and no finish event.
   error of that attempt.
 - A consumer that receives a fallback event discards every event since the
   start of the stream or since the previous fallback event.
-- [Model policies](model-policies.md) says when each layer acts, and which
-  retry and fallback rules are in force until Milestone 8.
+- [Model policies](model-policies.md) defines when each layer acts and the
+  current retry and fallback rules.
 
 ## Adapter mapping and SSE transport
 

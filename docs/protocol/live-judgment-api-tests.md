@@ -41,9 +41,9 @@ validation tests. Every provider test:
 3. Erases the concrete adapter behind `DynJudgmentModel`.
 4. Calls models sequentially and collects all failures for the provider before
    failing the job.
-5. Retries only `RateLimited` and `TransientProvider`, with at most three total
-   attempts using the shared `STANDARD_TRANSIENT_RETRY_DELAYS` schedule.
-   Request, terminal provider, and internal failures are not retried.
+5. Retries only the rate limited and transient error kinds, with at most
+   three total attempts. The two fixed retry delays are 100 milliseconds,
+   then 250 milliseconds. Every other error kind stops the call without a retry.
 
 The probe request evaluates one short, policy-safe support message as object
 state with one question of each kind: a condition asking whether the message

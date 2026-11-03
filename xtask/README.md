@@ -179,6 +179,11 @@ cargo clippy -p xtask --all-targets --all-features
   guards over image-provider catalogs
 - `tests/live_judgments/mod.rs` - ignored credentialed tests and
   credential-free guards over judgment-provider catalogs
+- `tests/live_images/retry_tests.rs` and `tests/live_judgments/retry_tests.rs` -
+  `RetryingImageGenerator` and `RetryingJudgmentModel` apply fixed live-test
+  waits after `ErrorKind::RateLimited` or `ErrorKind::Transient`.
+  Both read `ai_models_policy::STANDARD_TRANSIENT_RETRY_DELAYS` from
+  `../crates/ai-models-policy/src/retry_config.rs`.
 - `src/review.rs` - Codex CLI review delegation
 - `src/record_streams/` - explicit recording command with injected transport,
   model, scenario runner, and recording storage boundaries
