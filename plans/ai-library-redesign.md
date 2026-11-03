@@ -548,11 +548,11 @@ Depends on: 8
 
 Build any catalog entry from one config shape.
 
-- [ ] Add `ai-models-registry` with one Cargo feature for each provider.
-- [ ] Add `ProviderConfig`. Make every adapter honor its base URL.
+- [x] Add `ai-models-registry` with one Cargo feature for each provider.
+- [x] Add `ProviderConfig`. Make every adapter honor its base URL.
 - [ ] Build chat, image, video, transcription, and judgment adapters from
       specs.
-- [ ] Compose the provider conversions into the converter that the
+- [x] Compose the provider conversions into the converter that the
       registry exposes.
 - [ ] Replace the provider match in
       `xtask/tests/live_models/provider_tests.rs` and in the smoke test
@@ -560,7 +560,7 @@ Build any catalog entry from one config shape.
 - [ ] Mark `provider-registry.md` and `chat-completions-dialects.md`
       implemented.
 - [ ] Delete the per-provider constructors after the user answers item 24.
-- [ ] Run `cargo xtask check` and `cargo xtask smoke-test`, then commit
+- [x] Run `cargo xtask check` and `cargo xtask smoke-test`, then commit
       and push.
 - [ ] Run the ship steps for pull request 5.
 
