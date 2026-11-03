@@ -23,8 +23,9 @@ provider has no registered live adapter or CI matrix entry.
 The chat live suite must treat the `typesafe` provider id as judgment-only:
 its provider registry maps that id to no chat adapter, its all-provider guard
 expects it to be absent from the chat registry, and its chat catalog filter
-also excludes specs advertising `ModelFeature::Judgment`. The image suite already selects by its own feature and only needs the
-provider id in its non-matching list.
+also excludes specs advertising `ModelFeature::Judgment`. The image suite
+already selects by its own feature and only needs the provider id in its
+non-matching list.
 
 ## Execution
 

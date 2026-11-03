@@ -4,8 +4,7 @@ use ai_interface::{Effort, ModelFeature, ProviderId};
 use serde_json::json;
 
 use super::{
-    GEMINI_3_1_FLASH_IMAGE, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH, PROVIDER_ID,
-    known_models,
+    GEMINI_3_1_FLASH_IMAGE, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH, PROVIDER_ID, known_models,
 };
 
 #[test]

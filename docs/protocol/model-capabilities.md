@@ -207,7 +207,6 @@ Bold effort marks the default effort. `default` marks an output limit sent when 
 | `google/gemini-3.6-flash` | low, **medium**, high | 65536 | 1048576 | adjustable | yes | always | no | low, medium, high |
 | `google/gemini-3.5-flash-lite` | **disabled** | 65536 | 1048576 | adjustable | yes | always | no | disabled |
 | `google/gemini-3.1-flash-image` | **disabled** | 0 | 131072 | adjustable | yes | always | no | none |
-| `google/veo-3.1-generate-preview` | **disabled** | 0 | 1024 | adjustable | yes | always | no | none |
 | `google/custom` | **disabled**, low, medium, high, extra_high, max | u32::MAX | 0 | adjustable | yes | always | no | disabled, low, medium, high, extra_high, max |
 | `kimi/kimi-k3` | low, high, **max** | 131072 | 1000000 | fixed | yes | always | no | low, high, max |
 | `kimi/custom` | low, high, **max** | 131072 | 0 | fixed | yes | always | no | low, high, max |
@@ -224,7 +223,6 @@ Bold effort marks the default effort. `default` marks an output limit sent when 
 | `openai/gpt-5.4-mini` | **disabled** | 128000 | 400000 | fixed while thinking | no | always | no | disabled |
 | `openai/gpt-5.4-nano` | **disabled** | 128000 | 400000 | fixed while thinking | no | always | no | disabled |
 | `openai/gpt-image-2` | **disabled** | 0 | 0 | fixed while thinking | no | always | no | none |
-| `openai/sora-2` | **disabled** | 0 | 0 | fixed while thinking | no | always | no | none |
 | `openai/custom` | **disabled**, low, medium, high, extra_high, max | u32::MAX | 0 | fixed while thinking | no | always | no | disabled, low, medium, high, extra_high, max |
 | `qwen/qwen3.7-max` | disabled, **high** | 65536 | 1000000 | fixed while thinking | yes | only without thinking | no | high |
 | `qwen/qwen3.7-plus` | disabled, **high** | 65536 | 1000000 | fixed while thinking | yes | only without thinking | no | high |

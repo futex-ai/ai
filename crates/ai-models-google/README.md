@@ -126,8 +126,7 @@ use std::sync::Arc;
 use ai_interface::{ImageGenerator, ModelSpec, VideoGenerator};
 use ai_models_google::{
     CUSTOM_DEFAULTS, GEMINI_2_5_PRO, GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, PROVIDER_ID,
-    GoogleImageGenerator, GoogleModel, GoogleVideoGenerator,
-    known_models,
+    GoogleImageGenerator, GoogleModel, GoogleVideoGenerator, known_models,
 };
 use json_http::ReqwestJsonHttpClient;
 

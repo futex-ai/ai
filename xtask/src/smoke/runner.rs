@@ -40,11 +40,7 @@ pub(crate) fn run() -> Result<()> {
         GEMINI_3_1_FLASH_IMAGE.provider_model_id.as_ref(),
         "google-key",
     );
-    let _google_video = GoogleVideoGenerator::new(
-        client.clone(),
-        "smoke-veo-model",
-        "google-key",
-    );
+    let _google_video = GoogleVideoGenerator::new(client.clone(), "smoke-veo-model", "google-key");
     let _kimi = KimiModel::new(client.clone(), "kimi-key");
     let _minimax = MiniMaxModel::new(client.clone(), MINIMAX_M3, "minimax-key");
     let _openai = OpenAiModel::new(client.clone(), GPT_5_6_SOL, "openai-key");
