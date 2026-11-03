@@ -86,23 +86,7 @@ model after transient failures.
 
 ## Live video checks
 
-Credentialed video checks live in `xtask/tests/live_videos/mod.rs`. They select
-every Google and OpenAI catalog spec advertising `VideoGeneration`, construct
-the production adapter behind `DynVideoGenerator`, and request one four-second
-720p landscape MP4. Run the credential-free guards or one billable provider
-catalog with:
-
-```sh
-cargo test --locked -p xtask --test live_videos
-LIVE_VIDEO_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
-  --test live_videos catalog_tests::openai_video_catalog \
-  -- --ignored --exact --nocapture
-```
-
-The `Live video APIs` workflow runs both provider catalogs sequentially for
-trusted same-repository pull requests, daily, and on manual dispatch. It uses
-`GOOGLE_API_KEY` and `OPENAI_API_KEY`. Video jobs are not automatically retried
-after submission because a transport failure can leave a billable job running.
+No live suite covers video generation, because no catalog lists a video model.
 
 ## CI
 
@@ -117,9 +101,7 @@ tool-calling runtime on eligible pull requests as well as its daily schedule
 and manual dispatch. The separate
 `Live image APIs` workflow exercises every Google and OpenAI image-capable
 catalog spec through `DynImageGenerator` with image-specific validation and
-sequential provider jobs. The `Live video APIs` workflow similarly exercises
-every Google and OpenAI video-capable spec through `DynVideoGenerator`, with
-MP4-specific validation and no asset persistence. The `Live judgment APIs`
+sequential provider jobs. The `Live judgment APIs`
 workflow exercises every TypeSafe Jev catalog spec through `DynJudgmentModel`
 with `TYPESAFE_API_KEY`, shared answer validation, and sequential retries once
 `LIVE_JUDGMENT_API_TESTS_ENABLED` opts the repository into those billable

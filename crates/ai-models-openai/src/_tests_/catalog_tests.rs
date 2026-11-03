@@ -5,7 +5,7 @@ use serde_json::json;
 
 use super::{
     GPT_5_4_MINI, GPT_5_4_NANO, GPT_5_5, GPT_5_6_LUNA, GPT_5_6_SOL, GPT_5_6_TERRA, GPT_IMAGE_2,
-    PROVIDER_ID, SORA_2, known_models,
+    PROVIDER_ID, known_models,
 };
 
 #[test]
@@ -30,19 +30,12 @@ fn gpt_5_6_sol_is_the_first_catalog_model() {
 }
 
 #[test]
-fn sora_2_is_routable_for_video_generation() {
-    let models = known_models();
-    let model = models
-        .iter()
-        .find(|model| model.provider_model_id == SORA_2.provider_model_id)
-        .expect("Sora 2 should exist");
-
-    assert_eq!(model.provider, PROVIDER_ID);
-    assert_eq!(model.provider_model_id, "sora-2");
-    assert_eq!(model.context_window_tokens, 0);
-    assert!(model.has_feature(ModelFeature::VideoGeneration));
-    assert!(model.has_feature(ModelFeature::Vision));
-    assert!(!model.has_feature(ModelFeature::ImageGeneration));
+fn catalog_excludes_retired_sora_model() {
+    assert!(
+        known_models()
+            .iter()
+            .all(|model| model.provider_model_id != "sora-2")
+    );
 }
 
 #[test]

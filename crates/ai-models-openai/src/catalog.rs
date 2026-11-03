@@ -37,7 +37,6 @@ const GPT_FEATURES: &[ModelFeature] = &[
     ModelFeature::Reasoning,
 ];
 const IMAGE_FEATURES: &[ModelFeature] = &[ModelFeature::ImageGeneration, ModelFeature::Vision];
-const VIDEO_FEATURES: &[ModelFeature] = &[ModelFeature::VideoGeneration, ModelFeature::Vision];
 const SOL_EFFORTS: EffortSet = EffortSet::new(Effort::Low)
     .with(Effort::Medium)
     .with(Effort::High)
@@ -137,17 +136,6 @@ pub const GPT_IMAGE_2: ModelSpec = media_spec(
     },
 );
 
-/// Video generation model.
-pub const SORA_2: ModelSpec = media_spec(
-    "sora-2",
-    VIDEO_FEATURES,
-    RoutingTiers {
-        intelligence: IntelligenceScore::Ten,
-        speed: SpeedTier::Slow,
-        cost: CostTier::Premium,
-    },
-);
-
 /// One spec for each known OpenAI provider model.
 pub const CATALOG: &[ModelSpec] = &[
     GPT_5_6_SOL,
@@ -157,7 +145,6 @@ pub const CATALOG: &[ModelSpec] = &[
     GPT_5_4_MINI,
     GPT_5_4_NANO,
     GPT_IMAGE_2,
-    SORA_2,
 ];
 
 /// Returns OpenAI models known to this provider crate.

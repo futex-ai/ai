@@ -11,7 +11,6 @@ mod request_types;
 mod response;
 mod stream;
 mod transcription;
-mod video_generation;
 
 use std::{sync::Arc, time::Duration};
 
@@ -30,7 +29,6 @@ use crate::PROVIDER_ID;
 pub use image_generation::OpenAiImageGenerator;
 pub use legacy::OpenAiLegacyConverter;
 pub use transcription::OpenAiAudioTranscriber;
-pub use video_generation::OpenAiVideoGenerator;
 
 const OPENAI_BASE_URL: &str = "https://api.openai.com";
 const COMPLETION_TIMEOUT: Duration = Duration::from_secs(3_600);

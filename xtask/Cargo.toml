@@ -14,10 +14,6 @@ path = "tests/live_images/mod.rs"
 name = "live_judgments"
 path = "tests/live_judgments/mod.rs"
 
-[[test]]
-name = "live_videos"
-path = "tests/live_videos/mod.rs"
-
 [dependencies]
 ai-models-registry = { workspace = true }
 ai-models-compat = { workspace = true }

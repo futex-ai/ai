@@ -17,7 +17,7 @@ use unimock::{MockFn, Unimock, matching};
 
 use super::super::client::GoogleVideoGenerator;
 
-const OPERATION: &str = "models/veo-3.1-generate-preview/operations/op_1";
+const OPERATION: &str = "models/custom-video-model/operations/op_1";
 type JsonResult = std::result::Result<JsonHttpResponse<Value>, json_http::Error>;
 type BytesResult = std::result::Result<JsonHttpResponse<Vec<u8>>, json_http::Error>;
 type JsonRecorder = dyn Fn(&Unimock, &JsonHttpRequest) -> JsonResult + Send + Sync;
@@ -45,7 +45,7 @@ async fn submits_polls_and_downloads_one_authenticated_video() {
     let (runtime, sleeps) = advancing_runtime();
     let generator = GoogleVideoGenerator::with_auth_and_runtime(
         client,
-        "veo-3.1-generate-preview",
+        "custom-video-model",
         Arc::new(StaticHeaderAuth::new(std::collections::BTreeMap::from([(
             "x-goog-api-key".to_owned(),
             "google-key".to_owned(),
@@ -146,7 +146,7 @@ fn generator(
 ) -> GoogleVideoGenerator {
     GoogleVideoGenerator::with_auth_and_runtime(
         client,
-        "veo-3.1-generate-preview",
+        "custom-video-model",
         Arc::new(StaticHeaderAuth::default()),
         runtime,
     )

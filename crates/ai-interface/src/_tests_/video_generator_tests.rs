@@ -52,7 +52,7 @@ fn request_defaults_and_serde_are_stable() {
 fn response_serde_and_duration_metadata_are_stable() {
     let response = VideoGenerationResponse {
         provider: "openai".to_owned(),
-        model_id: "sora-2".to_owned(),
+        model_id: "custom-video-model".to_owned(),
         video: GeneratedVideo {
             data: vec![0, 1],
             mime_type: "video/mp4".to_owned(),
@@ -74,15 +74,15 @@ fn response_serde_and_duration_metadata_are_stable() {
 #[test]
 fn error_helpers_preserve_typed_context() {
     assert!(matches!(
-        VideoGenerationError::unsupported_media_type("openai", "sora-2", "image/tiff"),
+        VideoGenerationError::unsupported_media_type("openai", "custom-video-model", "image/tiff"),
         VideoGenerationError::UnsupportedMediaType { content_type, core }
             if content_type == "image/tiff" && core.kind == ErrorKind::UnsupportedInput
-                && core.provider == "openai" && core.model_id == "sora-2"
+                && core.provider == "openai" && core.model_id == "custom-video-model"
     ));
-    let policy = VideoGenerationError::content_policy("openai", "sora-2", "blocked");
+    let policy = VideoGenerationError::content_policy("openai", "custom-video-model", "blocked");
     assert_eq!(policy.core().kind, ErrorKind::ContentPolicy);
     assert_eq!(policy.core().provider, "openai");
-    assert_eq!(policy.core().model_id, "sora-2");
+    assert_eq!(policy.core().model_id, "custom-video-model");
     assert_eq!(policy.core().message, "blocked");
     assert!(matches!(
         VideoGenerationError::no_video("google", "veo"),
@@ -98,10 +98,10 @@ fn error_helpers_preserve_typed_context() {
         (ErrorKind::Transient, "retry"),
         (ErrorKind::InvalidRequest, "rejected"),
     ] {
-        let error = VideoGenerationError::new(ErrorCore::new(kind, "openai", "sora-2", message));
+        let error = VideoGenerationError::new(ErrorCore::new(kind, "openai", "custom-video-model", message));
         assert_eq!(error.core().kind, kind);
         assert_eq!(error.core().provider, "openai");
-        assert_eq!(error.core().model_id, "sora-2");
+        assert_eq!(error.core().model_id, "custom-video-model");
         assert_eq!(error.core().message, message);
     }
 }
