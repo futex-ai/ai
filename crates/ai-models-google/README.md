@@ -2,8 +2,8 @@
 
 `ai-models-google` provides Google-specific chat, image, and video
 implementations for the shared AI interfaces. Depend on it when you want to
-call Gemini or Veo models with explicit auth and shared runtime wrappers from
-neighboring crates.
+call Gemini models, or a Veo video model that you name, with explicit auth and
+shared runtime wrappers from neighboring crates.
 
 ## Responsibilities
 
@@ -87,8 +87,9 @@ the balanced image catalog entry.
 
 `GoogleVideoGenerator` submits text or one inline first frame to Veo's
 `predictLongRunning` endpoint, polls the returned operation, and downloads the
-first generated MP4 with the same API-key auth. `VEO_3_1_GENERATE_PREVIEW`
-identifies the video catalog entry. The adapter maps portable
+first generated MP4 with the same API-key auth. The catalog lists no video
+model, because Google no longer serves `veo-3.1-generate-preview`, so callers
+pass the provider model id. The adapter maps portable
 landscape/portrait, four/eight-second, and 720p controls, enforces one
 ten-minute total deadline through an injected polling runtime, rejects download
 URIs outside the configured API origin, and keeps policy, timeout, rate-limit,
@@ -101,8 +102,8 @@ use std::sync::Arc;
 
 use ai_interface::{ImageGenerator, VideoGenerator};
 use ai_models_google::{
-    GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, VEO_3_1_GENERATE_PREVIEW,
-    GoogleImageGenerator, GoogleModel, GoogleVideoGenerator, known_models,
+    GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, GoogleImageGenerator, GoogleModel,
+    GoogleVideoGenerator, known_models,
 };
 use json_http::ReqwestJsonHttpClient;
 
@@ -126,10 +127,10 @@ fn build_image_generator() -> GoogleImageGenerator {
     )
 }
 
-fn build_video_generator() -> GoogleVideoGenerator {
+fn build_video_generator(provider_model_id: &str) -> GoogleVideoGenerator {
     GoogleVideoGenerator::new(
         Arc::new(ReqwestJsonHttpClient::new()),
-        VEO_3_1_GENERATE_PREVIEW,
+        provider_model_id,
         "google-demo",
     )
 }
@@ -165,7 +166,6 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/live-image-api-tests.md`](../../docs/protocol/live-image-api-tests.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
-- [`../../docs/protocol/live-video-api-tests.md`](../../docs/protocol/live-video-api-tests.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

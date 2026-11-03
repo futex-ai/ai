@@ -36,8 +36,8 @@ Credentialed image generation is specified separately by the implemented
 separate preserves their distinct traits, success contracts, costs, and CI
 controls.
 
-Credentialed video generation is specified separately by the implemented
-[live video API test protocol](live-video-api-tests.md) for the same reason.
+No live suite covers video generation, because no catalog lists a video
+model.
 
 Credentialed judgment evaluation is specified separately by the implemented
 [live judgment API test protocol](live-judgment-api-tests.md).
