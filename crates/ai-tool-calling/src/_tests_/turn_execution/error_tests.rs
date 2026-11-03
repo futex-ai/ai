@@ -79,7 +79,7 @@ async fn tool_calls_finish_reason_dispatches_tools() {
 }
 
 #[tokio::test]
-async fn tool_calls_finish_reason_without_calls_is_a_model_error() {
+async fn model_stream_error_after_text_delta_aborts_the_turn() {
     let model = Arc::new(Unimock::new(
         ModelMock::stream.next_call(matching!(_)).answers(&|_, _| {
             let stream: DynModelEventStream = Box::new(Unimock::new((

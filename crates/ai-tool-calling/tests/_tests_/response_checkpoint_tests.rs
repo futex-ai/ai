@@ -1,12 +1,14 @@
-//! A response checkpoint changes operation ids before append and dispatch.
+//! Response checkpoints set operation ids and reject invalid finish/call pairs.
 
 use std::sync::{Arc, Mutex};
 
 use ai_interface::{
-    ConversationMessage, ConversationPart, FinishReason, ModelResponse, ToolDefinition,
+    ConversationMessage, ConversationPart, ErrorKind, FinishReason, ModelResponse, ToolDefinition,
     ToolInvocation, ToolMock, test_support::model_response_stream,
 };
-use ai_tool_calling::{Agent, AgentEvent, ModelResponseCheckpoint, NoopTurnCheckpoint, Result};
+use ai_tool_calling::{
+    Agent, AgentEvent, Error, ModelResponseCheckpoint, NoopTurnCheckpoint, Result,
+};
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
@@ -24,6 +26,57 @@ struct Checkpoint {
 impl ModelResponseCheckpoint for Checkpoint {
     fn checkpoint_response(&mut self, response: &mut ModelResponse) -> Result<()> {
         self.behavior.checkpoint(response)
+    }
+}
+
+#[tokio::test]
+async fn response_checkpoint_finish_call_mismatches_do_not_advance_the_turn() {
+    for (case, finish_reason, keep_calls) in [
+        (
+            "tool-call finish without calls",
+            FinishReason::ToolCalls,
+            false,
+        ),
+        ("stop finish with calls", FinishReason::Stop, true),
+    ] {
+        let mut checkpoint = Checkpoint {
+            behavior: Unimock::new(
+                ResponseBehaviorMock::checkpoint
+                    .each_call(matching!(_))
+                    .answers_arc(Arc::new(move |_, response: &mut ModelResponse| {
+                        response.finish_reason = finish_reason.clone();
+                        response.parts.retain(|part| {
+                            keep_calls || !matches!(part, ConversationPart::ToolCall { .. })
+                        });
+                        Ok(())
+                    })),
+            ),
+        };
+        let (model, _) = model(vec![Ok(model_response_stream(response(
+            "working",
+            vec![call("provider-call", "save")],
+            FinishReason::ToolCalls,
+        )))]);
+        let agent = runtime(model, Vec::new());
+        let mut conversation = vec![ConversationMessage::user("start")];
+        let original_conversation = conversation.clone();
+        let result = collect(
+            agent
+                .run_with_checkpoints(
+                    &mut conversation,
+                    request(Some(1)),
+                    &mut NoopTurnCheckpoint,
+                    &mut checkpoint,
+                )
+                .as_mut(),
+        )
+        .await;
+
+        assert!(
+            matches!(&result, Err(Error::Model(error)) if error.core().kind == ErrorKind::InvalidOutput),
+            "{case}: expected InvalidOutput, got {result:?}"
+        );
+        assert_eq!(conversation, original_conversation, "{case}");
     }
 }
 
