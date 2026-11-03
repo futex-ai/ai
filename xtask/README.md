@@ -38,8 +38,7 @@ adapter, with placeholder credentials. It also runs an in-memory tool-output
 pagination flow. Provider construction does not send network requests or
 require real credentials.
 Chat, image, transcription, and judgment construction uses `ai-models-registry`.
-The Google and OpenAI video smoke checks keep their existing provider
-constructors. The live video suite also keeps its current construction path.
+The Google video smoke check uses its provider constructor with a custom model id.
 Provider crates retain their public constructors.
 
 `tests/live_models.rs` owns the chat live suite and its credential-free guards.

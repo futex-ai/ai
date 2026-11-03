@@ -98,7 +98,12 @@ fn error_helpers_preserve_typed_context() {
         (ErrorKind::Transient, "retry"),
         (ErrorKind::InvalidRequest, "rejected"),
     ] {
-        let error = VideoGenerationError::new(ErrorCore::new(kind, "openai", "custom-video-model", message));
+        let error = VideoGenerationError::new(ErrorCore::new(
+            kind,
+            "openai",
+            "custom-video-model",
+            message,
+        ));
         assert_eq!(error.core().kind, kind);
         assert_eq!(error.core().provider, "openai");
         assert_eq!(error.core().model_id, "custom-video-model");

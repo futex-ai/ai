@@ -3,10 +3,9 @@
 use std::{
     collections::{BTreeMap, VecDeque},
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
 };
 
-use ai_models_core::{DynPollingRuntime, PollingRuntimeMock, ProviderConfig};
+use ai_models_core::ProviderConfig;
 use json_http::{
     DynJsonHttpAuth, DynJsonHttpClient, DynJsonHttpTransport, JsonHttpAuthMock, JsonHttpBody,
     JsonHttpMultipartField, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
@@ -114,26 +113,4 @@ pub(super) fn multipart_fields(request: &JsonHttpRequest) -> &[JsonHttpMultipart
         panic!("request must use multipart");
     };
     &body.fields
-}
-
-pub(super) fn advancing_runtime() -> (DynPollingRuntime, Arc<Mutex<Vec<Duration>>>) {
-    let start = Instant::now();
-    let elapsed = Arc::new(Mutex::new(Duration::ZERO));
-    let sleeps = Arc::new(Mutex::new(Vec::new()));
-    let runtime = Unimock::new((
-        PollingRuntimeMock::now.each_call(matching!()).answers_arc({
-            let elapsed = elapsed.clone();
-            Arc::new(move |_| start + *elapsed.lock().unwrap())
-        }),
-        PollingRuntimeMock::sleep
-            .each_call(matching!(_))
-            .answers_arc({
-                let sleeps = sleeps.clone();
-                Arc::new(move |_, duration| {
-                    sleeps.lock().unwrap().push(duration);
-                    *elapsed.lock().unwrap() += duration;
-                })
-            }),
-    ));
-    (Arc::new(runtime), sleeps)
 }

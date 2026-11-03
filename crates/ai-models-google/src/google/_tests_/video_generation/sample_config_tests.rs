@@ -9,11 +9,11 @@ use json_http::{
 };
 use unimock::{MockFn, Unimock, matching};
 
-use crate::{GoogleVideoGenerator, PROVIDER_ID, VEO_3_1_GENERATE_PREVIEW};
+use crate::{GoogleVideoGenerator, PROVIDER_ID};
 
 use super::{
     client_tests::{request, scripted_client, stationary_runtime},
-    config_tests::{completed, ok_json},
+    config_tests::{completed, ok_json, video_spec},
 };
 
 #[tokio::test]
@@ -45,7 +45,7 @@ async fn config_video_accepts_https_base_host_and_scopes_download_auth() {
         );
         let mut generator = GoogleVideoGenerator::from_config(
             client,
-            VEO_3_1_GENERATE_PREVIEW,
+            video_spec(),
             ProviderConfig::new(PROVIDER_ID, "config-key").with_base_url(base),
         );
         generator.runtime = stationary_runtime();
@@ -97,7 +97,7 @@ async fn config_video_rejects_samples_without_https_and_the_configured_host() {
         let client = Arc::new(TransportBackedJsonHttpClient::new(Arc::new(transport)));
         let mut generator = GoogleVideoGenerator::from_config(
             client,
-            VEO_3_1_GENERATE_PREVIEW,
+            video_spec(),
             ProviderConfig::new(PROVIDER_ID, "config-key")
                 .with_base_url("https://google.test/proxy"),
         );

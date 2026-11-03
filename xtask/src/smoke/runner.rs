@@ -24,11 +24,7 @@ pub(crate) fn run() -> Result<()> {
         Ok(()) => {}
         Err(source) => return Err(Error::SmokeRegistry { source }),
     }
-    let _google_video = GoogleVideoGenerator::new(
-        client.clone(),
-        "smoke-veo-model",
-        "google-key",
-    );
+    let _google_video = GoogleVideoGenerator::new(client.clone(), "smoke-veo-model", "google-key");
     let model: DynModel = Arc::new(SmokePaginationModel::new());
     let tool: Arc<dyn Tool> = Arc::new(SmokeTool);
     let mcp_tool: Arc<dyn Tool> = Arc::new(build_mcp_tool()?);

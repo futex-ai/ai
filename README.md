@@ -195,8 +195,8 @@ environment variable or secret store.
 - The registry has no video builder yet. The
   [provider registry protocol](docs/protocol/provider-registry.md) stays
   approved, not implemented, until an open video contract question is
-  answered. Until then, build the OpenAI and Google video adapters with
-  their provider constructors.
+  answered. Until then, build the Google video adapter with its provider
+  constructor and a custom spec.
 - The per-provider constructors stay until the open constructor
   default-effort decision is answered. Prefer the registry in new code.
 

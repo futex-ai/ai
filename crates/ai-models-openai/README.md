@@ -28,8 +28,8 @@ Every adapter has `from_config(http, spec, config)`. It accepts an injected
 `json-http` client, a `ModelSpec`, and an `ai_models_core::ProviderConfig`.
 The config sets the base URL, auth, extra headers, and supported timeout
 overrides. Each endpoint keeps the path prefix of the base URL.
-An API key uses Bearer auth. An auth hook runs for each request, including
-video polling and downloads. Adapter and auth headers take precedence over
+An API key uses Bearer auth. An auth hook runs for each request.
+Adapter and auth headers take precedence over
 extra headers without regard to case. The existing constructors remain
 available and use the same config path.
 
@@ -219,8 +219,8 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 ### Key Code
 
 - `src/openai/mod.rs` - `Model::stream` implementation and request dispatch
-- `OpenAiModel::from_config`, `OpenAiImageGenerator::from_config`,
-  `OpenAiVideoGenerator::from_config`, and `OpenAiAudioTranscriber::from_config`
+- `OpenAiModel::from_config`, `OpenAiImageGenerator::from_config`, and
+  `OpenAiAudioTranscriber::from_config`
   build each adapter from one spec and shared provider settings
 - `src/catalog.rs` - OpenAI provider id, model spec constants, `CATALOG`, and
   custom defaults

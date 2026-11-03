@@ -6,4 +6,3 @@ mod model_tests;
 mod secret_tests;
 mod support;
 mod transcription_tests;
-mod video_tests;

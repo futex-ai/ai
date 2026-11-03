@@ -2,17 +2,17 @@
 
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-use ai_interface::VideoGenerator;
+use ai_interface::{ModelSpec, VideoGenerator};
 use ai_models_core::ProviderConfig;
 use json_http::{JsonHttpAuthMock, JsonHttpResponse};
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
-use crate::{GoogleVideoGenerator, PROVIDER_ID, VEO_3_1_GENERATE_PREVIEW};
+use crate::{CUSTOM_DEFAULTS, GoogleVideoGenerator, PROVIDER_ID};
 
 use super::client_tests::{advancing_runtime, request, scripted_client};
 
-const OPERATION: &str = "models/veo-3.1-generate-preview/operations/config_1";
+const OPERATION: &str = "models/custom-video-model/operations/config_1";
 
 #[tokio::test]
 async fn config_video_applies_base_headers_and_deadline_to_every_phase() {
@@ -21,24 +21,24 @@ async fn config_video_applies_base_headers_and_deadline_to_every_phase() {
             None,
             600,
             10,
-            "https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning",
-            "https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview/operations/config_1",
+            "https://generativelanguage.googleapis.com/v1beta/models/custom-video-model:predictLongRunning",
+            "https://generativelanguage.googleapis.com/v1beta/models/custom-video-model/operations/config_1",
             "https://generativelanguage.googleapis.com/v1beta/files/1",
         ),
         (
             Some("https://google.test/proxy"),
             31,
             3,
-            "https://google.test/proxy/v1beta/models/veo-3.1-generate-preview:predictLongRunning",
-            "https://google.test/proxy/v1beta/models/veo-3.1-generate-preview/operations/config_1",
+            "https://google.test/proxy/v1beta/models/custom-video-model:predictLongRunning",
+            "https://google.test/proxy/v1beta/models/custom-video-model/operations/config_1",
             "https://google.test/proxy/files/1",
         ),
         (
             Some("https://google.test/proxy/"),
             31,
             3,
-            "https://google.test/proxy/v1beta/models/veo-3.1-generate-preview:predictLongRunning",
-            "https://google.test/proxy/v1beta/models/veo-3.1-generate-preview/operations/config_1",
+            "https://google.test/proxy/v1beta/models/custom-video-model:predictLongRunning",
+            "https://google.test/proxy/v1beta/models/custom-video-model/operations/config_1",
             "https://google.test/proxy/files/1",
         ),
     ] {
@@ -64,8 +64,7 @@ async fn config_video_applies_base_headers_and_deadline_to_every_phase() {
                 .with_poll_interval(Duration::from_secs(interval));
         }
         let (runtime, sleeps) = advancing_runtime();
-        let mut generator =
-            GoogleVideoGenerator::from_config(client, VEO_3_1_GENERATE_PREVIEW, config);
+        let mut generator = GoogleVideoGenerator::from_config(client, video_spec(), config);
         generator.runtime = runtime;
 
         let response = generator.generate(&request()).await.unwrap();
@@ -149,7 +148,7 @@ async fn config_video_applies_fresh_hook_to_submission_poll_and_download() {
     let config =
         ProviderConfig::with_auth(PROVIDER_ID, auth).with_header("x-goog-api-key", "extra-key");
     let (runtime, _) = advancing_runtime();
-    let mut generator = GoogleVideoGenerator::from_config(client, VEO_3_1_GENERATE_PREVIEW, config);
+    let mut generator = GoogleVideoGenerator::from_config(client, video_spec(), config);
     generator.runtime = runtime;
 
     generator.generate(&request()).await.unwrap();
@@ -170,6 +169,10 @@ async fn config_video_applies_fresh_hook_to_submission_poll_and_download() {
         keys,
         vec![vec!["submit-key"], vec!["poll-key"], vec!["download-key"]]
     );
+}
+
+pub(super) fn video_spec() -> ModelSpec {
+    ModelSpec::custom(PROVIDER_ID, "custom-video-model", &CUSTOM_DEFAULTS)
 }
 
 pub(super) fn completed(sample: &str) -> Value {
