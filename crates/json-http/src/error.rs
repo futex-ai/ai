@@ -59,8 +59,8 @@ pub enum Error {
     /// The configured transport does not support SSE execution.
     #[error("[json_http/error] SSE execution is unsupported by this transport")]
     SseUnsupported,
-    /// A streaming request opened with a non-success HTTP status.
-    #[error("[json_http/error] SSE request returned HTTP {status}")]
+    /// An HTTP request ended with a non-success status.
+    #[error("[json_http/error] request returned HTTP {status}")]
     HttpStatus {
         /// HTTP status code returned by the server.
         status: u16,

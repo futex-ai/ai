@@ -6,7 +6,7 @@ use ai_interface::{
     ImageGenerationRequest, ImageGenerationResponse, ImageGenerationResult, ImageGenerator,
     ModelSpec,
 };
-use ai_models_core::{ApiKeyScheme, Clock, ProviderConfig, SystemClock};
+use ai_models_core::{ApiKeyScheme, Clock, ProviderConfig, SuccessfulResponse, SystemClock};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
 
@@ -146,14 +146,17 @@ impl ImageGenerator for GoogleImageGenerator {
             Ok(response) => response,
             Err(source) => return Err(classify_request_error(&context, source)),
         };
-        if response.status >= 400 {
-            return Err(classify_status(
-                &context,
-                response.status,
-                &response.headers,
-                &response.body,
-            ));
-        }
+        let response = match SuccessfulResponse::check(response.status, response) {
+            Ok(response) => response.into_inner(),
+            Err(response) => {
+                return Err(classify_status(
+                    &context,
+                    response.status,
+                    &response.headers,
+                    &response.body,
+                ));
+            }
+        };
         let context = context.for_response(&response.headers);
         parse_response(&context, &response.headers, &self.model_id, response.body)
     }

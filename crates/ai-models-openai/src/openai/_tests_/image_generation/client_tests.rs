@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use ai_interface::{ImageGenerationInputImage, ImageGenerationRequest, ImageGenerator};
+use ai_interface::{ErrorKind, ImageGenerationInputImage, ImageGenerationRequest, ImageGenerator};
 use json_http::{
     JsonHttpBody, JsonHttpClient, JsonHttpMultipartField, JsonHttpRequest, JsonHttpResponse,
     JsonHttpTransportMock, TransportBackedJsonHttpClient,
@@ -195,4 +195,32 @@ fn assert_text_field(fields: &[JsonHttpMultipartField], name: &str, expected: &[
     assert_eq!(field.bytes, expected);
     assert_eq!(field.filename, None);
     assert_eq!(field.content_type, None);
+}
+
+#[tokio::test]
+async fn final_redirect_bodies_never_become_generated_or_edited_images() {
+    for edit in [false, true] {
+        for status in [300, 302, 307, 308] {
+            let mut response = successful_response();
+            response.status = status;
+            let (http, _) = recording_http_client(VecDeque::from([response]));
+            let generator = OpenAiImageGenerator::new(http, "gpt-image-2", "placeholder-key");
+            let mut request = ImageGenerationRequest {
+                prompt: "A blue circle".to_owned(),
+                ..Default::default()
+            };
+            if edit {
+                request.input_images.push(ImageGenerationInputImage {
+                    data: vec![1],
+                    mime_type: "image/png".to_owned(),
+                });
+            }
+            let result = generator.generate(&request).await;
+            assert_eq!(
+                result.as_ref().err().map(|error| error.core().kind),
+                Some(ErrorKind::InvalidOutput),
+                "status {status}, edit {edit}"
+            );
+        }
+    }
 }

@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use ai_interface::{ImageGenerationRequest, ImageGenerator};
+use ai_interface::{ErrorKind, ImageGenerationRequest, ImageGenerator};
 use json_http::{
     JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
     TransportBackedJsonHttpClient,
@@ -85,4 +85,29 @@ pub(super) fn recording_http_client() -> (Arc<dyn JsonHttpClient>, RecordedReque
         Arc::new(TransportBackedJsonHttpClient::new(transport)),
         requests,
     )
+}
+
+#[tokio::test]
+async fn final_redirect_bodies_never_become_google_images() {
+    for status in [300, 302, 307, 308] {
+        let transport = Arc::new(Unimock::new(JsonHttpTransportMock::execute.some_call(matching!(_)).returns(Ok(JsonHttpResponse {
+            status, headers: Default::default(), body: json!({"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"AQ=="}}]}}]})
+        }))));
+        let generator = GoogleImageGenerator::new(
+            Arc::new(TransportBackedJsonHttpClient::new(transport)),
+            "gemini-3.1-flash-image",
+            "placeholder-key",
+        );
+        let result = generator
+            .generate(&ImageGenerationRequest {
+                prompt: "A bird".into(),
+                ..Default::default()
+            })
+            .await;
+        assert_eq!(
+            result.as_ref().err().map(|error| error.core().kind),
+            Some(ErrorKind::InvalidOutput),
+            "status {status}"
+        );
+    }
 }

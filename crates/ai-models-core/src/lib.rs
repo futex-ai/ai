@@ -14,6 +14,7 @@ mod polling;
 mod provider_auth;
 mod provider_config;
 mod structured_output;
+mod successful_response;
 mod tool_call_identity;
 
 #[cfg(any(test, feature = "test-support"))]
@@ -40,6 +41,7 @@ pub use provider_config::{ProviderConfig, ProviderTimeouts};
 pub use structured_output::{
     parse_structured_output, parse_tool_call_arguments, validate_structured_output,
 };
+pub use successful_response::SuccessfulResponse;
 pub use tool_call_identity::{synthetic_tool_call_id, synthetic_tool_call_scope};
 
 #[cfg(test)]

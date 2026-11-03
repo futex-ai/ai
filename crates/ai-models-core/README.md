@@ -23,6 +23,9 @@ for retry, fallback, concurrency, and usage pricing.
 `classify_http_status` returns the precise shared `ErrorKind` for a failed
 HTTP status, and `None` below 400. `json_http_error_core` adds the HTTP 400
 context-limit override and response metadata for every modality.
+`SuccessfulResponse::check` admits only 2xx responses to native buffered
+parsers and binary consumers. It returns every other response intact for
+the adapter's existing status classification.
 Stream helpers distinguish transient failures before provider progress from
 interrupted failures after progress. The original HTTP source remains available.
 
@@ -155,6 +158,8 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - `src/catalog.rs` - `known_mock_models()`, which copies the mock catalog of
   `ai-interface`
 - `src/http_status.rs` - boundary-neutral HTTP failure classification
+- `src/successful_response.rs` - the shared 2xx boundary for native buffered
+  parsers and binary downloads
 - `src/errors.rs` - provider-agnostic HTTP and provider-stream failure mapping
 - `src/error_context.rs` and `src/capturing_auth.rs` - per-call error
   identity, safe diagnostics, response facts, and actual auth-hook capture

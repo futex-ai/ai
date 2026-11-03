@@ -6,7 +6,9 @@ use ai_interface::{
     ImageGenerationRequest, ImageGenerationResponse, ImageGenerationResult, ImageGenerator,
     ModelSpec,
 };
-use ai_models_core::{ApiKeyScheme, Clock, ErrorContext, ProviderConfig, SystemClock};
+use ai_models_core::{
+    ApiKeyScheme, Clock, ErrorContext, ProviderConfig, SuccessfulResponse, SystemClock,
+};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, JsonHttpMultipartField, JsonHttpResponse};
 
@@ -160,14 +162,17 @@ impl OpenAiImageGenerator {
         context: &ErrorContext,
         response: JsonHttpResponse<serde_json::Value>,
     ) -> ImageGenerationResult<ImageGenerationResponse> {
-        if response.status >= 400 {
-            return Err(classify_status(
-                context,
-                response.status,
-                &response.headers,
-                &response.body,
-            ));
-        }
+        let response = match SuccessfulResponse::check(response.status, response) {
+            Ok(response) => response.into_inner(),
+            Err(response) => {
+                return Err(classify_status(
+                    context,
+                    response.status,
+                    &response.headers,
+                    &response.body,
+                ));
+            }
+        };
         let context = context.for_response(&response.headers);
         parse_response(&context, &self.model_id, response.body)
     }

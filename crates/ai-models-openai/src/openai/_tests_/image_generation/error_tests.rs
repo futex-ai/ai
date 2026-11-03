@@ -54,3 +54,13 @@ fn unrecognized_client_failure_is_terminal_provider_error() {
         matches!(classify_status(&error_context("gpt-image-2"), 400, &Default::default(), &json!({"error": {"code": "invalid_parameter", "message": "bad size"}})), ref error if error.core().kind == ai_interface::ErrorKind::InvalidRequest && (error.core().message == "bad size"))
     );
 }
+#[test]
+fn redirect_policy_messages_keep_the_invalid_output_kind() {
+    let error = classify_status(
+        &error_context("gpt-image-2"),
+        302,
+        &Default::default(),
+        &json!({"error":{"code":"content_policy_violation","message":"redirect body"}}),
+    );
+    assert_eq!(error.core().kind, ai_interface::ErrorKind::InvalidOutput);
+}

@@ -47,6 +47,8 @@ or `headers` and no auth hook changed it. Standard credential headers always
 remain credentials. The builder marks credential names in `auth_headers`.
 Requests follow up to ten redirects. Redirects preserve credentials on the
 original origin and remove credential headers elsewhere.
+A 307 or 308 response with a multipart body is returned without following
+the redirect, because that body cannot be replayed.
 The transport also protects standard authorization, cookie, and API-key headers.
 It restores credentials only when a redirect returns to the original origin.
 Redirect hops share one total timeout budget.

@@ -21,7 +21,17 @@ pub(super) fn classify_status(
         .unwrap_or_else(|| format!("HTTP {status}"));
     let mut core = json_http_error_core(context, status, headers, body);
     core.message = context.redact(&message);
-    ImageGenerationError::new(core)
+    if status >= 400 {
+        return ImageGenerationError::new(core);
+    }
+    ImageGenerationError::with_source(
+        core,
+        context.source(json_http::Error::HttpStatus {
+            status,
+            headers: Box::new(headers.clone()),
+            body: body.clone(),
+        }),
+    )
 }
 
 pub(super) fn classify_request_error(

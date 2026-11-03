@@ -7,7 +7,8 @@ use ai_interface::{
     TranscriptionError, TranscriptionResult,
 };
 use ai_models_core::{
-    ApiKeyScheme, Clock, ErrorContext, ProviderConfig, SystemClock, json_http_error_core,
+    ApiKeyScheme, Clock, ErrorContext, ProviderConfig, SuccessfulResponse, SystemClock,
+    json_http_error_core,
 };
 use async_trait::async_trait;
 use json_http::{
@@ -84,13 +85,16 @@ impl OpenAiAudioTranscriber {
         let headers = response.headers().clone();
         let context = context.for_response(&headers);
         let status = response.status();
-        if status.is_client_error() || status.is_server_error() {
-            let body = match response.text().await {
-                Ok(body) => body,
-                Err(source) => return Err(request_failure(&context, source)),
-            };
-            return Err(classify_status(&context, status, &headers, body));
-        }
+        let response = match SuccessfulResponse::check(status.as_u16(), response) {
+            Ok(response) => response.into_inner(),
+            Err(response) => {
+                let body = match response.text().await {
+                    Ok(body) => body,
+                    Err(source) => return Err(request_failure(&context, source)),
+                };
+                return Err(classify_status(&context, status, &headers, body));
+            }
+        };
         let response = match response.json::<OpenAiTranscriptionResponse>().await {
             Ok(response) => response,
             Err(source) => return Err(request_failure(&context, source)),
@@ -195,7 +199,17 @@ fn classify_status(
     let value = serde_json::from_str(&body).unwrap_or_else(|_| Value::String(body.clone()));
     let mut core = json_http_error_core(context, status.as_u16(), headers, &value);
     core.message = context.redact(&body);
-    TranscriptionError::new(core)
+    if status.as_u16() >= 400 {
+        return TranscriptionError::new(core);
+    }
+    TranscriptionError::with_source(
+        core,
+        context.source(json_http::Error::HttpStatus {
+            status: status.as_u16(),
+            headers: Box::new(headers.clone()),
+            body: value,
+        }),
+    )
 }
 
 fn request_failure(context: &ErrorContext, source: reqwest::Error) -> TranscriptionError {

@@ -105,3 +105,20 @@ fn request() -> AudioTranscriptionRequest {
         content_type: "audio/webm".to_owned(),
     }
 }
+
+#[tokio::test]
+async fn final_redirect_bodies_never_become_transcripts() {
+    for status in [300, 302, 307, 308] {
+        let mut response = transcript();
+        response.status = status;
+        let (http, _) = buffered_client(Vec::new(), vec![response]);
+        let transcriber =
+            OpenAiAudioTranscriber::from_config(http, custom_spec("custom-audio"), config(None));
+        let result = transcriber.transcribe(&request()).await;
+        assert_eq!(
+            result.as_ref().err().map(|error| error.core().kind),
+            Some(ErrorKind::InvalidOutput),
+            "status {status}"
+        );
+    }
+}

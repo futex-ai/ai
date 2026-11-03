@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use ai_interface::{
     ErrorKind, VideoGenerationError, VideoGenerationRequest, VideoGenerationResult,
 };
-use ai_models_core::{ApiKeyScheme, ErrorContext};
+use ai_models_core::{ApiKeyScheme, ErrorContext, SuccessfulResponse};
 use json_http::{JsonHttpRequestBuilder, JsonHttpResponse};
 use serde_json::Value;
 use url::Url;
@@ -26,15 +26,15 @@ impl GoogleVideoGenerator {
             Ok(response) => response,
             Err(source) => return Err(classify_request_error(context, source)),
         };
-        if response.status >= 400 {
-            return Err(classify_status(
+        match SuccessfulResponse::check(response.status, response) {
+            Ok(response) => Ok(response.into_inner()),
+            Err(response) => Err(classify_status(
                 context,
                 response.status,
                 &response.headers,
                 &response.body,
-            ));
+            )),
         }
-        Ok(response)
     }
 
     pub(super) async fn submit(
@@ -120,14 +120,17 @@ impl GoogleVideoGenerator {
             Ok(response) => response,
             Err(source) => return Err(classify_request_error(context, source)),
         };
-        if response.status >= 400 {
-            return Err(classify_status(
-                context,
-                response.status,
-                &response.headers,
-                &Value::String(String::from_utf8_lossy(&response.body).into_owned()),
-            ));
-        }
+        let response = match SuccessfulResponse::check(response.status, response) {
+            Ok(response) => response.into_inner(),
+            Err(response) => {
+                return Err(classify_status(
+                    context,
+                    response.status,
+                    &response.headers,
+                    &Value::String(String::from_utf8_lossy(&response.body).into_owned()),
+                ));
+            }
+        };
         let context = context.for_response(&response.headers);
         if response.body.is_empty() {
             return Err(VideoGenerationError::NoVideo {

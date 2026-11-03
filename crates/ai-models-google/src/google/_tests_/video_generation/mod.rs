@@ -8,3 +8,4 @@ mod error_tests;
 mod request_tests;
 mod response_tests;
 mod sample_config_tests;
+mod status_tests;
