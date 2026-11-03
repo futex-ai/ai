@@ -4,7 +4,8 @@ Status: Active. [PR #24](https://github.com/futex-ai/ai/pull/24) is open for
 the first pull request, [PR #25](https://github.com/futex-ai/ai/pull/25)
 for the second, [PR #26](https://github.com/futex-ai/ai/pull/26) for the
 third, [PR #27](https://github.com/futex-ai/ai/pull/27) for the fourth, and
-[PR #28](https://github.com/futex-ai/ai/pull/28) for the fifth. The work spans eight stacked pull requests. Each earlier pull request keeps
+[PR #28](https://github.com/futex-ai/ai/pull/28) for the fifth, and
+[PR #29](https://github.com/futex-ai/ai/pull/29) for the sixth. The work spans eight stacked pull requests. Each earlier pull request keeps
 this plan. The last one deletes it, as the final milestone says.
 
 The workspace puts nine AI providers behind one interface, with a
@@ -335,6 +336,11 @@ All calls are mine, made on 2026-11-01.
   - When `main` holds the squash of the pull request before a branch, the
     branch records `main` with an `ours` merge, because `main`'s tree
     equals an ancestor of the branch.
+  - Milestone 13 depends on Milestone 10 only, because its conformance
+    scenarios cover the model adapters, not MCP. It runs on the branch of
+    pull request 8, stacked on pull request 6, while items 16 to 19 wait.
+    Pull request 7 (Milestone 12) then stacks on pull request 8, and
+    Milestone 14 comes last.
 
 ## Pull requests
 
@@ -601,7 +607,7 @@ Rebuild the tool loop on the stream and the caller-owned conversation.
 - [x] Mark `agent-loop.md` implemented.
 - [x] Run `cargo xtask check` and `cargo xtask smoke-test`, then commit
       and push.
-- [ ] Run the ship steps for pull request 6.
+- [x] Run the ship steps for pull request 6.
 
 ## Milestone 11: MCP evaluation
 
@@ -631,7 +637,7 @@ Apply the MCP decision.
 
 ## Milestone 13: Conformance
 
-Depends on: 10, 12
+Depends on: 10
 
 Finish the safety net. `AGENTS.md` already follows the shared skills since
 pull request #23.
