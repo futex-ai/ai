@@ -14,6 +14,8 @@ pub enum Modality {
     Transcription,
     /// A typed judgment model.
     Judgment,
+    /// A video generator.
+    Video,
 }
 
 #[derive(Clone, Debug, Eq, Error, PartialEq)]

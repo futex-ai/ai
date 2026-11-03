@@ -1,10 +1,14 @@
 # Provider Registry Protocol
 
-Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
-When implemented, this protocol replaces the constructor rules of `new`,
-`with_auth`, and `with_catalog_auth` in the provider protocol docs and in
-[provider-call-controls.md](provider-call-controls.md).
+This protocol governs how hosts build adapters through the registry. The
+per-provider constructors `new`, `with_auth`, and `with_catalog_auth` remain
+until the user answers the
+[open constructor default-effort decision](../../plans/follow-ups/constructor-default-effort.md).
+The provider protocol docs and
+[provider call controls](provider-call-controls.md) describe those
+constructors.
 
 This protocol defines the provider config, base URLs, auth, extra headers,
 timeouts, the adapters that the registry builds from a model spec, and the
@@ -127,9 +131,10 @@ regional endpoint covered only part of a provider.
 - The registry has one Cargo feature for each provider. It includes exactly
   the providers whose features are on.
 - Decision: one registry builds every adapter from a spec and a provider
-  config. The rejected alternative kept constructors such as `new`,
-  `with_auth`, and `with_catalog_auth` in each provider crate. Each host and
-  each test then repeated a match over providers.
+  config. It is the preferred single factory for hosts. The rejected
+  alternative made per-provider constructors such as `new`, `with_auth`, and
+  `with_catalog_auth` the normal factory. Each host and each test then
+  repeated a match over providers.
 
 ## Converter
 

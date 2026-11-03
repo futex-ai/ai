@@ -5,7 +5,6 @@ use std::sync::Arc;
 use std::task::{Context, Poll, Waker};
 
 use ai_interface::{ConversationMessage, DynModel, NoopLogger, Tool};
-use ai_models_google::GoogleVideoGenerator;
 use ai_tool_calling::{
     InMemoryToolOutputStore, RunOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn,
 };
@@ -24,7 +23,6 @@ pub(crate) fn run() -> Result<()> {
         Ok(()) => {}
         Err(source) => return Err(Error::SmokeRegistry { source }),
     }
-    let _google_video = GoogleVideoGenerator::new(client.clone(), "smoke-veo-model", "google-key");
     let model: DynModel = Arc::new(SmokePaginationModel::new());
     let tool: Arc<dyn Tool> = Arc::new(SmokeTool);
     let mcp_tool: Arc<dyn Tool> = Arc::new(build_mcp_tool()?);

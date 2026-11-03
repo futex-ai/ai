@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use ai_interface::{
-    DynAudioTranscriber, DynImageGenerator, DynJudgmentModel, DynModel, LegacyMessageConverter,
-    ModelCatalog, ModelSpec, ProviderId,
+    DynAudioTranscriber, DynImageGenerator, DynJudgmentModel, DynModel, DynVideoGenerator,
+    LegacyMessageConverter, ModelCatalog, ModelSpec, ProviderId,
 };
 use json_http::DynJsonHttpClient;
 
@@ -59,6 +59,12 @@ impl Registry {
     pub fn judgment(&self, spec: &ModelSpec) -> BuildResult<DynJudgmentModel> {
         let config = self.configured(&spec.provider)?;
         modalities::judgment(self.http_client.clone(), spec, config)
+    }
+
+    /// Builds a video generator from its model spec.
+    pub fn video(&self, spec: &ModelSpec) -> BuildResult<DynVideoGenerator> {
+        let config = self.configured(&spec.provider)?;
+        modalities::video(self.http_client.clone(), spec, config)
     }
 
     /// Returns the combined catalogs of the included providers.

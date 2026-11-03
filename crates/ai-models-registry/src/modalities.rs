@@ -1,9 +1,11 @@
-//! Feature-selected image, transcription, and judgment factories.
+//! Feature-selected image, transcription, judgment, and video factories.
 
 #[cfg(any(feature = "google", feature = "openai", feature = "typesafe"))]
 use std::sync::Arc;
 
-use ai_interface::{DynAudioTranscriber, DynImageGenerator, DynJudgmentModel, ModelSpec};
+use ai_interface::{
+    DynAudioTranscriber, DynImageGenerator, DynJudgmentModel, DynVideoGenerator, ModelSpec,
+};
 use json_http::DynJsonHttpClient;
 
 use crate::{BuildError, BuildResult, Modality, ProviderConfig};
@@ -62,6 +64,24 @@ pub(crate) fn judgment(
         _ => Err(BuildError::UnsupportedModality {
             provider: spec.provider.clone(),
             modality: Modality::Judgment,
+        }),
+    }
+}
+
+/// Builds the video adapter of an included, configured provider.
+pub(crate) fn video(
+    http: DynJsonHttpClient,
+    spec: &ModelSpec,
+    config: ProviderConfig,
+) -> BuildResult<DynVideoGenerator> {
+    match (spec.provider.as_str(), http, config) {
+        #[cfg(feature = "google")]
+        ("google", http, config) => Ok(Arc::new(
+            ai_models_google::GoogleVideoGenerator::from_config(http, spec.clone(), config),
+        )),
+        _ => Err(BuildError::UnsupportedModality {
+            provider: spec.provider.clone(),
+            modality: Modality::Video,
         }),
     }
 }

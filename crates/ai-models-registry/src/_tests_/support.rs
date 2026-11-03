@@ -8,41 +8,53 @@ use ai_interface::{
 use json_http::{DynJsonHttpClient, TransportBackedJsonHttpClient};
 use unimock::Unimock;
 
-pub(super) const PROVIDERS: &[(&str, bool, [bool; 4])] = &[
+pub(super) const PROVIDERS: &[(&str, bool, [bool; 5])] = &[
     (
         "anthropic",
         cfg!(feature = "anthropic"),
-        [true, false, false, false],
+        [true, false, false, false, false],
     ),
     (
         "deepseek",
         cfg!(feature = "deepseek"),
-        [true, false, false, false],
+        [true, false, false, false, false],
     ),
     (
         "google",
         cfg!(feature = "google"),
-        [true, true, false, false],
+        [true, true, false, false, true],
     ),
-    ("kimi", cfg!(feature = "kimi"), [true, false, false, false]),
+    (
+        "kimi",
+        cfg!(feature = "kimi"),
+        [true, false, false, false, false],
+    ),
     (
         "minimax",
         cfg!(feature = "minimax"),
-        [true, false, false, false],
+        [true, false, false, false, false],
     ),
     (
         "openai",
         cfg!(feature = "openai"),
-        [true, true, true, false],
+        [true, true, true, false, false],
     ),
-    ("qwen", cfg!(feature = "qwen"), [true, false, false, false]),
+    (
+        "qwen",
+        cfg!(feature = "qwen"),
+        [true, false, false, false, false],
+    ),
     (
         "typesafe",
         cfg!(feature = "typesafe"),
-        [false, false, false, true],
+        [false, false, false, true, false],
     ),
-    ("xai", cfg!(feature = "xai"), [true, false, false, false]),
-    ("uninstalled", false, [false; 4]),
+    (
+        "xai",
+        cfg!(feature = "xai"),
+        [true, false, false, false, false],
+    ),
+    ("uninstalled", false, [false; 5]),
 ];
 
 const DEFAULTS: CustomModelDefaults = CustomModelDefaults {

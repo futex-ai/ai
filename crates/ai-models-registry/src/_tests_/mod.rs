@@ -36,3 +36,5 @@ mod judgment_tests;
 mod media_support;
 #[cfg(feature = "openai")]
 mod transcription_tests;
+#[cfg(feature = "google")]
+mod video_tests;

@@ -32,14 +32,14 @@ model spec or to custom defaults, and commit the result. No CI step or
 `check` step compares the committed matrix with the generator output.
 
 `smoke-test` constructs the Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
-OpenAI, QwenCloud, and xAI model adapters, the OpenAI transcriber, and the
-Google and OpenAI image generators, the Google video generator, plus the TypeSafe Jev judgment
-adapter, with placeholder credentials. It also runs an in-memory tool-output
-pagination flow. Provider construction does not send network requests or
-require real credentials.
-Chat, image, transcription, and judgment construction uses `ai-models-registry`.
-The Google video smoke check uses its provider constructor with a custom model id.
-Provider crates retain their public constructors.
+OpenAI, QwenCloud, and xAI model adapters, the OpenAI transcriber, the Google
+and OpenAI image generators, the Google video generator, and the TypeSafe Jev
+judgment adapter, with placeholder credentials. It also runs an in-memory
+tool-output pagination flow. Provider construction does not send network
+requests or require real credentials.
+Every provider adapter is built through `ai-models-registry`. The transcriber
+and the video generator use custom specs, because no catalog lists those
+models. Provider crates retain their public constructors.
 
 `tests/live_models.rs` owns the chat live suite and its credential-free guards.
 Each ignored provider test reads one explicit `LIVE_MODEL_API_KEY` and takes
@@ -99,7 +99,7 @@ core has the transient or rate limited kind use the shared retry schedule of
 `ai-models-policy` for no more than three attempts. Credential-free guards
 cover catalog registration, construction, probe shape, retry behavior,
 normalized validation, and workflow boundaries.
-None of the four live suites makes provider calls during `check` or
+None of the live suites makes provider calls during `check` or
 `smoke-test`.
 
 `record-streams --provider <name>` reads `RECORD_API_KEY` and records the
@@ -171,7 +171,7 @@ cargo clippy -p xtask --all-targets --all-features
   updates to the model capability reference
 - `src/file_length.rs` - Rust line-count audit
 - `src/smoke/` - credential-free provider, MCP, OAuth, and pagination smoke tests
-- `src/smoke/providers.rs` - registry construction for chat, image,
+- `src/smoke/providers.rs` - registry construction for chat, image, video,
   transcription, and judgment adapters with placeholder credentials
 - `tests/live_models.rs` and `tests/live_models/` - ignored credentialed tests
   plus credential-free event, catalog, runner, tool-choice, and workflow guards

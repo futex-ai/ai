@@ -44,10 +44,10 @@ in-memory tool-calling runtime behavior.
   required policy and a fallback event for each failed model, concurrency
   limits, and usage pricing
 - A provider registry in `ai-models-registry` that builds model, image,
-  transcription, and judgment adapters from a spec and one provider config
-  for each provider: base URL, API key or auth hook, extra headers, and
-  timeouts. It combines the catalogs and the stored-message converters of
-  the providers that its Cargo features include
+  video, transcription, and judgment adapters from a spec and one provider
+  config for each provider: base URL, API key or auth hook, extra headers,
+  and timeouts. It combines the catalogs and the stored-message converters
+  of the providers that its Cargo features include
 - Shared adapter helpers in `ai-models-core` for structured output
   validation and HTTP and stream failure classification
 - Trait-backed buffered and incremental SSE HTTP client support through
@@ -80,10 +80,9 @@ in-memory tool-calling runtime behavior.
 - [Chat Completions dialects](docs/protocol/chat-completions-dialects.md)
   defines the shared Chat Completions engine and the settings of its
   DeepSeek, Kimi, Qwen, MiniMax, and xAI dialects.
-- [Provider registry](docs/protocol/provider-registry.md) (approved, not
-  implemented) defines provider config, base URLs, auth, headers, timeouts,
-  the adapters that a spec builds, and the converter for stored
-  conversations.
+- [Provider registry](docs/protocol/provider-registry.md) defines provider
+  config, base URLs, auth, headers, timeouts, the adapters that a spec
+  builds, and the converter for stored conversations.
 - [Model policies](docs/protocol/model-policies.md) defines the error core
   and kinds, retry, fallback policies, concurrency, and pricing.
 - [Agent loop](docs/protocol/agent-loop.md) (approved, not implemented)
@@ -158,9 +157,9 @@ boundary they need:
 - `ai-models-typesafe`: TypeSafe Jev judgment adapter and its model specs
 - `ai-models-policy`: retry, fallback, concurrency, and pricing layers
 - `ai-models-registry`: `Registry`, which holds one `ProviderConfig` for each
-  provider and builds model, image, transcription, and judgment adapters
-  from specs, with the combined catalog, the composed stored-message
-  converter, and typed `BuildError` values
+  provider and builds model, image, video, transcription, and judgment
+  adapters from specs, with the combined catalog, the composed
+  stored-message converter, and typed `BuildError` values
 - `ai-tool-calling`: in-memory tool-calling runtime with output policy, output
   store integration, and the intrinsic `tool_output_read` reader
 - `ai-mcp`: MCP 2025-06-18/2025-03-26 streamable HTTP client and
@@ -176,14 +175,14 @@ boundary they need:
 store one `ProviderConfig` for each provider: its id, an optional base URL,
 an API key or auth hook, extra headers, and optional idle, total, and poll
 timeouts. A new config replaces the earlier config of its provider. `model`,
-`image`, `transcription`, and `judgment` build an adapter from a spec, with
-the client and the config of its provider. A timeout that the config does
-not set keeps the adapter default. Building sends no request and reads no
-environment variable or secret store.
+`image`, `video`, `transcription`, and `judgment` build an adapter from a
+spec, with the client and the config of its provider. A timeout that the
+config does not set keeps the adapter default. Building sends no request and
+reads no environment variable or secret store.
 
 - Every provider except TypeSafe builds models. OpenAI and Google build
-  image adapters, OpenAI builds transcription adapters, and TypeSafe builds
-  judgment adapters.
+  image adapters, Google builds video adapters, OpenAI builds transcription
+  adapters, and TypeSafe builds judgment adapters.
 - A build fails with a `BuildError` when no Cargo feature includes the
   provider, when the provider has no config, or when it has no adapter of
   that kind.
@@ -192,13 +191,25 @@ environment variable or secret store.
   converter cover only the included providers.
 - The registry adds no policy layer. Compose the layers of
   `ai-models-policy` around the built model.
-- The registry has no video builder yet. The
-  [provider registry protocol](docs/protocol/provider-registry.md) stays
-  approved, not implemented, until an open video contract question is
-  answered. Until then, build the Google video adapter with its provider
-  constructor and a custom spec.
 - The per-provider constructors stay until the open constructor
   default-effort decision is answered. Prefer the registry in new code.
+
+No catalog lists a video model or a transcription model. Build these
+adapters from a custom spec that names the provider model:
+
+```rust
+use ai_interface::{DynVideoGenerator, ModelSpec};
+use ai_models_registry::{BuildResult, Registry};
+
+fn veo(registry: &Registry, model_id: String) -> BuildResult<DynVideoGenerator> {
+    let spec = ModelSpec::custom(
+        ai_models_google::PROVIDER_ID,
+        model_id,
+        &ai_models_google::CUSTOM_DEFAULTS,
+    );
+    registry.video(&spec)
+}
+```
 
 ### Model specs and effort
 
@@ -305,8 +316,8 @@ The smoke test constructs every provider adapter with placeholder credentials
 and exercises the in-memory tool runtime. It performs no provider requests and
 does not require credentials or network access.
 
-Credentialed live checks for models, images, judgments, and videos make
-billable calls. Those tests stay ignored, so `cargo xtask check` never runs
+Credentialed live checks for models, images, and judgments make billable
+calls. Those tests stay ignored, so `cargo xtask check` never runs
 them. Run their credential-free guards with:
 
 ```sh

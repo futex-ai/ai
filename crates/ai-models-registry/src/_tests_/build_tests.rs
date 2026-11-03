@@ -22,6 +22,7 @@ fn builds_supported_adapters_without_transport_or_auth() {
             registry.image(&spec).is_ok(),
             registry.transcription(&spec).is_ok(),
             registry.judgment(&spec).is_ok(),
+            registry.video(&spec).is_ok(),
         ];
         assert_eq!(built, *supported, "{provider}, enabled={enabled}");
     }
@@ -116,11 +117,12 @@ fn insert_replaces_configuration_for_one_provider() {
     );
 }
 
-fn errors(registry: &Registry, spec: &ModelSpec) -> [(Modality, Option<BuildError>); 4] {
+fn errors(registry: &Registry, spec: &ModelSpec) -> [(Modality, Option<BuildError>); 5] {
     [
         (Modality::Model, registry.model(spec).err()),
         (Modality::Image, registry.image(spec).err()),
         (Modality::Transcription, registry.transcription(spec).err()),
         (Modality::Judgment, registry.judgment(spec).err()),
+        (Modality::Video, registry.video(spec).err()),
     ]
 }

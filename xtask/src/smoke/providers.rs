@@ -1,4 +1,4 @@
-//! Registry construction smoke coverage for the unblocked provider modalities.
+//! Registry construction smoke coverage for all provider modalities.
 
 use ai_interface::ModelSpec;
 use ai_models_anthropic::CLAUDE_SONNET_5;
@@ -55,6 +55,11 @@ pub(super) fn build(client: DynJsonHttpClient) -> BuildResult<()> {
     let _deepseek = registry.model(&DEEPSEEK_V4_PRO)?;
     let _google = registry.model(&GEMINI_3_6_FLASH)?;
     let _google_image = registry.image(&GEMINI_3_1_FLASH_IMAGE)?;
+    let _google_video = registry.video(&ModelSpec::custom(
+        ai_models_google::PROVIDER_ID,
+        "smoke-veo-model",
+        &ai_models_google::CUSTOM_DEFAULTS,
+    ))?;
     let _kimi = registry.model(&KIMI_K3)?;
     let _minimax = registry.model(&MINIMAX_M3)?;
     let _openai = registry.model(&GPT_5_6_SOL)?;
