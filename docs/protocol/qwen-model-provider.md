@@ -11,9 +11,8 @@ structured-output, usage, and error contracts.
 Implemented by `ai-models-compat`, with shared routing types, conversation
 parts, and provider state in `ai-interface`.
 
-Once implemented, the
-[Chat Completions dialects protocol](chat-completions-dialects.md) governs the
-shared engine that serves this provider.
+The [Chat Completions dialects protocol](chat-completions-dialects.md) governs
+the shared engine that serves this provider.
 
 ## Scope
 
@@ -27,9 +26,9 @@ model events for the primary choice: `delta.content` gives text deltas, and
 `delta.reasoning_content` gives reasoning deltas.
 
 Token Plan and Coding Plan endpoints, snapshot and preview ids, legacy Qwen
-models, built-in tools, web search, video and audio content, Responses and
-Anthropic-compatible APIs, and custom endpoints are outside this initial
-contract. Those capabilities have different availability,
+models, built-in tools, web search, video and audio content, and Responses
+and Anthropic-compatible APIs are outside this initial contract. Those
+capabilities have different availability,
 billing, or wire behavior and require explicit contracts rather than silent
 partial support.
 
@@ -54,7 +53,7 @@ perform network work during construction.
 
 ## API Boundary
 
-The adapter uses:
+By default, the adapter uses:
 
 ```text
 POST https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions
@@ -63,10 +62,14 @@ Content-Type: application/json
 ```
 
 Requests set `stream: true` and `stream_options.include_usage: true`. The
-default constructor selects the `qwen3.7-plus` spec, whose default effort
-enables thinking. `with_catalog_auth` accepts a model spec. Token Plan and
-Coding Plan keys require different endpoints and are not interchangeable
-with this boundary.
+[provider registry](provider-registry.md) builds the model from a spec and
+the provider config of `qwen`. The registry is the preferred way to build
+the model. Until the user answers the
+[open constructor default-effort decision](../../plans/follow-ups/constructor-default-effort.md),
+the model also keeps its constructors. The default constructor selects the
+`qwen3.7-plus` spec, whose default effort enables thinking.
+`with_catalog_auth` accepts a model spec. Token Plan and Coding Plan keys
+require different endpoints and are not interchangeable with this boundary.
 
 ## Known Model Specs
 
@@ -102,9 +105,12 @@ keeps native sampling defaults. Non-thinking mode supports all strict choices.
 Thinking mode supports `none` and `auto`; strict `required` and named-function
 choices return typed `UnsupportedControl`. `RequiredOrAuto` maps to forced
 `required` when thinking is disabled and to `auto` with tools retained when
-thinking is enabled. A total timeout replaces the default 3,600-second overall
-SSE deadline; the idle timeout is 120 seconds. `PreferDeferred` falls back to synchronous,
-and `RequireDeferred` is unsupported.
+thinking is enabled. The default overall SSE deadline is 3,600 seconds, and
+the default idle timeout is 120 seconds. A provider config can replace these
+defaults, as the [provider registry](provider-registry.md#timeouts) says. An
+explicit portable total timeout replaces the overall deadline of that call,
+also when the provider config sets one. `PreferDeferred` falls back to
+synchronous, and `RequireDeferred` is unsupported.
 
 Shared roles map directly to `user`, `assistant`, and `tool`. Plain content is
 sent as a string. Empty user and tool content remains an empty string. Empty

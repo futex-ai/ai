@@ -12,9 +12,8 @@ Implemented. The
 [DeepSeek Model Provider implementation plan](../../plans/add-deepseek-model-provider.md)
 records the milestones and verification used to deliver this contract.
 
-Once implemented, the
-[Chat Completions dialects protocol](chat-completions-dialects.md) governs the
-shared engine that serves this provider.
+The [Chat Completions dialects protocol](chat-completions-dialects.md) governs
+the shared engine that serves this provider.
 
 ## Scope
 
@@ -28,10 +27,10 @@ reasoning usage. Its stream emits model events for the primary choice:
 reasoning deltas.
 
 The provider does not support the retired `deepseek-chat` or
-`deepseek-reasoner` aliases, image input, the Anthropic-format API, third-party
-or custom endpoints, FIM completion, chat prefix completion, strict tool mode,
-or beta endpoints. These capabilities
-require separate contracts rather than silent partial support.
+`deepseek-reasoner` aliases, image input, the Anthropic-format API, FIM
+completion, chat prefix completion, strict tool mode, or beta endpoints.
+These capabilities require separate contracts rather than silent partial
+support.
 
 ## Ownership
 
@@ -55,7 +54,7 @@ construction.
 
 ## API Boundary
 
-The adapter uses:
+By default, the adapter uses:
 
 ```text
 POST https://api.deepseek.com/chat/completions
@@ -64,12 +63,19 @@ Content-Type: application/json
 ```
 
 Requests set `stream: true` and `stream_options.include_usage: true`.
-`DeepSeekModel::new` and `with_auth` construct the `deepseek-v4-pro` spec,
-whose default effort is high. `with_catalog_auth` accepts the injected
-client, a model spec, and auth.
+The [provider registry](provider-registry.md) builds the model from a spec
+and the provider config of `deepseek`. The registry is the preferred way to
+build the model. Until the user answers the
+[open constructor default-effort decision](../../plans/follow-ups/constructor-default-effort.md),
+`DeepSeekModel` also keeps its constructors. `new` and `with_auth` construct
+the `deepseek-v4-pro` spec, whose default effort is high.
+`with_catalog_auth` accepts the injected client, a model spec, and auth.
 
-Each completion uses a 3,600-second overall deadline and a 120-second idle
-timeout. An explicit portable total timeout replaces the overall deadline.
+By default, each completion uses a 3,600-second overall deadline and a
+120-second idle timeout. A provider config can replace these defaults, as
+the [provider registry](provider-registry.md#timeouts) says. An explicit
+portable total timeout replaces the overall deadline of that call, also
+when the provider config sets one.
 
 ## Known Model Specs
 

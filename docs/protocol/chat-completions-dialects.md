@@ -1,11 +1,6 @@
 # Chat Completions Dialects Protocol
 
-Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
-
-When implemented, this protocol governs the shared Chat Completions engine.
-The "Stream" and "Response rules" sections are in force. Until Milestone 8,
-their kinds stand for the current errors that
-[model policies](model-policies.md#rules-in-force-until-milestone-8) gives.
+Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
 This protocol defines the engine that serves the Chat Completions providers,
 the settings of a dialect, and the xAI dialect. The provider docs of

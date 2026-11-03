@@ -17,6 +17,8 @@ lifecycles inside their owning `ai-models-*` adapters.
   layers.
 - Each provider crate owns the model specs of its provider. Each adapter
   owns native field names, endpoint selection, and request lifecycle.
+- `ai-models-registry` holds one provider config for each provider and
+  builds each chat adapter from a spec.
 - `json-http` carries overall and idle timeouts plus a typed body but never
   inspects provider payloads.
 
@@ -94,7 +96,12 @@ final-request regression test. This exception applies to sampling on
 reasoning models that require native sampling defaults; it does not permit
 silently dropping unsupported stops, limits, or forced tool choices.
 
-Each chat adapter holds one model spec. `new`, `with_auth`, and
+Each chat adapter holds one model spec. The
+[provider registry](provider-registry.md) builds each chat adapter from a
+spec and the provider config of its provider. The registry is the preferred
+way to build a chat adapter. Until the user answers the
+[open constructor default-effort decision](../../plans/follow-ups/constructor-default-effort.md),
+each adapter also keeps its constructors. `new`, `with_auth`, and
 `with_catalog_auth` take the spec, except that the DeepSeek, Kimi, and Qwen
 `new` and `with_auth` build the default spec of their provider. The spec
 carries the sampling rule of its model, so a model with adaptive thinking

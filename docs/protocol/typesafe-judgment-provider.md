@@ -52,7 +52,7 @@ and the deterministic `MockJudgmentModel`.
 The TypeSafe provider id is `typesafe`. Successful responses use
 `provider: "typesafe"`.
 
-Requests use:
+By default, requests use:
 
 ```text
 POST https://api.typesafe.ai/v1/systemone
@@ -60,6 +60,11 @@ Authorization: Bearer <api-key>
 Content-Type: application/json
 ```
 
+The [provider registry](provider-registry.md) builds the judgment adapter
+from a spec and the provider config of `typesafe`. The registry is the
+preferred way to build the adapter. Until the user answers the
+[open constructor default-effort decision](../../plans/follow-ups/constructor-default-effort.md),
+the adapter also keeps its constructors.
 `TypeSafeJudgmentModel::new(http_client, model_id, api_key)` and
 `with_auth(http_client, model_id, auth)` accept an injected
 `DynJsonHttpClient` and an explicit API key or `DynJsonHttpAuth`;
@@ -67,7 +72,7 @@ Content-Type: application/json
 default request timeout. A catalog spec gives the provider model id to pass.
 Any provider model id is accepted so callers can pin a versioned release
 before the catalog lists it. The adapter must not read environment
-variables, load config, or resolve secrets.
+variables, load deployment configuration, or resolve secrets.
 
 ## Catalog
 
