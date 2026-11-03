@@ -2,8 +2,8 @@
 
 `ai-models-google` provides Google-specific chat, image, and video
 implementations for the shared AI interfaces. Depend on it when you want to
-call Gemini or Veo models with explicit auth and shared runtime wrappers from
-neighboring crates.
+call Gemini models, or a Veo video model that you name, with explicit auth and
+shared runtime wrappers from neighboring crates.
 
 ## Responsibilities
 
@@ -76,7 +76,7 @@ against the spec before transport. The adapter handles:
 This crate does not load config, read environment variables, or resolve
 credentials on its own. It exports one `ModelSpec` constant for each catalog
 model: `GEMINI_3_6_FLASH`, `GEMINI_3_5_FLASH_LITE`,
-`GEMINI_3_1_FLASH_IMAGE`, and `VEO_3_1_GENERATE_PREVIEW`. `CATALOG` lists
+and `GEMINI_3_1_FLASH_IMAGE`. `CATALOG` lists
 them in that order, and `known_models()` returns a copy of it.
 `GEMINI_3_6_FLASH` is the first catalog spec and the default used by
 workspace examples. It lists low, medium, and high efforts. Its default
@@ -111,9 +111,8 @@ the id to pass.
 
 `GoogleVideoGenerator` submits text or one inline first frame to Veo's
 `predictLongRunning` endpoint, polls the returned operation, and downloads the
-first generated MP4 with the same API-key auth. The
-`VEO_3_1_GENERATE_PREVIEW` spec identifies the video catalog model, and its
-`provider_model_id` is the id to pass. The adapter maps portable
+first generated MP4 with the same API-key auth. The catalog lists no video
+model, so callers pass a provider model id. The adapter maps portable
 landscape/portrait, four/eight-second, and 720p controls, enforces one
 ten-minute total deadline through an injected polling runtime, rejects download
 URIs outside the configured API origin, and keeps policy, timeout, rate-limit,
@@ -127,7 +126,7 @@ use std::sync::Arc;
 use ai_interface::{ImageGenerator, ModelSpec, VideoGenerator};
 use ai_models_google::{
     CUSTOM_DEFAULTS, GEMINI_2_5_PRO, GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, PROVIDER_ID,
-    VEO_3_1_GENERATE_PREVIEW, GoogleImageGenerator, GoogleModel, GoogleVideoGenerator,
+    GoogleImageGenerator, GoogleModel, GoogleVideoGenerator,
     known_models,
 };
 use json_http::ReqwestJsonHttpClient;
@@ -160,10 +159,10 @@ fn build_image_generator() -> GoogleImageGenerator {
     )
 }
 
-fn build_video_generator() -> GoogleVideoGenerator {
+fn build_video_generator(provider_model_id: &str) -> GoogleVideoGenerator {
     GoogleVideoGenerator::new(
         Arc::new(ReqwestJsonHttpClient::new()),
-        VEO_3_1_GENERATE_PREVIEW.provider_model_id,
+        provider_model_id,
         "google-demo",
     )
 }
@@ -203,7 +202,6 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/live-image-api-tests.md`](../../docs/protocol/live-image-api-tests.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
-- [`../../docs/protocol/live-video-api-tests.md`](../../docs/protocol/live-video-api-tests.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

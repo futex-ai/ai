@@ -7,6 +7,6 @@ mod openai;
 
 pub use catalog::{
     CATALOG, CUSTOM_DEFAULTS, GPT_5_4_MINI, GPT_5_4_NANO, GPT_5_5, GPT_5_6_LUNA, GPT_5_6_SOL,
-    GPT_5_6_TERRA, GPT_IMAGE_2, PROVIDER_ID, SORA_2, known_models,
+    GPT_5_6_TERRA, GPT_IMAGE_2, PROVIDER_ID, known_models,
 };
-pub use openai::{OpenAiAudioTranscriber, OpenAiImageGenerator, OpenAiModel, OpenAiVideoGenerator};
+pub use openai::{OpenAiAudioTranscriber, OpenAiImageGenerator, OpenAiModel};

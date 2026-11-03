@@ -5,7 +5,7 @@ use serde_json::json;
 
 use super::super::response::{OperationState, parse_operation};
 
-const OPERATION: &str = "models/veo-3.1-generate-preview/operations/op_1";
+const OPERATION: &str = "models/custom-video-model/operations/op_1";
 
 #[test]
 fn parses_pending_and_completed_operations() {

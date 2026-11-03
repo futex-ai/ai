@@ -5,7 +5,7 @@ use serde_json::json;
 
 use super::{
     GEMINI_3_1_FLASH_IMAGE, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH, PROVIDER_ID,
-    VEO_3_1_GENERATE_PREVIEW, known_models,
+    known_models,
 };
 
 #[test]
@@ -24,20 +24,12 @@ fn gemini_3_6_flash_is_the_first_catalog_model() {
 }
 
 #[test]
-fn veo_3_1_is_routable_for_video_generation() {
-    let models = known_models();
-    let model = models
-        .iter()
-        .find(|model| model.provider_model_id == VEO_3_1_GENERATE_PREVIEW.provider_model_id)
-        .expect("Veo 3.1 should exist");
-
-    assert_eq!(model.provider, PROVIDER_ID);
-    assert_eq!(model.provider_model_id, "veo-3.1-generate-preview");
-    assert_eq!(model.context_window_tokens, 1_024);
-    assert!(model.has_feature(ModelFeature::VideoGeneration));
-    assert!(model.has_feature(ModelFeature::Vision));
-    assert!(!model.has_feature(ModelFeature::ImageGeneration));
-    assert!(!model.has_feature(ModelFeature::VideoInput));
+fn catalog_excludes_retired_veo_preview_model() {
+    assert!(
+        known_models()
+            .iter()
+            .all(|model| model.provider_model_id != "veo-3.1-generate-preview")
+    );
 }
 
 #[test]

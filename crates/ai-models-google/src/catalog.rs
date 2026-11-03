@@ -47,7 +47,6 @@ const GEMINI_FEATURES: &[ModelFeature] = &[
     ModelFeature::Reasoning,
 ];
 const IMAGE_FEATURES: &[ModelFeature] = &[ModelFeature::ImageGeneration, ModelFeature::Vision];
-const VIDEO_FEATURES: &[ModelFeature] = &[ModelFeature::VideoGeneration, ModelFeature::Vision];
 
 /// Balanced Gemini model with low, medium, and high thinking.
 pub const GEMINI_3_6_FLASH: ModelSpec = ModelSpec {
@@ -117,34 +116,11 @@ pub const GEMINI_3_1_FLASH_IMAGE: ModelSpec = ModelSpec {
     }),
 };
 
-/// Veo video generation preview model.
-pub const VEO_3_1_GENERATE_PREVIEW: ModelSpec = ModelSpec {
-    provider: PROVIDER_ID,
-    provider_model_id: Cow::Borrowed("veo-3.1-generate-preview"),
-    context_window_tokens: 1_024,
-    max_output_tokens: 0,
-    efforts: EffortSet::new(Effort::Disabled),
-    default_effort: Effort::Disabled,
-    forced_tool_choice: ForcedToolChoice::Always,
-    sampling: Sampling::Adjustable,
-    supports_stop_sequences: true,
-    supports_deferred: false,
-    requires_output_limit: false,
-    replay_efforts: Cow::Borrowed(&[]),
-    features: Cow::Borrowed(VIDEO_FEATURES),
-    routing: Some(RoutingTiers {
-        intelligence: IntelligenceScore::Ten,
-        speed: SpeedTier::Slow,
-        cost: CostTier::Premium,
-    }),
-};
-
 /// One spec for each known Google provider model.
 pub const CATALOG: &[ModelSpec] = &[
     GEMINI_3_6_FLASH,
     GEMINI_3_5_FLASH_LITE,
     GEMINI_3_1_FLASH_IMAGE,
-    VEO_3_1_GENERATE_PREVIEW,
 ];
 
 /// Returns Google models known to this provider crate.

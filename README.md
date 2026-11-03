@@ -23,8 +23,8 @@ in-memory tool-calling runtime behavior.
 - Provider adapters for Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, Google and MiniMax inline video
-  input, OpenAI and Gemini image generation, OpenAI Sora and Google Veo video
-  generation, internally streamed completions and public incremental events for
+  input, OpenAI and Gemini image generation, a Google Veo video adapter for
+  caller-named models, internally streamed completions and public incremental events for
   every synchronous provider path (with xAI's deferred path remaining buffered
   and event-silent), structured output, usage normalization, effort lowering
   to the efforts of each model spec, and typed errors
@@ -84,14 +84,11 @@ in-memory tool-calling runtime behavior.
 - [Image generation](docs/protocol/image-generation.md) defines the shared
   one-image generation/editing boundary and the OpenAI and Google mappings.
 - [Video generation](docs/protocol/video-generation.md) defines the shared
-  one-video generation boundary, portable controls, and asynchronous OpenAI
-  and Google mappings.
+  one-video generation boundary, portable controls, and the asynchronous
+  Google mapping.
 - [Live image API tests](docs/protocol/live-image-api-tests.md) defines the
   implemented credentialed catalog coverage, low-cost probe, response
   validation, and CI secret boundary for image providers.
-- [Live video API tests](docs/protocol/live-video-api-tests.md) defines the
-  implemented credentialed video catalog coverage, shortest portable probe,
-  MP4 validation, and CI secret boundary.
 - [TypeSafe judgment provider](docs/protocol/typesafe-judgment-provider.md)
   and its [judgment boundary](docs/protocol/judgment-boundary.md) define the
   implemented provider-agnostic condition/choice/score judgment boundary and
@@ -138,8 +135,9 @@ boundary they need:
 - `ai-models-anthropic`: Anthropic model adapter
 - `ai-models-compat`: one Chat Completions engine with public `deepseek`,
   `kimi`, `qwen`, `minimax`, and `xai` dialect modules and their model specs
-- `ai-models-google`: Google Gemini chat/image and Veo video adapters
-- `ai-models-openai`: OpenAI model, transcription, image, and video adapters
+- `ai-models-google`: Google Gemini chat/image adapters and a Veo video
+  adapter with no catalog model
+- `ai-models-openai`: OpenAI model, transcription, and image adapters
 - `ai-models-typesafe`: TypeSafe Jev judgment adapter and its model specs
 - `ai-models-multi`: ordered fallback model adapter
 - `ai-tool-calling`: in-memory tool-calling runtime with output policy, output
@@ -223,7 +221,6 @@ them. Run their credential-free guards with:
 cargo test --locked -p xtask --test live_models
 cargo test --locked -p xtask --test live_images
 cargo test --locked -p xtask --test live_judgments
-cargo test --locked -p xtask --test live_videos
 ```
 
 [`docs/development.md`](docs/development.md) gives the billable commands, the
@@ -267,8 +264,6 @@ cargo xtask review
   catalog and CI verification contract
 - `docs/protocol/video-generation.md`: normative shared video generation and
   asynchronous provider mapping contract
-- `docs/protocol/live-video-api-tests.md`: implemented credentialed video-provider
-  catalog and CI verification contract
 - `docs/protocol/typesafe-judgment-provider.md`: normative shared judgment
   boundary and TypeSafe Jev provider contract
 - `docs/protocol/live-judgment-api-tests.md`: implemented credentialed judgment
@@ -293,6 +288,6 @@ cargo xtask review
 GitHub Actions runs the same Rust verification expected locally on pull requests
 and pushes to `main`: formatting, Clippy, tests, Rust file-length lint,
 credential-free smoke tests, and `cargo xtask check`. Separate workflows run
-the billable live model, image, video, and judgment suites. The
+the billable live model, image, and judgment suites. The
 [CI section of the development guide](docs/development.md#ci) describes each
 workflow, its triggers, and its secrets.
