@@ -28,8 +28,8 @@ belong to the consumer.
 - `duration: VideoGenerationDuration`: `Seconds4` (default) or `Seconds8`.
 - `resolution: VideoGenerationResolution`: currently `P720` (default).
 
-The controls are the portable intersection of the Sora 2 and Veo 3.1 APIs
-that the boundary first targeted. Provider-only durations and resolutions are
+The controls define the portable video generation boundary.
+Provider-only durations and resolutions are
 excluded instead of being silently changed by one provider.
 
 `VideoGenerationResponse` contains provider and configured provider-model
@@ -75,8 +75,8 @@ video API.
 
 ## Google Mapping
 
-The Google catalog lists no video model. Google no longer serves
-`veo-3.1-generate-preview`, and no successor model has passed a live check.
+The Google catalog lists no video model. Google no longer serves the retired
+preview model, and no successor model has passed a live check.
 Callers pass the provider model id to `GoogleVideoGenerator`.
 
 `GoogleVideoGenerator` uses injected JSON HTTP and auth collaborators:

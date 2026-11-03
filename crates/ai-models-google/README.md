@@ -98,8 +98,7 @@ the balanced image catalog entry.
 `GoogleVideoGenerator` submits text or one inline first frame to Veo's
 `predictLongRunning` endpoint, polls the returned operation, and downloads the
 first generated MP4 with the same API-key auth. The catalog lists no video
-model, because Google no longer serves `veo-3.1-generate-preview`, so callers
-pass the provider model id. The adapter maps portable
+model, so callers pass a provider model id. The adapter maps portable
 landscape/portrait, four/eight-second, and 720p controls, enforces one
 ten-minute total deadline through an injected polling runtime, rejects download
 URIs outside the configured API origin, and keeps policy, timeout, rate-limit,
