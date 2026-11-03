@@ -3,7 +3,8 @@
 Status: Active. [PR #24](https://github.com/futex-ai/ai/pull/24) is open for
 the first pull request, [PR #25](https://github.com/futex-ai/ai/pull/25)
 for the second, [PR #26](https://github.com/futex-ai/ai/pull/26) for the
-third, and [PR #27](https://github.com/futex-ai/ai/pull/27) for the fourth. The work spans eight stacked pull requests. Each earlier pull request keeps
+third, [PR #27](https://github.com/futex-ai/ai/pull/27) for the fourth, and
+[PR #28](https://github.com/futex-ai/ai/pull/28) for the fifth. The work spans eight stacked pull requests. Each earlier pull request keeps
 this plan. The last one deletes it, as the final milestone says.
 
 The workspace puts nine AI providers behind one interface, with a
@@ -573,7 +574,7 @@ Build any catalog entry from one config shape.
 - [ ] Delete the per-provider constructors after the user answers item 24.
 - [x] Run `cargo xtask check` and `cargo xtask smoke-test`, then commit
       and push.
-- [ ] Run the ship steps for pull request 5.
+- [x] Run the ship steps for pull request 5.
 
 ## Milestone 10: Agent loop
 
