@@ -3,13 +3,14 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, ErrorKind, FinishReason, ModelError, StructuredOutputSchema,
-    ToolDefinition, ToolMock, test_support::model_response_stream,
+    ConversationMessage, ConversationPart, ErrorKind, FinishReason, ModelError,
+    StructuredOutputSchema, ToolDefinition, ToolMock, test_support::model_response_stream,
 };
 use ai_tool_calling::{Agent, AgentEvent, Error, RunOutcome};
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use super::controlled::ControlledCalls;
 use super::support::{call, collect, model, outcome, request, response, runtime};
 
 #[tokio::test]
@@ -168,5 +169,53 @@ async fn an_empty_stop_appends_no_assistant_message() {
             steps_taken: 1,
             structured_output: None
         }
+    );
+}
+
+#[tokio::test]
+async fn truncation_keeps_replay_parts_and_previous_text_without_running_its_calls() {
+    let controls = ControlledCalls::new(1);
+    controls.gates[0].complete(json!(true));
+    let mut truncated = response(
+        "",
+        vec![call("never-run", "controlled")],
+        FinishReason::Truncated,
+    );
+    truncated
+        .parts
+        .insert(0, ConversationPart::reasoning("partial reasoning"));
+    let (model, _) = model(vec![
+        Ok(model_response_stream(response(
+            "working",
+            vec![call("c0", "controlled")],
+            FinishReason::ToolCalls,
+        ))),
+        Ok(model_response_stream(truncated)),
+    ]);
+    let agent = runtime(model, vec![controls.tool.clone()]);
+    let mut conversation = vec![ConversationMessage::user("start")];
+    let events = collect(agent.run(&mut conversation, request(None)).as_mut())
+        .await
+        .unwrap();
+    assert_eq!(
+        outcome(&events),
+        &RunOutcome::Truncated {
+            assistant_message: "working".to_owned(),
+            steps_taken: 2
+        }
+    );
+    assert_eq!(controls.started.lock().unwrap().as_slice(), ["c0"]);
+    assert_eq!(conversation.len(), 4);
+    assert_eq!(
+        conversation[3].parts,
+        vec![ConversationPart::reasoning("partial reasoning")]
+    );
+    assert!(conversation[3].tool_calls().is_empty());
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| matches!(event, AgentEvent::ToolStarted { .. }))
+            .count(),
+        1
     );
 }

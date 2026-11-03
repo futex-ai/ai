@@ -51,6 +51,10 @@ pub enum AgentEvent {
     Finished(RunOutcome),
 }
 
+#[cfg_attr(
+    any(test, doctest, feature = "test-support"),
+    unimock::unimock(api = AgentEventStreamMock)
+)]
 #[async_trait]
 /// Pull-based stream whose lifetime holds the caller's conversation borrow.
 pub trait AgentEventStream: Send {
@@ -61,6 +65,10 @@ pub trait AgentEventStream: Send {
 /// Owned event stream borrowing the caller's turn state.
 pub type DynAgentEventStream<'a> = Box<dyn AgentEventStream + 'a>;
 
+#[cfg_attr(
+    any(test, doctest, feature = "test-support"),
+    unimock::unimock(api = AgentMock)
+)]
 /// Agent boundary for turns over caller-owned conversation history.
 pub trait Agent: Send + Sync {
     /// Runs a turn, appending messages to the caller's conversation.

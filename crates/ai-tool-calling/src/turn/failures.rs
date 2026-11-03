@@ -83,3 +83,31 @@ fn output_store_read_error_message(error: &ToolOutputStoreError) -> String {
         _ => UNREADABLE_OUTPUT.to_owned(),
     }
 }
+
+pub(super) fn safe_output_read_source(error: ToolOutputStoreError) -> SafeErrorSource {
+    let diagnostic = match &error {
+        ToolOutputStoreError::UnavailableOutput { .. } => {
+            "[ai_tool_calling/output_store] UnavailableOutput: output is no longer available"
+                .to_owned()
+        }
+        ToolOutputStoreError::InvalidOffset {
+            offset,
+            total_bytes,
+            ..
+        } => format!(
+            "[ai_tool_calling/output_store] InvalidOffset: offset {offset} for output of {total_bytes} bytes"
+        ),
+        ToolOutputStoreError::InvalidLength { length } => {
+            format!("[ai_tool_calling/output_store] InvalidLength: length {length}; minimum is 1")
+        }
+        ToolOutputStoreError::NoCompleteCharacterFits {
+            offset,
+            length,
+            minimum_usable_length,
+        } => format!(
+            "[ai_tool_calling/output_store] NoCompleteCharacterFits: length {length} at offset {offset}; minimum usable length is {minimum_usable_length}"
+        ),
+        _ => return SafeErrorSource::redacted(error),
+    };
+    SafeErrorSource::new(error, vec![diagnostic])
+}

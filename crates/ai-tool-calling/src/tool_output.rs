@@ -1,6 +1,8 @@
 //! Synchronous output preparation and recoverable asynchronous storage.
 
-use ai_interface::{ToolOutputEnvelope, ToolOutputId, ToolOutputRemainderUnavailableReason};
+use ai_interface::{
+    SafeErrorSource, ToolOutputEnvelope, ToolOutputId, ToolOutputRemainderUnavailableReason,
+};
 use serde_json::Value;
 
 use crate::output_store::prefix_window;
@@ -64,7 +66,14 @@ impl PreparedToolOutput {
                     ToolOutputStoreError::AggregateExhausted { .. } => {
                         ToolOutputRemainderUnavailableReason::BudgetExhausted
                     }
-                    _ => ToolOutputRemainderUnavailableReason::StoreUnavailable,
+                    ToolOutputStoreError::WriteFailure { .. } => {
+                        ToolOutputRemainderUnavailableReason::StoreUnavailable
+                    }
+                    source => {
+                        return Err(Error::UnexpectedOutputStoreWrite {
+                            source: SafeErrorSource::redacted(source),
+                        });
+                    }
                 };
                 warn_degradation(&self.tool_name, total_bytes, &reason);
                 (None, replace_remainder_reason(self.fallback, reason))
@@ -88,7 +97,7 @@ pub(crate) fn prepare_successful_tool_output(
         Err(source) => {
             return Err(Error::OutputSerialization {
                 tool_name: tool_name.to_owned(),
-                source,
+                source: SafeErrorSource::redacted(source),
             });
         }
     };
@@ -157,7 +166,9 @@ pub(crate) fn readable_envelope(
         window.next_offset,
     ) {
         Ok(envelope) => Ok(envelope),
-        Err(source) => Err(Error::OutputEnvelope { source }),
+        Err(source) => Err(Error::OutputEnvelope {
+            source: SafeErrorSource::redacted(source),
+        }),
     }
 }
 
@@ -166,7 +177,7 @@ pub(crate) fn envelope_json(envelope: &ToolOutputEnvelope, tool_name: &str) -> R
         Ok(content) => Ok(content),
         Err(source) => Err(Error::EnvelopeSerialization {
             tool_name: tool_name.to_owned(),
-            source,
+            source: SafeErrorSource::redacted(source),
         }),
     }
 }
@@ -176,7 +187,7 @@ pub(crate) fn envelope_value(envelope: &ToolOutputEnvelope, tool_name: &str) -> 
         Ok(content) => Ok(content),
         Err(source) => Err(Error::EnvelopeSerialization {
             tool_name: tool_name.to_owned(),
-            source,
+            source: SafeErrorSource::redacted(source),
         }),
     }
 }

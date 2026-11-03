@@ -2,7 +2,7 @@
 
 use std::error::Error as StdError;
 
-use ai_interface::ToolOutputId;
+use ai_interface::{SafeErrorSource, ToolOutputId};
 use thiserror::Error;
 
 use super::ToolOutputStoreWindow;
@@ -42,7 +42,7 @@ pub enum ToolOutputStoreError {
         /// Store-computed degraded first window.
         window: ToolOutputStoreWindow,
         /// Underlying storage failure.
-        source: Box<dyn StdError + Send + Sync>,
+        source: SafeErrorSource,
     },
     /// The requested output id is not available in this store scope.
     #[error(
@@ -92,7 +92,7 @@ impl ToolOutputStoreError {
     ) -> Self {
         Self::WriteFailure {
             window,
-            source: Box::new(source),
+            source: SafeErrorSource::redacted(source),
         }
     }
 }

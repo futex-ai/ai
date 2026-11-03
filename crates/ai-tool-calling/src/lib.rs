@@ -11,8 +11,11 @@ mod policy;
 mod runtime;
 mod tool_output;
 mod turn;
+mod typed_tool;
 
 pub use agent::{Agent, AgentEvent, AgentEventStream, AgentRequest, DynAgentEventStream};
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub use agent::{AgentEventStreamMock, AgentMock};
 pub use error::{Error, Result};
 pub use output_store::{
     DynToolOutputStore, InMemoryToolOutputStore, ToolOutputStore, ToolOutputStoreError,
@@ -30,6 +33,7 @@ pub use turn::{
     ModelResponseCheckpoint, NoopModelResponseCheckpoint, NoopTurnCheckpoint, RunOutcome,
     TurnCheckpoint,
 };
+pub use typed_tool::{TypedTool, TypedToolAdapter};
 
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use output_store::ToolOutputStoreMock;

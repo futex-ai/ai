@@ -6,8 +6,9 @@ use std::{
 };
 
 use ai_interface::{
-    ConversationMessage, DynModel, DynModelEventStream, DynTool, FinishReason, ModelMock,
-    ModelRequest, ModelResponse, ModelResult, ModelUsage, NoopLogger, ToolCall,
+    ConversationMessage, DynLogger, DynModel, DynModelEventStream, DynTool, FinishReason,
+    LoggerMock, ModelMock, ModelRequest, ModelResponse, ModelResult, ModelUsage, NoopLogger,
+    ToolActivityLogEntry, ToolCall, ToolCallLogEntry,
 };
 use ai_tool_calling::{
     AgentEvent, AgentEventStream, AgentRequest, InMemoryToolOutputStore, RunOutcome,
@@ -17,6 +18,45 @@ use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
 pub(super) type Requests = Arc<Mutex<Vec<ModelRequest>>>;
+
+pub(super) struct ToolObservations {
+    pub(super) logger: DynLogger,
+    pub(super) calls: Arc<Mutex<Vec<ToolCallLogEntry>>>,
+    pub(super) activities: Arc<Mutex<Vec<ToolActivityLogEntry>>>,
+}
+
+pub(super) fn observe_tools() -> ToolObservations {
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let activities = Arc::new(Mutex::new(Vec::new()));
+    let logger = Unimock::new((
+        LoggerMock::log_model_call
+            .some_call(matching!(_))
+            .returns(Ok(())),
+        LoggerMock::log_tool_call
+            .each_call(matching!(_))
+            .answers_arc({
+                let calls = calls.clone();
+                Arc::new(move |_, entry: &ToolCallLogEntry| {
+                    calls.lock().unwrap().push(entry.clone());
+                    Ok(())
+                })
+            }),
+        LoggerMock::log_tool_activity
+            .each_call(matching!(_))
+            .answers_arc({
+                let activities = activities.clone();
+                Arc::new(move |_, entry: &ToolActivityLogEntry| {
+                    activities.lock().unwrap().push(entry.clone());
+                    Ok(())
+                })
+            }),
+    ));
+    ToolObservations {
+        logger: Arc::new(logger),
+        calls,
+        activities,
+    }
+}
 
 pub(super) fn model(streams: Vec<ModelResult<DynModelEventStream>>) -> (DynModel, Requests) {
     let streams = Arc::new(Mutex::new(VecDeque::from(streams)));

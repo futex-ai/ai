@@ -1,7 +1,9 @@
 //! Dispatches one call against the immutable dependencies of a turn.
 
+use std::io;
+
 use ai_interface::{
-    ConversationMessage, SafeErrorSource, ToolCall, ToolError, ToolInvocation,
+    ConversationMessage, SafeErrorSource, ToolCall, ToolCallLogResult, ToolError, ToolInvocation,
     ToolOutputReadRequest,
 };
 
@@ -13,7 +15,7 @@ use crate::tool_output::{
 };
 use crate::{Error, Result, ToolExecutionRecord, ToolOutputStoreReadRequest};
 
-use super::pending::PendingMessages;
+use super::{failures::safe_output_read_source, pending::PendingMessages};
 
 pub(super) async fn dispatch_tool_call(
     config: RuntimeConfig,
@@ -43,6 +45,9 @@ pub(super) async fn dispatch_tool_call(
             call.name.clone(),
             call.id.clone(),
         ),
+        ToolCallLogResult::Success {
+            output: prepared.fallback.clone(),
+        },
         false,
     );
     let managed = prepared.finish(&config.output_store).await?;
@@ -66,7 +71,7 @@ async fn read_output(
         Err(source) => {
             return Err(Error::Tool(ToolError::invalid_arguments(
                 TOOL_OUTPUT_READ,
-                source,
+                serde_json::Error::io(io::Error::other(SafeErrorSource::redacted(source))),
             )));
         }
     };
@@ -85,7 +90,7 @@ async fn read_output(
         Err(source) => {
             return Err(Error::Tool(ToolError::execution(
                 TOOL_OUTPUT_READ,
-                SafeErrorSource::redacted(source),
+                safe_output_read_source(source),
             )));
         }
     };
