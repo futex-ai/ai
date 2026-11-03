@@ -3,7 +3,7 @@
 use std::{collections::BTreeSet, sync::Arc};
 
 use ai_interface::{DynJudgmentModel, ModelFeature, ModelSpec, ProviderId};
-use ai_models_typesafe::TypeSafeJudgmentModel;
+use ai_models_registry::{ProviderConfig, Registry, catalog};
 use json_http::{
     DynJsonHttpAuth, DynJsonHttpClient, JsonHttpClient, ReqwestJsonHttpClient, StaticHeaderAuth,
 };
@@ -41,9 +41,12 @@ impl LiveJudgmentProvider {
     }
 
     pub(super) fn catalog(self) -> Vec<ModelSpec> {
-        match self {
-            Self::TypeSafe => ai_models_typesafe::CATALOG.to_vec(),
-        }
+        catalog()
+            .all()
+            .iter()
+            .filter(|model| model.provider == self.provider_id())
+            .cloned()
+            .collect()
     }
 
     pub(super) fn judgment_catalog(self) -> Vec<ModelSpec> {
@@ -62,13 +65,10 @@ impl LiveJudgmentProvider {
         auth: DynJsonHttpAuth,
         spec: &ModelSpec,
     ) -> DynJudgmentModel {
-        match self {
-            Self::TypeSafe => Arc::new(TypeSafeJudgmentModel::with_auth(
-                client,
-                spec.provider_model_id.as_ref(),
-                auth,
-            )),
-        }
+        Registry::new(client)
+            .with_provider(ProviderConfig::with_auth(self.provider_id(), auth))
+            .judgment(spec)
+            .expect("registered judgment provider and config")
     }
 }
 
@@ -150,20 +150,7 @@ fn every_non_judgment_provider_kind_maps_to_none() {
 }
 
 fn all_known_models() -> Vec<ModelSpec> {
-    [
-        ai_models_anthropic::CATALOG.to_vec(),
-        ai_models_compat::deepseek::CATALOG.to_vec(),
-        ai_models_google::CATALOG.to_vec(),
-        ai_models_compat::kimi::CATALOG.to_vec(),
-        ai_models_compat::minimax::CATALOG.to_vec(),
-        ai_models_openai::CATALOG.to_vec(),
-        ai_models_compat::qwen::CATALOG.to_vec(),
-        ai_models_typesafe::CATALOG.to_vec(),
-        ai_models_compat::xai::CATALOG.to_vec(),
-    ]
-    .into_iter()
-    .flatten()
-    .collect()
+    catalog().all().to_vec()
 }
 
 fn non_judgment_provider_kinds() -> [ProviderId; 9] {

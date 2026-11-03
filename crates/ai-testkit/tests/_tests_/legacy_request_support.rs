@@ -2,7 +2,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use ai_interface::{ConversationMessage, ModelRequest};
+use ai_interface::{ConversationMessage, ModelRequest, ProviderId};
+use ai_models_registry::ProviderConfig;
 use ai_testkit::{
     provider::{ModelFactory, Provider, ProviderModelFactory},
     scenario::Scenario,
@@ -48,7 +49,10 @@ pub(super) async fn request_body(provider: Provider, message: ConversationMessag
             provider,
             &spec.text_id(),
             Arc::new(TransportBackedJsonHttpClient::new(transport)),
-            provider.auth("test-key".to_owned()),
+            ProviderConfig::with_auth(
+                ProviderId::new(provider.name()),
+                provider.auth("test-key".to_owned()),
+            ),
         )
         .unwrap();
     let _stream = model

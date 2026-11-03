@@ -6,8 +6,7 @@ use std::{
 };
 
 use ai_interface::{DynImageGenerator, ModelFeature, ModelSpec, ProviderId};
-use ai_models_google::GoogleImageGenerator;
-use ai_models_openai::OpenAiImageGenerator;
+use ai_models_registry::{ProviderConfig, Registry, catalog};
 use json_http::{
     DynJsonHttpAuth, DynJsonHttpClient, JsonHttpClient, ReqwestJsonHttpClient, StaticHeaderAuth,
 };
@@ -49,10 +48,12 @@ impl LiveImageProvider {
     }
 
     pub(super) fn catalog(self) -> Vec<ModelSpec> {
-        match self {
-            Self::Google => ai_models_google::CATALOG.to_vec(),
-            Self::OpenAi => ai_models_openai::CATALOG.to_vec(),
-        }
+        catalog()
+            .all()
+            .iter()
+            .filter(|model| model.provider == self.provider_id())
+            .cloned()
+            .collect()
     }
 
     pub(super) fn image_catalog(self) -> Vec<ModelSpec> {
@@ -75,18 +76,10 @@ impl LiveImageProvider {
         auth: DynJsonHttpAuth,
         spec: &ModelSpec,
     ) -> DynImageGenerator {
-        match self {
-            Self::Google => Arc::new(GoogleImageGenerator::with_auth(
-                client,
-                spec.provider_model_id.as_ref(),
-                auth,
-            )),
-            Self::OpenAi => Arc::new(OpenAiImageGenerator::with_auth(
-                client,
-                spec.provider_model_id.as_ref(),
-                auth,
-            )),
-        }
+        Registry::new(client)
+            .with_provider(ProviderConfig::with_auth(self.provider_id(), auth))
+            .image(spec)
+            .expect("registered image provider and config")
     }
 }
 
@@ -189,19 +182,7 @@ fn registry_constructs_every_dynamic_image_adapter_without_network_access() {
 }
 
 fn all_known_models() -> Vec<ai_interface::ModelSpec> {
-    [
-        ai_models_anthropic::CATALOG.to_vec(),
-        ai_models_compat::deepseek::CATALOG.to_vec(),
-        ai_models_google::CATALOG.to_vec(),
-        ai_models_compat::kimi::CATALOG.to_vec(),
-        ai_models_compat::minimax::CATALOG.to_vec(),
-        ai_models_openai::CATALOG.to_vec(),
-        ai_models_compat::qwen::CATALOG.to_vec(),
-        ai_models_compat::xai::CATALOG.to_vec(),
-    ]
-    .into_iter()
-    .flatten()
-    .collect()
+    catalog().all().to_vec()
 }
 
 fn non_image_provider_kinds() -> [ProviderId; 8] {

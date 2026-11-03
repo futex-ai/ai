@@ -5,21 +5,8 @@ use std::sync::Arc;
 use std::task::{Context, Poll, Waker};
 
 use ai_interface::{ConversationMessage, DynModel, NoopLogger, Tool};
-use ai_models_anthropic::{AnthropicModel, CLAUDE_SONNET_5};
-use ai_models_compat::deepseek::DeepSeekModel;
-use ai_models_compat::kimi::KimiModel;
-use ai_models_compat::minimax::{MINIMAX_M3, MiniMaxModel};
-use ai_models_compat::qwen::QwenModel;
-use ai_models_compat::xai::{GROK_4_5, XaiModel};
-use ai_models_google::{
-    GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, GoogleImageGenerator, GoogleModel,
-    GoogleVideoGenerator, VEO_3_1_GENERATE_PREVIEW,
-};
-use ai_models_openai::{
-    GPT_5_6_SOL, GPT_IMAGE_2, OpenAiAudioTranscriber, OpenAiImageGenerator, OpenAiModel,
-    OpenAiVideoGenerator, SORA_2,
-};
-use ai_models_typesafe::{JEV_LATEST, TypeSafeJudgmentModel};
+use ai_models_google::{GoogleVideoGenerator, VEO_3_1_GENERATE_PREVIEW};
+use ai_models_openai::{OpenAiVideoGenerator, SORA_2};
 use ai_tool_calling::{
     InMemoryToolOutputStore, RunOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn,
 };
@@ -29,44 +16,25 @@ use crate::error::{Error, Result};
 
 use super::mcp::{build_mcp_tool, build_oauth_mcp_client};
 use super::pagination::{SmokeModelError, SmokePaginationModel, SmokeTool};
+use super::providers;
 
 /// Runs all credential-free construction and pagination checks.
 pub(crate) fn run() -> Result<()> {
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
-    let _anthropic = AnthropicModel::new(client.clone(), CLAUDE_SONNET_5, "anthropic-key");
-    let _deepseek = DeepSeekModel::new(client.clone(), "deepseek-key");
-    let _google = GoogleModel::new(client.clone(), GEMINI_3_6_FLASH, "google-key");
-    let _google_image = GoogleImageGenerator::new(
-        client.clone(),
-        GEMINI_3_1_FLASH_IMAGE.provider_model_id.as_ref(),
-        "google-key",
-    );
+    match providers::build(client.clone()) {
+        Ok(()) => {}
+        Err(source) => return Err(Error::SmokeRegistry { source }),
+    }
     let _google_video = GoogleVideoGenerator::new(
         client.clone(),
         VEO_3_1_GENERATE_PREVIEW.provider_model_id.as_ref(),
         "google-key",
-    );
-    let _kimi = KimiModel::new(client.clone(), "kimi-key");
-    let _minimax = MiniMaxModel::new(client.clone(), MINIMAX_M3, "minimax-key");
-    let _openai = OpenAiModel::new(client.clone(), GPT_5_6_SOL, "openai-key");
-    let _openai_image = OpenAiImageGenerator::new(
-        client.clone(),
-        GPT_IMAGE_2.provider_model_id.as_ref(),
-        "openai-key",
     );
     let _openai_video = OpenAiVideoGenerator::new(
         client.clone(),
         SORA_2.provider_model_id.as_ref(),
         "openai-key",
     );
-    let _qwen = QwenModel::new(client.clone(), "qwen-key");
-    let _typesafe = TypeSafeJudgmentModel::new(
-        client.clone(),
-        JEV_LATEST.provider_model_id.as_ref(),
-        "typesafe-key",
-    );
-    let _xai = XaiModel::new(client, GROK_4_5, "xai-key");
-    let _transcriber = OpenAiAudioTranscriber::new("gpt-4o-mini-transcribe", "openai-key");
 
     let model: DynModel = Arc::new(SmokePaginationModel::new());
     let tool: Arc<dyn Tool> = Arc::new(SmokeTool);

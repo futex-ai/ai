@@ -29,6 +29,9 @@ pub struct ScenarioRecording {
     pub source: RecordingSource,
     /// Provider/model text id used to construct the adapter.
     pub catalog_model_id: String,
+    /// Recorded provider base URL, or the provider default when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
     /// Request effort, or the selected spec's default when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effort: Option<Effort>,

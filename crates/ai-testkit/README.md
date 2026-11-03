@@ -8,7 +8,7 @@ Product libraries do not depend on this crate.
 
 - Build the same six scenarios for each chat provider.
 - Store sanitized HTTP exchanges with their source, the text id of the model
-  spec, and the request effort.
+  spec, the request effort, and optional provider base URL.
 - Run production adapters against ordered replay transports.
 - Compare every sanitized outbound request with its recorded exchange.
 - Snapshot the ordered model events of each scenario, then its folded
@@ -27,6 +27,11 @@ Each provider starts with its first chat spec. The tool loop uses the first
 spec whose default effort enables thinking, when the catalog has one. Each
 request of a scenario carries the effort of its recording. A recording
 without an effort runs at the default effort of the spec.
+`ProviderModelFactory` builds models through `ai-models-registry` with the
+injected HTTP client and `ProviderConfig`. Its `ModelFactory` input accepts
+that config. `Provider::catalog` filters the registry's combined catalog to
+the selected provider's chat specs. Provider crates retain their public
+constructors. `Provider::auth` also remains available for injected auth fixtures.
 The scenarios are:
 
 | Filename stem | Request and expected exercise |
@@ -52,7 +57,12 @@ It shows both requests as pretty JSON.
 
 Recordings live at `recordings/<provider>/<scenario>.json`.
 Each JSON file has `source`, `catalog_model_id`, an optional `effort`, and
-`exchanges` fields. `catalog_model_id` holds the `provider/model` text id of
+`exchanges` fields. It can also have an optional `base_url` field.
+Replay applies that URL to `ProviderConfig`, including its path prefix.
+A trailing slash changes no endpoint. A file without `base_url` uses the
+provider default. Every existing synthetic recording names its current base
+URL. Recorded requests and responses keep their original values.
+`catalog_model_id` holds the `provider/model` text id of
 the spec, such as `anthropic/claude-sonnet-5`. The replay runner finds that
 text id in a combined catalog of the provider's chat specs.
 `source` is `synthetic` for hand-built fixtures and `recorded` for live runs.
@@ -78,8 +88,8 @@ with the recording transport and running the production adapter. This keeps
 
 The legacy conversion test reads one stored version 1 assistant message for
 each provider from `tests/fixtures/version1/`. It reads the message through a
-`LegacyMessageConverter` that composes the converters of all eight
-providers. It replays the `tool_loop` recording with that converted message
+converter from the registry. It replays the `tool_loop` recording with that
+converted message
 as the assistant message of the second step. Every outbound request must
 match its recorded exchange.
 
@@ -149,7 +159,7 @@ See `json-http` for the transport boundary's status and failure limits.
 
 - `src/scenario.rs` builds the first request and the tool follow-up request.
 - `src/provider.rs` selects chat specs, resolves stored text ids, and constructs
-  adapters from specs through `ModelFactory`.
+  registry adapters from specs and provider config through `ModelFactory`.
 - `src/storage.rs` defines `ScenarioRecording`, `RecordingStorage`, and its JSON
   filesystem implementation.
 - `src/runner.rs` implements `ConformanceRunner` with injected adapters and replay.
@@ -173,3 +183,4 @@ See `json-http` for the transport boundary's status and failure limits.
 - [Model stream](../../docs/protocol/model-stream.md)
 - [Model policies](../../docs/protocol/model-policies.md)
 - [Conversation parts](../../docs/protocol/conversation-parts.md)
+- [Provider registry](../../docs/protocol/provider-registry.md)

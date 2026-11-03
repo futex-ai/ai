@@ -1,6 +1,7 @@
 {
   "source": "synthetic",
   "catalog_model_id": "qwen/qwen3.7-max",
+  "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode",
   "effort": "high",
   "exchanges": [
     {

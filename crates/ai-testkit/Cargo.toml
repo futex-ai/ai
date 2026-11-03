@@ -7,9 +7,8 @@ authors.workspace = true
 publish = false
 
 [dependencies]
-ai-models-compat = { workspace = true }
+ai-models-registry = { workspace = true }
 ai-interface = { workspace = true }
-ai-models-core = { workspace = true }
 ai-models-anthropic = { workspace = true }
 ai-models-openai = { workspace = true }
 ai-models-google = { workspace = true }

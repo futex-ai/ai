@@ -3,19 +3,12 @@
 use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
 use ai_interface::{DynModel, ModelCatalog, ModelFeature, ModelSpec};
-use ai_models_anthropic::AnthropicModel;
-use ai_models_compat::deepseek::DeepSeekModel;
-use ai_models_compat::kimi::KimiModel;
-use ai_models_compat::minimax::MiniMaxModel;
-use ai_models_compat::qwen::QwenModel;
-use ai_models_compat::xai::XaiModel;
-use ai_models_google::GoogleModel;
-use ai_models_openai::OpenAiModel;
+use ai_models_registry::{ProviderConfig, Registry, catalog};
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::{Error, Result},
+    error::{Error, ErrorResultExt, Result},
     scenario::Scenario,
 };
 
@@ -70,18 +63,10 @@ impl Provider {
 
     /// Chat-only catalog. Image, video, and judgment adapters are excluded.
     pub fn catalog(self) -> Vec<ModelSpec> {
-        let catalog = match self {
-            Self::Anthropic => ai_models_anthropic::CATALOG.to_vec(),
-            Self::Openai => ai_models_openai::CATALOG.to_vec(),
-            Self::Google => ai_models_google::CATALOG.to_vec(),
-            Self::Deepseek => ai_models_compat::deepseek::CATALOG.to_vec(),
-            Self::Kimi => ai_models_compat::kimi::CATALOG.to_vec(),
-            Self::Qwen => ai_models_compat::qwen::CATALOG.to_vec(),
-            Self::Minimax => ai_models_compat::minimax::CATALOG.to_vec(),
-            Self::Xai => ai_models_compat::xai::CATALOG.to_vec(),
-        };
-        catalog
-            .into_iter()
+        catalog()
+            .all()
+            .iter()
+            .filter(|model| model.provider.as_str() == self.name())
             .filter(|model| {
                 ![
                     ModelFeature::ImageGeneration,
@@ -91,6 +76,7 @@ impl Provider {
                 .iter()
                 .any(|feature| model.has_feature(*feature))
             })
+            .cloned()
             .collect()
     }
 
@@ -143,13 +129,13 @@ impl FromStr for Provider {
 
 /// Injectable adapter factory for replay and live recording.
 pub trait ModelFactory: Send + Sync {
-    /// Builds an adapter from a stored provider/model text id and an injected client.
+    /// Builds an adapter from a stored text id, an injected client, and provider config.
     fn build(
         &self,
         provider: Provider,
         id: &str,
         client: DynJsonHttpClient,
-        auth: DynJsonHttpAuth,
+        config: ProviderConfig,
     ) -> Result<DynModel>;
 }
 
@@ -162,22 +148,15 @@ impl ModelFactory for ProviderModelFactory {
         provider: Provider,
         id: &str,
         client: DynJsonHttpClient,
-        auth: DynJsonHttpAuth,
+        config: ProviderConfig,
     ) -> Result<DynModel> {
         let catalog = ModelCatalog::new().with_models(provider.catalog());
         let Some(spec) = catalog.find(id).cloned() else {
             return Err(Error::UnknownModel { id: id.to_owned() });
         };
-        let model: DynModel = match provider {
-            Provider::Anthropic => Arc::new(AnthropicModel::with_catalog_auth(client, spec, auth)),
-            Provider::Openai => Arc::new(OpenAiModel::with_catalog_auth(client, spec, auth)),
-            Provider::Google => Arc::new(GoogleModel::with_catalog_auth(client, spec, auth)),
-            Provider::Deepseek => Arc::new(DeepSeekModel::with_catalog_auth(client, spec, auth)),
-            Provider::Kimi => Arc::new(KimiModel::with_catalog_auth(client, spec, auth)),
-            Provider::Qwen => Arc::new(QwenModel::with_catalog_auth(client, spec, auth)),
-            Provider::Minimax => Arc::new(MiniMaxModel::with_catalog_auth(client, spec, auth)),
-            Provider::Xai => Arc::new(XaiModel::with_catalog_auth(client, spec, auth)),
-        };
-        Ok(model)
+        Registry::new(client)
+            .with_provider(config)
+            .model(&spec)
+            .context("build conformance model")
     }
 }

@@ -19,6 +19,7 @@ name = "live_videos"
 path = "tests/live_videos/mod.rs"
 
 [dependencies]
+ai-models-registry = { workspace = true }
 ai-models-compat = { workspace = true }
 ai-testkit = { workspace = true }
 ai-interface = { workspace = true, features = ["test-support"] }

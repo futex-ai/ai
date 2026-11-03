@@ -37,12 +37,17 @@ Google and OpenAI image and video generators, plus the TypeSafe Jev judgment
 adapter, with placeholder credentials. It also runs an in-memory tool-output
 pagination flow. Provider construction does not send network requests or
 require real credentials.
+Chat, image, transcription, and judgment construction uses `ai-models-registry`.
+The Google and OpenAI video smoke checks keep their existing provider
+constructors. The live video suite also keeps its current construction path.
+Provider crates retain their public constructors.
 
 `tests/live_models.rs` owns the chat live suite and its credential-free guards.
 Each ignored provider test reads one explicit `LIVE_MODEL_API_KEY` and takes
-every chat-capable spec returned by that provider's `known_models()`. It runs
+every chat-capable spec of that provider in the registry's combined catalog. It runs
 one probe for each effort that the spec lists, with the default effort first.
-Each probe builds the adapter from the spec, wraps it in the standard retry
+Each probe builds the adapter through the registry from the spec and provider
+config, wraps it in the standard retry
 layer of `ai-models-policy`, erases it behind `DynModel`, sets the probe
 effort in the request controls, and sends real one-step turns through
 `ToolCallingRuntime`.
@@ -76,7 +81,7 @@ the TypeSafe credential is provisioned and that opt-in is enabled.
 
 `tests/live_images/mod.rs` is the corresponding ignored image suite. It selects
 every Google and OpenAI catalog spec advertising `ImageGeneration`, constructs
-the production adapter behind `DynImageGenerator`, and runs the same safe
+the registry adapter behind `DynImageGenerator`, and runs the same safe
 square, low-quality request through each entry sequentially. Failures whose
 error core has the transient or rate limited kind use the shared 100ms/250ms
 retry schedule of `ai-models-policy`, for no more than three attempts.
@@ -97,7 +102,7 @@ construction, request shape, response validation, and workflow boundaries.
 
 `tests/live_judgments/mod.rs` is the corresponding ignored judgment suite. It
 selects every TypeSafe catalog spec advertising `Judgment`, constructs the
-production adapter behind `DynJudgmentModel`, and evaluates a short support
+registry adapter behind `DynJudgmentModel`, and evaluates a short support
 message against condition, choice, and score questions. Failures whose error
 core has the transient or rate limited kind use the shared retry schedule of
 `ai-models-policy` for no more than three attempts. Credential-free guards
@@ -182,6 +187,8 @@ cargo clippy -p xtask --all-targets --all-features
   updates to the model capability reference
 - `src/file_length.rs` - Rust line-count audit
 - `src/smoke/` - credential-free provider, MCP, OAuth, and pagination smoke tests
+- `src/smoke/providers.rs` - registry construction for chat, image,
+  transcription, and judgment adapters with placeholder credentials
 - `tests/live_models.rs` and `tests/live_models/` - ignored credentialed tests
   plus credential-free event, catalog, runner, tool-choice, and workflow guards
 - `tests/live_images/mod.rs` - ignored credentialed tests and credential-free

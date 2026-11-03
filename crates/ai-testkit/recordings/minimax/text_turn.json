@@ -1,6 +1,7 @@
 {
   "source": "synthetic",
   "catalog_model_id": "minimax/MiniMax-M3",
+  "base_url": "https://api.minimax.io",
   "effort": "medium",
   "exchanges": [
     {

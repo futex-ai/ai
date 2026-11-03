@@ -1,6 +1,7 @@
 {
   "source": "synthetic",
   "catalog_model_id": "xai/grok-4.5",
+  "base_url": "https://api.x.ai",
   "effort": "high",
   "exchanges": [
     {
