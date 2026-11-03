@@ -69,6 +69,10 @@ failure is exposed so the caller may adapt. A recognized context-limit code
 in an HTTP 400 body wins over a policy code in the same body. Display
 strings use the `[ai_interface/video_generator]` prefix.
 
+When a transport failure ends at or after the total generation deadline, it
+has the timed out kind. A provider status received before that deadline keeps
+its status kind.
+
 ## Polling Contract
 
 Production adapters use an injected `DynPollingRuntime`, a ten-second poll

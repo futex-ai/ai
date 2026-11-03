@@ -2,6 +2,8 @@
 
 mod client_tests;
 mod config_tests;
+mod deadline_support;
+mod deadline_tests;
 mod embedded_error_tests;
 mod error_context_tests;
 mod error_tests;

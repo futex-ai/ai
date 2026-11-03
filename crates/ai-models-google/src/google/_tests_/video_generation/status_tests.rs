@@ -7,10 +7,11 @@ use ai_models_core::ProviderConfig;
 use json_http::{JsonHttpResponse, JsonHttpTransportMock, TransportBackedJsonHttpClient};
 use unimock::{MockFn, Unimock, matching};
 
+use crate::google::video_generation::deadline::VideoDeadline;
 use crate::{GoogleVideoGenerator, PROVIDER_ID};
 
 use super::{
-    client_tests::{request, scripted_client},
+    client_tests::{request, scripted_client, stationary_runtime},
     config_tests::{completed, video_spec},
 };
 
@@ -29,8 +30,10 @@ async fn final_redirect_bodies_never_become_video_submissions() {
             vec![],
         );
         let generator = GoogleVideoGenerator::from_config(http, video_spec(), config());
+        let runtime = stationary_runtime();
+        let deadline = VideoDeadline::new(runtime.as_ref(), TIMEOUT);
         let result = generator
-            .submit(&generator.context(), &request(), TIMEOUT)
+            .submit(&generator.context(), &request(), &deadline)
             .await;
         assert_eq!(
             result.as_ref().err().map(|error| error.core().kind),
@@ -52,11 +55,13 @@ async fn final_redirect_bodies_never_become_video_poll_results() {
             vec![],
         );
         let generator = GoogleVideoGenerator::from_config(http, video_spec(), config());
+        let runtime = stationary_runtime();
+        let deadline = VideoDeadline::new(runtime.as_ref(), TIMEOUT);
         let result = generator
             .retrieve(
                 &generator.context(),
                 "models/custom-video-model/operations/config_1",
-                TIMEOUT,
+                &deadline,
             )
             .await;
         assert_eq!(
@@ -81,8 +86,10 @@ async fn final_redirect_bodies_never_become_downloaded_video_bytes() {
         ));
         let http = Arc::new(TransportBackedJsonHttpClient::new(transport));
         let generator = GoogleVideoGenerator::from_config(http, video_spec(), config());
+        let runtime = stationary_runtime();
+        let deadline = VideoDeadline::new(runtime.as_ref(), TIMEOUT);
         let result = generator
-            .download(&generator.context(), SAMPLE, TIMEOUT)
+            .download(&generator.context(), SAMPLE, &deadline)
             .await;
         assert_eq!(
             result.as_ref().err().map(|error| error.core().kind),

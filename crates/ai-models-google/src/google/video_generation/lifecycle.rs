@@ -8,6 +8,7 @@ use async_trait::async_trait;
 
 use super::{
     client::GoogleVideoGenerator,
+    deadline::VideoDeadline,
     response::{OperationState, parse_operation},
 };
 
@@ -18,23 +19,16 @@ impl VideoGenerator for GoogleVideoGenerator {
         request: &VideoGenerationRequest,
     ) -> VideoGenerationResult<VideoGenerationResponse> {
         let context = self.context();
-        let started_at = self.runtime.now();
-        let response = self
-            .submit(&context, request, self.remaining(&context, started_at)?)
-            .await?;
+        let deadline = VideoDeadline::new(self.runtime.as_ref(), self.timeout);
+        let response = self.submit(&context, request, &deadline).await?;
         let mut response_context = context.for_response(&response.headers);
         let (operation, mut state) =
             parse_operation(&response_context, &response.headers, response.body)?;
         while state == OperationState::Pending {
-            let remaining = self.remaining(&response_context, started_at)?;
+            let remaining = deadline.remaining(&response_context)?;
             self.runtime.sleep(remaining.min(self.poll_interval)).await;
-            let response = self
-                .retrieve(
-                    &context,
-                    &operation,
-                    self.remaining(&response_context, started_at)?,
-                )
-                .await?;
+            deadline.remaining(&response_context)?;
+            let response = self.retrieve(&context, &operation, &deadline).await?;
             response_context = context.for_response(&response.headers);
             let (retrieved_operation, retrieved_state) =
                 parse_operation(&response_context, &response.headers, response.body)?;
@@ -54,11 +48,7 @@ impl VideoGenerator for GoogleVideoGenerator {
             });
         };
         let data = self
-            .download(
-                &response_context,
-                &download_uri,
-                self.remaining(&response_context, started_at)?,
-            )
+            .download(&response_context, &download_uri, &deadline)
             .await?;
         let (width, height) = dimensions(request.aspect);
         Ok(VideoGenerationResponse {

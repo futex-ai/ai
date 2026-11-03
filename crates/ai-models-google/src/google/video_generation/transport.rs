@@ -1,7 +1,5 @@
 //! Google video submission, polling transport, and origin-scoped sample downloads.
 
-use std::time::{Duration, Instant};
-
 use ai_interface::{
     ErrorKind, VideoGenerationError, VideoGenerationRequest, VideoGenerationResult,
 };
@@ -11,8 +9,7 @@ use serde_json::Value;
 use url::Url;
 
 use super::{
-    client::GoogleVideoGenerator,
-    error::{classify_request_error, classify_status},
+    client::GoogleVideoGenerator, deadline::VideoDeadline, error::classify_status,
     request::build_request,
 };
 
@@ -20,11 +17,12 @@ impl GoogleVideoGenerator {
     async fn send_json(
         &self,
         context: &ErrorContext,
+        deadline: &VideoDeadline<'_>,
         request: JsonHttpRequestBuilder,
     ) -> VideoGenerationResult<JsonHttpResponse<Value>> {
         let response = match request.send_value().await {
             Ok(response) => response,
-            Err(source) => return Err(classify_request_error(context, source)),
+            Err(source) => return Err(deadline.request_error(context, source)),
         };
         match SuccessfulResponse::check(response.status, response) {
             Ok(response) => Ok(response.into_inner()),
@@ -41,8 +39,9 @@ impl GoogleVideoGenerator {
         &self,
         context: &ErrorContext,
         request: &VideoGenerationRequest,
-        timeout: Duration,
+        deadline: &VideoDeadline<'_>,
     ) -> VideoGenerationResult<JsonHttpResponse<Value>> {
+        let timeout = deadline.remaining(context)?;
         let endpoint = format!(
             "{}/models/{}:predictLongRunning",
             self.base_url, self.model_id
@@ -62,19 +61,20 @@ impl GoogleVideoGenerator {
             .json(build_request(context, request)?)
         {
             Ok(builder) => builder,
-            Err(source) => return Err(classify_request_error(context, source)),
+            Err(source) => return Err(deadline.request_error(context, source)),
         };
-        self.send_json(context, builder).await
+        self.send_json(context, deadline, builder).await
     }
 
     pub(super) async fn retrieve(
         &self,
         context: &ErrorContext,
         operation: &str,
-        timeout: Duration,
+        deadline: &VideoDeadline<'_>,
     ) -> VideoGenerationResult<JsonHttpResponse<Value>> {
         self.send_json(
             context,
+            deadline,
             self.config.apply_headers(
                 self.http_client
                     .get(&format!("{}/{}", self.base_url, operation))
@@ -82,7 +82,7 @@ impl GoogleVideoGenerator {
                         context
                             .capture_auth(self.config.auth(ApiKeyScheme::Header("x-goog-api-key"))),
                     )
-                    .timeout(timeout),
+                    .timeout(deadline.remaining(context)?),
                 &self.base_url,
             ),
         )
@@ -93,8 +93,9 @@ impl GoogleVideoGenerator {
         &self,
         context: &ErrorContext,
         uri: &str,
-        timeout: Duration,
+        deadline: &VideoDeadline<'_>,
     ) -> VideoGenerationResult<Vec<u8>> {
+        let timeout = deadline.remaining(context)?;
         if !allowed_download_uri(&self.base_url, uri) {
             return Err(VideoGenerationError::new(context.core(
                 ErrorKind::InvalidOutput,
@@ -118,7 +119,7 @@ impl GoogleVideoGenerator {
             .await;
         let response = match response {
             Ok(response) => response,
-            Err(source) => return Err(classify_request_error(context, source)),
+            Err(source) => return Err(deadline.request_error(context, source)),
         };
         let response = match SuccessfulResponse::check(response.status, response) {
             Ok(response) => response.into_inner(),
@@ -138,22 +139,6 @@ impl GoogleVideoGenerator {
             });
         }
         Ok(response.body)
-    }
-
-    pub(super) fn remaining(
-        &self,
-        context: &ErrorContext,
-        started_at: Instant,
-    ) -> VideoGenerationResult<Duration> {
-        let remaining = self
-            .timeout
-            .saturating_sub(self.runtime.now().saturating_duration_since(started_at));
-        if remaining.is_zero() {
-            return Err(VideoGenerationError::new(
-                context.core(ErrorKind::TimedOut, "generation timed out"),
-            ));
-        }
-        Ok(remaining)
     }
 }
 

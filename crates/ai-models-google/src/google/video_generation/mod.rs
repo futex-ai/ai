@@ -1,6 +1,7 @@
 //! Google video generation implementation.
 
 mod client;
+mod deadline;
 mod error;
 mod lifecycle;
 mod request;

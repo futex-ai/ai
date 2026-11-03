@@ -171,6 +171,9 @@ only HTTPS sample URIs on the configured host. An invalid sample URI has the
 download. Credentials go only to the configured scheme, host, and port.
 The adapter gives content-policy, timed-out, rate-limited, transient, and other
 failures their precise error kinds.
+A transport failure after the total deadline has the `TimedOut` kind during
+submission, polling, or download. A provider status before that deadline keeps
+its status kind.
 
 ## Quick Start
 
@@ -258,6 +261,8 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - `src/google/video_generation/` - Google long-running video submission,
   `GoogleVideoGenerator::from_config`, polling, sample validation and download,
   request, response, and error mapping
+- `src/google/video_generation/deadline.rs` - the shared generation budget and
+  deadline-aware transport error classification
 
 ### Related Docs
 
