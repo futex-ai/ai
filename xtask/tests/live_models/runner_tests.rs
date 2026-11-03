@@ -27,6 +27,13 @@ pub(super) const MARKER_MISS_FAILURE: &str = "assistant response did not contain
 const EVENT_PARITY_FAILURE: &str = "assistant events did not have terminal parity";
 pub(super) const MODEL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
+/// Runs the synchronous probe before the provider's catalog probes.
+///
+/// `LiveProvider` owns catalog selection, authentication, and adapter construction.
+/// Both paths build production adapters with `ReqwestJsonHttpClient` and explicit
+/// authentication, then wrap them in the standard `RetryingModel` policy.
+/// Each adapter is passed as a `DynModel`. Provider-specific selection stays at
+/// this composition boundary.
 pub(super) async fn run_live_provider(provider: LiveProvider) {
     run_synchronous_stream_probe(provider).await;
     run_catalog(provider).await;
@@ -161,6 +168,14 @@ fn has_failure_message(failure: &str, expected: &str) -> bool {
         .is_some_and(|(_, message)| message == expected)
 }
 
+/// Runs a one-step agent turn and captures its completed model response.
+///
+/// `observing_model` records the events from `Model::stream`.
+/// `ToolCallingRuntime` consumes that stream through `Agent::run`.
+/// This helper takes the normalized response from `AgentEvent::Response` and
+/// checks `AgentEvent::Finished` for one completed step. `probe_controls` sets
+/// the effort, tool choice, deadline, and completion preference through
+/// provider-neutral `ModelCallControls`.
 pub(super) async fn complete_through_runtime(
     model: DynModel,
     completion_mode: ModelCompletionMode,
