@@ -19,9 +19,12 @@ async fn snapshots_every_available_provider_scenario() {
     let mut count = 0;
     for provider in Provider::ALL {
         for scenario in Scenario::ALL {
-            let Some(recording) = storage.load(provider, scenario).expect("read recording") else {
-                continue;
-            };
+            let recording = storage
+                .load(provider, scenario)
+                .expect("read recording")
+                .unwrap_or_else(|| {
+                    panic!("missing {}/{} recording", provider.name(), scenario.name())
+                });
             let outcome = runner
                 .replay(provider, scenario, &recording)
                 .await
@@ -33,5 +36,5 @@ async fn snapshots_every_available_provider_scenario() {
             count += 1;
         }
     }
-    assert!(count > 0, "conformance must exercise recorded scenarios");
+    assert_eq!(count, Provider::ALL.len() * Scenario::ALL.len());
 }

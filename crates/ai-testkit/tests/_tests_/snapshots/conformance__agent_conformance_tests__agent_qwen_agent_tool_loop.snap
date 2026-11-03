@@ -1,0 +1,131 @@
+---
+source: crates/ai-testkit/tests/_tests_/agent_conformance_tests.rs
+assertion_line: 34
+description: qwen agent_tool_loop agent outcome and appended messages from synthetic responses.
+expression: "(outcome, messages)"
+---
+(
+    Completed {
+        structured_output: None,
+        assistant_message: "Done",
+        steps_taken: 2,
+    },
+    [
+        ConversationMessage {
+            role: Assistant,
+            parts: [
+                Reasoning {
+                    text: "Use lookup.",
+                    provider_state: Some(
+                        ProviderState {
+                            provider: ProviderId(
+                                "qwen",
+                            ),
+                            model: "qwen3.7-max",
+                            version: 2,
+                            payload: {
+                                "kind": String("reasoning"),
+                                "reasoning_content": String("Use lookup."),
+                                "reasoning_details": Array [],
+                            },
+                        },
+                    ),
+                },
+                Text {
+                    text: "Checking now",
+                    provider_state: Some(
+                        ProviderState {
+                            provider: ProviderId(
+                                "qwen",
+                            ),
+                            model: "qwen3.7-max",
+                            version: 2,
+                            payload: {
+                                "content": String("Checking now"),
+                                "kind": String("text"),
+                            },
+                        },
+                    ),
+                },
+                ToolCall {
+                    call_id: "call_1",
+                    tool_name: "lookup",
+                    arguments: Object {
+                        "id": Number(7),
+                    },
+                    operation_id: None,
+                    provider_state: Some(
+                        ProviderState {
+                            provider: ProviderId(
+                                "qwen",
+                            ),
+                            model: "qwen3.7-max",
+                            version: 2,
+                            payload: {
+                                "call": Object {
+                                    "arguments": String("{\"id\":7}"),
+                                    "id": String("call_1"),
+                                    "name": String("lookup"),
+                                },
+                                "kind": String("tool_call"),
+                                "legacy": Bool(false),
+                            },
+                        },
+                    ),
+                },
+            ],
+            name: None,
+        },
+        ConversationMessage {
+            role: Tool,
+            parts: [
+                ToolResult {
+                    call_id: "call_1",
+                    tool_name: "lookup",
+                    content: "{\"type\":\"tool_output\",\"tool_name\":\"lookup\",\"output\":{\"value\":7},\"total_bytes\":11,\"truncated\":false}",
+                    provider_state: None,
+                },
+            ],
+            name: None,
+        },
+        ConversationMessage {
+            role: Assistant,
+            parts: [
+                Text {
+                    text: "Done",
+                    provider_state: Some(
+                        ProviderState {
+                            provider: ProviderId(
+                                "qwen",
+                            ),
+                            model: "qwen3.7-max",
+                            version: 2,
+                            payload: {
+                                "content": String("Done"),
+                                "kind": String("text"),
+                            },
+                        },
+                    ),
+                },
+                Reasoning {
+                    text: "",
+                    provider_state: Some(
+                        ProviderState {
+                            provider: ProviderId(
+                                "qwen",
+                            ),
+                            model: "qwen3.7-max",
+                            version: 2,
+                            payload: {
+                                "kind": String("reasoning"),
+                                "reasoning_content": Null,
+                                "reasoning_details": Array [],
+                            },
+                        },
+                    ),
+                },
+            ],
+            name: None,
+        },
+    ],
+)

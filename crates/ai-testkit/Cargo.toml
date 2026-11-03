@@ -22,6 +22,7 @@ unimock = { version = "0.6.8", optional = true }
 
 [dev-dependencies]
 ai-interface = { workspace = true, features = ["test-support"] }
+ai-tool-calling = { workspace = true }
 insta = { version = "1.49.0", features = ["json"] }
 tempfile = "3.27.0"
 tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread"] }

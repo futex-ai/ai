@@ -1,0 +1,242 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "anthropic/claude-sonnet-5",
+  "base_url": "https://api.anthropic.com",
+  "effort": "high",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "anthropic-version": "2023-06-01",
+          "x-api-key": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "max_tokens": 128000,
+            "messages": [
+              {
+                "content": [
+                  {
+                    "text": "Call lookup with id 7. After its result, reply with exactly Done.",
+                    "type": "text"
+                  }
+                ],
+                "role": "user"
+              }
+            ],
+            "model": "claude-sonnet-5",
+            "output_config": {
+              "effort": "high"
+            },
+            "stream": true,
+            "system": "Follow the user's instructions. Keep answers short.",
+            "thinking": {
+              "display": "omitted",
+              "type": "adaptive"
+            },
+            "tool_choice": {
+              "type": "auto"
+            },
+            "tools": [
+              {
+                "description": "Look up one number.",
+                "input_schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "type": "object"
+                },
+                "name": "lookup"
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": "message_start",
+            "data": "{\"message\":{\"content\":[],\"id\":\"msg_synthetic\",\"role\":\"assistant\",\"type\":\"message\",\"usage\":{\"cache_creation_input_tokens\":2,\"cache_read_input_tokens\":5,\"input_tokens\":20,\"output_tokens\":0}},\"type\":\"message_start\"}"
+          },
+          {
+            "event": "content_block_start",
+            "data": "{\"content_block\":{\"signature\":\"\",\"thinking\":\"\",\"type\":\"thinking\"},\"index\":0,\"type\":\"content_block_start\"}"
+          },
+          {
+            "event": "content_block_delta",
+            "data": "{\"delta\":{\"thinking\":\"\",\"type\":\"thinking_delta\"},\"index\":0,\"type\":\"content_block_delta\"}"
+          },
+          {
+            "event": "content_block_delta",
+            "data": "{\"delta\":{\"signature\":\"synthetic-signature\",\"type\":\"signature_delta\"},\"index\":0,\"type\":\"content_block_delta\"}"
+          },
+          {
+            "event": "content_block_stop",
+            "data": "{\"index\":0,\"type\":\"content_block_stop\"}"
+          },
+          {
+            "event": "content_block_start",
+            "data": "{\"content_block\":{\"id\":\"call_1\",\"input\":{},\"name\":\"lookup\",\"type\":\"tool_use\"},\"index\":1,\"type\":\"content_block_start\"}"
+          },
+          {
+            "event": "content_block_delta",
+            "data": "{\"delta\":{\"partial_json\":\"{\\\"id\",\"type\":\"input_json_delta\"},\"index\":1,\"type\":\"content_block_delta\"}"
+          },
+          {
+            "event": "content_block_delta",
+            "data": "{\"delta\":{\"partial_json\":\"\\\":7}\",\"type\":\"input_json_delta\"},\"index\":1,\"type\":\"content_block_delta\"}"
+          },
+          {
+            "event": "content_block_stop",
+            "data": "{\"index\":1,\"type\":\"content_block_stop\"}"
+          },
+          {
+            "event": "message_delta",
+            "data": "{\"delta\":{\"stop_reason\":\"tool_use\"},\"type\":\"message_delta\",\"usage\":{\"output_tokens\":9}}"
+          },
+          {
+            "event": "message_stop",
+            "data": "{\"type\":\"message_stop\"}"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "anthropic-version": "2023-06-01",
+          "x-api-key": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "max_tokens": 128000,
+            "messages": [
+              {
+                "content": [
+                  {
+                    "text": "Call lookup with id 7. After its result, reply with exactly Done.",
+                    "type": "text"
+                  }
+                ],
+                "role": "user"
+              },
+              {
+                "content": [
+                  {
+                    "signature": "synthetic-signature",
+                    "thinking": "",
+                    "type": "thinking"
+                  },
+                  {
+                    "id": "call_1",
+                    "input": {
+                      "id": 7
+                    },
+                    "name": "lookup",
+                    "type": "tool_use"
+                  }
+                ],
+                "role": "assistant"
+              },
+              {
+                "content": [
+                  {
+                    "content": "{\"type\":\"tool_output\",\"tool_name\":\"lookup\",\"output\":{\"value\":7},\"total_bytes\":11,\"truncated\":false}",
+                    "tool_use_id": "call_1",
+                    "type": "tool_result"
+                  }
+                ],
+                "role": "user"
+              }
+            ],
+            "model": "claude-sonnet-5",
+            "output_config": {
+              "effort": "high"
+            },
+            "stream": true,
+            "system": "Follow the user's instructions. Keep answers short.",
+            "thinking": {
+              "display": "omitted",
+              "type": "adaptive"
+            },
+            "tool_choice": {
+              "type": "auto"
+            },
+            "tools": [
+              {
+                "description": "Look up one number.",
+                "input_schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "type": "object"
+                },
+                "name": "lookup"
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": "message_start",
+            "data": "{\"message\":{\"content\":[],\"id\":\"msg_synthetic\",\"role\":\"assistant\",\"type\":\"message\",\"usage\":{\"cache_creation_input_tokens\":2,\"cache_read_input_tokens\":5,\"input_tokens\":20,\"output_tokens\":0}},\"type\":\"message_start\"}"
+          },
+          {
+            "event": "content_block_start",
+            "data": "{\"content_block\":{\"text\":\"\",\"type\":\"text\"},\"index\":0,\"type\":\"content_block_start\"}"
+          },
+          {
+            "event": "content_block_delta",
+            "data": "{\"delta\":{\"text\":\"Do\",\"type\":\"text_delta\"},\"index\":0,\"type\":\"content_block_delta\"}"
+          },
+          {
+            "event": "content_block_delta",
+            "data": "{\"delta\":{\"text\":\"ne\",\"type\":\"text_delta\"},\"index\":0,\"type\":\"content_block_delta\"}"
+          },
+          {
+            "event": "content_block_stop",
+            "data": "{\"index\":0,\"type\":\"content_block_stop\"}"
+          },
+          {
+            "event": "message_delta",
+            "data": "{\"delta\":{\"stop_reason\":\"end_turn\"},\"type\":\"message_delta\",\"usage\":{\"output_tokens\":9}}"
+          },
+          {
+            "event": "message_stop",
+            "data": "{\"type\":\"message_stop\"}"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-//! Shared requests for the six provider conformance scenarios.
+//! Shared requests for model and agent provider conformance scenarios.
 
 use ai_interface::{
     ConversationMessage, ConversationPart, ModelRequest, ModelResponse, ModelToolChoice,
@@ -17,6 +17,8 @@ pub enum Scenario {
     TextTurn,
     /// A thinking-enabled tool call followed by a final answer.
     ToolLoop,
+    /// A thinking-enabled tool call continued by the agent loop.
+    AgentToolLoop,
     /// A response constrained by a JSON schema.
     SchemaCall,
     /// A user message containing a small PNG.
@@ -28,7 +30,7 @@ pub enum Scenario {
 }
 
 impl Scenario {
-    /// All scenarios in stable execution order.
+    /// Model-level scenarios in stable execution order.
     pub const ALL: [Self; 6] = [
         Self::TextTurn,
         Self::ToolLoop,
@@ -37,6 +39,9 @@ impl Scenario {
         Self::RateLimit,
         Self::StreamCut,
     ];
+
+    /// Agent scenarios, with separate recordings for automatic tool continuations.
+    pub const AGENT: [Self; 2] = [Self::TextTurn, Self::AgentToolLoop];
 
     /// Scenarios that can be recorded with live success responses.
     pub const SUCCESS: [Self; 4] = [
@@ -51,6 +56,7 @@ impl Scenario {
         match self {
             Self::TextTurn => "text_turn",
             Self::ToolLoop => "tool_loop",
+            Self::AgentToolLoop => "agent_tool_loop",
             Self::SchemaCall => "schema_call",
             Self::ImageInput => "image_input",
             Self::RateLimit => "rate_limit",
@@ -68,7 +74,7 @@ impl Scenario {
             controls: Default::default(),
         };
         match self {
-            Self::ToolLoop => {
+            Self::ToolLoop | Self::AgentToolLoop => {
                 request.messages = vec![ConversationMessage::user(
                     "Call lookup with id 7. After its result, reply with exactly Done.",
                 )];

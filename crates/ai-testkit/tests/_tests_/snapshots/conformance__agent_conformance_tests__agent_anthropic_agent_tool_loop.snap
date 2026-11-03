@@ -1,0 +1,113 @@
+---
+source: crates/ai-testkit/tests/_tests_/agent_conformance_tests.rs
+assertion_line: 34
+description: anthropic agent_tool_loop agent outcome and appended messages from synthetic responses.
+expression: "(outcome, messages)"
+---
+(
+    Completed {
+        structured_output: None,
+        assistant_message: "Done",
+        steps_taken: 2,
+    },
+    [
+        ConversationMessage {
+            role: Assistant,
+            parts: [
+                Reasoning {
+                    text: "",
+                    provider_state: Some(
+                        ProviderState {
+                            provider: ProviderId(
+                                "anthropic",
+                            ),
+                            model: "claude-sonnet-5",
+                            version: 1,
+                            payload: {
+                                "blocks": Array [
+                                    Object {
+                                        "signature": String("synthetic-signature"),
+                                        "thinking": String(""),
+                                        "type": String("thinking"),
+                                    },
+                                ],
+                                "scope": String("part"),
+                            },
+                        },
+                    ),
+                },
+                ToolCall {
+                    call_id: "call_1",
+                    tool_name: "lookup",
+                    arguments: Object {
+                        "id": Number(7),
+                    },
+                    operation_id: None,
+                    provider_state: Some(
+                        ProviderState {
+                            provider: ProviderId(
+                                "anthropic",
+                            ),
+                            model: "claude-sonnet-5",
+                            version: 1,
+                            payload: {
+                                "blocks": Array [
+                                    Object {
+                                        "id": String("call_1"),
+                                        "input": Object {
+                                            "id": Number(7),
+                                        },
+                                        "name": String("lookup"),
+                                        "type": String("tool_use"),
+                                    },
+                                ],
+                                "scope": String("part"),
+                            },
+                        },
+                    ),
+                },
+            ],
+            name: None,
+        },
+        ConversationMessage {
+            role: Tool,
+            parts: [
+                ToolResult {
+                    call_id: "call_1",
+                    tool_name: "lookup",
+                    content: "{\"type\":\"tool_output\",\"tool_name\":\"lookup\",\"output\":{\"value\":7},\"total_bytes\":11,\"truncated\":false}",
+                    provider_state: None,
+                },
+            ],
+            name: None,
+        },
+        ConversationMessage {
+            role: Assistant,
+            parts: [
+                Text {
+                    text: "Done",
+                    provider_state: Some(
+                        ProviderState {
+                            provider: ProviderId(
+                                "anthropic",
+                            ),
+                            model: "claude-sonnet-5",
+                            version: 1,
+                            payload: {
+                                "blocks": Array [
+                                    Object {
+                                        "text": String("Done"),
+                                        "type": String("text"),
+                                    },
+                                ],
+                                "mode": String("normalized_text"),
+                                "scope": String("part"),
+                            },
+                        },
+                    ),
+                },
+            ],
+            name: None,
+        },
+    ],
+)

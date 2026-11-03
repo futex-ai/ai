@@ -1,0 +1,175 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "openai/gpt-5.6-sol",
+  "base_url": "https://api.openai.com",
+  "effort": "medium",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "input": [
+              {
+                "content": "Call lookup with id 7. After its result, reply with exactly Done.",
+                "role": "user"
+              }
+            ],
+            "instructions": "Follow the user's instructions. Keep answers short.",
+            "model": "gpt-5.6-sol",
+            "reasoning": {
+              "effort": "medium"
+            },
+            "store": false,
+            "stream": true,
+            "tool_choice": "auto",
+            "tools": [
+              {
+                "description": "Look up one number.",
+                "name": "lookup",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "type": "object"
+                },
+                "strict": false,
+                "type": "function"
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": "response.created",
+            "data": "{\"response\":{\"status\":\"in_progress\"},\"type\":\"response.created\"}"
+          },
+          {
+            "event": "response.output_text.delta",
+            "data": "{\"delta\":\"Checking now\",\"type\":\"response.output_text.delta\"}"
+          },
+          {
+            "event": "response.completed",
+            "data": "{\"response\":{\"output\":[{\"encrypted_content\":\"synthetic-encrypted-reasoning\",\"id\":\"rs_1\",\"summary\":[],\"type\":\"reasoning\"},{\"content\":[{\"text\":\"Checking now\",\"type\":\"output_text\"}],\"phase\":\"commentary\",\"type\":\"message\"},{\"arguments\":\"{\\\"id\\\":7}\",\"call_id\":\"call_1\",\"id\":\"fc_1\",\"name\":\"lookup\",\"type\":\"function_call\"}],\"status\":\"completed\",\"usage\":{\"input_tokens\":20,\"input_tokens_details\":{\"cached_tokens\":5},\"output_tokens\":9,\"output_tokens_details\":{\"reasoning_tokens\":4},\"total_tokens\":29}},\"type\":\"response.completed\"}"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "input": [
+              {
+                "content": "Call lookup with id 7. After its result, reply with exactly Done.",
+                "role": "user"
+              },
+              {
+                "encrypted_content": "synthetic-encrypted-reasoning",
+                "id": "rs_1",
+                "summary": [],
+                "type": "reasoning"
+              },
+              {
+                "content": "Checking now",
+                "phase": "commentary",
+                "role": "assistant"
+              },
+              {
+                "arguments": "{\"id\":7}",
+                "call_id": "call_1",
+                "id": "fc_1",
+                "name": "lookup",
+                "type": "function_call"
+              },
+              {
+                "call_id": "call_1",
+                "output": "{\"type\":\"tool_output\",\"tool_name\":\"lookup\",\"output\":{\"value\":7},\"total_bytes\":11,\"truncated\":false}",
+                "type": "function_call_output"
+              }
+            ],
+            "instructions": "Follow the user's instructions. Keep answers short.",
+            "model": "gpt-5.6-sol",
+            "reasoning": {
+              "effort": "medium"
+            },
+            "store": false,
+            "stream": true,
+            "tool_choice": "auto",
+            "tools": [
+              {
+                "description": "Look up one number.",
+                "name": "lookup",
+                "parameters": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "type": "object"
+                },
+                "strict": false,
+                "type": "function"
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": "response.created",
+            "data": "{\"response\":{\"status\":\"in_progress\"},\"type\":\"response.created\"}"
+          },
+          {
+            "event": "response.output_text.delta",
+            "data": "{\"delta\":\"Done\",\"type\":\"response.output_text.delta\"}"
+          },
+          {
+            "event": "response.completed",
+            "data": "{\"response\":{\"output\":[{\"content\":[{\"text\":\"Done\",\"type\":\"output_text\"}],\"phase\":\"final_answer\",\"type\":\"message\"}],\"status\":\"completed\",\"usage\":{\"input_tokens\":20,\"input_tokens_details\":{\"cached_tokens\":5},\"output_tokens\":9,\"output_tokens_details\":{\"reasoning_tokens\":4},\"total_tokens\":29}},\"type\":\"response.completed\"}"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    }
+  ]
+}

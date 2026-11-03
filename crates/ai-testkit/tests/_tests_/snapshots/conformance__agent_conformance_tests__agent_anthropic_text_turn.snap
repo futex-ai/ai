@@ -1,0 +1,43 @@
+---
+source: crates/ai-testkit/tests/_tests_/agent_conformance_tests.rs
+assertion_line: 34
+description: anthropic text_turn agent outcome and appended messages from synthetic responses.
+expression: "(outcome, messages)"
+---
+(
+    Completed {
+        structured_output: None,
+        assistant_message: "Done",
+        steps_taken: 1,
+    },
+    [
+        ConversationMessage {
+            role: Assistant,
+            parts: [
+                Text {
+                    text: "Done",
+                    provider_state: Some(
+                        ProviderState {
+                            provider: ProviderId(
+                                "anthropic",
+                            ),
+                            model: "claude-sonnet-5",
+                            version: 1,
+                            payload: {
+                                "blocks": Array [
+                                    Object {
+                                        "text": String("Done"),
+                                        "type": String("text"),
+                                    },
+                                ],
+                                "mode": String("normalized_text"),
+                                "scope": String("part"),
+                            },
+                        },
+                    ),
+                },
+            ],
+            name: None,
+        },
+    ],
+)

@@ -83,7 +83,7 @@ impl Provider {
     /// Selects the first chat entry, preferring enabled thinking for a tool loop.
     pub fn model(self, scenario: Scenario) -> Result<ModelSpec> {
         let catalog = self.catalog();
-        let model = if scenario == Scenario::ToolLoop {
+        let model = if matches!(scenario, Scenario::ToolLoop | Scenario::AgentToolLoop) {
             catalog
                 .iter()
                 .find(|model| model.default_effort.is_enabled())

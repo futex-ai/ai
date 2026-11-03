@@ -1,0 +1,182 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "kimi/kimi-k3",
+  "base_url": "https://api.moonshot.ai",
+  "effort": "max",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.moonshot.ai/v1/chat/completions",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "messages": [
+              {
+                "content": "Follow the user's instructions. Keep answers short.",
+                "role": "system"
+              },
+              {
+                "content": "Call lookup with id 7. After its result, reply with exactly Done.",
+                "role": "user"
+              }
+            ],
+            "model": "kimi-k3",
+            "reasoning_effort": "max",
+            "stream": true,
+            "stream_options": {
+              "include_usage": true
+            },
+            "tool_choice": "auto",
+            "tools": [
+              {
+                "function": {
+                  "description": "Look up one number.",
+                  "name": "lookup",
+                  "parameters": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"Checking \",\"reasoning_content\":\"Use \",\"tool_calls\":[{\"function\":{\"arguments\":\"{\\\"id\\\":\",\"name\":\"lookup\"},\"id\":\"call_1\",\"index\":0,\"type\":\"function\"}]},\"finish_reason\":null,\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"now\",\"reasoning_content\":\"lookup.\",\"tool_calls\":[{\"function\":{\"arguments\":\"7}\"},\"index\":0}]},\"finish_reason\":\"tool_calls\",\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[],\"usage\":{\"cached_tokens\":5,\"completion_tokens\":9,\"completion_tokens_details\":{\"reasoning_tokens\":4},\"prompt_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":5},\"total_tokens\":29}}"
+          },
+          {
+            "event": null,
+            "data": "[DONE]"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.moonshot.ai/v1/chat/completions",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "messages": [
+              {
+                "content": "Follow the user's instructions. Keep answers short.",
+                "role": "system"
+              },
+              {
+                "content": "Call lookup with id 7. After its result, reply with exactly Done.",
+                "role": "user"
+              },
+              {
+                "content": "Checking now",
+                "reasoning_content": "Use lookup.",
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"id\":7}",
+                      "name": "lookup"
+                    },
+                    "id": "call_1",
+                    "type": "function"
+                  }
+                ]
+              },
+              {
+                "content": "{\"type\":\"tool_output\",\"tool_name\":\"lookup\",\"output\":{\"value\":7},\"total_bytes\":11,\"truncated\":false}",
+                "role": "tool",
+                "tool_call_id": "call_1"
+              }
+            ],
+            "model": "kimi-k3",
+            "reasoning_effort": "max",
+            "stream": true,
+            "stream_options": {
+              "include_usage": true
+            },
+            "tool_choice": "auto",
+            "tools": [
+              {
+                "function": {
+                  "description": "Look up one number.",
+                  "name": "lookup",
+                  "parameters": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"Do\"},\"finish_reason\":null,\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"ne\"},\"finish_reason\":\"stop\",\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[],\"usage\":{\"cached_tokens\":5,\"completion_tokens\":9,\"completion_tokens_details\":{\"reasoning_tokens\":4},\"prompt_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":5},\"total_tokens\":29}}"
+          },
+          {
+            "event": null,
+            "data": "[DONE]"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    }
+  ]
+}
