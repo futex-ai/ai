@@ -1,0 +1,34 @@
+# Synthetic recordings hold invented provider responses
+
+- **Severity:** Medium. **Effort:** Small. **Confidence:** High. **Harder later:** No.
+- **Kind:** Needs decision.
+- **Added:** 2026-11-02, from branch `calummoore/redesign-2-safety-net`, item 22: the blocked wider fix of review finding 21.
+- **Location:** `crates/ai-testkit/recordings/`, `.github/workflows/record-provider-streams.yml`, `xtask/src/record_streams/`
+- **Reason:** The fix needs the provider secrets and billable live calls, so the user decides when the recording workflow runs.
+
+- **Terms:**
+  - **`ai-testkit`:** the test crate that replays recorded provider streams through each chat adapter and snapshots the results, in `crates/ai-testkit`.
+  - **Synthetic recording:** a hand-built recording file with `"source": "synthetic"`. A live recording has `"source": "recorded"`.
+  - **Recording workflow:** `.github/workflows/record-provider-streams.yml`. It runs `cargo xtask record-streams` for each provider with that provider's secret, one provider at a time, and uploads the recordings as an artifact.
+- **Background:**
+  - `ai-testkit` holds 48 recordings: six scenarios for each of eight chat providers. All 48 are synthetic, built from provider docs and from the streaming tests of each adapter.
+  - The recordings are the regression safety of the AI library redesign. The conformance runner replays them, compares each request with its recording, and snapshots each result.
+  - The recording workflow records the four success scenarios of each provider: `text_turn`, `tool_loop`, `schema_call`, and `image_input`. It runs on `workflow_dispatch` on the default branch, or on a same-repository pull request when someone adds the label `record-provider-streams`. Someone then reviews the artifact and commits the files.
+  - Anthropic does not guarantee a thinking block on every request. So a live `tool_loop` recording is useful only when its response holds a thinking block, because it is the only Anthropic thinking-replay case.
+- **Problem:** Hand-built recordings can hold response shapes that a provider never sends to the adapter's real request. Four such cases were found and fixed by hand in this branch:
+  - The Anthropic tool loop streamed readable thinking text, but the adapter requests `display: "omitted"`, which streams one empty `thinking_delta` before the signature.
+  - The OpenAI tool loop had reasoning summary text, but the adapter never sends `reasoning.summary`.
+  - The Google tool loop had thought text, but the adapter never sends `includeThoughts: true`.
+  - The Google tool loop had a Gemini 3 function call without an id, but Gemini 3 always returns one.
+- **Impact if no action:** Later adapter changes are checked against shapes that production never gets. Real provider shapes stay untested until a live probe or a user meets them.
+- **Root question:** How should the conformance suite get provider responses that match what each provider really sends?
+- **Options:**
+  - **A.** Run the recording workflow once on an open pull request of the redesign, with the label. Review each recording, keep a `tool_loop` only when it holds a thinking block, and commit the files. Cost: a few billable calls for each provider. Effort: Small.
+  - **B.** Run the workflow by dispatch after the redesign merges into `main`, and keep the synthetic files until then. The redesign milestones then rely on the synthetic shapes. Effort: Small.
+  - **C.** Keep the synthetic files, and check each new file against the provider docs in review. This depends on each reviewer, so it does not remove the class. Effort: Small.
+  - **D.** Record on a schedule, for example monthly, and compare the new files with the committed ones, so that provider drift shows. Cost: a new paid schedule beside the live suites. Effort: Medium.
+- **Left out:** None.
+- **Wider fix:** A. Live request-and-response pairs remove invented success shapes. D also catches later provider drift.
+- **Previous examples:** The four cases in the problem, all in the files that `ai-testkit` added on 2026-11-02.
+- **Recommendation:** A. It replaces the invented shapes before the later redesign milestones rely on them, at the cost of a few calls.
+- **Action:** ask the user, because the runs need the provider secrets and billable calls.

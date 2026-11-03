@@ -30,4 +30,10 @@ pub(crate) enum Error {
     SmokeMcp { source: ai_mcp::Error },
     #[error("[xtask/smoke] failed to build MCP OAuth boundary: {source}")]
     SmokeMcpOAuth { source: ai_mcp_oauth::Error },
+    #[error("[xtask/record_streams] RECORD_API_KEY is missing or empty")]
+    MissingRecordApiKey,
+    #[error("[xtask/record_streams] failed to start async runtime: {source}")]
+    RecordRuntime { source: io::Error },
+    #[error("[xtask/record_streams] recording failed: {source}")]
+    RecordStreams { source: ai_testkit::error::Error },
 }

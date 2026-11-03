@@ -1,0 +1,49 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "qwen3.7-max",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "enable_thinking": true,
+            "messages": [
+              {
+                "content": "Follow the user's instructions. Keep answers short.",
+                "role": "system"
+              },
+              {
+                "content": "Reply with exactly Done.",
+                "role": "user"
+              }
+            ],
+            "model": "qwen3.7-max",
+            "preserve_thinking": true,
+            "stream": true,
+            "stream_options": {
+              "include_usage": true
+            }
+          }
+        }
+      },
+      "response": {
+        "kind": "json",
+        "status": 429,
+        "body": {
+          "error": {
+            "code": "limit_requests",
+            "message": "Requests rate limit exceeded, please try again later.",
+            "param": null,
+            "type": "limit_requests"
+          }
+        }
+      }
+    }
+  ]
+}

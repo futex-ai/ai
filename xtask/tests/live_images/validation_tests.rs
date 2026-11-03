@@ -131,6 +131,7 @@ fn image_spec() -> KnownModelSpec {
         id: "image-catalog-id",
         provider_model_id: "gpt-image-2",
         context_window_tokens: 0,
+        max_output_tokens: 0,
         intelligence_score: IntelligenceScore::Ten,
         speed: SpeedTier::Medium,
         cost: CostTier::Premium,

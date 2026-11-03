@@ -1,0 +1,46 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "kimi-k3",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.moonshot.ai/v1/chat/completions",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "messages": [
+              {
+                "content": "Follow the user's instructions. Keep answers short.",
+                "role": "system"
+              },
+              {
+                "content": "Reply with exactly Done.",
+                "role": "user"
+              }
+            ],
+            "model": "kimi-k3",
+            "reasoning_effort": "max",
+            "stream": true,
+            "stream_options": {
+              "include_usage": true
+            }
+          }
+        }
+      },
+      "response": {
+        "kind": "json",
+        "status": 429,
+        "body": {
+          "error": {
+            "message": "Organization-level RPM limit reached",
+            "type": "rate_limit_reached_error"
+          }
+        }
+      }
+    }
+  ]
+}

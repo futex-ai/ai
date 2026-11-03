@@ -1,0 +1,38 @@
+# Choose the MCP revisions the client supports
+
+- **Severity:** High. **Effort:** Small. **Confidence:** High. **Harder later:** No.
+- **Kind:** Needs decision.
+- **Added:** 2026-11-02, from branch `calummoore/redesign-2-safety-net`, item 18. The MCP evaluation of `plans/ai-library-redesign.md` raised it.
+- **Location:** "Protocol target" in `docs/protocol/ai-mcp.md`, `crates/ai-mcp/src/`
+- **Reason:** The revision target is a requirement of `docs/protocol/ai-mcp.md`, and only the user can change it.
+
+- **Terms:**
+  - **MCP revision:** a dated version of the Model Context Protocol spec, such as 2025-06-18, 2025-11-25, or 2026-07-28.
+  - **Legacy and modern era:** up to revision 2025-11-25, a connection starts with an `initialize` handshake and can hold a session. From revision 2026-07-28, every request carries its version data, and sessions are gone.
+  - **rmcp:** the official Rust SDK for MCP, crate `rmcp`. Version 3.8.0 supports both eras.
+- **Background:**
+  - `ai-mcp` is the MCP client of this workspace. `docs/protocol/ai-mcp.md` targets revision 2025-06-18, and it also accepts servers that negotiate down to 2025-03-26.
+  - Revision 2025-11-25 added SSE polling: a server can close a stream after an event id, and the client then resumes it with GET and `Last-Event-ID`. Servers SHOULD send an SSE priming event with empty data first.
+  - Revision 2026-07-28 removed `initialize` and `Mcp-Session-Id`. Every request carries its version and client data, POST requests need the `Mcp-Method` and `Mcp-Name` headers, and GET streams and SSE resumption are gone.
+  - The 2026-07-28 compatibility matrix says that a legacy-only client fails against a modern-only server, and a modern-only client fails against a legacy server.
+  - Nobody has measured which MCP servers the hosts Juno and Firna use, or which revisions those servers speak.
+- **Problem:** The client speaks only the legacy era at revision 2025-06-18. It cannot use servers that speak only the modern era, and it does not resume closed streams of 2025-11-25 servers.
+- **Impact if no action:** A server that stops supporting the legacy era stops working for the hosts.
+- **Root question:** When must the MCP client speak the newer MCP revisions?
+- **Options:**
+  - **A.** Keep 2025-06-18 and 2025-03-26, and record the gap as a known limit in `ai-mcp.md`. Effort: Small.
+  - **B.** Keep the current target during the redesign. Add a follow-up plan for dual-era support. The plan starts with a survey of the servers that the hosts use and one run of the official MCP conformance suite. Effort: Small now, Large later.
+  - **C.** Add dual-era support inside the redesign through rmcp, with option D or G of `plans/follow-ups/mcp-crate-direction.md`. Effort: Large.
+  - **D.** Add dual-era support inside the redesign with our own code. Effort: Large.
+  - **F.** Move the client to 2025-11-25 inside the legacy era. Send 2025-11-25, and accept 2025-11-25, 2025-06-18, and 2025-03-26. Skip priming events. Resume a closed POST stream with a bounded number of GET requests that carry `Last-Event-ID`, after the `retry` delay. It drops the resumability non-goal of `ai-mcp.md`, and it does not reach modern-only servers. Effort: Large.
+- **Left out:**
+  - Support only the modern era. A modern-only client fails against every legacy server, and most servers still speak the legacy era, so it fails the goal.
+  - The OAuth rules of the newer revisions. They are a separate question in `plans/follow-ups/mcp-oauth-newer-rules.md`, because OAuth discovery runs at the first 401, before version negotiation. Option E of the options check moved there.
+- **Wider fix:** None.
+- **Previous examples:** None found.
+- **Related:**
+  - `plans/follow-ups/mcp-crate-direction.md`, work that waits for this answer: C here picks option D or G there.
+  - `plans/follow-ups/mcp-empty-sse-data.md`, work that comes first: revision 2025-11-25 needs its fix.
+  - `plans/follow-ups/mcp-oauth-newer-rules.md`, a separate question that was split from this item. The two answers do not depend on each other.
+- **Recommendation:** B. The redesign already spans eight pull requests, and a separate plan can compare rmcp and our own code against the servers that the hosts use.
+- **Action:** ask the user, because the revision target is a requirement in `docs/protocol/ai-mcp.md`, and only the user can change it.

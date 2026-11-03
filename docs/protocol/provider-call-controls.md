@@ -112,8 +112,8 @@ always preserve the adapter's prior behavior.
 | --- | --- | --- | --- | --- |
 | OpenAI Responses, no reasoning | map | `max_output_tokens` | unsupported | map all |
 | OpenAI Responses, reasoning | fixed | `max_output_tokens` | unsupported | map all |
-| Anthropic, no thinking | map | `min(4096, requested)` | `stop_sequences` | map all |
-| Anthropic, thinking | fixed | `min(4096, requested)` | `stop_sequences` | map all |
+| Anthropic, no thinking | map | `min(catalog max output, requested)` | `stop_sequences` | map all |
+| Anthropic, thinking | fixed | `min(catalog max output, requested)` | `stop_sequences` | none/auto; strict forced unsupported; `RequiredOrAuto` -> auto |
 | Google Gemini | map | `maxOutputTokens` | `stopSequences` | map all |
 | Kimi K3 | fixed | `max_completion_tokens` | `stop` | map all |
 | Qwen, no thinking | map | `max_completion_tokens` | `stop` | map all; `RequiredOrAuto` -> required |
@@ -124,7 +124,10 @@ always preserve the adapter's prior behavior.
 | Other MiniMax catalog models | map | `max_completion_tokens` | unsupported | none/auto; required unsupported; `RequiredOrAuto` -> auto |
 | XAI Chat Completions | map | `max_tokens` | `stop` | map all |
 
-For OpenAI, Anthropic, Google, Kimi, and XAI, `RequiredOrAuto` maps to the
+Anthropic uses the catalog model's max output as the default and the ceiling.
+An unknown provider model id uses 64,000 tokens for both.
+
+For OpenAI, Anthropic without thinking, Google, Kimi, and XAI, `RequiredOrAuto` maps to the
 same provider-enforced form as `Required`. Tool definitions remain serialized
 in every `RequiredOrAuto` fallback path.
 

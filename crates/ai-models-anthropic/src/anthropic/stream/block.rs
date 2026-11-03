@@ -48,6 +48,9 @@ impl ContentBlockState {
                     delta,
                 )
             }
+            AnthropicContentBlockStart::RedactedThinking { data } => {
+                (ContentBlockContent::RedactedThinking { data }, None)
+            }
             AnthropicContentBlockStart::Ignored => (ContentBlockContent::Ignored, None),
         };
         (
@@ -164,6 +167,9 @@ impl ContentBlockState {
                 "thinking": thinking,
                 "signature": signature
             }),
+            ContentBlockContent::RedactedThinking { data } => {
+                json!({"type": "redacted_thinking", "data": data})
+            }
             ContentBlockContent::Ignored => json!({"type": "ignored", "index": index}),
         };
         Ok(body)
@@ -186,6 +192,9 @@ enum ContentBlockContent {
         thinking: String,
         signature: String,
     },
+    RedactedThinking {
+        data: String,
+    },
     Ignored,
 }
 
@@ -195,6 +204,7 @@ impl ContentBlockContent {
             Self::Text { .. } => "text",
             Self::ToolUse { .. } => "tool_use",
             Self::Thinking { .. } => "thinking",
+            Self::RedactedThinking { .. } => "redacted_thinking",
             Self::Ignored => "ignored",
         }
     }

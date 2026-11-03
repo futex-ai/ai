@@ -1,0 +1,38 @@
+# Empty SSE data breaks rmcp-based servers
+
+- **Severity:** High. **Likelihood:** Common. **Effort:** Small. **Confidence:** High. **Harder later:** No.
+- **Kind:** Needs decision.
+- **Added:** 2026-11-02, from branch `calummoore/redesign-2-safety-net`, item 17. The MCP evaluation of `plans/ai-library-redesign.md` found it.
+- **Location:** `crates/ai-mcp/src/transport/sse.rs:98-122`, `docs/protocol/ai-mcp.md:130-133`, `docs/protocol/ai-mcp.md:592`, `crates/ai-mcp/README.md:63-66`, `crates/ai-mcp/src/_tests_/sse_tests.rs:37`
+- **Reason:** The fix changes the empty-data rule that `docs/protocol/ai-mcp.md` states, so the user decides.
+
+- **Terms:**
+  - **rmcp:** the official Rust SDK for the Model Context Protocol (MCP), crate `rmcp`, repository `modelcontextprotocol/rust-sdk`.
+  - **SSE priming event:** an SSE event with an event id and empty data. A server sends it first, so that the client can resume the stream later.
+  - **Message event:** an SSE event whose `event` field is absent, empty, or `message`.
+  - **`DeserializeResponse`:** the `ai-mcp` error for a payload that is not valid JSON-RPC.
+- **Background:**
+  - `ai-mcp` is the MCP client of this workspace. It reads the data of each SSE event of a POST response as one JSON-RPC message, in `crates/ai-mcp/src/transport/sse.rs:98-122`.
+  - `docs/protocol/ai-mcp.md` lines 130-133 say that an event with empty data fails MCP JSON decoding. Its test requirements, at line 592, say that the parser ignores the `event:` and `id:` fields. The README repeats the rule at lines 63-66, and the test `colonless_data_fails_before_a_later_valid_event` pins it.
+  - An rmcp 3.8.0 server in its default mode sends `data: \nid: 0\nretry: 3000\n\n` before the `initialize` response. It does this also for a client that asked for MCP revision 2025-06-18. It sends the same shape on request streams when its `sse_retry` setting is off, through `SessionConfig::sse_retry`. It also primes before it closes a stream early.
+  - The TypeScript and Python SDK servers send priming events only to clients on revision 2025-11-25 or later. The 2025-11-25 transport says that servers SHOULD send the priming event.
+  - The TypeScript SDK, the Python SDK, and rmcp decode only message events, and they skip events with empty data.
+- **Problem:** On 2026-11-02, a probe ran the `ai-mcp` client against an rmcp 3.8.0 server. In the default mode, `initialize` failed with `DeserializeResponse`. With `sse_retry` off, `initialize` worked, and `tools/list` and `tools/call` failed the same way. The stateful mode with JSON responses failed at `initialize`. The stateless modes worked. rmcp's own client worked against every mode.
+- **Impact if no action:** Hosts cannot use tools from servers that run rmcp in its default mode. The client also cannot move to revision 2025-11-25, where priming events are normal.
+- **Root question:** How should the client treat an SSE event that carries no JSON-RPC message?
+- **Options:**
+  - **A.** Change nothing. The client keeps failing these streams. Effort: Small.
+  - **B.** Ignore events with empty data, and keep failing data that is not valid JSON. Change the doc rule, its test requirement, the README rule, and the test, and add a test with a priming event. A probe on a scratch copy with B passed all five rmcp server modes. On that copy, 122 of 123 `ai-mcp` tests and all 158 `ai-mcp-oauth` tests passed. The one failure was the test that B changes on purpose. Effort: Small.
+  - **C.** Ignore an empty event only when it also has an event id. Keep failing other empty events. Change the same doc, README, and test lines. Effort: Small.
+  - **D.** Ignore every event whose data is not valid JSON, as rmcp does. This drops the strict rule for malformed messages. Change the same doc, README, and test lines. Effort: Small.
+  - **E.** Decode only message events with non-empty data, and skip all other events. Keep the failure for malformed data in a message event. Change the doc rule at lines 130-133, its test requirement at line 592, and the README rule. Add a priming test case and a non-message test case. Risk: a server that sends JSON-RPC under another event name gets `MissingResponse`, as the reference clients do. Effort: Small.
+- **Left out:**
+  - A report to rmcp that asks it to prime only newer clients. It fails the goal on its own, because servers in use keep priming until they upgrade. Add the report to the chosen option. No rmcp issue covers it yet.
+  - Skip only the first event of a stream. rmcp also primes before it closes a stream early, so this fails the goal.
+- **Wider fix:** E. It defines which events carry an MCP message, so an empty event or a new control event does not fail a request. D also covers every shape, but it drops the strict rule for malformed data.
+- **Previous examples:** None found.
+- **Related:**
+  - `plans/follow-ups/mcp-crate-direction.md`, the same code: most of its options move or replace this parser. Under its options that use `json-http`, the skip rule goes into the `ai-mcp` mapping of `JsonHttpSseEvent`. Option C here then also needs an `id` field on `JsonHttpSseEvent`.
+  - `plans/follow-ups/mcp-client-revision-target.md`, work that waits for this fix: support for revision 2025-11-25 needs it.
+- **Recommendation:** E. It costs the same as B, keeps the strict rule for message events, and matches the reference clients. The first recommendation was B.
+- **Action:** ask the user, because the fix changes a rule in `docs/protocol/ai-mcp.md`, and no recorded decision covers it.

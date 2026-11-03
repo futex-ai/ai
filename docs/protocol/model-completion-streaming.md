@@ -221,6 +221,9 @@ chunks while distinct same-chunk parts remain ordered. Complete legacy
 win. EOF succeeds only after a finish reason or prompt block. Thinking and
 provider context normalize identically to the buffered path.
 
+Signed parts stay separate in replay data, and a signature never changes the
+answer text.
+
 ### Chat-Completions Providers
 
 The contracts were verified on 2026-08-22 against the current official

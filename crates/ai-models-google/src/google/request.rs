@@ -1,130 +1,34 @@
-//! Google Gemini `generateContent` request mapping.
+//! Google Gemini request and continuation mapping.
+
+use std::collections::BTreeMap;
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, ModelRequest, ToolDefinition,
+    ConversationContentPart, ConversationMessage, ConversationRole, GoogleAssistantPart,
+    GoogleFunctionCallContext, ModelRequest, ProviderConversationItem, ToolCall, ToolDefinition,
 };
 use ai_models_core::ThinkingLevel;
-use serde::Serialize;
-use serde_json::Value;
 
-use super::thinking::{GoogleThinkingConfig, thinking_config};
-use super::tool_config::{GoogleToolConfig, tool_config};
-
-#[derive(Debug, Serialize)]
-pub(super) struct GoogleRequest {
-    #[serde(rename = "systemInstruction")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    system_instruction: Option<GoogleInstruction>,
-    contents: Vec<GoogleContent>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    tools: Vec<GoogleToolGroup>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "generationConfig")]
-    generation_config: Option<GoogleGenerationConfig>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "toolConfig")]
-    tool_config: Option<GoogleToolConfig>,
-}
-
-#[derive(Debug, Serialize)]
-struct GoogleInstruction {
-    parts: Vec<GooglePart>,
-}
-
-#[derive(Debug, Serialize)]
-struct GoogleContent {
-    role: String,
-    parts: Vec<GooglePart>,
-}
-
-#[derive(Debug, Serialize)]
-struct GooglePart {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    text: Option<String>,
-    #[serde(rename = "functionCall", skip_serializing_if = "Option::is_none")]
-    function_call: Option<GoogleFunctionCall>,
-    #[serde(rename = "functionResponse", skip_serializing_if = "Option::is_none")]
-    function_response: Option<GoogleFunctionResponse>,
-    #[serde(rename = "inlineData", skip_serializing_if = "Option::is_none")]
-    inline_data: Option<GoogleInlineData>,
-}
-
-#[derive(Debug, Serialize)]
-struct GoogleInlineData {
-    #[serde(rename = "mimeType")]
-    mime_type: String,
-    data: String,
-}
-
-#[derive(Debug, Serialize)]
-struct GoogleFunctionCall {
-    id: String,
-    name: String,
-    args: Value,
-}
-
-#[derive(Debug, Serialize)]
-struct GoogleFunctionResponse {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
-    response: GoogleFunctionResult,
-}
-
-#[derive(Debug, Serialize)]
-struct GoogleFunctionResult {
-    result: String,
-}
-
-#[derive(Debug, Serialize)]
-struct GoogleToolGroup {
-    #[serde(rename = "functionDeclarations")]
-    function_declarations: Vec<GoogleFunctionDeclaration>,
-}
-
-#[derive(Debug, Serialize)]
-struct GoogleFunctionDeclaration {
-    name: String,
-    description: String,
-    #[serde(rename = "parametersJsonSchema")]
-    parameters_json_schema: Value,
-}
-
-#[derive(Debug, Serialize)]
-struct GoogleGenerationConfig {
-    #[serde(skip_serializing_if = "Option::is_none", rename = "responseMimeType")]
-    response_mime_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "responseJsonSchema")]
-    response_json_schema: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "thinkingConfig")]
-    thinking_config: Option<GoogleThinkingConfig>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    temperature: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "topP")]
-    top_p: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none", rename = "maxOutputTokens")]
-    max_output_tokens: Option<u32>,
-    #[serde(skip_serializing_if = "Vec::is_empty", rename = "stopSequences")]
-    stop_sequences: Vec<String>,
-}
+use super::{
+    request_types::{
+        GoogleContent, GoogleFunctionDeclaration, GoogleFunctionResponse, GoogleFunctionResult,
+        GoogleGenerationConfig, GoogleInlineData, GoogleInstruction, GooglePart, GoogleRequest,
+        GoogleToolGroup,
+    },
+    thinking::thinking_config,
+    tool_config::tool_config,
+};
 
 pub(super) fn build_request(
     model_id: &str,
     request: &ModelRequest,
     thinking_level: ThinkingLevel,
 ) -> GoogleRequest {
-    let generation_config = generation_config(model_id, request, thinking_level);
-
     GoogleRequest {
-        system_instruction: request.nonblank_system_prompt().map(|system_prompt| {
-            GoogleInstruction {
-                parts: vec![GooglePart {
-                    text: Some(system_prompt.to_owned()),
-                    function_call: None,
-                    function_response: None,
-                    inline_data: None,
-                }],
-            }
-        }),
+        system_instruction: request
+            .nonblank_system_prompt()
+            .map(|text| GoogleInstruction {
+                parts: vec![text_part(text)],
+            }),
         contents: google_contents(&request.messages),
         tools: if request.tools.is_empty() {
             Vec::new()
@@ -133,7 +37,7 @@ pub(super) fn build_request(
                 function_declarations: request.tools.iter().map(tool).collect(),
             }]
         },
-        generation_config,
+        generation_config: generation_config(model_id, request, thinking_level),
         tool_config: tool_config(request.controls.generation.tool_choice.as_ref()),
     }
 }
@@ -173,74 +77,105 @@ fn generation_config(
 
 fn google_contents(messages: &[ConversationMessage]) -> Vec<GoogleContent> {
     let mut output = Vec::new();
-
+    let mut sent_ids = BTreeMap::new();
     for message in messages {
         match message.role {
             ConversationRole::User => append_parts(&mut output, "user", user_parts(message)),
             ConversationRole::Assistant => {
+                let replay_parts = message.provider_context.iter().find_map(|item| match item {
+                    ProviderConversationItem::GoogleAssistantMessage { parts } => Some(parts),
+                    _ => None,
+                });
+                sent_ids.extend(tool_call_ids(
+                    &message.tool_calls,
+                    replay_parts.map(Vec::as_slice),
+                ));
+                if let Some(parts) = replay_parts {
+                    output.push(GoogleContent {
+                        role: "model".to_owned(),
+                        parts: parts.iter().cloned().map(GooglePart::Assistant).collect(),
+                    });
+                    continue;
+                }
                 let mut parts = Vec::new();
                 if !message.content.is_empty() {
-                    parts.push(GooglePart {
-                        text: Some(message.content.clone()),
-                        function_call: None,
-                        function_response: None,
-                        inline_data: None,
-                    });
+                    parts.push(text_part(&message.content));
                 }
-                parts.extend(message.tool_calls.iter().map(|call| GooglePart {
-                    text: None,
-                    function_call: Some(GoogleFunctionCall {
-                        id: call.id.clone(),
-                        name: call.name.clone(),
-                        args: call.input.clone(),
-                    }),
-                    function_response: None,
-                    inline_data: None,
+                parts.extend(message.tool_calls.iter().map(|call| {
+                    GooglePart::Assistant(GoogleAssistantPart {
+                        function_call: Some(GoogleFunctionCallContext {
+                            id: sent_ids
+                                .get(call.id.as_str())
+                                .copied()
+                                .flatten()
+                                .map(str::to_owned),
+                            name: call.name.clone(),
+                            args: Some(call.input.clone()),
+                        }),
+                        ..GoogleAssistantPart::default()
+                    })
                 }));
                 append_parts(&mut output, "model", parts);
             }
             ConversationRole::Tool => append_parts(
                 &mut output,
                 "user",
-                vec![GooglePart {
-                    text: None,
-                    function_call: None,
-                    function_response: Some(GoogleFunctionResponse {
-                        id: message.tool_call_id.clone(),
+                vec![GooglePart::FunctionResponse {
+                    function_response: GoogleFunctionResponse {
+                        id: message
+                            .tool_call_id
+                            .as_deref()
+                            .and_then(|id| sent_ids.get(id).copied().unwrap_or(Some(id)))
+                            .map(str::to_owned),
                         name: message.name.clone(),
                         response: GoogleFunctionResult {
                             result: message.content.clone(),
                         },
-                    }),
-                    inline_data: None,
+                    },
                 }],
             ),
         }
     }
-
     output
+}
+
+/// Maps runtime call ids to the optional ids sent in this assistant message.
+fn tool_call_ids<'a>(
+    calls: &'a [ToolCall],
+    replay_parts: Option<&'a [GoogleAssistantPart]>,
+) -> BTreeMap<&'a str, Option<&'a str>> {
+    if let Some(parts) = replay_parts {
+        let provider_calls = parts.iter().filter_map(|part| part.function_call.as_ref());
+        calls
+            .iter()
+            .zip(provider_calls)
+            .map(|(runtime, provider)| (runtime.id.as_str(), provider.id.as_deref()))
+            .collect()
+    } else {
+        calls
+            .iter()
+            .map(|call| (call.id.as_str(), Some(call.id.as_str())))
+            .collect()
+    }
 }
 
 fn user_parts(message: &ConversationMessage) -> Vec<GooglePart> {
     if message.content_parts.is_empty() {
-        return vec![GooglePart {
-            text: Some(message.content.clone()),
-            function_call: None,
-            function_response: None,
-            inline_data: None,
-        }];
+        return vec![text_part(&message.content)];
     }
     message.content_parts.iter().map(content_part).collect()
 }
 
+fn text_part(text: &str) -> GooglePart {
+    GooglePart::Assistant(GoogleAssistantPart {
+        text: Some(text.to_owned()),
+        ..GoogleAssistantPart::default()
+    })
+}
+
 fn content_part(part: &ConversationContentPart) -> GooglePart {
     match part {
-        ConversationContentPart::Text { text } => GooglePart {
-            text: Some(text.clone()),
-            function_call: None,
-            function_response: None,
-            inline_data: None,
-        },
+        ConversationContentPart::Text { text } => text_part(text),
         ConversationContentPart::Image {
             mime_type,
             data_base64,
@@ -248,14 +183,11 @@ fn content_part(part: &ConversationContentPart) -> GooglePart {
         | ConversationContentPart::Video {
             mime_type,
             data_base64,
-        } => GooglePart {
-            text: None,
-            function_call: None,
-            function_response: None,
-            inline_data: Some(GoogleInlineData {
+        } => GooglePart::InlineData {
+            inline_data: GoogleInlineData {
                 mime_type: mime_type.clone(),
                 data: data_base64.clone(),
-            }),
+            },
         },
     }
 }
@@ -266,6 +198,7 @@ fn append_parts(contents: &mut Vec<GoogleContent>, role: &str, parts: Vec<Google
     }
     if let Some(existing) = contents.last_mut()
         && existing.role == role
+        && role == "user"
     {
         existing.parts.extend(parts);
         return;

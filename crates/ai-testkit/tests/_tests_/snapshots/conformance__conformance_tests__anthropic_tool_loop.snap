@@ -1,0 +1,79 @@
+---
+source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
+description: "Today's anthropic adapter result for tool_loop using claude-sonnet-5 synthetic recordings."
+expression: outcome
+---
+{
+  "steps": [
+    {
+      "kind": "response",
+      "response": {
+        "provider": "anthropic",
+        "model_id": "claude-sonnet-5",
+        "catalog_model_id": "claude-sonnet-5",
+        "thinking_level": "high",
+        "assistant_message": "",
+        "tool_calls": [
+          {
+            "id": "call_1",
+            "name": "lookup",
+            "input": {
+              "id": 7
+            }
+          }
+        ],
+        "finish_reason": "ToolCalls",
+        "provider_context": [
+          {
+            "type": "anthropic_assistant_message",
+            "blocks": [
+              {
+                "type": "thinking",
+                "thinking": "",
+                "signature": "synthetic-signature"
+              },
+              {
+                "type": "tool_use",
+                "id": "call_1",
+                "name": "lookup",
+                "input": {
+                  "id": 7
+                }
+              }
+            ]
+          }
+        ],
+        "usage": {
+          "input_tokens": 22,
+          "output_tokens": 9,
+          "cached_input_tokens": 5,
+          "reasoning_tokens": 0,
+          "total_tokens": 36,
+          "estimated_cost_microusd": 0
+        }
+      }
+    },
+    {
+      "kind": "response",
+      "response": {
+        "provider": "anthropic",
+        "model_id": "claude-sonnet-5",
+        "catalog_model_id": "claude-sonnet-5",
+        "thinking_level": "high",
+        "assistant_message": "Done",
+        "tool_calls": [],
+        "finish_reason": "Stop",
+        "usage": {
+          "input_tokens": 22,
+          "output_tokens": 9,
+          "cached_input_tokens": 5,
+          "reasoning_tokens": 0,
+          "total_tokens": 36,
+          "estimated_cost_microusd": 0
+        }
+      }
+    }
+  ],
+  "remaining_exchanges": 0
+}

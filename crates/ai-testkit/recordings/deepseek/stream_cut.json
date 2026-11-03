@@ -1,0 +1,56 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "deepseek-v4-pro",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/chat/completions",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "messages": [
+              {
+                "content": "Follow the user's instructions. Keep answers short.",
+                "role": "system"
+              },
+              {
+                "content": "Reply with exactly Done.",
+                "role": "user"
+              }
+            ],
+            "model": "deepseek-v4-pro",
+            "reasoning_effort": "high",
+            "stream": true,
+            "stream_options": {
+              "include_usage": true
+            },
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"Do\"},\"finish_reason\":null,\"index\":0}]}"
+          }
+        ],
+        "end": {
+          "kind": "failure",
+          "after_events": 1,
+          "failure": {
+            "class": "transport"
+          }
+        }
+      }
+    }
+  ]
+}

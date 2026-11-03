@@ -1,0 +1,67 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "deepseek-v4-pro",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/chat/completions",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "messages": [
+              {
+                "content": "Follow the user's instructions. Keep answers short.\n\nReturn raw JSON only. Do not use Markdown fences or additional prose. The response must be a JSON object matching schema `result`.\nJSON Schema:\n{\"additionalProperties\":false,\"properties\":{\"ok\":{\"type\":\"boolean\"}},\"required\":[\"ok\"],\"type\":\"object\"}",
+                "role": "system"
+              },
+              {
+                "content": "Return a JSON object with ok set to true.",
+                "role": "user"
+              }
+            ],
+            "model": "deepseek-v4-pro",
+            "reasoning_effort": "high",
+            "response_format": {
+              "type": "json_object"
+            },
+            "stream": true,
+            "stream_options": {
+              "include_usage": true
+            },
+            "thinking": {
+              "type": "enabled"
+            }
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"{\\\"ok\\\"\"},\"finish_reason\":null,\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\":true}\"},\"finish_reason\":\"stop\",\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[],\"usage\":{\"completion_tokens\":9,\"completion_tokens_details\":{\"reasoning_tokens\":4},\"prompt_cache_hit_tokens\":5,\"prompt_cache_miss_tokens\":15,\"prompt_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":5},\"total_tokens\":29}}"
+          },
+          {
+            "event": null,
+            "data": "[DONE]"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    }
+  ]
+}

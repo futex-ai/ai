@@ -1,5 +1,6 @@
 //! Command-line parsing for workspace automation.
 
+use ai_testkit::provider::Provider;
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
@@ -23,4 +24,14 @@ pub(crate) enum Command {
     },
     /// Run a credential-free runtime construction smoke test.
     SmokeTest,
+    /// Record provider success scenarios with RECORD_API_KEY.
+    RecordStreams {
+        /// Provider name: anthropic, openai, google, deepseek, kimi, qwen, minimax, xai.
+        #[arg(long)]
+        provider: Provider,
+    },
 }
+
+#[cfg(test)]
+#[path = "_tests_/record_streams_cli_tests.rs"]
+mod record_streams_cli_tests;

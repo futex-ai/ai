@@ -1,0 +1,76 @@
+---
+source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
+description: "Today's google adapter result for tool_loop using gemini-3.6-flash synthetic recordings."
+expression: outcome
+---
+{
+  "steps": [
+    {
+      "kind": "response",
+      "response": {
+        "provider": "google",
+        "model_id": "gemini-3.6-flash",
+        "catalog_model_id": "gemini-3.6-flash",
+        "thinking_level": "medium",
+        "assistant_message": "",
+        "tool_calls": [
+          {
+            "id": "call-lookup-7",
+            "name": "lookup",
+            "input": {
+              "id": 7
+            }
+          }
+        ],
+        "finish_reason": "ToolCalls",
+        "provider_context": [
+          {
+            "type": "google_assistant_message",
+            "parts": [
+              {
+                "functionCall": {
+                  "id": "call-lookup-7",
+                  "name": "lookup",
+                  "args": {
+                    "id": 7
+                  }
+                },
+                "thoughtSignature": "synthetic-thought-signature"
+              }
+            ]
+          }
+        ],
+        "usage": {
+          "input_tokens": 15,
+          "output_tokens": 9,
+          "cached_input_tokens": 5,
+          "reasoning_tokens": 4,
+          "total_tokens": 33,
+          "estimated_cost_microusd": 0
+        }
+      }
+    },
+    {
+      "kind": "response",
+      "response": {
+        "provider": "google",
+        "model_id": "gemini-3.6-flash",
+        "catalog_model_id": "gemini-3.6-flash",
+        "thinking_level": "medium",
+        "assistant_message": "Done",
+        "tool_calls": [],
+        "finish_reason": "Stop",
+        "usage": {
+          "input_tokens": 15,
+          "output_tokens": 9,
+          "cached_input_tokens": 5,
+          "reasoning_tokens": 4,
+          "total_tokens": 33,
+          "estimated_cost_microusd": 0
+        }
+      }
+    }
+  ],
+  "remaining_exchanges": 0
+}

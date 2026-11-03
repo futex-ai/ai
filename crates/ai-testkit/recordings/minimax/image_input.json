@@ -1,0 +1,75 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "MiniMax-M3",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.minimax.io/v1/chat/completions",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "messages": [
+              {
+                "content": "Follow the user's instructions. Keep answers short.",
+                "role": "system"
+              },
+              {
+                "content": [
+                  {
+                    "text": "This image is a small test PNG. Reply with exactly Done.",
+                    "type": "text"
+                  },
+                  {
+                    "image_url": {
+                      "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAKElEQVR4nO3NsQ0AAAzCMP5/un0CNkuZ41wybXsHAAAAAAAAAAAAxR4yw/wuPL6QkAAAAABJRU5ErkJggg=="
+                    },
+                    "type": "image_url"
+                  }
+                ],
+                "role": "user"
+              }
+            ],
+            "model": "MiniMax-M3",
+            "reasoning_split": true,
+            "stream": true,
+            "stream_options": {
+              "include_usage": true
+            },
+            "thinking": {
+              "type": "adaptive"
+            }
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"Do\"},\"finish_reason\":null,\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"ne\"},\"finish_reason\":\"stop\",\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[],\"usage\":{\"completion_tokens\":9,\"completion_tokens_details\":{\"reasoning_tokens\":4},\"prompt_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":5},\"total_tokens\":29}}"
+          },
+          {
+            "event": null,
+            "data": "[DONE]"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    }
+  ]
+}

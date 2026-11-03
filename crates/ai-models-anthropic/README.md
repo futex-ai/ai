@@ -23,6 +23,15 @@
 - portable sampling outside thinking mode, bounded output limits, stop
   sequences, strict and required-with-automatic-fallback tool choice, per-call
   timeouts, and blank-system omission
+- with thinking enabled, `Required` and `Function` tool choice return
+  `ModelError::UnsupportedControl` for `ModelControl::ToolChoice` before
+  transport. `RequiredOrAuto` sends `auto` and retains tool definitions.
+  Without thinking, `RequiredOrAuto` sends `any`, as `Required` does.
+- output limits from `KnownModelSpec::max_output_tokens`: use the caller's
+  limit capped at the provider model's catalog maximum, or that maximum when
+  no limit is given. Claude Sonnet 5, Opus 5, Fable 5, Sonnet 4.6, and
+  Opus 4.7 use 128,000 tokens. Haiku 4.5 uses 64,000 tokens. Unknown provider
+  model ids use 64,000 tokens as both the default and the ceiling.
 - Anthropic tool-use and tool-result content blocks
 - shared text and image parts as Anthropic text and base64 image blocks, with
   typed rejection of shared video parts before transport
@@ -54,10 +63,15 @@ custom mapping can use `with_catalog_auth`.
 adaptive thinking, sets `output_config.effort` to `max`, and requests omitted
 thinking display. All existing Sonnet 4.6, Opus 4.7, and Haiku 4.5 entries
 remain available for pinned deployments.
-Reasoning/thinking content blocks in provider responses are ignored and are not
-surfaced as assistant text. Event-observing callers receive their text through
-`ReasoningTextDelta`; buffered callers still see only the reconstructed terminal
-response. Schema-constrained calls suppress all public deltas in version one.
+When a response has `thinking` or `redacted_thinking` blocks, the adapter keeps
+its full ordered content in `ProviderConversationItem::AnthropicAssistantMessage`.
+This includes text, tool uses, empty thinking text with its signature, and
+redacted thinking data. An assistant message with this context replays those
+blocks exactly, with their original order and message boundary.
+Thinking stays separate from visible assistant text. Event-observing callers
+receive thinking text through `ReasoningTextDelta`. Schema-constrained calls
+suppress all public deltas in version one. The tool runtime removes private
+replay context from logger copies while retaining it in conversation history.
 
 ## Quick Start
 
@@ -91,7 +105,8 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 
 - `src/anthropic/mod.rs` - `Model` implementation and request dispatch
 - `src/catalog.rs` - known Anthropic model ids and routing metadata
-- `src/anthropic/request.rs` - Anthropic request DTO mapping
+- `src/anthropic/request.rs` - Anthropic request and control mapping
+- `src/anthropic/request_types.rs` - typed Messages request bodies
 - `src/anthropic/response.rs` - Anthropic response parsing
 - `src/anthropic/stream/` - public delta emission, terminal accumulation, and
   stream failure mapping
@@ -103,6 +118,7 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [Anthropic model overview](https://platform.claude.com/docs/en/about-claude/models/overview)
+- [Anthropic thinking and replay](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)
 - [Anthropic streaming messages](https://platform.claude.com/docs/en/build-with-claude/streaming)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

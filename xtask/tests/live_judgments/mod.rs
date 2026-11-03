@@ -7,3 +7,7 @@ mod retry_tests;
 mod runner_tests;
 mod validation_tests;
 mod workflow_tests;
+
+#[cfg(test)]
+#[path = "_tests_/catalog_fixtures.rs"]
+mod catalog_fixtures;

@@ -52,7 +52,7 @@ fn request_defaults_and_serde_are_stable() {
 fn response_serde_and_duration_metadata_are_stable() {
     let response = VideoGenerationResponse {
         provider: "openai".to_owned(),
-        model_id: "sora-2".to_owned(),
+        model_id: "custom-video-model".to_owned(),
         video: GeneratedVideo {
             data: vec![0, 1],
             mime_type: "video/mp4".to_owned(),
@@ -79,9 +79,9 @@ fn error_helpers_preserve_typed_context() {
             if content_type == "image/tiff"
     ));
     assert!(matches!(
-        VideoGenerationError::content_policy("openai", "sora-2", "blocked"),
+        VideoGenerationError::content_policy("openai", "custom-video-model", "blocked"),
         VideoGenerationError::ContentPolicy { provider, model_id, message }
-            if provider == "openai" && model_id == "sora-2" && message == "blocked"
+            if provider == "openai" && model_id == "custom-video-model" && message == "blocked"
     ));
     assert!(matches!(
         VideoGenerationError::no_video("google", "veo"),
@@ -92,15 +92,15 @@ fn error_helpers_preserve_typed_context() {
         VideoGenerationError::TimedOut { .. }
     ));
     assert!(matches!(
-        VideoGenerationError::rate_limited("openai", "sora-2", "slow down"),
+        VideoGenerationError::rate_limited("openai", "custom-video-model", "slow down"),
         VideoGenerationError::RateLimited { .. }
     ));
     assert!(matches!(
-        VideoGenerationError::transient_provider("openai", "sora-2", "retry"),
+        VideoGenerationError::transient_provider("openai", "custom-video-model", "retry"),
         VideoGenerationError::TransientProvider { .. }
     ));
     assert!(matches!(
-        VideoGenerationError::provider("openai", "sora-2", "rejected"),
+        VideoGenerationError::provider("openai", "custom-video-model", "rejected"),
         VideoGenerationError::Provider { .. }
     ));
 }

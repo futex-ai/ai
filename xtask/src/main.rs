@@ -5,6 +5,7 @@ mod cli;
 mod command;
 mod error;
 mod file_length;
+mod record_streams;
 mod review;
 mod smoke;
 mod workspace;
@@ -31,6 +32,7 @@ fn run() -> Result<()> {
         Command::Review => review::run(&root),
         Command::RustFileLengthLint { all } => file_length::run(&root, all),
         Command::SmokeTest => smoke::runner::run(),
+        Command::RecordStreams { provider } => record_streams::command::run(&root, provider),
     }
 }
 

@@ -1,9 +1,11 @@
 //! Google stream fragment merging and terminal response construction.
 
+use ai_interface::ProviderConversationItem;
 use serde_json::{Map, Value, json};
 
 use super::{
     part::AccumulatedPart,
+    replay::ReplayParts,
     types::{
         GooglePromptFeedback, GoogleStreamChunk, GoogleStreamDelta, GoogleStreamError,
         GoogleStreamUpdate, GoogleUsageMetadata,
@@ -13,7 +15,8 @@ use super::{
 #[derive(Debug, Default)]
 pub(super) struct GoogleStreamAccumulator {
     candidate_seen: bool,
-    parts: Vec<AccumulatedPart>,
+    visible_parts: Vec<AccumulatedPart>,
+    replay_parts: ReplayParts,
     finish_reason: Option<String>,
     prompt_feedback: Option<GooglePromptFeedback>,
     usage: Option<GoogleUsageMetadata>,
@@ -43,7 +46,9 @@ impl GoogleStreamAccumulator {
             self.candidate_seen = true;
             if let Some(content) = candidate.content {
                 for (index, part) in content.parts.into_iter().enumerate() {
-                    if let Some(delta) = AccumulatedPart::append(&mut self.parts, part, index == 0)
+                    self.replay_parts.append(part.clone(), index == 0);
+                    if let Some(delta) =
+                        AccumulatedPart::append(&mut self.visible_parts, part, index == 0)
                     {
                         deltas.push(self.normalize_delta(delta));
                     }
@@ -93,6 +98,10 @@ impl GoogleStreamAccumulator {
         Ok(Value::Object(body))
     }
 
+    pub(super) fn provider_context(&self) -> Vec<ProviderConversationItem> {
+        self.replay_parts.provider_context()
+    }
+
     fn prompt_was_blocked(&self) -> bool {
         self.prompt_feedback
             .as_ref()
@@ -105,7 +114,7 @@ impl GoogleStreamAccumulator {
             return Value::Array(Vec::new());
         }
         let parts = self
-            .parts
+            .visible_parts
             .iter()
             .map(AccumulatedPart::body)
             .collect::<Vec<_>>();

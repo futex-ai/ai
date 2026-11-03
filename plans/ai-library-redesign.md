@@ -1,7 +1,8 @@
 # AI library redesign
 
 Status: Active. [PR #24](https://github.com/futex-ai/ai/pull/24) is open for
-the first pull request. The work spans eight stacked pull requests. Each earlier pull request keeps
+the first pull request, and [PR #25](https://github.com/futex-ai/ai/pull/25)
+for the second. The work spans eight stacked pull requests. Each earlier pull request keeps
 this plan. The last one deletes it, as the final milestone says.
 
 The workspace puts nine AI providers behind one interface, with a
@@ -148,22 +149,22 @@ The MCP crates change only after the MCP decision of Milestone 11.
 The user gave every answer on 2026-11-01. The user gave no reason for the
 answers that differ from the recommendation.
 
-- Item 1, [Claude and Gemini drop replay data](follow-ups/claude-gemini-drop-replay-data.md):
+- Item 1, Claude and Gemini drop replay data, applied in Milestone 3:
   option A. Add Anthropic thinking-block and Gemini thought-signature
   variants to `ProviderConversationItem`, replay them, and add mock
   regression tests. The alternatives were a live two-turn probe in
   addition, or opaque provider state at once. The recommendation was the
   live probe in addition.
-- Item 2, [Anthropic output is capped at 4,096 tokens](follow-ups/anthropic-output-cap-4096.md):
+- Item 2, Anthropic output is capped at 4,096 tokens, applied in Milestone 3:
   option B. Add a max output to each catalog entry, and use it as the
   default and the ceiling. The alternatives were a larger constant, or no
   ceiling. The recommendation was the larger constant.
-- Item 3, [Anthropic forces tool use while thinking is on](follow-ups/anthropic-forced-tool-choice-thinking.md):
+- Item 3, Anthropic forces tool use while thinking is on, applied in Milestone 3:
   option A. With thinking on, return `UnsupportedControl` for `Required`
   and `Function`, and send `auto` for `RequiredOrAuto`. The alternatives
   were a live probe in addition, or the rule in catalog data at once. The
   recommendation was the live probe in addition.
-- Item 4, [Truncated answers end the turn as completed](follow-ups/tool-loop-hides-truncation.md):
+- Item 4, Truncated answers end the turn as completed, applied in Milestone 3:
   option B. Add a `Truncated` variant to `StepOutcome` and `RunOutcome`.
   The alternatives were a finish reason on `Completed`, or an automatic
   continuation. B was the recommendation, because every caller must then
@@ -184,6 +185,20 @@ answers that differ from the recommendation.
   conformance scenarios run live, or live models chosen from the specs.
 - Item 10, [xAI deferred timeout can bill twice](follow-ups/xai-deferred-timeout-rebills.md):
   open. It blocks the xAI deferred timeout rule of Milestones 4 and 8.
+- Item 16, [Choose how the MCP crates change](follow-ups/mcp-crate-direction.md):
+  open. Milestone 11 raised it on 2026-11-02. It blocks Milestone 12. The
+  recommendation is option B, which moves the `ai-mcp` transport onto
+  `json-http`.
+- Item 17, [Empty SSE data breaks rmcp-based servers](follow-ups/mcp-empty-sse-data.md):
+  open. Milestone 11 found this defect on `main` on 2026-11-02. Milestone 12
+  applies the answer. The recommendation is option E, which decodes only
+  message events with data.
+- Item 18, [Choose the MCP revisions the client supports](follow-ups/mcp-client-revision-target.md):
+  open. It decides between options B and G of item 16. The recommendation
+  is option B, a follow-up plan for dual-era support.
+- Item 19, [MCP OAuth misses the newer authorization rules](follow-ups/mcp-oauth-newer-rules.md):
+  open. The recommendation is option C, a follow-up plan for the newer
+  OAuth rules.
 - Decision 7, how much paid live testing each change pays for: option A.
   The live suites keep their current triggers. The alternatives were path
   filters, a pull-request label, schedules only, a small pull-request set,
@@ -273,6 +288,19 @@ All calls are mine, made on 2026-11-01.
     message. Every tool event names its call id.
 - The plan has about 520 lines, above the 300-line target, because it
   covers eight pull requests. A split would scatter the shared decisions.
+- 2026-11-02, before Milestone 4:
+  - Milestone 11 depends on Milestone 1 only. It reads and writes a
+    comparison under `.context/`, so it can run beside the code
+    milestones, and the MCP decision reaches the user sooner. Milestone 12
+    depends on Milestones 8 and 11, because one of its options builds on
+    the `json-http` work of Milestone 8.
+  - Milestone 4 moves the Chat Completions types of `ai-models-core` into
+    `ai-models-compat`. Only the five ported crates use them, and
+    `docs/architecture.md` gives `ai-models-core` no Chat Completions
+    role.
+  - Milestone 9 marks `chat-completions-dialects.md` implemented. The doc
+    describes the engine on the specs, events, parts, error kinds, and
+    base URLs of Milestones 5 to 9.
 
 ## Pull requests
 
@@ -337,23 +365,23 @@ Depends on: 1
 Capture what each adapter does today, so that later milestones can prove
 that they keep it.
 
-- [ ] Add a recording transport and a replay transport to `json-http`
+- [x] Add a recording transport and a replay transport to `json-http`
       behind its `test-support` feature. A recording holds the request and
       the raw response bytes.
-- [ ] Add the `ai-testkit` crate with scenarios, recording storage, and a
+- [x] Add the `ai-testkit` crate with scenarios, recording storage, and a
       conformance runner. The runner snapshots each result with
       file-based `insta` snapshots.
-- [ ] Define the scenarios: one text turn, a two-turn tool loop with
+- [x] Define the scenarios: one text turn, a two-turn tool loop with
       thinking on, a schema call, an image input, a rate-limit error, and a
       stream cut after progress.
-- [ ] Add a manual workflow that records the success scenarios for each
+- [x] Add a manual workflow that records the success scenarios for each
       provider. The user runs it, because it needs the provider secrets.
-- [ ] Build the rate-limit and stream-cut scenarios from documented
+- [x] Build the rate-limit and stream-cut scenarios from documented
       provider error bodies, because a live provider does not produce them
       on demand.
-- [ ] Commit the recordings, and snapshot today's results, errors
+- [x] Commit the recordings, and snapshot today's results, errors
       included.
-- [ ] Run `cargo xtask check`, then commit and push.
+- [x] Run `cargo xtask check`, then commit and push.
 
 ## Milestone 3: Fixes in the current design
 
@@ -361,24 +389,24 @@ Depends on: 2
 
 Apply the answers to items 1 to 4 on today's types.
 
-- [ ] Item 1, option A: add Anthropic thinking-block and Gemini
+- [x] Item 1, option A: add Anthropic thinking-block and Gemini
       thought-signature variants to `ProviderConversationItem`. Replay them
       in their adapters. Handle the new variants in every other adapter, in
       the synthetic tool-call id hasher, and in the log redaction list. Add
       mock regression tests.
-- [ ] Item 2, option B: add a max output to each catalog entry. Take each
+- [x] Item 2, option B: add a max output to each catalog entry. Take each
       value from the provider's model documentation. Use it as the default
       and the ceiling in the Anthropic adapter. Update
       `provider-call-controls.md`.
-- [ ] Item 3, option A: with thinking on, return `UnsupportedControl` for
+- [x] Item 3, option A: with thinking on, return `UnsupportedControl` for
       `Required` and `Function`, and send `auto` for `RequiredOrAuto`.
       Update the matrix in `provider-call-controls.md`.
-- [ ] Item 4, option B: add a `Truncated` variant to `StepOutcome` and
+- [x] Item 4, option B: add a `Truncated` variant to `StepOutcome` and
       `RunOutcome`. Mark that requirement implemented in `agent-loop.md`.
-- [ ] Delete each follow-up item in the commit that applies it.
-- [ ] Re-record the affected scenarios, and update their snapshots.
-- [ ] Run `cargo xtask check`, then commit and push.
-- [ ] Run the ship steps for pull request 2.
+- [x] Delete each follow-up item in the commit that applies it.
+- [x] Re-record the affected scenarios, and update their snapshots.
+- [x] Run `cargo xtask check`, then commit and push.
+- [x] Run the ship steps for pull request 2.
 
 ## Milestone 4: Chat Completions engine
 
@@ -478,6 +506,9 @@ fallback explicit.
       limits.
 - [ ] Make fallback require a policy, with the presets "any error" and
       "only when another model can succeed". Report every attempt.
+- [ ] Keep the provider message of every rate-limit error in the error
+      core. The MiniMax and xAI adapters lose it today, as their
+      `rate_limit` snapshots show.
 - [ ] Mark `model-policies.md` implemented.
 - [ ] Run `cargo xtask check`, then commit and push.
 
@@ -496,7 +527,8 @@ Build any catalog entry from one config shape.
 - [ ] Replace the provider match in
       `xtask/tests/live_models/provider_tests.rs` and in the smoke test
       with the registry.
-- [ ] Mark `provider-registry.md` implemented.
+- [ ] Mark `provider-registry.md` and `chat-completions-dialects.md`
+      implemented.
 - [ ] Run `cargo xtask check` and `cargo xtask smoke-test`, then commit
       and push.
 - [ ] Run the ship steps for pull request 5.
@@ -530,26 +562,27 @@ Rebuild the tool loop on the stream and the caller-owned conversation.
 
 ## Milestone 11: MCP evaluation
 
-Depends on: 8
+Depends on: 1
 
 Decide with evidence whether `rmcp` replaces the custom MCP client.
 
-- [ ] Compare `rmcp` with `docs/protocol/ai-mcp.md` and
+- [x] Compare `rmcp` with `docs/protocol/ai-mcp.md` and
       `docs/protocol/mcp-oauth.md`. Cover protocol versions, sessions, SSE
       limits, auth challenges, discovery, registration, PKCE, refresh, and
       URL safety.
-- [ ] Save the comparison under `.context/ai-library-redesign/`.
-- [ ] Add the MCP decision to this plan, run the options check, and ask
+- [x] Save the comparison under `.context/ai-library-redesign/`.
+- [x] Add the MCP decision to this plan, run the options check, and ask
       the user.
 
 ## Milestone 12: MCP change
 
-Depends on: 11
+Depends on: 8, 11
 
 Apply the MCP decision.
 
-- [ ] Apply the chosen option: move to `rmcp` behind `McpToolSet`, or move
-      the custom client onto `json-http`.
+- [ ] Apply the answer to item 16.
+- [ ] Apply the answer to item 17, and the answers to items 18 and 19
+      when they fall inside this plan.
 - [ ] Run `cargo xtask check`, then commit and push.
 - [ ] Run the ship steps for pull request 7.
 

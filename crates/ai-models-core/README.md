@@ -38,7 +38,10 @@ It also defines `KnownModelSpec`, `KnownModelCatalog`, coarse `SpeedTier` and
 by worker-side model routing. Provider crates own their concrete catalog
 entries. A known model spec has a unique workspace catalog id plus a separate
 provider model id, so a provider catalog can expose multiple deployable
-variants for the same upstream model.
+variants for the same upstream model. `max_output_tokens` states the provider's
+maximum generated text tokens. Non-chat entries use zero. The Anthropic adapter
+uses this value as its default and ceiling. Other adapters retain their
+existing output-control behavior.
 
 `ThinkingLevel` is ordered from `Disabled` through `Low`, `Medium`, `High`,
 `ExtraHigh`, and `Max`. The level is normalized routing metadata; each
@@ -54,7 +57,8 @@ the adapter can preserve an explicit custom mapping or return a typed error.
 When callers request structured model responses, this crate also owns the
 shared JSON parsing and JSON Schema validation helpers used by provider crates.
 Synthetic tool-call scopes also hash provider replay context, including every
-DeepSeek and Kimi raw assistant, reasoning, and tool-call field, so retained
+Anthropic block and Google part field, as well as DeepSeek and Kimi raw
+assistant, reasoning, and tool-call fields, so retained
 provider conversations remain distinct during deterministic id generation.
 
 `UsagePricingModel` wraps any `ai_interface::Model` and applies a deployment
@@ -133,7 +137,8 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 - `src/errors.rs` - provider-agnostic JSON error mapping, parsing, and
   structured-output validation helpers
 - `src/chat_completions/` - typed OpenAI-compatible stream accumulator
-- `src/tool_call_identity.rs` - deterministic synthetic tool-call id helpers
+- `src/tool_call_identity/` - deterministic synthetic tool-call ids and
+  hashing of normalized requests and provider replay state
 - `src/sleeper.rs` - abstract sleeper boundary for retry testing
 - `src/polling.rs` - monotonic clock and async sleeper boundary for
   deadline-aware provider polling

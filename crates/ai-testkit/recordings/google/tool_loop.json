@@ -1,0 +1,198 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "gemini-3.6-flash",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse",
+        "headers": {
+          "x-goog-api-key": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "contents": [
+              {
+                "parts": [
+                  {
+                    "text": "Call lookup with id 7. After its result, reply with exactly Done."
+                  }
+                ],
+                "role": "user"
+              }
+            ],
+            "generationConfig": {
+              "thinkingConfig": {
+                "thinkingLevel": "medium"
+              }
+            },
+            "systemInstruction": {
+              "parts": [
+                {
+                  "text": "Follow the user's instructions. Keep answers short."
+                }
+              ]
+            },
+            "toolConfig": {
+              "functionCallingConfig": {
+                "mode": "AUTO"
+              }
+            },
+            "tools": [
+              {
+                "functionDeclarations": [
+                  {
+                    "description": "Look up one number.",
+                    "name": "lookup",
+                    "parametersJsonSchema": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ],
+                      "type": "object"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": null,
+            "data": "{\"candidates\":[{\"content\":{\"parts\":[{\"functionCall\":{\"args\":{\"id\":7},\"id\":\"call-lookup-7\",\"name\":\"lookup\"},\"thoughtSignature\":\"synthetic-thought-signature\"}],\"role\":\"model\"}}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"candidates\":[{\"content\":{\"parts\":[],\"role\":\"model\"},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"cachedContentTokenCount\":5,\"candidatesTokenCount\":9,\"promptTokenCount\":20,\"thoughtsTokenCount\":4,\"totalTokenCount\":33}}"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse",
+        "headers": {
+          "x-goog-api-key": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "contents": [
+              {
+                "parts": [
+                  {
+                    "text": "Call lookup with id 7. After its result, reply with exactly Done."
+                  }
+                ],
+                "role": "user"
+              },
+              {
+                "parts": [
+                  {
+                    "functionCall": {
+                      "args": {
+                        "id": 7
+                      },
+                      "id": "call-lookup-7",
+                      "name": "lookup"
+                    },
+                    "thoughtSignature": "synthetic-thought-signature"
+                  }
+                ],
+                "role": "model"
+              },
+              {
+                "parts": [
+                  {
+                    "functionResponse": {
+                      "id": "call-lookup-7",
+                      "name": "lookup",
+                      "response": {
+                        "result": "{\"value\":7}"
+                      }
+                    }
+                  },
+                  {
+                    "text": "Use the tool result. Reply with exactly Done."
+                  }
+                ],
+                "role": "user"
+              }
+            ],
+            "generationConfig": {
+              "thinkingConfig": {
+                "thinkingLevel": "medium"
+              }
+            },
+            "systemInstruction": {
+              "parts": [
+                {
+                  "text": "Follow the user's instructions. Keep answers short."
+                }
+              ]
+            },
+            "toolConfig": {
+              "functionCallingConfig": {
+                "mode": "NONE"
+              }
+            },
+            "tools": [
+              {
+                "functionDeclarations": [
+                  {
+                    "description": "Look up one number.",
+                    "name": "lookup",
+                    "parametersJsonSchema": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ],
+                      "type": "object"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": null,
+            "data": "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Do\"}],\"role\":\"model\"}}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"ne\"}],\"role\":\"model\"},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"cachedContentTokenCount\":5,\"candidatesTokenCount\":9,\"promptTokenCount\":20,\"thoughtsTokenCount\":4,\"totalTokenCount\":33}}"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    }
+  ]
+}

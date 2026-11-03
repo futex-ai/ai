@@ -1,0 +1,42 @@
+# Choose how the MCP crates change
+
+- **Severity:** High. **Effort:** Medium. **Confidence:** High. **Harder later:** No.
+- **Kind:** Needs decision.
+- **Added:** 2026-11-02, from branch `calummoore/redesign-2-safety-net`, item 16. The MCP evaluation of `plans/ai-library-redesign.md` raised it.
+- **Location:** `crates/ai-mcp/src/transport/`, `crates/ai-mcp-oauth/src/transport/`, `docs/protocol/ai-mcp.md`, `docs/protocol/mcp-oauth.md`
+- **Reason:** Most options change or delete code on `main`, and the best option depends on the open revision decision in `plans/follow-ups/mcp-client-revision-target.md`, so the user decides.
+
+- **Terms:**
+  - **rmcp:** the official Rust SDK for the Model Context Protocol (MCP), crate `rmcp`, repository `modelcontextprotocol/rust-sdk`. Version 3.8.0 of 2026-10-26 was the newest on 2026-11-02.
+  - **`json-http`:** the shared HTTP crate of this workspace, in `crates/json-http`. The AI provider adapters send their requests through it.
+  - **`McpClient`:** the client trait of `ai-mcp`. `McpToolSet` calls it for each tool call of the tool-calling loop.
+  - **rmcp HTTP backend:** our own implementation of rmcp's `StreamableHttpClient` trait, which sends each HTTP request in place of rmcp's reqwest code.
+- **Background:**
+  - `ai-mcp` is the MCP client of this workspace, and `McpToolSet` gives MCP server tools to the tool-calling loop. `ai-mcp-oauth` runs OAuth for MCP servers that need it. Both crates call reqwest directly, and both meet their protocol docs, `docs/protocol/ai-mcp.md` and `docs/protocol/mcp-oauth.md`.
+  - rmcp 3.8.0 misses 47 rules of those docs: 23 of `ai-mcp.md` and 24 of `mcp-oauth.md`. Examples are strict JSON-RPC id checks, response size limits, no redirects, typed 401 and 403 errors, host choice of the authorization server, the full address policy, proxy isolation, token revocation, and logs without secrets.
+  - A wrapper can add most `ai-mcp.md` rules, but most HTTP rules need our own rmcp HTTP backend. rmcp's OAuth module cannot meet several `mcp-oauth.md` rules through a wrapper. rmcp had four client-side security advisories in 2026, the last one fixed in 3.7.0.
+  - rmcp builds on the workspace toolchain 1.95.0, declares Rust 1.88 as its minimum, uses the Apache-2.0 license, and shares the workspace `reqwest` 0.13.4 and `tokio` 1.54.1. It had three major versions in 2026.
+  - The SSE framing functions of the two crates are the same code: `crates/ai-mcp/src/transport/sse.rs:73-96` and `crates/json-http/src/sse.rs:90-113`.
+- **Problem:** The MCP crates keep their own HTTP stack, while the rest of the workspace moves onto `json-http`. One choice of where the MCP protocol logic and its HTTP code live is needed before the MCP code changes. Each choice trades safety, effort, and support for newer MCP revisions differently.
+- **Impact if no action:** The MCP change of the redesign stays blocked, and two HTTP stacks and two SSE parsers stay.
+- **Root question:** Where should the MCP protocol logic and its HTTP code live after the redesign?
+- **Options:**
+  - **A.** Keep both crates as they are, and record the decision in the MCP section of `docs/architecture.md`. Two HTTP stacks, two SSE parsers, and the revision gap stay. Effort: Small.
+  - **B.** Keep the custom protocol logic, and move the `ai-mcp` transport onto `json-http`. `json-http` gets a raw streaming response with headers, a byte limit, and a no-redirect option. `ReqwestMcpHttpTransport` becomes an adapter over `json-http`, and its name and constructor can stay. `ai-mcp-oauth` keeps its pinned reqwest transport as a documented exception. Risk: the shared crate grows, and the status rules can break. 23 transport integration tests cover those rules. Docs: the "Dependencies" and "Crate layout" sections of `ai-mcp.md`, `docs/architecture.md`, and the `json-http` README. Effort: Medium.
+  - **C.** Do B, and also move the `ai-mcp-oauth` transport onto `json-http`. `json-http` then filters DNS results and ignores proxies. It replaces the public `ReqwestOAuthHttpTransport` and `SystemOAuthDnsResolver`, and 19 transport tests and the proxy test change. Risk: the DNS pinning of security code gets a redesign. Docs: those of B, plus the "Security requirements" and "Public boundaries" sections of `mcp-oauth.md`. Effort: Large.
+  - **D.** Use rmcp for the protocol layer behind `McpClient` and `McpToolSet`. Our own rmcp HTTP backend keeps the HTTP rules, and `ai-mcp-oauth` stays as it is. Turn off rmcp's session replay, cache, and reconnects. It deletes the public `McpHttpTransport`, `McpEventStream`, `McpRequestId`, and their mocks, and it rewrites 44 client unit tests and the MCP smoke test. Risk: rmcp churn, ten more crates, an Apache-2.0 notice, and some strict rules lose their error types. Docs: five sections of `ai-mcp.md`. Effort: Large.
+  - **E.** Use rmcp for both the protocol layer and OAuth. Delete most of `ai-mcp` and all of `ai-mcp-oauth`: 3,536 source lines, 158 tests, and its public API. Risk: the OAuth rules that a wrapper cannot add are lost, and Juno and Firna must change their OAuth code. Docs: a rewrite of `mcp-oauth.md` and most of `ai-mcp.md`. Effort: Large.
+  - **F.** Keep the custom client and its reqwest transport. Replace only the private SSE framing of `ai-mcp` with `json_http::JsonHttpSseDecoder`, and keep the byte limit in `ai-mcp`. Two HTTP stacks stay, and MCP gets no shared redirect or timeout policy. Risk: low, because the framing code is the same and its 13 tests stay. Effort: Small.
+  - **G.** Do D, but build the rmcp HTTP backend on the `json-http` streaming API that B adds. MCP and the providers then share one HTTP layer. Cost: the rmcp risks of D and the `json-http` growth of B. Effort: Large.
+- **Left out:**
+  - Use only the rmcp data types. rmcp's `ContentBlock` has five variants and no catch-all, which breaks the `ai-mcp.md` rule that unknown content types survive. A is better on every point.
+  - Add the missing rules to rmcp upstream first. It fails the goal, because the redesign cannot wait for the rmcp maintainers. It can be added to D or G.
+  - Another Rust MCP SDK. The redesign limits the comparison to rmcp, the official SDK.
+- **Wider fix:** None. This is a choice of place, not a class of defect.
+- **Previous examples:** None found.
+- **Related:**
+  - `plans/follow-ups/mcp-client-revision-target.md`, work that waits for that answer: a dual-era target inside the redesign makes G the better choice.
+  - `plans/follow-ups/mcp-empty-sse-data.md`, the same code: B, C, D, F, and G change or replace the SSE parser that holds its rule.
+  - `plans/follow-ups/mcp-oauth-newer-rules.md`, the same code: C and E change the OAuth transport that those rules extend.
+- **Recommendation:** B. It gives the shared HTTP layer, keeps every safety rule of the docs, and has the lowest risk. If the revision decision asks for dual-era support inside the redesign, G protects the codebase better than D, because G keeps the one HTTP layer that B builds.
+- **Action:** ask the user, because options B to G change or delete code on `main`, and the best option depends on the open revision decision.

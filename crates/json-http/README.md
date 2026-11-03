@@ -12,6 +12,7 @@ SSE streams without embedding reqwest boilerplate in each caller.
 - Expose a builder API for `get`, `post`, `put`, `delete`, and `patch`
 - Support reusable auth hooks that apply request headers before dispatch
 - Decode SSE incrementally while enforcing connect, idle, and overall timeouts
+- Record sanitized exchanges and replay them without network calls in tests
 
 ## What This Crate Does
 
@@ -35,12 +36,33 @@ The crate ships with:
   and optional SSE idle timeouts within one overall request deadline
 - `send_bytes()` for authenticated downloads through the same transport and
   auth hooks as JSON calls
+- `RecordingTransport`, `MemoryRecordingLog`, and `ReplayTransport` under
+  the `test-support` feature for portable exchange recording and replay
 
 `JsonHttpTransport::execute_sse` defaults to the typed `SseUnsupported` error.
 Existing alternate transports therefore continue to compile, but must
 implement streaming before callers use `send_sse()`. Successful streams require
 `text/event-stream`; non-success responses retain at most 64 KiB of JSON or
 text diagnostics for status-aware provider classification.
+
+Test support records JSON bodies, base64 response bytes, and decoded SSE
+events with their terminal failure class and event count. Multipart requests
+store field metadata and byte counts. They do not store uploaded bytes.
+Credential header names are case-insensitive. The values of `authorization`,
+`x-api-key`, `x-goog-api-key`, and `api-key` become `[redacted]`.
+The recorder also removes credential URL fields, named JSON credentials,
+and known secret values from responses. It forwards the original requests
+and responses unchanged. Raw transport error text is never persisted.
+
+The stream boundary does not expose a successful HTTP status. Recordings
+therefore use 200 for successful SSE openings. Rejected openings retain
+their actual status and body. Streams record only consumed events.
+Replay restores transport, idle, deadline, and decode failures with the
+observed `events_received` count. A reqwest URL parsing error supplies the
+source required by the existing SSE transport error type without using IO.
+Replay checks method and URL in call order. `next_response` returns typed
+`ReplayError` values for mismatch and exhaustion. Calls through
+`JsonHttpTransport` translate these to its existing `Error::Transport`.
 
 ## Quick Start
 
@@ -104,6 +126,7 @@ async fn next_event() -> json_http::Result<Option<JsonHttpSseEvent>> {
 
 ```sh
 cargo test -p json-http
+cargo test -p json-http --all-features
 cargo clippy -p json-http --all-targets --all-features -- -D warnings
 ```
 
@@ -119,9 +142,12 @@ server and requires no external network or credentials.
 - `src/reqwest_sse.rs` - idle/deadline-aware reqwest stream consumption
 - `src/reqwest_transport.rs` - buffered and streaming reqwest execution
 - `src/auth.rs` - auth hook trait and static header implementation
+- `src/test_support/` - recording types, credential redaction, shared logs,
+  transport wrappers, and ordered replay behind `test-support`
 
 ### Related Docs
 
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
+- [`../ai-testkit/README.md`](../ai-testkit/README.md)
 - [`../ai-models-openai/README.md`](../ai-models-openai/README.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)

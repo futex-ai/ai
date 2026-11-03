@@ -1,0 +1,19 @@
+---
+source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+description: "Today's google adapter result for rate_limit using gemini-3.6-flash synthetic recordings."
+expression: outcome
+---
+{
+  "steps": [
+    {
+      "kind": "error",
+      "error": {
+        "variant": "RateLimited",
+        "provider": "google",
+        "model_id": "gemini-3.6-flash",
+        "message": "HTTP 429: Quota exceeded."
+      }
+    }
+  ],
+  "remaining_exchanges": 0
+}

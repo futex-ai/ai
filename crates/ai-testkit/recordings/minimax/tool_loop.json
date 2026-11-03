@@ -1,0 +1,198 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "MiniMax-M3",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.minimax.io/v1/chat/completions",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "messages": [
+              {
+                "content": "Follow the user's instructions. Keep answers short.",
+                "role": "system"
+              },
+              {
+                "content": "Call lookup with id 7. After its result, reply with exactly Done.",
+                "role": "user"
+              }
+            ],
+            "model": "MiniMax-M3",
+            "reasoning_split": true,
+            "stream": true,
+            "stream_options": {
+              "include_usage": true
+            },
+            "thinking": {
+              "type": "adaptive"
+            },
+            "tool_choice": "auto",
+            "tools": [
+              {
+                "function": {
+                  "description": "Look up one number.",
+                  "name": "lookup",
+                  "parameters": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"Checking \",\"reasoning_details\":[{\"format\":\"MiniMax-response-v1\",\"id\":\"reasoning-1\",\"index\":0,\"text\":\"Use \",\"type\":\"reasoning.text\"}],\"tool_calls\":[{\"function\":{\"arguments\":\"{\\\"id\\\":\",\"name\":\"lookup\"},\"id\":\"call_1\",\"index\":0,\"type\":\"function\"}]},\"finish_reason\":null,\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"now\",\"reasoning_details\":[{\"format\":\"MiniMax-response-v1\",\"id\":\"reasoning-1\",\"index\":0,\"text\":\"Use lookup.\",\"type\":\"reasoning.text\"}],\"tool_calls\":[{\"function\":{\"arguments\":\"7}\"},\"index\":0}]},\"finish_reason\":\"tool_calls\",\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[],\"usage\":{\"completion_tokens\":9,\"completion_tokens_details\":{\"reasoning_tokens\":4},\"prompt_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":5},\"total_tokens\":29}}"
+          },
+          {
+            "event": null,
+            "data": "[DONE]"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://api.minimax.io/v1/chat/completions",
+        "headers": {
+          "Authorization": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "messages": [
+              {
+                "content": "Follow the user's instructions. Keep answers short.",
+                "role": "system"
+              },
+              {
+                "content": "Call lookup with id 7. After its result, reply with exactly Done.",
+                "role": "user"
+              },
+              {
+                "content": "Checking now",
+                "reasoning_details": [
+                  {
+                    "format": "MiniMax-response-v1",
+                    "id": "reasoning-1",
+                    "index": 0,
+                    "text": "Use lookup.",
+                    "type": "reasoning.text"
+                  }
+                ],
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "function": {
+                      "arguments": "{\"id\":7}",
+                      "name": "lookup"
+                    },
+                    "id": "call_1",
+                    "type": "function"
+                  }
+                ]
+              },
+              {
+                "content": "{\"value\":7}",
+                "role": "tool",
+                "tool_call_id": "call_1"
+              },
+              {
+                "content": "Use the tool result. Reply with exactly Done.",
+                "role": "user"
+              }
+            ],
+            "model": "MiniMax-M3",
+            "reasoning_split": true,
+            "stream": true,
+            "stream_options": {
+              "include_usage": true
+            },
+            "thinking": {
+              "type": "adaptive"
+            },
+            "tool_choice": "none",
+            "tools": [
+              {
+                "function": {
+                  "description": "Look up one number.",
+                  "name": "lookup",
+                  "parameters": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "kind": "sse",
+        "status": 200,
+        "events": [
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"Do\"},\"finish_reason\":null,\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"ne\"},\"finish_reason\":\"stop\",\"index\":0}]}"
+          },
+          {
+            "event": null,
+            "data": "{\"choices\":[],\"usage\":{\"completion_tokens\":9,\"completion_tokens_details\":{\"reasoning_tokens\":4},\"prompt_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":5},\"total_tokens\":29}}"
+          },
+          {
+            "event": null,
+            "data": "[DONE]"
+          }
+        ],
+        "end": {
+          "kind": "done"
+        }
+      }
+    }
+  ]
+}

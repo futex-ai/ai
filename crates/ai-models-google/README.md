@@ -32,6 +32,16 @@ shared runtime wrappers from neighboring crates.
 - complete function schemas through `parametersJsonSchema`, kept separate
   from structured response schemas in `responseJsonSchema`
 - function call and function response content parts
+- full ordered model content in `ProviderConversationItem::GoogleAssistantMessage`
+  when any part has a `thoughtSignature`. Replay preserves the original text,
+  thought flags, function-call ids and arguments, and signatures. A missing
+  provider call id stays absent in replay and tool results even when runtime
+  dispatch needs a synthetic id. Unsigned calls keep their runtime id on both
+  the call and its result. Signed parts, including empty text and signature-only
+  parts, stay separate in replay data. Signatures do not change answer text or
+  public deltas. Text continues across chunks, and separate text parts in one chunk
+  keep their newline. The tool runtime removes this private context from log
+  copies.
 - inline `inlineData` parts for shared base64 image and video user content
 - Gemini `finishReason` normalization into `ai_interface::FinishReason`,
   including deriving normal tool-call completion from parsed `functionCall`
@@ -88,8 +98,7 @@ the balanced image catalog entry.
 `GoogleVideoGenerator` submits text or one inline first frame to Veo's
 `predictLongRunning` endpoint, polls the returned operation, and downloads the
 first generated MP4 with the same API-key auth. The catalog lists no video
-model, because Google no longer serves `veo-3.1-generate-preview`, so callers
-pass the provider model id. The adapter maps portable
+model, so callers pass a provider model id. The adapter maps portable
 landscape/portrait, four/eight-second, and 720p controls, enforces one
 ten-minute total deadline through an injected polling runtime, rejects download
 URIs outside the configured API origin, and keeps policy, timeout, rate-limit,
@@ -147,7 +156,8 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 - `src/google/mod.rs` - `Model` implementation and request dispatch
 - `src/catalog.rs` - known Google model ids and routing metadata
-- `src/google/request.rs` - Google request DTO mapping
+- `src/google/request.rs` - Google request and continuation mapping
+- `src/google/request_types.rs` - typed Gemini request bodies
 - `src/google/response.rs` - Google response parsing
 - `src/google/stream/` - public fragment emission, terminal accumulation, and
   stream failure mapping
@@ -162,6 +172,7 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)
 - [Latest Gemini models](https://ai.google.dev/gemini-api/docs/latest-model)
+- [Gemini thought signatures](https://ai.google.dev/gemini-api/docs/generate-content/thought-signatures)
 - [Gemini generate-content API](https://ai.google.dev/api/generate-content)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/live-image-api-tests.md`](../../docs/protocol/live-image-api-tests.md)

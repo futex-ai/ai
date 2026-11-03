@@ -10,20 +10,19 @@ use ai_interface::{
     DynJudgmentModel, JudgmentContent, JudgmentError, JudgmentModel, JudgmentModelMock,
     JudgmentQuestion, JudgmentRequest, MockJudgmentModel, ProviderKind,
 };
-use ai_models_core::{
-    CostTier, IntelligenceScore, KnownModelSpec, ModelFeature, SpeedTier, ThinkingLevel,
-};
+use ai_models_core::KnownModelSpec;
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use serde_json::{Map, Value};
 use thiserror::Error;
 use unimock::{MockFn, Unimock, matching};
 
 use super::{
-    provider_tests::LiveJudgmentProvider, retry_tests::RetryingJudgmentModel,
+    catalog_fixtures::{judgment_spec, mock_spec},
+    provider_tests::LiveJudgmentProvider,
+    retry_tests::RetryingJudgmentModel,
     validation_tests::validation_failures,
 };
 
-const JUDGMENT_FEATURES: &[ModelFeature] = &[ModelFeature::Judgment];
 const API_KEY_ENV: &str = "LIVE_JUDGMENT_API_KEY";
 
 #[derive(Debug, Eq, Error, PartialEq)]
@@ -275,26 +274,4 @@ fn target(id: &'static str, model: DynJudgmentModel) -> ProbeTarget {
         spec: judgment_spec(ProviderKind::TypeSafe, id, id),
         model,
     }
-}
-
-fn judgment_spec(
-    provider: ProviderKind,
-    id: &'static str,
-    provider_model_id: &'static str,
-) -> KnownModelSpec {
-    KnownModelSpec {
-        provider,
-        id,
-        provider_model_id,
-        context_window_tokens: 0,
-        intelligence_score: IntelligenceScore::Five,
-        speed: SpeedTier::VeryFast,
-        cost: CostTier::Low,
-        thinking_level: ThinkingLevel::Disabled,
-        features: JUDGMENT_FEATURES,
-    }
-}
-
-fn mock_spec() -> KnownModelSpec {
-    judgment_spec(ProviderKind::TypeSafe, "mock-judgment", "mock-judgment")
 }

@@ -1,0 +1,53 @@
+{
+  "source": "synthetic",
+  "catalog_model_id": "gemini-3.6-flash",
+  "exchanges": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse",
+        "headers": {
+          "x-goog-api-key": "[redacted]"
+        },
+        "body": {
+          "kind": "json",
+          "value": {
+            "contents": [
+              {
+                "parts": [
+                  {
+                    "text": "Reply with exactly Done."
+                  }
+                ],
+                "role": "user"
+              }
+            ],
+            "generationConfig": {
+              "thinkingConfig": {
+                "thinkingLevel": "medium"
+              }
+            },
+            "systemInstruction": {
+              "parts": [
+                {
+                  "text": "Follow the user's instructions. Keep answers short."
+                }
+              ]
+            }
+          }
+        }
+      },
+      "response": {
+        "kind": "json",
+        "status": 429,
+        "body": {
+          "error": {
+            "code": 429,
+            "message": "Quota exceeded.",
+            "status": "RESOURCE_EXHAUSTED"
+          }
+        }
+      }
+    }
+  ]
+}

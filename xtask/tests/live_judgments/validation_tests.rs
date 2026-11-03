@@ -164,6 +164,7 @@ fn spec() -> KnownModelSpec {
         id: "jev-latest",
         provider_model_id: "jev-latest",
         context_window_tokens: 64_000,
+        max_output_tokens: 0,
         intelligence_score: IntelligenceScore::Five,
         speed: SpeedTier::VeryFast,
         cost: CostTier::Low,

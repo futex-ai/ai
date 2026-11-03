@@ -22,6 +22,11 @@ output, and exposes explicit mutation APIs for embedding services.
 
 - Starts turns with `send(...)` or resumes from retained history with
   `resume(...)`.
+- Returns `Completed` when the model stops normally, `Truncated` when a token
+  or context limit cuts off the answer, and `Capped` when the step budget ends.
+  Both `StepOutcome` and `RunOutcome` preserve the latest non-empty assistant
+  text and the steps taken. Truncation ends the turn without dispatching tools
+  or requesting a continuation. Turn logs use `TurnOutcome` for these states.
 - Calls an injected model with the active system prompt, conversation, and tool
   definitions.
 - Lets callers apply `ModelCallControls` to a turn with
@@ -53,7 +58,7 @@ output, and exposes explicit mutation APIs for embedding services.
   success payloads. Raw output remains available only through current-run
   `ToolExecutionRecord::raw_output`.
 - Gives model-call loggers safe request and response copies with private
-  DeepSeek, Kimi, and MiniMax replay context removed. Requests sent to the
+  Anthropic, Google, DeepSeek, Kimi, MiniMax, and Qwen replay context removed. Requests sent to the
   model and retained conversation state keep the complete provider context
   required for replay.
 - Records `ToolExecutionRecord::output_id`,
@@ -65,7 +70,8 @@ output, and exposes explicit mutation APIs for embedding services.
 - Retains provider-owned assistant replay items unchanged. For DeepSeek and
   Kimi, raw assistant content, reasoning content, and ordered tool calls
   survive the tool round while reasoning remains absent from visible
-  assistant and tool output.
+  assistant and tool output. Anthropic thinking blocks and Gemini thought
+  signatures also remain in their complete ordered provider messages.
 
 Output store ownership is part of the host contract. Use a fresh
 `InMemoryToolOutputStore` for each active run. Output ids expire when that

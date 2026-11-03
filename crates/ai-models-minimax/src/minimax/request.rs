@@ -166,7 +166,9 @@ fn minimax_context(message: &ConversationMessage) -> (Option<String>, Vec<MiniMa
                 reasoning_content,
                 reasoning_details,
             } => Some((reasoning_content.clone(), reasoning_details.clone())),
-            ProviderConversationItem::DeepSeekAssistantMessage { .. }
+            ProviderConversationItem::AnthropicAssistantMessage { .. }
+            | ProviderConversationItem::GoogleAssistantMessage { .. }
+            | ProviderConversationItem::DeepSeekAssistantMessage { .. }
             | ProviderConversationItem::OpenAiMessage { .. }
             | ProviderConversationItem::OpenAiReasoning { .. }
             | ProviderConversationItem::OpenAiFunctionCall { .. }
