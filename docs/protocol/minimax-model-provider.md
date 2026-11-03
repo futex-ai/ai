@@ -13,6 +13,10 @@ Implemented. The
 [completed MiniMax model provider plan](../../plans/minimax-model-provider.md)
 records the implementation and verification milestones.
 
+Once implemented, the
+[Chat Completions dialects protocol](chat-completions-dialects.md) governs the
+shared engine that serves this provider.
+
 ## Ownership
 
 - `ai-interface` owns the stable `minimax` provider identifier and typed

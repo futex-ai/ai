@@ -12,6 +12,10 @@ Implemented. The
 [DeepSeek Model Provider implementation plan](../../plans/add-deepseek-model-provider.md)
 records the milestones and verification used to deliver this contract.
 
+Once implemented, the
+[Chat Completions dialects protocol](chat-completions-dialects.md) governs the
+shared engine that serves this provider.
+
 ## Scope
 
 The provider supports `deepseek-v4-pro` and `deepseek-v4-flash` through

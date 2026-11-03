@@ -11,6 +11,10 @@ structured-output, usage, and error contracts.
 Implemented by `ai-models-qwen`, with shared routing and replay types in
 `ai-interface`.
 
+Once implemented, the
+[Chat Completions dialects protocol](chat-completions-dialects.md) governs the
+shared engine that serves this provider.
+
 ## Scope
 
 The adapter supports the current stable Qwen3.7 Max, Plus, and Flash models

@@ -168,6 +168,9 @@ tool_output_read(output_id, offset?, length?)
 - Reading at `offset == total_bytes` returns an empty, non-truncated window.
 - Unknown, expired, and wrong-scope ids share one unavailable-output error.
 
+Once implemented, the [agent loop protocol](agent-loop.md) states when the
+runtime offers this reader.
+
 The intrinsic reader is dispatched by the runtime rather than through an
 injected `Tool`. A user tool may not declare the reserved `tool_output_read`
 name. Reading does not write another stored output, allocate a new id, or wrap

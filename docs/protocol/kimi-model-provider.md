@@ -13,6 +13,10 @@ replay types in `ai-interface`. The
 [Add Kimi Model Provider plan](../../plans/add-kimi-model-provider.md) records
 the completed implementation milestones.
 
+Once implemented, the
+[Chat Completions dialects protocol](chat-completions-dialects.md) governs the
+shared engine that serves this provider.
+
 ## Scope
 
 The provider supports Kimi K3 through Moonshot AI's Chat Completions API,
