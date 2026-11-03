@@ -1,9 +1,8 @@
 # Agent Loop Protocol
 
-Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
-When implemented, this protocol replaces the turn-loop description in the
-`ai-tool-calling` README. The output window rules stay in
+The output window rules are in
 [tool-output-management.md](tool-output-management.md).
 
 This protocol defines turns and steps over a caller-owned conversation, and
@@ -107,7 +106,7 @@ reader.
 
 ## Outcomes
 
-The truncated outcome is implemented in the current runtime.
+A turn ends with one of these outcomes when no error occurs.
 
 | Outcome | When | Carries |
 | --- | --- | --- |

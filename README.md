@@ -54,9 +54,10 @@ in-memory tool-calling runtime behavior.
   `json-http`, with connect, idle, and overall timeout controls, response
   headers on responses, streams, and failures, and typed request bodies
   serialized straight to bytes
-- In-memory tool-calling runtime through `ai-tool-calling`, including
-  universal tool output management with inline envelopes, stored output ids,
-  UTF-8-safe windows, and degraded-window fallbacks
+- Agent turns through `ai-tool-calling` over caller-owned conversations,
+  streamed model and tool events, parallel tools, checkpoints, observers,
+  distinct completed/truncated/capped outcomes, typed tools with generated
+  schemas, and bounded tool output with UTF-8-safe windows
 - Streamable HTTP MCP tool discovery and dispatch through `ai-mcp`
 - Host-side MCP OAuth discovery, PKCE, refresh, and request authentication
   through `ai-mcp-oauth`
@@ -85,7 +86,7 @@ in-memory tool-calling runtime behavior.
   builds, and the converter for stored conversations.
 - [Model policies](docs/protocol/model-policies.md) defines the error core
   and kinds, retry, fallback policies, concurrency, and pricing.
-- [Agent loop](docs/protocol/agent-loop.md) (approved, not implemented)
+- [Agent loop](docs/protocol/agent-loop.md)
   defines turns over a caller-owned conversation, agent events, parallel
   tools, outcomes, observers, and the output reader.
 - [Provider call controls](docs/protocol/provider-call-controls.md) defines
@@ -160,8 +161,9 @@ boundary they need:
   provider and builds model, image, video, transcription, and judgment
   adapters from specs, with the combined catalog, the composed
   stored-message converter, and typed `BuildError` values
-- `ai-tool-calling`: in-memory tool-calling runtime with output policy, output
-  store integration, and the intrinsic `tool_output_read` reader
+- `ai-tool-calling`: `Agent::run` over caller-owned conversations, agent
+  events, parallel tools, checkpoints, safe observers, `TypedToolAdapter`,
+  output policy, and the conditional `tool_output_read` reader
 - `ai-mcp`: MCP 2025-06-18/2025-03-26 streamable HTTP client and
   `ai-interface::Tool` adapter
 - `ai-mcp-oauth`: host-side OAuth companion with injected browser, secure
@@ -359,8 +361,10 @@ cargo xtask review
 - `crates/ai-models-*`: concrete provider adapters. Each
   provider crate keeps its provider id, model specs, and custom defaults in
   a `catalog.rs`
-- `crates/ai-tool-calling`: in-memory tool-calling runtime, including
-  `src/policy.rs`, `src/output_store/`, and the intrinsic output reader
+- `crates/ai-tool-calling`: `src/agent.rs` defines requests and events,
+  `src/runtime.rs` builds agents, `src/turn/` runs streamed turns and parallel
+  tools, and `src/typed_tool.rs` adapts typed tools. `src/policy.rs` and
+  `src/output_store/` bound model-visible output
 - `crates/ai-mcp`: streamable HTTP MCP protocol client, authorization
   challenges, and tool adapter
 - `crates/ai-mcp-oauth`: protected-resource discovery, public-client
