@@ -3,10 +3,8 @@
 use ai_interface::{ToolOutputEnvelope, ToolOutputId, ToolOutputRemainderUnavailableReason};
 use serde_json::Value;
 
-use crate::{
-    Error, Result, ToolCallingRuntime, ToolOutputStoreError, ToolOutputStoreWindow,
-    ToolOutputWriteRequest,
-};
+use crate::runtime::RuntimeConfig;
+use crate::{Error, Result, ToolOutputStoreError, ToolOutputStoreWindow, ToolOutputWriteRequest};
 
 pub(crate) const TOOL_OUTPUT_READ: &str = "tool_output_read";
 
@@ -21,7 +19,7 @@ pub(crate) struct ManagedToolOutput {
 }
 
 pub(crate) async fn manage_successful_tool_output(
-    runtime: &ToolCallingRuntime,
+    config: &RuntimeConfig,
     tool_name: &str,
     raw_output: Value,
 ) -> Result<ManagedToolOutput> {
@@ -34,7 +32,7 @@ pub(crate) async fn manage_successful_tool_output(
             });
         }
     };
-    let policy = runtime.output_policy();
+    let policy = config.output_policy;
     let total_bytes = serialized.len();
     if total_bytes <= policy.inline_limit_bytes() {
         return Ok(ManagedToolOutput {
@@ -48,8 +46,8 @@ pub(crate) async fn manage_successful_tool_output(
         });
     }
 
-    let write = runtime
-        .output_store()
+    let write = config
+        .output_store
         .write(ToolOutputWriteRequest {
             tool_name: tool_name.to_owned(),
             content: serialized,

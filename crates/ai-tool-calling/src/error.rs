@@ -4,13 +4,19 @@ use std::error::Error as StdError;
 
 use thiserror::Error;
 
-use ai_interface::{LoggerError, ModelError, ToolError, ToolOutputEnvelopeError};
+use ai_interface::{LoggerError, ModelError, SafeErrorSource, ToolError, ToolOutputEnvelopeError};
 
 use crate::{ToolOutputPolicyError, ToolOutputStoreError};
 
 #[derive(Debug, Error)]
 /// Errors returned by the generic tool-calling runtime.
 pub enum Error {
+    /// An internal agent failure whose diagnostic chain is safe to report.
+    #[error("[ai_tool_calling/runtime] internal error: {source}")]
+    Internal {
+        /// Redacted diagnostic source with private typed access.
+        source: SafeErrorSource,
+    },
     /// Model execution failed.
     #[error("[ai_tool_calling/runtime] model error: {0}")]
     Model(#[from] ModelError),

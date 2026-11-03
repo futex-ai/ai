@@ -2,6 +2,8 @@
 
 #![warn(unreachable_pub)]
 
+mod agent;
+mod catalog;
 mod error;
 mod intrinsic;
 mod output_store;
@@ -10,6 +12,7 @@ mod runtime;
 mod tool_output;
 mod turn;
 
+pub use agent::{Agent, AgentEvent, AgentEventStream, AgentRequest, DynAgentEventStream};
 pub use error::{Error, Result};
 pub use output_store::{
     DynToolOutputStore, InMemoryToolOutputStore, ToolOutputStore, ToolOutputStoreError,
@@ -24,16 +27,16 @@ pub use policy::{
 pub use runtime::ToolCallingRuntime;
 pub use turn::ToolExecutionRecord;
 pub use turn::{
-    ActiveTurn, ModelResponseCheckpoint, NoopModelResponseCheckpoint, NoopTurnCheckpoint,
-    RunOutcome, StepOutcome, Turn, TurnCheckpoint,
+    ModelResponseCheckpoint, NoopModelResponseCheckpoint, NoopTurnCheckpoint, RunOutcome,
+    TurnCheckpoint,
 };
 
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use output_store::ToolOutputStoreMock;
 #[cfg(test)]
 pub(crate) use output_store::{OutputIdGenerationError, ToolOutputIdGeneratorMock};
-#[cfg(any(test, doctest))]
-pub use turn::TurnCheckpointMock;
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub use turn::{ModelResponseCheckpointMock, TurnCheckpointMock};
 
 #[cfg(test)]
 #[path = "_tests_/mod.rs"]

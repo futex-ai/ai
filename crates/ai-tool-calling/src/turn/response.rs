@@ -1,45 +1,12 @@
-//! Model response execution and validation helpers.
+//! Response finish validation and terminal outcome construction.
 
-use std::time::Instant;
+use ai_interface::{FinishReason, ModelResponse};
 
-use ai_interface::{
-    FinishReason, ModelCallLogEntry, ModelCallLogResult, ModelRequest, ModelResponse,
-};
-
-use crate::{Error, Result, ToolCallingRuntime};
+use crate::{Result, RunOutcome};
 
 use super::failures::invalid_output_error;
 
-pub(super) async fn complete_model_request(
-    runtime: &ToolCallingRuntime,
-    request: ModelRequest,
-) -> Result<ModelResponse> {
-    let started_at = Instant::now();
-    let response = match runtime.model.complete(&request).await {
-        Ok(response) => response,
-        Err(error) => {
-            runtime.logger.log_model_call(&ModelCallLogEntry {
-                request: request.log_copy(),
-                result: ModelCallLogResult::Error {
-                    message: error.to_string(),
-                    debug: format!("{error:?}"),
-                },
-                latency_ms: started_at.elapsed().as_millis(),
-            })?;
-            return Err(Error::Model(error));
-        }
-    };
-    runtime.logger.log_model_call(&ModelCallLogEntry {
-        request: request.log_copy(),
-        result: ModelCallLogResult::Success {
-            response: Box::new(response.log_copy()),
-        },
-        latency_ms: started_at.elapsed().as_millis(),
-    })?;
-    Ok(response)
-}
-
-pub(super) fn validate_response_contract(response: &ModelResponse) -> Result<()> {
+pub(super) fn validate_response(response: &ModelResponse) -> Result<()> {
     if response.finish_reason != FinishReason::ToolCalls && !response.tool_calls().is_empty() {
         return Err(invalid_output_error(
             response,
@@ -58,5 +25,24 @@ pub(super) fn validate_response_contract(response: &ModelResponse) -> Result<()>
             "model reported tool calls without any tool call payloads",
         )),
         FinishReason::ToolCalls => Ok(()),
+    }
+}
+
+pub(super) fn response_outcome(
+    response: &ModelResponse,
+    assistant_message: &str,
+    steps_taken: usize,
+) -> Option<RunOutcome> {
+    match response.finish_reason {
+        FinishReason::Stop => Some(RunOutcome::Completed {
+            assistant_message: assistant_message.to_owned(),
+            steps_taken,
+            structured_output: response.structured_output.clone(),
+        }),
+        FinishReason::Truncated => Some(RunOutcome::Truncated {
+            assistant_message: assistant_message.to_owned(),
+            steps_taken,
+        }),
+        _ => None,
     }
 }

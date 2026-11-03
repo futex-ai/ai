@@ -80,6 +80,10 @@ impl Default for InMemoryToolOutputStore {
 
 #[async_trait]
 impl ToolOutputStore for InMemoryToolOutputStore {
+    fn has_outputs(&self) -> bool {
+        !self.inner.entries.lock().is_empty()
+    }
+
     async fn write(
         &self,
         request: ToolOutputWriteRequest,

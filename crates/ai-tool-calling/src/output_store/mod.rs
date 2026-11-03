@@ -28,6 +28,9 @@ pub(crate) use id_generator::{OutputIdGenerationError, ToolOutputIdGeneratorMock
 #[async_trait]
 /// Async storage boundary for retained windowed tool outputs.
 pub trait ToolOutputStore: Send + Sync {
+    /// Returns whether this store currently holds any complete output.
+    fn has_outputs(&self) -> bool;
+
     /// Stores complete serialized output and returns its first window.
     async fn write(
         &self,
