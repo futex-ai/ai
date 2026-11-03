@@ -57,13 +57,14 @@ struct TypeSafeUsage {
 
 /// Maps a successful System One body into the shared response contract.
 pub(super) fn parse_response(
+    context: &ErrorContext,
     model_id: &str,
     request: &JudgmentRequest,
     body: &[u8],
 ) -> JudgmentResult<JudgmentResponse> {
     let response = match serde_json::from_slice::<TypeSafeResponse>(body) {
         Ok(response) => response,
-        Err(source) => return Err(malformed_payload(model_id, source)),
+        Err(source) => return Err(malformed_payload(context, model_id, source)),
     };
     let TypeSafeResponse {
         model,
@@ -78,7 +79,7 @@ pub(super) fn parse_response(
         };
         let answer = match serde_json::from_str::<TypeSafeAnswer>(fragment.get()) {
             Ok(answer) => answer,
-            Err(source) => return Err(malformed_payload(model_id, source)),
+            Err(source) => return Err(malformed_payload(context, model_id, source)),
         };
         answers.insert(id.clone(), answer.normalize());
     }
@@ -133,7 +134,11 @@ fn normalize_usage(usage: Option<TypeSafeUsage>) -> ModelUsage {
     }
 }
 
-fn malformed_payload(model_id: &str, source: serde_json::Error) -> JudgmentError {
+fn malformed_payload(
+    context: &ErrorContext,
+    model_id: &str,
+    source: serde_json::Error,
+) -> JudgmentError {
     JudgmentError::with_source(
         ErrorCore::new(
             ErrorKind::InvalidOutput,
@@ -141,7 +146,7 @@ fn malformed_payload(model_id: &str, source: serde_json::Error) -> JudgmentError
             model_id,
             malformed_payload_message(&source),
         ),
-        source,
+        context.source(source),
     )
 }
 
@@ -194,3 +199,7 @@ mod response_tests;
 #[cfg(test)]
 #[path = "_tests_/usage_tests.rs"]
 mod usage_tests;
+
+#[cfg(test)]
+#[path = "_tests_/response_support.rs"]
+mod response_support;

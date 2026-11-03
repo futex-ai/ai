@@ -6,7 +6,8 @@ use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{
-    ErrorKind, FinishReason, MockModel, Model, ModelError, ModelMock, StructuredOutputSchema,
+    ErrorKind, FinishReason, MockModel, Model, ModelError, ModelMock, SafeErrorSource,
+    StructuredOutputSchema,
 };
 
 use super::fixtures::{finish, model_for, request, text, usage};
@@ -55,7 +56,10 @@ async fn complete_preserves_the_original_open_and_read_errors() {
     let model = model_for(vec![Err(ModelError::internal(
         "local",
         "test",
-        Error::new(std::io::ErrorKind::ConnectionReset, "original source"),
+        SafeErrorSource::redacted(Error::new(
+            std::io::ErrorKind::ConnectionReset,
+            "original source",
+        )),
     ))]);
     let internal = model.complete(&request()).await;
     let Err(ModelError::Internal { core, source, .. }) = internal else {
@@ -63,7 +67,7 @@ async fn complete_preserves_the_original_open_and_read_errors() {
     };
     assert_eq!(core.kind, ErrorKind::Internal);
     assert_eq!(
-        source.downcast_ref::<Error>().map(Error::kind),
+        source.raw_cause().downcast_ref::<Error>().map(Error::kind),
         Some(std::io::ErrorKind::ConnectionReset)
     );
 }

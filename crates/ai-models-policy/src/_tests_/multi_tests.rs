@@ -5,7 +5,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use ai_interface::{Model, ModelError, ModelGenerationControls, ModelToolChoice};
+use ai_interface::{Model, ModelError, ModelGenerationControls, ModelToolChoice, SafeErrorSource};
 
 use crate::{AnyError, FallbackModel};
 
@@ -180,7 +180,7 @@ async fn falls_back_on_internal_failures() {
                 Err(ModelError::internal(
                     "openai",
                     "gpt-5.5",
-                    std::io::Error::other("adapter failed"),
+                    SafeErrorSource::redacted(std::io::Error::other("adapter failed")),
                 )),
             ),
             scripted_model(

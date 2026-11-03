@@ -135,7 +135,7 @@ impl Model for OpenAiModel {
             Err(source) => {
                 return Err(ModelError::with_source(
                     context.core(ErrorKind::Internal, "internal error"),
-                    source,
+                    context.source(source),
                 ));
             }
         };

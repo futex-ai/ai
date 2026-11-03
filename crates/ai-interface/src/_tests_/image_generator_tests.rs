@@ -6,7 +6,7 @@ use thiserror::Error;
 use crate::{
     ErrorCore, ErrorKind, GeneratedImage, ImageGenerationAspect, ImageGenerationError,
     ImageGenerationInputImage, ImageGenerationQuality, ImageGenerationRequest,
-    ImageGenerationResponse, ModelUsage,
+    ImageGenerationResponse, ModelUsage, SafeErrorSource,
 };
 
 #[test]
@@ -134,8 +134,9 @@ fn error_helpers_preserve_typed_context_and_display_contract() {
 
 #[test]
 fn internal_error_preserves_contract_and_caller_locations() {
+    let source = SafeErrorSource::redacted(TestSourceError);
     let expected_line = line!() + 1;
-    let error = ImageGenerationError::internal("provider", "model", TestSourceError);
+    let error = ImageGenerationError::internal("provider", "model", source);
     assert_eq!(
         error.to_string(),
         "[ai_interface/image_generator] Internal for `provider` model `model`: internal error"
@@ -153,7 +154,15 @@ fn internal_error_preserves_contract_and_caller_locations() {
     );
     assert_eq!(internal.caller_at().file(), file!());
     assert_eq!(internal.caller_at().line(), expected_line);
-    assert_eq!(internal.source_ref().to_string(), "test source");
+    assert_eq!(
+        internal
+            .source_ref()
+            .downcast_ref::<SafeErrorSource>()
+            .unwrap()
+            .raw_cause()
+            .to_string(),
+        "test source"
+    );
 
     let core = ErrorCore::new(
         ErrorKind::InvalidOutput,
@@ -161,8 +170,9 @@ fn internal_error_preserves_contract_and_caller_locations() {
         "model",
         "malformed output",
     );
+    let source = SafeErrorSource::redacted(TestSourceError);
     let expected_line = line!() + 1;
-    let error = ImageGenerationError::with_source(core, TestSourceError);
+    let error = ImageGenerationError::with_source(core, source);
     assert_eq!(error.core().kind, ErrorKind::InvalidOutput);
     assert_eq!(error.core().provider, "provider");
     assert_eq!(error.core().model_id, "model");
@@ -178,7 +188,15 @@ fn internal_error_preserves_contract_and_caller_locations() {
     );
     assert_eq!(internal.caller_at().file(), file!());
     assert_eq!(internal.caller_at().line(), expected_line);
-    assert_eq!(internal.source_ref().to_string(), "test source");
+    assert_eq!(
+        internal
+            .source_ref()
+            .downcast_ref::<SafeErrorSource>()
+            .unwrap()
+            .raw_cause()
+            .to_string(),
+        "test source"
+    );
 }
 
 #[derive(Debug, Error)]

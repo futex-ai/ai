@@ -9,7 +9,7 @@ use std::{
 use ai_interface::{
     DynModel, DynModelEventStream, Effort, ErrorCore, ErrorKind, FinishReason, ModelAttempt,
     ModelError, ModelEvent, ModelEventStreamMock, ModelMock, ModelUsage, ProviderId, ProviderState,
-    test_support::model_event_stream,
+    SafeErrorSource, test_support::model_event_stream,
 };
 use json_http::test_support::Redactor;
 use serde_json::json;
@@ -108,16 +108,17 @@ async fn execute_keeps_partial_events_and_sanitizes_the_original_read_failure() 
     core.provider_request_id = Some("request-secret-token".to_owned());
     let items = Mutex::new(VecDeque::from(vec![
         Ok(Some(text(0, "secret-token partial"))),
-        Err(
-            ModelError::with_source(core, std::io::Error::other("source secret-token"))
-                .with_attempts(vec![ModelAttempt {
-                    provider: "first-secret-token".to_owned(),
-                    model_id: "first-model-secret-token".to_owned(),
-                    kind: ErrorKind::RejectedKey,
-                    message: "rejected secret-token".to_owned(),
-                    emitted_events: false,
-                }]),
-        ),
+        Err(ModelError::with_source(
+            core,
+            SafeErrorSource::redacted(std::io::Error::other("source secret-token")),
+        )
+        .with_attempts(vec![ModelAttempt {
+            provider: "first-secret-token".to_owned(),
+            model_id: "first-model-secret-token".to_owned(),
+            kind: ErrorKind::RejectedKey,
+            message: "rejected secret-token".to_owned(),
+            emitted_events: false,
+        }])),
     ]));
     let stream = Unimock::new(
         ModelEventStreamMock::next

@@ -6,6 +6,7 @@ use serde_json::json;
 
 use crate::{
     ErrorKind, FinishReason, ModelAttempt, ModelControl, ModelError, ModelEvent, ModelResponse,
+    SafeErrorSource,
 };
 
 use super::fixtures::{finish, fold, usage};
@@ -49,7 +50,7 @@ fn fallback_serialization_preserves_error_fields_without_cloning_the_source() {
             json!({"kind": {"UnsupportedControl": "Effort"}, "provider": "p", "model_id": "m", "message": "unsupported Effort control"}),
         ),
         (
-            ModelError::internal("local", "test", Source),
+            ModelError::internal("local", "test", SafeErrorSource::redacted(Source)),
             json!({"kind": "Internal", "provider": "local", "model_id": "test", "message": "internal error"}),
         ),
     ];
@@ -75,7 +76,8 @@ fn response_attempt_records_round_trip_and_empty_attempts_keep_the_old_shape() {
         response
     );
 
-    let attempt = ModelError::internal("local", "test", Source).attempt(false);
+    let attempt =
+        ModelError::internal("local", "test", SafeErrorSource::redacted(Source)).attempt(false);
     assert_eq!(
         attempt,
         ModelAttempt {

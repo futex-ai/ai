@@ -115,13 +115,13 @@ impl AnthropicEventStream {
                     return Err(ModelError::with_source(
                         self.context
                             .core(ErrorKind::InvalidOutput, source.to_string()),
-                        source,
+                        self.context.source(source),
                     ));
                 }
                 Err(source @ AnthropicStreamError::SerializeState { .. }) => {
                     return Err(ModelError::with_source(
                         self.context.core(ErrorKind::Internal, "internal error"),
-                        source,
+                        self.context.source(source),
                     ));
                 }
                 Err(source) => {

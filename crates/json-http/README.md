@@ -46,6 +46,9 @@ The transport also protects standard authorization, cookie, and API-key headers.
 It restores credentials only when a redirect returns to the original origin.
 Redirect hops share one total timeout budget.
 Request and static-auth debug output omit header values.
+Error debug output reports the variant, status, header names, and body size.
+It omits header values and body text. Stored transport URLs omit user info,
+queries, and fragments.
 
 The crate ships with:
 

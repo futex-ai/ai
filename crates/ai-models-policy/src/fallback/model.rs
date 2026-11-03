@@ -2,7 +2,9 @@
 
 use std::sync::Arc;
 
-use ai_interface::{DynModelEventStream, Model, ModelError, ModelRequest, ModelResult};
+use ai_interface::{
+    DynModelEventStream, Model, ModelError, ModelRequest, ModelResult, SafeErrorSource,
+};
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -35,7 +37,7 @@ impl Model for FallbackModel {
             return Err(ModelError::internal(
                 "local",
                 "fallback",
-                Error::NoModelsConfigured,
+                SafeErrorSource::redacted(Error::NoModelsConfigured),
             ));
         }
         let mut stream =

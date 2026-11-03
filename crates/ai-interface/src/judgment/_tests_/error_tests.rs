@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::{
     ErrorCore, ErrorKind, JudgmentAnswerProblem, JudgmentError, JudgmentJsonType,
-    JudgmentQuestionProblem,
+    JudgmentQuestionProblem, SafeErrorSource,
 };
 
 #[test]
@@ -113,8 +113,9 @@ fn invalid_answer_constructor_preserves_context_and_problem() {
 
 #[test]
 fn internal_error_preserves_contract_and_caller_locations() {
+    let source = SafeErrorSource::redacted(TestSourceError);
     let expected_line = line!() + 1;
-    let error = JudgmentError::internal("provider", "model", TestSourceError);
+    let error = JudgmentError::internal("provider", "model", source);
     assert_eq!(
         error.to_string(),
         "[ai_interface/judgment] Internal for `provider` model `model`: internal error"
@@ -132,7 +133,15 @@ fn internal_error_preserves_contract_and_caller_locations() {
     );
     assert_eq!(internal.caller_at().file(), file!());
     assert_eq!(internal.caller_at().line(), expected_line);
-    assert_eq!(internal.source_ref().to_string(), "test source");
+    assert_eq!(
+        internal
+            .source_ref()
+            .downcast_ref::<SafeErrorSource>()
+            .unwrap()
+            .raw_cause()
+            .to_string(),
+        "test source"
+    );
 
     let core = ErrorCore::new(
         ErrorKind::InvalidOutput,
@@ -140,8 +149,9 @@ fn internal_error_preserves_contract_and_caller_locations() {
         "model",
         "malformed output",
     );
+    let source = SafeErrorSource::redacted(TestSourceError);
     let expected_line = line!() + 1;
-    let error = JudgmentError::with_source(core, TestSourceError);
+    let error = JudgmentError::with_source(core, source);
     assert_eq!(error.core().kind, ErrorKind::InvalidOutput);
     assert_eq!(error.core().provider, "provider");
     assert_eq!(error.core().model_id, "model");
@@ -157,7 +167,15 @@ fn internal_error_preserves_contract_and_caller_locations() {
     );
     assert_eq!(internal.caller_at().file(), file!());
     assert_eq!(internal.caller_at().line(), expected_line);
-    assert_eq!(internal.source_ref().to_string(), "test source");
+    assert_eq!(
+        internal
+            .source_ref()
+            .downcast_ref::<SafeErrorSource>()
+            .unwrap()
+            .raw_cause()
+            .to_string(),
+        "test source"
+    );
 }
 
 #[derive(Debug, Error)]

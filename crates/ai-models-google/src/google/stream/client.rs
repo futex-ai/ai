@@ -150,9 +150,10 @@ fn provider_error(
 
 fn stream_error(context: &ErrorContext, progress: u64, source: GoogleStreamError) -> ModelError {
     match source {
-        source @ GoogleStreamError::SerializeState { .. } => {
-            ModelError::with_source(context.core(ErrorKind::Internal, "internal error"), source)
-        }
+        source @ GoogleStreamError::SerializeState { .. } => ModelError::with_source(
+            context.core(ErrorKind::Internal, "internal error"),
+            context.source(source),
+        ),
         source => classify_stream_error(context, progress, &source),
     }
 }

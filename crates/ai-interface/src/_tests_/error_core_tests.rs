@@ -8,7 +8,7 @@ use serde_json::json;
 
 use crate::{
     ErrorCore, ErrorKind, ImageGenerationError, JudgmentError, ModelControl, ModelError,
-    ModelEvent, TranscriptionError, VideoGenerationError,
+    ModelEvent, SafeErrorSource, TranscriptionError, VideoGenerationError,
 };
 
 #[test]
@@ -60,7 +60,11 @@ fn failure_kinds_describe_fallback_eligibility() {
 #[test]
 fn terminal_failure_retains_history_metadata_and_original_source() {
     let earlier = ModelError::interrupted("first", "one", "closed").attempt(true);
-    let mut error = ModelError::internal("last", "two", io::Error::from(io::ErrorKind::BrokenPipe));
+    let mut error = ModelError::internal(
+        "last",
+        "two",
+        SafeErrorSource::redacted(io::Error::from(io::ErrorKind::BrokenPipe)),
+    );
     error.core_mut().retry_after = Some(Duration::from_secs(7));
     error.core_mut().provider_request_id = Some("request-last".to_owned());
     let error = error
@@ -80,7 +84,10 @@ fn terminal_failure_retains_history_metadata_and_original_source() {
         panic!("expected the original internal source");
     };
     assert_eq!(
-        source.downcast_ref::<io::Error>().map(io::Error::kind),
+        source
+            .raw_cause()
+            .downcast_ref::<io::Error>()
+            .map(io::Error::kind),
         Some(io::ErrorKind::BrokenPipe)
     );
 }
@@ -96,14 +103,17 @@ fn source_failure_display_uses_the_supplied_kind_and_message() {
     let displays = [
         (
             "model",
-            ModelError::with_source(core.clone(), io::Error::from(io::ErrorKind::InvalidData))
-                .to_string(),
+            ModelError::with_source(
+                core.clone(),
+                SafeErrorSource::redacted(io::Error::from(io::ErrorKind::InvalidData)),
+            )
+            .to_string(),
         ),
         (
             "image_generator",
             ImageGenerationError::with_source(
                 core.clone(),
-                io::Error::from(io::ErrorKind::InvalidData),
+                SafeErrorSource::redacted(io::Error::from(io::ErrorKind::InvalidData)),
             )
             .to_string(),
         ),
@@ -111,7 +121,7 @@ fn source_failure_display_uses_the_supplied_kind_and_message() {
             "video_generator",
             VideoGenerationError::with_source(
                 core.clone(),
-                io::Error::from(io::ErrorKind::InvalidData),
+                SafeErrorSource::redacted(io::Error::from(io::ErrorKind::InvalidData)),
             )
             .to_string(),
         ),
@@ -119,14 +129,17 @@ fn source_failure_display_uses_the_supplied_kind_and_message() {
             "audio_transcriber",
             TranscriptionError::with_source(
                 core.clone(),
-                io::Error::from(io::ErrorKind::InvalidData),
+                SafeErrorSource::redacted(io::Error::from(io::ErrorKind::InvalidData)),
             )
             .to_string(),
         ),
         (
             "judgment",
-            JudgmentError::with_source(core, io::Error::from(io::ErrorKind::InvalidData))
-                .to_string(),
+            JudgmentError::with_source(
+                core,
+                SafeErrorSource::redacted(io::Error::from(io::ErrorKind::InvalidData)),
+            )
+            .to_string(),
         ),
     ];
 
@@ -149,11 +162,24 @@ fn source_failure_debug_omits_raw_source_diagnostics() {
         "model",
         "safe provider diagnostics",
     );
-    let model = ModelError::with_source(core.clone(), io::Error::other(secret));
-    let image = ImageGenerationError::with_source(core.clone(), io::Error::other(secret));
-    let video = VideoGenerationError::with_source(core.clone(), io::Error::other(secret));
-    let transcription = TranscriptionError::with_source(core.clone(), io::Error::other(secret));
-    let judgment = JudgmentError::with_source(core, io::Error::other(secret));
+    let model = ModelError::with_source(
+        core.clone(),
+        SafeErrorSource::redacted(io::Error::other(secret)),
+    );
+    let image = ImageGenerationError::with_source(
+        core.clone(),
+        SafeErrorSource::redacted(io::Error::other(secret)),
+    );
+    let video = VideoGenerationError::with_source(
+        core.clone(),
+        SafeErrorSource::redacted(io::Error::other(secret)),
+    );
+    let transcription = TranscriptionError::with_source(
+        core.clone(),
+        SafeErrorSource::redacted(io::Error::other(secret)),
+    );
+    let judgment =
+        JudgmentError::with_source(core, SafeErrorSource::redacted(io::Error::other(secret)));
     let errors: [&dyn Error; 5] = [&model, &image, &video, &transcription, &judgment];
 
     for error in errors {
@@ -168,7 +194,13 @@ fn source_failure_debug_omits_raw_source_diagnostics() {
             None => source,
         };
         assert_eq!(
-            source.downcast_ref::<io::Error>().unwrap().to_string(),
+            source
+                .downcast_ref::<SafeErrorSource>()
+                .unwrap()
+                .raw_cause()
+                .downcast_ref::<io::Error>()
+                .unwrap()
+                .to_string(),
             secret
         );
     }

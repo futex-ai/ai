@@ -116,6 +116,12 @@ async fn rotating_auth_header_is_applied_once_sent_and_redacted() {
 }
 
 fn assert_redacted(error: &JudgmentError, secret: &str) {
+    let mut link: Option<&dyn std::error::Error> = Some(error);
+    while let Some(error) = link {
+        assert!(!error.to_string().contains(secret));
+        assert!(!format!("{error:?}").contains(secret));
+        link = error.source();
+    }
     let display = error.to_string();
     let debug = format!("{error:?}");
 

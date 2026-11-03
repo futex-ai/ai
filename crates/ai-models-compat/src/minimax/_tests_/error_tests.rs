@@ -2,7 +2,7 @@
 
 use std::{collections::BTreeMap, error::Error, sync::Arc, time::Duration};
 
-use ai_interface::{Effort, ErrorKind, Model, ModelError};
+use ai_interface::{Effort, ErrorKind, Model, ModelError, SafeErrorSource};
 use ai_models_core::test_support::{SseFixture, recording_streaming_client};
 use async_trait::async_trait;
 use json_http::{JsonHttpAuth, JsonHttpHeaders};
@@ -76,7 +76,15 @@ async fn classifies_http_and_transport_failures() {
             error.core().message,
             format!("HTTP {status}: base_resp status_code {code}: too much context")
         );
-        assert!(error.source().unwrap().is::<json_http::Error>());
+        assert!(
+            error
+                .source()
+                .unwrap()
+                .downcast_ref::<SafeErrorSource>()
+                .unwrap()
+                .raw_cause()
+                .is::<json_http::Error>()
+        );
         assert_eq!(requests.lock().unwrap().len(), 1);
     }
 }

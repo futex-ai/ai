@@ -6,7 +6,7 @@ use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     ConversationMessage, ConversationPart, ConversationRole, Effort, FinishReason, Logger,
     LoggerMock, Model, ModelCallLogEntry, ModelCallLogResult, ModelError, ModelMock, ModelRequest,
-    ModelResponse, ModelToolChoice, ModelUsage, ToolCall,
+    ModelResponse, ModelToolChoice, ModelUsage, SafeErrorSource, ToolCall,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
@@ -100,7 +100,7 @@ async fn minimax_reasoning_is_redacted_from_failed_request_logs() {
                     Err(ModelError::internal(
                         "minimax",
                         "MiniMax-M3",
-                        FixtureModelError,
+                        SafeErrorSource::redacted(FixtureModelError),
                     ))
                 }
                 .map(model_response_stream)

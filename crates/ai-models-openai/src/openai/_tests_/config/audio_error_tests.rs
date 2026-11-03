@@ -2,7 +2,9 @@
 
 use std::{error::Error, sync::Arc, time::Duration};
 
-use ai_interface::{AudioTranscriber, AudioTranscriptionRequest, ErrorKind, TranscriptionError};
+use ai_interface::{
+    AudioTranscriber, AudioTranscriptionRequest, ErrorKind, SafeErrorSource, TranscriptionError,
+};
 use json_http::{JsonHttpResponse, JsonHttpTransportMock, TransportBackedJsonHttpClient};
 use unimock::{MockFn, Unimock, matching};
 
@@ -93,7 +95,11 @@ async fn config_audio_response_errors_preserve_kinds_headers_and_decode_sources(
         assert_eq!(
             error
                 .source()
-                .and_then(|source| source.downcast_ref::<reqwest::Error>())
+                .and_then(|source| source
+                    .downcast_ref::<SafeErrorSource>()
+                    .unwrap()
+                    .raw_cause()
+                    .downcast_ref::<reqwest::Error>())
                 .is_some(),
             decode_source,
             "{case}"
@@ -147,6 +153,9 @@ async fn config_audio_byte_read_failure_retains_response_metadata() {
         error
             .source()
             .unwrap()
+            .downcast_ref::<SafeErrorSource>()
+            .unwrap()
+            .raw_cause()
             .downcast_ref::<json_http::Error>()
             .unwrap()
             .cause(),

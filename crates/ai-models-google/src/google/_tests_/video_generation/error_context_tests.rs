@@ -2,7 +2,7 @@
 
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-use ai_interface::{ErrorKind, VideoGenerationError, VideoGenerator};
+use ai_interface::{ErrorKind, SafeErrorSource, VideoGenerationError, VideoGenerator};
 use json_http::{JsonHttpAuthMock, JsonHttpResponse, StaticHeaderAuth};
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
@@ -198,7 +198,13 @@ async fn video_output_and_phase_errors_keep_metadata_sources_and_origin_guards()
         assert!(!format!("{error:?}").contains("google-secret"), "{phase:?}");
         let (actual_source, anchor) = match &error {
             VideoGenerationError::Internal { source, .. } => (
-                if source.source_ref().is::<serde_json::Error>() {
+                if source
+                    .source_ref()
+                    .downcast_ref::<SafeErrorSource>()
+                    .unwrap()
+                    .raw_cause()
+                    .is::<serde_json::Error>()
+                {
                     "json"
                 } else {
                     "http"

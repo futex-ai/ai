@@ -28,5 +28,5 @@ pub(super) fn classify_request_error(
     context: &ErrorContext,
     source: json_http::Error,
 ) -> ImageGenerationError {
-    ImageGenerationError::with_source(context.request_error(&source), source)
+    ImageGenerationError::with_source(context.request_error(&source), context.source(source))
 }

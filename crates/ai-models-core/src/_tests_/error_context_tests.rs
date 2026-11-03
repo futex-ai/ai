@@ -63,7 +63,11 @@ fn response_metadata_follows_the_failed_response_and_late_stream_errors() {
         panic!("HTTP source lost");
     };
     assert!(matches!(
-        source.downcast_ref::<json_http::Error>().unwrap().cause(),
+        source
+            .raw_cause()
+            .downcast_ref::<json_http::Error>()
+            .unwrap()
+            .cause(),
         json_http::Error::InvalidSseContentType { .. }
     ));
     let buffered = stream_context.request_error(&json_http::Error::HttpStatus {
@@ -147,13 +151,20 @@ async fn dynamic_auth_is_applied_once_without_wire_changes_and_secrets_stay_per_
         assert!(!text.contains("custom-secret"), "{text}");
     }
     let source = io::Error::other("rotating-secret");
-    let error = response.apply_model_error(ModelError::with_source(error.core().clone(), source));
+    let error = response.apply_model_error(ModelError::with_source(
+        error.core().clone(),
+        response.source(source),
+    ));
     assert!(!format!("{error:?}").contains("rotating-secret"));
     let ModelError::Internal { source, .. } = error else {
         panic!("source lost");
     };
     assert_eq!(
-        source.downcast_ref::<io::Error>().unwrap().to_string(),
+        source
+            .raw_cause()
+            .downcast_ref::<io::Error>()
+            .unwrap()
+            .to_string(),
         "rotating-secret"
     );
     let failing = Arc::new(Unimock::new(

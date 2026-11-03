@@ -6,7 +6,7 @@ use std::{
 };
 
 use ai_interface::{
-    Model, ModelError, ModelRequest, ModelResponse, ModelResponseFold, ModelResult,
+    Model, ModelError, ModelRequest, ModelResponse, ModelResponseFold, ModelResult, SafeErrorSource,
 };
 use json_http::{
     DynJsonHttpSseStream, JsonHttpClient, JsonHttpHeaders, JsonHttpRequest, JsonHttpResponse,
@@ -60,7 +60,7 @@ pub async fn collect_model_events(
                     Err(ModelError::internal(
                         "local",
                         "model-event-collector",
-                        source,
+                        SafeErrorSource::redacted(source),
                     )),
                     events,
                 );

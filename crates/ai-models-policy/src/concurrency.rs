@@ -3,7 +3,8 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    DynModelEventStream, Model, ModelError, ModelEvent, ModelEventStream, ModelRequest, ModelResult,
+    DynModelEventStream, Model, ModelError, ModelEvent, ModelEventStream, ModelRequest,
+    ModelResult, SafeErrorSource,
 };
 use async_trait::async_trait;
 use thiserror::Error;
@@ -45,9 +46,9 @@ impl Model for ConcurrencyLimitedModel {
                     return Err(ModelError::internal(
                         "local",
                         &self.model_id,
-                        Error::ConcurrencyLimiterClosed {
+                        SafeErrorSource::redacted(Error::ConcurrencyLimiterClosed {
                             model_id: self.model_id.clone(),
-                        },
+                        }),
                     ));
                 }
             },

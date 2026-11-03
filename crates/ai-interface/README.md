@@ -142,7 +142,11 @@ runtime implementation.
   `ModelError::attempts()` returns earlier failed attempts in order.
   Each `ModelAttempt` holds the provider, model, kind, message, and whether
   that attempt emitted model events. Internal errors retain their sources.
-  `with_source(core, source)` retains a source with an explicit error kind.
+  `with_source(core, source)` accepts only `SafeErrorSource`.
+  The carrier keeps redacted diagnostics for every source link and never
+  formats its private original cause. `raw_cause()` gives explicit typed
+  access to that cause. `SafeErrorSource::redacted` keeps fully redacted
+  diagnostics when no call context exists.
   Validation before adapter selection uses provider `local` and model
   `judgment-validation`. A judgment adapter applies `with_identity` before
   returning such a validation error. Fold invariant errors use provider

@@ -2,7 +2,7 @@
 
 use std::{error::Error, time::Duration};
 
-use ai_interface::{ErrorKind, TranscriptionError};
+use ai_interface::{ErrorKind, SafeErrorSource, TranscriptionError};
 use reqwest::{IntoUrl, Response};
 use serde_json::json;
 
@@ -72,7 +72,11 @@ async fn audio_status_and_decode_failures_keep_headers_identity_and_reqwest_sour
         assert_eq!(
             error
                 .source()
-                .and_then(|source| source.downcast_ref::<reqwest::Error>())
+                .and_then(|source| source
+                    .downcast_ref::<SafeErrorSource>()
+                    .unwrap()
+                    .raw_cause()
+                    .downcast_ref::<reqwest::Error>())
                 .is_some(),
             source_expected,
             "{case}"
@@ -107,6 +111,9 @@ fn audio_request_diagnostics_omit_signed_urls_and_keep_the_original_source() {
         let source = error
             .source()
             .unwrap()
+            .downcast_ref::<SafeErrorSource>()
+            .unwrap()
+            .raw_cause()
             .downcast_ref::<reqwest::Error>()
             .unwrap();
         assert_eq!(source.url().unwrap().as_str(), signed);

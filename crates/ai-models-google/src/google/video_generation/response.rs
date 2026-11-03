@@ -68,7 +68,7 @@ pub(super) fn parse_operation(
         Err(source) => {
             return Err(VideoGenerationError::with_source(
                 context.core(ErrorKind::InvalidOutput, "invalid provider video operation"),
-                source,
+                context.source(source),
             ));
         }
     };

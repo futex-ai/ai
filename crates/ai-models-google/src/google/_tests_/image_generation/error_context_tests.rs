@@ -4,7 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
     ErrorKind, ImageGenerationError, ImageGenerationInputImage, ImageGenerationRequest,
-    ImageGenerator,
+    ImageGenerator, SafeErrorSource,
 };
 use json_http::{JsonHttpResponse, JsonHttpTransportMock, TransportBackedJsonHttpClient};
 use serde_json::json;
@@ -70,7 +70,12 @@ async fn embedded_image_errors_keep_headers_and_context_precedes_policy() {
         assert!(!format!("{error:?}").contains("google-secret"));
         let source_facts = match &error {
             ImageGenerationError::Internal { source, .. } => Some((
-                source.source_ref().is::<serde_json::Error>(),
+                source
+                    .source_ref()
+                    .downcast_ref::<SafeErrorSource>()
+                    .unwrap()
+                    .raw_cause()
+                    .is::<serde_json::Error>(),
                 source.defined_at().module_path(),
             )),
             _ => None,
@@ -179,13 +184,25 @@ async fn image_status_and_late_output_errors_keep_metadata_and_original_sources(
         assert!(!format!("{error:?}").contains("google-secret"), "{case}");
         let (actual_source, anchor, echo) = match &error {
             ImageGenerationError::Internal { source, .. } => (
-                if source.source_ref().is::<serde_json::Error>() {
+                if source
+                    .source_ref()
+                    .downcast_ref::<SafeErrorSource>()
+                    .unwrap()
+                    .raw_cause()
+                    .is::<serde_json::Error>()
+                {
                     "json"
                 } else {
                     "base64"
                 },
                 Some(source.defined_at().module_path()),
-                source.source_ref().to_string().contains("google-secret"),
+                source
+                    .source_ref()
+                    .downcast_ref::<SafeErrorSource>()
+                    .unwrap()
+                    .raw_cause()
+                    .to_string()
+                    .contains("google-secret"),
             ),
             _ => ("none", None, false),
         };

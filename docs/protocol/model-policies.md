@@ -32,6 +32,10 @@ generation, video generation, audio transcription, and judgment.
 - The HTTP component gives these headers for buffered responses, for
   streams, and for status errors.
 - A message never holds a credential or an authorization header.
+- Every retained source reports only redacted diagnostics through its
+  display, debug output, and complete source chain.
+- The original typed cause remains available only through an explicit raw
+  cause accessor. Ordinary source traversal never exposes that cause.
 
 ## Error kinds
 

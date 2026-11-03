@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-use ai_interface::{ErrorCore, ErrorKind, Model, ModelError};
+use ai_interface::{ErrorCore, ErrorKind, Model, ModelError, SafeErrorSource};
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{RetryConfig, RetryRandomMock, RetryingModel};
@@ -74,7 +74,10 @@ async fn retry_after_cap_returns_the_original_error_and_preserves_its_source_and
         let mut core = ErrorCore::new(ErrorKind::Transient, "provider", "model", "safe original");
         core.retry_after = Some(Duration::from_millis(retry_after));
         core.provider_request_id = Some("req-123".to_owned());
-        let error = ModelError::with_source(core.clone(), std::io::Error::other("source"));
+        let error = ModelError::with_source(
+            core.clone(),
+            SafeErrorSource::redacted(std::io::Error::other("source")),
+        );
         let calls = Arc::new(AtomicUsize::new(0));
         let waits = Arc::new(Mutex::new(Vec::new()));
         let mut settings = RetryConfig {
@@ -88,7 +91,7 @@ async fn retry_after_cap_returns_the_original_error_and_preserves_its_source_and
         if retries == 1 {
             attempts.push(Ok(stream(vec![Err(ModelError::with_source(
                 core.clone(),
-                std::io::Error::other("source"),
+                SafeErrorSource::redacted(std::io::Error::other("source")),
             ))])));
         }
         let model = RetryingModel::new(
@@ -112,6 +115,9 @@ async fn retry_after_cap_returns_the_original_error_and_preserves_its_source_and
             error
                 .source()
                 .unwrap()
+                .downcast_ref::<SafeErrorSource>()
+                .unwrap()
+                .raw_cause()
                 .downcast_ref::<std::io::Error>()
                 .unwrap()
                 .to_string(),

@@ -7,6 +7,7 @@ use reqwest::header::CONTENT_TYPE;
 use serde_json::Value;
 use tokio::time::timeout;
 
+use crate::error_url::sanitize_reqwest;
 use crate::{
     DynJsonHttpSseStream, Error, JsonHttpBody, JsonHttpMethod, JsonHttpMultipartField,
     JsonHttpRequest, JsonHttpResponse, JsonHttpTransport, Result, reqwest_redirect,
@@ -36,7 +37,7 @@ impl ReqwestJsonHttpTransport {
         Self {
             client: match client {
                 Ok(client) => ReqwestClientState::Ready(client),
-                Err(source) => ReqwestClientState::Failed(Arc::new(source)),
+                Err(source) => ReqwestClientState::Failed(Arc::new(sanitize_reqwest(source))),
             },
         }
     }
@@ -88,7 +89,9 @@ impl ReqwestJsonHttpTransport {
         let builder = self.request_builder(request)?.timeout(request.timeout);
         match reqwest_redirect::send(builder, &request.auth_headers).await {
             Ok(response) => Ok(response),
-            Err(source) => Err(Error::ReqwestTransport { source }),
+            Err(source) => Err(Error::ReqwestTransport {
+                source: sanitize_reqwest(source),
+            }),
         }
     }
 }
@@ -102,7 +105,10 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
         let text = match response.text().await {
             Ok(text) => text,
             Err(source) => {
-                return Err(Error::ReqwestTransport { source }.with_response_headers(headers));
+                return Err(Error::ReqwestTransport {
+                    source: sanitize_reqwest(source),
+                }
+                .with_response_headers(headers));
             }
         };
         let body = serde_json::from_str(&text).unwrap_or(Value::String(text));
@@ -120,7 +126,10 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
         let body = match response.bytes().await {
             Ok(body) => body.to_vec(),
             Err(source) => {
-                return Err(Error::ReqwestTransport { source }.with_response_headers(headers));
+                return Err(Error::ReqwestTransport {
+                    source: sanitize_reqwest(source),
+                }
+                .with_response_headers(headers));
             }
         };
         Ok(JsonHttpResponse {
@@ -143,7 +152,7 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
                 Ok(Err(source)) => {
                     return Err(Error::SseTransport {
                         events_received: 0,
-                        source,
+                        source: sanitize_reqwest(source),
                     });
                 }
                 Err(_) => return Err(timer.error(kind, 0)),
@@ -192,7 +201,7 @@ async fn read_error_body(response: &mut reqwest::Response, timer: &SseTimer) -> 
             Ok(Err(source)) => {
                 return Err(Error::SseTransport {
                     events_received: 0,
-                    source,
+                    source: sanitize_reqwest(source),
                 });
             }
             Err(_) => return Err(timer.error(kind, 0)),
@@ -221,7 +230,11 @@ fn reqwest_multipart_form(fields: &[JsonHttpMultipartField]) -> Result<reqwest::
         if let Some(content_type) = &field.content_type {
             part = match part.mime_str(content_type) {
                 Ok(part) => part,
-                Err(source) => return Err(Error::ReqwestTransport { source }),
+                Err(source) => {
+                    return Err(Error::ReqwestTransport {
+                        source: sanitize_reqwest(source),
+                    });
+                }
             };
         }
         form = form.part(field.name.clone(), part);

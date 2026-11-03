@@ -12,7 +12,7 @@ use std::{
 use ai_interface::{
     DynImageGenerator, ErrorCore, ErrorKind, GeneratedImage, ImageGenerationError,
     ImageGenerationRequest, ImageGenerationResponse, ImageGenerator, ImageGeneratorMock,
-    ModelUsage,
+    ModelUsage, SafeErrorSource,
 };
 use ai_models_policy::{DynSleeper, STANDARD_TRANSIENT_RETRY_DELAYS, SleeperMock, TokioSleeper};
 use async_trait::async_trait;
@@ -153,7 +153,11 @@ async fn terminal_error_classes_stop_after_one_attempt() {
             "gpt-image-2",
             "rejected",
         )),
-        ImageGenerationError::internal("openai", "gpt-image-2", std::io::Error::other("internal")),
+        ImageGenerationError::internal(
+            "openai",
+            "gpt-image-2",
+            SafeErrorSource::redacted(std::io::Error::other("internal")),
+        ),
     ];
 
     for error in errors {

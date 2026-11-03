@@ -2,7 +2,9 @@
 
 use std::{error::Error, time::Duration};
 
-use ai_interface::{ConversationMessage, ErrorKind, Model, ModelRequest, StructuredOutputSchema};
+use ai_interface::{
+    ConversationMessage, ErrorKind, Model, ModelRequest, SafeErrorSource, StructuredOutputSchema,
+};
 use ai_models_core::test_support::{self, SseFixture};
 use serde_json::json;
 
@@ -172,7 +174,11 @@ async fn late_stream_and_output_errors_use_the_relevant_response_metadata() {
         assert_eq!(
             error
                 .source()
-                .and_then(|source| source.downcast_ref::<serde_json::Error>())
+                .and_then(|source| source
+                    .downcast_ref::<SafeErrorSource>()
+                    .unwrap()
+                    .raw_cause()
+                    .downcast_ref::<serde_json::Error>())
                 .is_some(),
             json_source,
             "{case}"

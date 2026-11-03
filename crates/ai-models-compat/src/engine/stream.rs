@@ -157,7 +157,7 @@ impl CompatStream {
                         self.identity
                             .error
                             .core(ErrorKind::InvalidOutput, source.to_string()),
-                        source,
+                        self.identity.error.source(source),
                     ));
                 }
                 return Err(classify_stream_error(

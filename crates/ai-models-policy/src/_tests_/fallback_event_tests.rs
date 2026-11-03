@@ -4,7 +4,8 @@ use std::{error::Error, sync::Arc};
 
 use ai_interface::{
     ConversationPart, ErrorCore, ErrorKind, Model, ModelAttempt, ModelError, ModelEvent,
-    ModelResponseFold, ProviderId, ProviderState, test_support::model_response_stream,
+    ModelResponseFold, ProviderId, ProviderState, SafeErrorSource,
+    test_support::model_response_stream,
 };
 use serde_json::json;
 
@@ -23,7 +24,7 @@ async fn emitted_event_flags_reset_per_leaf_and_fallback_keeps_only_winning_prov
     forwarded_core.provider_request_id = Some("original-request".to_owned());
     let forwarded = ModelError::with_source(
         forwarded_core.clone(),
-        std::io::Error::other("original source"),
+        SafeErrorSource::redacted(std::io::Error::other("original source")),
     );
     let chain = FallbackModel::new(
         vec![
@@ -85,6 +86,9 @@ async fn emitted_event_flags_reset_per_leaf_and_fallback_keeps_only_winning_prov
                     error
                         .source()
                         .unwrap()
+                        .downcast_ref::<SafeErrorSource>()
+                        .unwrap()
+                        .raw_cause()
                         .downcast_ref::<std::io::Error>()
                         .unwrap()
                         .to_string(),

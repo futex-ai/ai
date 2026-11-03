@@ -142,7 +142,7 @@ impl AudioTranscriber for OpenAiAudioTranscriber {
             Err(source) => {
                 return Err(TranscriptionError::with_source(
                     context.core(ErrorKind::Internal, "internal error"),
-                    source,
+                    context.source(source),
                 ));
             }
         };
@@ -165,7 +165,7 @@ fn validate_media_type(context: &ErrorContext, content_type: &str) -> Transcript
                 ErrorKind::UnsupportedInput,
                 format!("unsupported media type `{content_type}`"),
             ),
-            source,
+            context.source(source),
         )),
     }
 }
@@ -180,7 +180,7 @@ fn http_failure(context: &ErrorContext, source: json_http::Error) -> Transcripti
         source => {
             let mut core = context.request_error(&source);
             context.apply(&mut core);
-            TranscriptionError::with_source(core, source)
+            TranscriptionError::with_source(core, context.source(source))
         }
     }
 }
@@ -213,7 +213,7 @@ fn request_failure(context: &ErrorContext, source: reqwest::Error) -> Transcript
     } else {
         source.to_string()
     };
-    TranscriptionError::with_source(context.core(kind, message), source)
+    TranscriptionError::with_source(context.core(kind, message), context.source(source))
 }
 
 #[cfg(test)]

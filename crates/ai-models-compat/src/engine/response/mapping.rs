@@ -62,7 +62,7 @@ pub(super) fn dispatchable_tool_calls(
                     ErrorKind::InvalidOutput,
                     format!("invalid {} tool-call payload", dialect.label),
                 ),
-                source,
+                context.source(source),
             ));
         }
     };

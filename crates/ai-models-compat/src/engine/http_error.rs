@@ -22,7 +22,7 @@ pub(super) fn classify(
             Some(classify) => classify(context, *status, headers, body),
             None => classify_json_http_error(context, *status, headers, body),
         };
-        return ModelError::with_source(error.core().clone(), source);
+        return ModelError::with_source(error.core().clone(), context.source(source));
     }
     classify_json_http_stream_error(context, 0, source)
 }

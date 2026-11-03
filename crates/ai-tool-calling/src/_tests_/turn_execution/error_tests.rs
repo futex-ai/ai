@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use ai_interface::{
     ErrorKind, FinishReason, Model, ModelAttempt, ModelError, ModelMock, ModelResponse, ModelUsage,
-    ToolCall,
+    SafeErrorSource, ToolCall,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
@@ -26,7 +26,7 @@ async fn model_errors_abort_the_turn() {
             .answers_arc(stream_result(Err(ModelError::internal(
                 "mock",
                 "mock-model",
-                FixtureModelError,
+                SafeErrorSource::redacted(FixtureModelError),
             )))),
     ));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");

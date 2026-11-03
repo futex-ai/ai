@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-use ai_interface::{ErrorCore, ErrorKind, Model, ModelError};
+use ai_interface::{ErrorCore, ErrorKind, Model, ModelError, SafeErrorSource};
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{AnotherModelCanSucceed, AnyError, FallbackModel, FallbackPolicy, FallbackPolicyMock};
@@ -106,7 +106,7 @@ async fn custom_policy_stops_on_interrupted_and_preserves_core_source_and_full_r
                 captured.lock().unwrap().push(request.clone());
                 Err(ModelError::with_source(
                     core.clone(),
-                    std::io::Error::other("original source"),
+                    SafeErrorSource::redacted(std::io::Error::other("original source")),
                 ))
             })),
     ));
@@ -129,6 +129,9 @@ async fn custom_policy_stops_on_interrupted_and_preserves_core_source_and_full_r
         error
             .source()
             .unwrap()
+            .downcast_ref::<SafeErrorSource>()
+            .unwrap()
+            .raw_cause()
             .downcast_ref::<std::io::Error>()
             .unwrap()
             .to_string(),

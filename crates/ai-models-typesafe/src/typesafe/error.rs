@@ -67,7 +67,7 @@ pub(super) fn classify_request_error(
     } else {
         context.request_error(&source)
     };
-    JudgmentError::with_source(core, source)
+    JudgmentError::with_source(core, context.source(source))
 }
 
 /// Builds the fallback diagnostic for an empty response body.

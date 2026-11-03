@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{JsonHttpHeaders, sse::JsonHttpSseDecodeError};
 
-#[derive(Debug, Error)]
+#[derive(Error)]
 /// Errors returned by the JSON HTTP boundary.
 pub enum Error {
     /// A response failed after its headers arrived.

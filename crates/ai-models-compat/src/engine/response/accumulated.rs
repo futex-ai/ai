@@ -24,13 +24,13 @@ pub(crate) fn parse_accumulated(
                         ErrorKind::InvalidOutput,
                         format!("invalid xAI response: {source}"),
                     ),
-                    source,
+                    context.error.source(source),
                 ),
                 _ => ModelError::with_source(
                     context
                         .error
                         .core(ErrorKind::InvalidOutput, "invalid provider response"),
-                    source,
+                    context.error.source(source),
                 ),
             });
         }

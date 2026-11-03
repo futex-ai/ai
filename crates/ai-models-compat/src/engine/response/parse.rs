@@ -41,18 +41,18 @@ pub(super) fn decode_response(
     let parse_error = |source| match dialect.replay {
         ReplayRule::Kimi => ModelError::with_source(
             error.core(ErrorKind::InvalidOutput, "invalid Kimi response payload"),
-            source,
+            error.source(source),
         ),
         ReplayRule::Xai => ModelError::with_source(
             error.core(
                 ErrorKind::InvalidOutput,
                 format!("invalid xAI response: {source}"),
             ),
-            source,
+            error.source(source),
         ),
         _ => ModelError::with_source(
             error.core(ErrorKind::InvalidOutput, "invalid provider response"),
-            source,
+            error.source(source),
         ),
     };
     let mut body = body;

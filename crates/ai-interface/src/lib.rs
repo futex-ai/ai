@@ -33,6 +33,7 @@ mod provider_id;
 mod router;
 mod router_error;
 mod routing_tiers;
+mod safe_error_source;
 mod tools;
 mod usage;
 mod video_generation_error;
@@ -104,6 +105,7 @@ pub use router::{
 };
 pub use router_error::{ModelRouterError, ModelRouterResult};
 pub use routing_tiers::{CostTier, IntelligenceScore, RoutingTiers, SpeedTier};
+pub use safe_error_source::SafeErrorSource;
 pub use tools::{DynTool, Tool, ToolCall, ToolDefinition, ToolError, ToolInvocation, ToolResult};
 pub use usage::{ModelUsage, ModelUsageCostLine, ModelUsageMeasurementState, ModelUsageUnitKind};
 pub use video_generator::{

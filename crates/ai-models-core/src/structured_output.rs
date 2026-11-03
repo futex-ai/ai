@@ -14,7 +14,7 @@ pub fn parse_tool_call_arguments(context: &ErrorContext, raw: &str) -> ModelResu
                 ErrorKind::InvalidOutput,
                 format!("invalid tool call JSON arguments `{raw}`: {source}"),
             ),
-            source,
+            context.source(source),
         )),
     }
 }
@@ -36,7 +36,7 @@ pub fn parse_structured_output(
                         response_schema.name
                     ),
                 ),
-                source,
+                context.source(source),
             ));
         }
     };

@@ -43,7 +43,7 @@ pub(super) fn encode_state(
         Ok(state) => Ok(state),
         Err(source) => Err(ModelError::with_source(
             context.core(ErrorKind::Internal, "internal error"),
-            source,
+            context.source(source),
         )),
     }
 }

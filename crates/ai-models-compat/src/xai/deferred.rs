@@ -77,7 +77,7 @@ impl XaiDeferredCompletion {
             Err(source) => {
                 return Err(ModelError::with_source(
                     context.core(ErrorKind::Internal, "internal error"),
-                    source,
+                    context.source(source),
                 ));
             }
         };
@@ -86,7 +86,7 @@ impl XaiDeferredCompletion {
             Err(source) => {
                 return Err(ModelError::with_source(
                     context.request_error(&source),
-                    source,
+                    context.source(source),
                 ));
             }
         };
@@ -104,7 +104,7 @@ impl XaiDeferredCompletion {
             Err(source) => {
                 return Err(ModelError::with_source(
                     context.core(ErrorKind::InvalidOutput, source.to_string()),
-                    source,
+                    context.source(source),
                 ));
             }
         };
@@ -137,7 +137,7 @@ impl XaiDeferredCompletion {
             Err(source) => {
                 return Err(ModelError::with_source(
                     context.request_error(&source),
-                    source,
+                    context.source(source),
                 ));
             }
         };

@@ -27,5 +27,5 @@ pub(super) fn classify_request_error(
     context: &ErrorContext,
     source: json_http::Error,
 ) -> VideoGenerationError {
-    VideoGenerationError::with_source(context.request_error(&source), source)
+    VideoGenerationError::with_source(context.request_error(&source), context.source(source))
 }

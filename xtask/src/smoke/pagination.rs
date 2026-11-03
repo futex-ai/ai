@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     ConversationRole, DynModelEventStream, FinishReason, Model, ModelRequest, ModelResponse,
-    ModelResult, ModelUsage, Tool, ToolCall, ToolDefinition, ToolOutputEnvelope,
+    ModelResult, ModelUsage, SafeErrorSource, Tool, ToolCall, ToolDefinition, ToolOutputEnvelope,
 };
 use async_trait::async_trait;
 use serde_json::{Value, json};
@@ -40,7 +40,7 @@ impl SmokePaginationModel {
             return Err(ai_interface::ModelError::internal(
                 "smoke",
                 "smoke-model",
-                SmokeModelError::MissingReaderDefinition,
+                SafeErrorSource::redacted(SmokeModelError::MissingReaderDefinition),
             ));
         }
         let step = self.calls.fetch_add(1, Ordering::SeqCst);
@@ -55,7 +55,7 @@ impl SmokePaginationModel {
             _ => Err(ai_interface::ModelError::internal(
                 "smoke",
                 "smoke-model",
-                SmokeModelError::UnexpectedModelStep { step },
+                SafeErrorSource::redacted(SmokeModelError::UnexpectedModelStep { step }),
             )),
         }
     }
@@ -72,14 +72,14 @@ impl SmokePaginationModel {
             return Err(ai_interface::ModelError::internal(
                 "smoke",
                 "smoke-model",
-                SmokeModelError::MissingWindowOutputId,
+                SafeErrorSource::redacted(SmokeModelError::MissingWindowOutputId),
             ));
         };
         let Some(next_offset) = window.next_offset() else {
             return Err(ai_interface::ModelError::internal(
                 "smoke",
                 "smoke-model",
-                SmokeModelError::MissingNextOffset { step },
+                SafeErrorSource::redacted(SmokeModelError::MissingNextOffset { step }),
             ));
         };
         Ok(tool_call_response(tool_call(
@@ -101,7 +101,7 @@ impl SmokePaginationModel {
             return Err(ai_interface::ModelError::internal(
                 "smoke",
                 "smoke-model",
-                SmokeModelError::UnexpectedTruncatedFinalWindow,
+                SafeErrorSource::redacted(SmokeModelError::UnexpectedTruncatedFinalWindow),
             ));
         }
         Ok(ModelResponse {
@@ -162,7 +162,7 @@ fn last_tool_window(request: &ModelRequest) -> ModelResult<ai_interface::ToolOut
         return Err(ai_interface::ModelError::internal(
             "smoke",
             "smoke-model",
-            SmokeModelError::MissingToolWindow,
+            SafeErrorSource::redacted(SmokeModelError::MissingToolWindow),
         ));
     };
     let envelope = match serde_json::from_str::<ToolOutputEnvelope>(&message.text()) {
@@ -171,7 +171,7 @@ fn last_tool_window(request: &ModelRequest) -> ModelResult<ai_interface::ToolOut
             return Err(ai_interface::ModelError::internal(
                 "smoke",
                 "smoke-model",
-                SmokeModelError::InvalidEnvelope { source },
+                SafeErrorSource::redacted(SmokeModelError::InvalidEnvelope { source }),
             ));
         }
     };
@@ -180,7 +180,7 @@ fn last_tool_window(request: &ModelRequest) -> ModelResult<ai_interface::ToolOut
         ToolOutputEnvelope::Inline(_) => Err(ai_interface::ModelError::internal(
             "smoke",
             "smoke-model",
-            SmokeModelError::UnexpectedInlineEnvelope,
+            SafeErrorSource::redacted(SmokeModelError::UnexpectedInlineEnvelope),
         )),
     }
 }

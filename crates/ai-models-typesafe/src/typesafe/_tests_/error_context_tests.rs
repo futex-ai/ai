@@ -5,7 +5,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use ai_interface::{ErrorKind, JudgmentError, JudgmentModel};
+use ai_interface::{ErrorKind, JudgmentError, JudgmentModel, SafeErrorSource};
 use ai_models_core::{Clock, ClockMock};
 use json_http::JsonHttpHeaders;
 use serde_json::{Value, json};
@@ -119,7 +119,12 @@ async fn status_and_output_errors_keep_metadata_safe_diagnostics_and_original_so
         assert!(!format!("{error:?}").contains(KEY));
         let source_matches = match &error {
             JudgmentError::Internal { source, .. } => {
-                source.source_ref().is::<serde_json::Error>()
+                source
+                    .source_ref()
+                    .downcast_ref::<SafeErrorSource>()
+                    .unwrap()
+                    .raw_cause()
+                    .is::<serde_json::Error>()
                     && source.defined_at().module_path() == "ai_interface::judgment::error"
                     && source.caller_at().file().ends_with("typesafe/response.rs")
                     && source.caller_at().line() > 0
@@ -191,7 +196,14 @@ async fn request_failures_keep_their_headers_kinds_and_tracked_original_sources(
         let JudgmentError::Internal { source, .. } = &error else {
             panic!("original source lost")
         };
-        assert!(source.source_ref().is::<json_http::Error>());
+        assert!(
+            source
+                .source_ref()
+                .downcast_ref::<SafeErrorSource>()
+                .unwrap()
+                .raw_cause()
+                .is::<json_http::Error>()
+        );
         assert_eq!(
             source.defined_at().module_path(),
             "ai_interface::judgment::error"

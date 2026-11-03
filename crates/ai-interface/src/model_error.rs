@@ -4,7 +4,7 @@ use std::fmt;
 
 use thiserror::Error;
 
-use crate::{ErrorCore, ErrorKind, ModelAttempt, ModelControl};
+use crate::{ErrorCore, ErrorKind, ModelAttempt, ModelControl, SafeErrorSource};
 
 #[derive(Error)]
 /// Errors returned by the model boundary.
@@ -25,7 +25,7 @@ pub enum ModelError {
         /// Earlier failed fallback attempts, excluding this failure.
         attempts: Vec<ModelAttempt>,
         /// Original source retained for inspection and downcasting.
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: SafeErrorSource,
     },
 }
 
@@ -128,7 +128,7 @@ impl ModelError {
     pub fn internal(
         provider: impl Into<String>,
         model_id: impl Into<String>,
-        source: impl std::error::Error + Send + Sync + 'static,
+        source: SafeErrorSource,
     ) -> Self {
         Self::with_source(
             ErrorCore::new(ErrorKind::Internal, provider, model_id, "internal error"),
@@ -137,19 +137,20 @@ impl ModelError {
     }
 
     /// Retains an original source with an explicit failure category.
-    pub fn with_source(
-        core: ErrorCore,
-        source: impl std::error::Error + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_source(core: ErrorCore, source: SafeErrorSource) -> Self {
         Self::Internal {
             core: Box::new(core),
             attempts: Vec::new(),
-            source: Box::new(source),
+            source,
         }
     }
 
     pub(crate) fn fold_error(source: impl std::error::Error + Send + Sync + 'static) -> Self {
-        Self::internal("local", "model-response-fold", source)
+        Self::internal(
+            "local",
+            "model-response-fold",
+            SafeErrorSource::redacted(source),
+        )
     }
 
     /// Builds a rate limit.

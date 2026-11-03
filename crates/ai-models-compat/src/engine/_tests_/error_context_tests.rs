@@ -6,7 +6,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use ai_interface::{ErrorKind, StructuredOutputSchema};
+use ai_interface::{ErrorKind, SafeErrorSource, StructuredOutputSchema};
 use ai_models_core::{
     ClockMock,
     test_support::{SseFixture, done_event, event, recording_streaming_client},
@@ -153,9 +153,11 @@ async fn late_stream_and_output_failures_keep_response_facts_and_sources() {
         assert!(!error.to_string().contains("secret-late"));
         assert!(!format!("{error:?}").contains("secret-late"));
         assert_eq!(
-            error
-                .source()
-                .is_some_and(|source| source.is::<serde_json::Error>()),
+            error.source().is_some_and(|source| source
+                .downcast_ref::<SafeErrorSource>()
+                .unwrap()
+                .raw_cause()
+                .is::<serde_json::Error>()),
             kind == ErrorKind::InvalidOutput
         );
     }
@@ -182,7 +184,15 @@ async fn read_failure_headers_take_priority_over_opening_metadata() {
     let error = model.complete(&request()).await.unwrap_err();
     assert_eq!(error.core().kind, ErrorKind::RejectedKey);
     assert_metadata(&error, "req-read", 9);
-    assert!(error.source().unwrap().is::<json_http::Error>());
+    assert!(
+        error
+            .source()
+            .unwrap()
+            .downcast_ref::<SafeErrorSource>()
+            .unwrap()
+            .raw_cause()
+            .is::<json_http::Error>()
+    );
 }
 
 #[tokio::test]

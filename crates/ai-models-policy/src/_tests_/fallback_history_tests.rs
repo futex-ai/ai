@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ai_interface::{ErrorCore, ErrorKind, Model, ModelAttempt, ModelError};
+use ai_interface::{ErrorCore, ErrorKind, Model, ModelAttempt, ModelError, SafeErrorSource};
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{AnyError, FallbackModel, FallbackPolicyMock};
@@ -16,8 +16,10 @@ use super::fixtures::{model, request, stream, text};
 async fn final_open_and_read_failures_keep_every_earlier_leaf_and_original_final_source() {
     for read_failure in [false, true] {
         let core = ErrorCore::new(ErrorKind::InvalidOutput, "last", "three", "last message");
-        let final_error =
-            ModelError::with_source(core.clone(), std::io::Error::other("final source"));
+        let final_error = ModelError::with_source(
+            core.clone(),
+            SafeErrorSource::redacted(std::io::Error::other("final source")),
+        );
         let final_open = if read_failure {
             Ok(stream(vec![Err(final_error)]))
         } else {
@@ -61,6 +63,9 @@ async fn final_open_and_read_failures_keep_every_earlier_leaf_and_original_final
             error
                 .source()
                 .unwrap()
+                .downcast_ref::<SafeErrorSource>()
+                .unwrap()
+                .raw_cause()
                 .downcast_ref::<std::io::Error>()
                 .unwrap()
                 .to_string(),

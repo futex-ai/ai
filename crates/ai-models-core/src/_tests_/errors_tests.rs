@@ -218,7 +218,10 @@ fn transport_diagnostics_omit_signed_urls_and_retain_original_sources() {
         let ModelError::Internal { source, .. } = error else {
             panic!("HTTP source lost");
         };
-        let source = source.downcast_ref::<json_http::Error>().unwrap();
+        let source = source
+            .raw_cause()
+            .downcast_ref::<json_http::Error>()
+            .unwrap();
         let original = match source.cause() {
             json_http::Error::ReqwestTransport { source }
             | json_http::Error::SseTransport { source, .. } => source,

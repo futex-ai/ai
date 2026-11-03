@@ -1,3 +1,4 @@
+mod error_debug_tests;
 mod request_bytes_tests;
 mod request_tests;
 mod response_context_tests;

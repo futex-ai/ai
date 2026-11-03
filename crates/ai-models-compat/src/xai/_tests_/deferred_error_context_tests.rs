@@ -2,7 +2,7 @@
 
 use std::{collections::BTreeMap, error::Error, sync::Arc, time::Duration};
 
-use ai_interface::{ErrorKind, Model, StructuredOutputSchema};
+use ai_interface::{ErrorKind, Model, SafeErrorSource, StructuredOutputSchema};
 use json_http::{JsonHttpAuthMock, JsonHttpHeaders, JsonHttpResponse};
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
@@ -111,9 +111,11 @@ async fn deferred_errors_keep_submission_final_poll_and_missing_response_facts_s
         assert_eq!(error.core().provider_request_id.as_deref(), id);
         assert_eq!(error.core().retry_after, retry.map(Duration::from_secs));
         assert_eq!(
-            error
-                .source()
-                .is_some_and(|source| source.is::<serde_json::Error>()),
+            error.source().is_some_and(|source| source
+                .downcast_ref::<SafeErrorSource>()
+                .unwrap()
+                .raw_cause()
+                .is::<serde_json::Error>()),
             json_source
         );
         assert_eq!(

@@ -88,7 +88,7 @@ pub fn classify_json_http_stream_error(
             ),
         }
     };
-    ModelError::with_source(core, source)
+    ModelError::with_source(core, context.source(source))
 }
 
 /// Maps a typed provider stream failure using provider-event progress.

@@ -6,6 +6,8 @@ mod auth;
 mod canonical;
 mod client;
 mod error;
+mod error_debug;
+mod error_url;
 mod headers;
 mod request;
 mod request_headers;

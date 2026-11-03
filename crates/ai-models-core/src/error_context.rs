@@ -1,11 +1,14 @@
 //! Per-call identity, secret capture, and immutable response error context.
 
 use std::{
+    error::Error,
     fmt,
     sync::{Arc, Mutex},
 };
 
-use ai_interface::{ErrorCore, ErrorKind, JudgmentAnswerProblem, JudgmentError, ModelError};
+use ai_interface::{
+    ErrorCore, ErrorKind, JudgmentAnswerProblem, JudgmentError, ModelError, SafeErrorSource,
+};
 use json_http::{DynJsonHttpAuth, JsonHttpHeaders};
 
 use crate::{Clock, ErrorMetadata, capturing_auth::capture, errors::request_error_core};
@@ -92,6 +95,17 @@ impl ErrorContext {
         })
     }
 
+    /// Captures redacted source links and keeps the original cause behind explicit inspection.
+    pub fn source(&self, source: impl Error + Send + Sync + 'static) -> SafeErrorSource {
+        let mut links = Vec::new();
+        let mut link: Option<&dyn Error> = Some(&source);
+        while let Some(error) = link {
+            links.push(self.redact(&redact_urls(&error.to_string())));
+            link = error.source();
+        }
+        SafeErrorSource::new(source, links)
+    }
+
     /// Applies actual adapter identity, response metadata, and credential redaction.
     pub fn apply(&self, core: &mut ErrorCore) {
         core.provider = self.provider.clone();
@@ -166,4 +180,25 @@ impl ErrorContext {
         }
         request_error_core(&context, source)
     }
+}
+
+fn redact_urls(text: &str) -> String {
+    let mut safe = String::new();
+    let mut remaining = text;
+    while let Some(start) = remaining
+        .find("http://")
+        .into_iter()
+        .chain(remaining.find("https://"))
+        .min()
+    {
+        safe.push_str(&remaining[..start]);
+        safe.push_str("[redacted URL]");
+        let url = &remaining[start..];
+        let end = url
+            .find(|ch: char| ch.is_whitespace() || matches!(ch, '"' | '\'' | ')' | ']' | '>'))
+            .unwrap_or(url.len());
+        remaining = &url[end..];
+    }
+    safe.push_str(remaining);
+    safe
 }

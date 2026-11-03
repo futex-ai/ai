@@ -7,7 +7,7 @@ use internal_error::{DefinedAt, InternalError};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{ErrorCore, ErrorKind, ModelUsage};
+use crate::{ErrorCore, ErrorKind, ModelUsage, SafeErrorSource};
 
 /// Provider-agnostic video generation request.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -160,7 +160,7 @@ impl VideoGenerationError {
     pub fn internal(
         provider: impl Into<String>,
         model_id: impl Into<String>,
-        source: impl std::error::Error + Send + Sync + 'static,
+        source: SafeErrorSource,
     ) -> Self {
         Self::with_source(
             ErrorCore::new(ErrorKind::Internal, provider, model_id, "internal error"),
@@ -170,10 +170,7 @@ impl VideoGenerationError {
 
     /// Retains a source and its tracked locations with an explicit failure category.
     #[track_caller]
-    pub fn with_source(
-        core: ErrorCore,
-        source: impl std::error::Error + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_source(core: ErrorCore, source: SafeErrorSource) -> Self {
         const DEFINED_AT: DefinedAt = DefinedAt::new(module_path!(), file!(), line!(), column!());
         Self::Internal {
             core: Box::new(core),

@@ -179,7 +179,7 @@ impl JudgmentModel for TypeSafeJudgmentModel {
                 &secrets,
             ));
         }
-        match parse_response(&self.model_id, request, &response.body) {
+        match parse_response(&context, &self.model_id, request, &response.body) {
             Ok(response) => Ok(response),
             Err(error) => Err(redact_response_error(error, &context, &secrets)),
         }

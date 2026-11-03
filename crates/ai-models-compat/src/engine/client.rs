@@ -2,7 +2,9 @@
 
 use std::{sync::Arc, time::Duration};
 
-use ai_interface::{DynModelEventStream, Model, ModelError, ModelRequest, ModelResult, ModelSpec};
+use ai_interface::{
+    DynModelEventStream, Model, ModelError, ModelRequest, ModelResult, ModelSpec, SafeErrorSource,
+};
 use ai_models_core::{
     ApiKeyScheme, Clock, ErrorContext, ProviderConfig, SystemClock, resolve_controls,
     synthetic_tool_call_scope,
@@ -135,7 +137,7 @@ impl CompatModel {
                 return Err(ModelError::internal(
                     self.dialect.provider,
                     self.spec.provider_model_id.as_ref(),
-                    source,
+                    SafeErrorSource::redacted(source),
                 ));
             }
         };

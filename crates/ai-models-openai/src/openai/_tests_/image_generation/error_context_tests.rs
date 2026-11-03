@@ -4,7 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
     ErrorKind, ImageGenerationError, ImageGenerationInputImage, ImageGenerationRequest,
-    ImageGenerator,
+    ImageGenerator, SafeErrorSource,
 };
 use json_http::{JsonHttpResponse, JsonHttpTransportMock, TransportBackedJsonHttpClient};
 use serde_json::json;
@@ -106,9 +106,21 @@ async fn image_failures_keep_response_metadata_and_original_decode_sources() {
         assert!(!format!("{error:?}").contains("image-secret"), "{case}");
         let (actual_source, anchor) = match &error {
             ImageGenerationError::Internal { source, .. } => {
-                let name = if source.source_ref().is::<serde_json::Error>() {
+                let name = if source
+                    .source_ref()
+                    .downcast_ref::<SafeErrorSource>()
+                    .unwrap()
+                    .raw_cause()
+                    .is::<serde_json::Error>()
+                {
                     "json"
-                } else if source.source_ref().is::<base64::DecodeError>() {
+                } else if source
+                    .source_ref()
+                    .downcast_ref::<SafeErrorSource>()
+                    .unwrap()
+                    .raw_cause()
+                    .is::<base64::DecodeError>()
+                {
                     "base64"
                 } else {
                     "format"
@@ -120,9 +132,13 @@ async fn image_failures_keep_response_metadata_and_original_decode_sources() {
         assert_eq!(actual_source, source_kind, "{case}");
         assert_eq!(anchor, source_module, "{case}");
         let original_source_echo = match &error {
-            ImageGenerationError::Internal { source, .. } => {
-                source.source_ref().to_string().contains("image-secret")
-            }
+            ImageGenerationError::Internal { source, .. } => source
+                .source_ref()
+                .downcast_ref::<SafeErrorSource>()
+                .unwrap()
+                .raw_cause()
+                .to_string()
+                .contains("image-secret"),
             _ => false,
         };
         assert_eq!(original_source_echo, source_kind == "json", "{case}");

@@ -116,7 +116,7 @@ fn parse_image(
         Err(source) => {
             return Err(ImageGenerationError::with_source(
                 context.core(ErrorKind::InvalidOutput, "invalid provider image response"),
-                source,
+                context.source(source),
             ));
         }
     };
@@ -161,7 +161,7 @@ fn parse_image(
                 Err(source) => {
                     return Err(ImageGenerationError::with_source(
                         context.core(ErrorKind::InvalidOutput, "invalid provider image response"),
-                        source,
+                        context.source(source),
                     ));
                 }
             };

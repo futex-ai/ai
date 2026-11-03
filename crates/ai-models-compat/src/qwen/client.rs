@@ -81,5 +81,5 @@ impl Model for QwenModel {
 #[cfg(test)]
 pub(super) fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
     let context = ErrorContext::new(PROVIDER, model_id, &[], Arc::new(SystemClock));
-    ModelError::with_source(context.request_error(&source), source)
+    ModelError::with_source(context.request_error(&source), context.source(source))
 }

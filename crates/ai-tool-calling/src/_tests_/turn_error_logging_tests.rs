@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use ai_interface::{
     ErrorCore, ErrorKind, FinishReason, Logger, LoggerMock, Model, ModelCallLogEntry,
-    ModelCallLogResult, ModelError, ModelMock, ModelResponse, ModelUsage, ToolActivityLogEntry,
-    ToolActivityPhase, ToolCall, ToolCallLogEntry, ToolCallLogResult,
+    ModelCallLogResult, ModelError, ModelMock, ModelResponse, ModelUsage, SafeErrorSource,
+    ToolActivityLogEntry, ToolActivityPhase, ToolCall, ToolCallLogEntry, ToolCallLogResult,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
@@ -26,7 +26,7 @@ async fn model_errors_are_logged_before_the_turn_aborts() {
             .next_call(matching!(_))
             .answers_arc(stream_result(Err(ModelError::with_source(
                 ErrorCore::new(ErrorKind::Internal, "mock", "mock-model", "model failed"),
-                FixtureModelError,
+                SafeErrorSource::redacted(FixtureModelError),
             )))),
     ));
     let logger: Arc<dyn Logger> = Arc::new(Unimock::new(
@@ -51,7 +51,12 @@ async fn model_errors_are_logged_before_the_turn_aborts() {
         panic!("expected the original model source");
     };
     assert_eq!(core.kind, ErrorKind::Internal);
-    assert!(source.downcast_ref::<FixtureModelError>().is_some());
+    assert!(
+        source
+            .raw_cause()
+            .downcast_ref::<FixtureModelError>()
+            .is_some()
+    );
 }
 
 #[tokio::test]

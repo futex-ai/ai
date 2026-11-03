@@ -44,6 +44,10 @@ Late stream, provider, and output failures use the clone for that stream.
 messages and request ids. `apply_judgment_error` also sanitizes question ids
 and provider-controlled answer labels.
 Auth-hook failures use a fixed diagnostic. They do not copy unknown hook text.
+`source` builds an `ai_interface::SafeErrorSource` with redacted text for
+each link. It removes diagnostic URLs before capturing that text.
+Normal display, debug output, and source traversal use only those safe links.
+Explicit typed inspection uses the carrier's `raw_cause()` accessor.
 
 The Chat Completions engine and its accumulator live in
 [`ai-models-compat`](../ai-models-compat/README.md).

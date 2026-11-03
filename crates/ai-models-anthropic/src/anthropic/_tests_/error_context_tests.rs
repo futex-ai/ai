@@ -6,7 +6,9 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use ai_interface::{ConversationMessage, ErrorKind, Model, ModelRequest, StructuredOutputSchema};
+use ai_interface::{
+    ConversationMessage, ErrorKind, Model, ModelRequest, SafeErrorSource, StructuredOutputSchema,
+};
 use ai_models_core::{
     ClockMock,
     test_support::{self, SseFixture},
@@ -129,7 +131,11 @@ async fn late_stream_and_output_errors_keep_opening_metadata_and_safe_sources() 
         assert_eq!(
             error
                 .source()
-                .and_then(|source| source.downcast_ref::<serde_json::Error>())
+                .and_then(|source| source
+                    .downcast_ref::<SafeErrorSource>()
+                    .unwrap()
+                    .raw_cause()
+                    .downcast_ref::<serde_json::Error>())
                 .is_some(),
             json_source,
             "{case}"

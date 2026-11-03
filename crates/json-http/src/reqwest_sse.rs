@@ -5,6 +5,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::time::{Instant, timeout};
 
+use crate::error_url::sanitize_reqwest;
 use crate::{
     Error, JsonHttpHeaders, JsonHttpSseDecoder, JsonHttpSseEvent, JsonHttpSseStream, Result,
 };
@@ -122,7 +123,7 @@ impl JsonHttpSseStream for ReqwestJsonHttpSseStream {
                 Ok(Err(source)) => {
                     return Err(Error::SseTransport {
                         events_received: self.events_received,
-                        source,
+                        source: sanitize_reqwest(source),
                     });
                 }
                 Err(_) => return Err(self.timer.error(kind, self.events_received)),

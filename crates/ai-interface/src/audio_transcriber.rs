@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{ErrorCore, ErrorKind};
+use crate::{ErrorCore, ErrorKind, SafeErrorSource};
 
 /// Provider-agnostic audio transcription request.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -73,7 +73,7 @@ pub enum TranscriptionError {
         /// Shared failure details, including the adapter identity.
         core: Box<ErrorCore>,
         /// Original source retained for inspection and downcasting.
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: SafeErrorSource,
     },
 }
 
@@ -180,13 +180,10 @@ impl TranscriptionError {
     }
 
     /// Retains an original source with an explicit failure category.
-    pub fn with_source(
-        core: ErrorCore,
-        source: impl std::error::Error + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_source(core: ErrorCore, source: SafeErrorSource) -> Self {
         Self::Internal {
             core: Box::new(core),
-            source: Box::new(source),
+            source,
         }
     }
 
@@ -194,7 +191,7 @@ impl TranscriptionError {
     pub fn internal(
         provider: impl Into<String>,
         model_id: impl Into<String>,
-        source: impl std::error::Error + Send + Sync + 'static,
+        source: SafeErrorSource,
     ) -> Self {
         Self::with_source(
             ErrorCore::new(ErrorKind::Internal, provider, model_id, "internal error"),

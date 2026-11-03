@@ -13,6 +13,7 @@ use ai_interface::{
     DynJudgmentModel, ErrorCore, ErrorKind, JudgmentAnswer, JudgmentAnswerProblem, JudgmentContent,
     JudgmentError, JudgmentJsonType, JudgmentModel, JudgmentModelMock, JudgmentQuestion,
     JudgmentQuestionProblem, JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage,
+    SafeErrorSource,
 };
 use ai_models_policy::{DynSleeper, STANDARD_TRANSIENT_RETRY_DELAYS, SleeperMock, TokioSleeper};
 use async_trait::async_trait;
@@ -156,7 +157,11 @@ async fn terminal_error_classes_stop_after_one_attempt() {
             "jev-latest",
             "rejected",
         )),
-        JudgmentError::internal("typesafe", "jev-latest", std::io::Error::other("internal")),
+        JudgmentError::internal(
+            "typesafe",
+            "jev-latest",
+            SafeErrorSource::redacted(std::io::Error::other("internal")),
+        ),
     ];
 
     for error in errors {
