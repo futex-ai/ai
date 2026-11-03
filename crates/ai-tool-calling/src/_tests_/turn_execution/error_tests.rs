@@ -3,14 +3,15 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ErrorKind, FinishReason, Model, ModelAttempt, ModelError, ModelMock, ModelResponse, ModelUsage,
-    SafeErrorSource, ToolCall,
+    DynModelEventStream, ErrorKind, FinishReason, Model, ModelAttempt, ModelError, ModelEvent,
+    ModelEventStreamMock, ModelMock, ModelResponse, ModelUsage, SafeErrorSource, ToolCall,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::event_support::{collect_events, executions, request, run_outcome, steps};
 use crate::tests::support::{response_parts, stream_result};
-use crate::{RunOutcome, StepOutcome, Turn};
+use crate::{Agent, AgentEvent, RunOutcome};
 
 use super::super::support::{TypedEchoTool, runtime, user_message};
 
@@ -31,8 +32,10 @@ async fn model_errors_abort_the_turn() {
     ));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let error = turn.step().await.expect_err("model error should abort");
+    let mut conversation = vec![user_message("start")];
+    let error = collect_events(runtime.run(&mut conversation, request(Some(4))))
+        .await
+        .expect_err("model error should abort");
     assert!(matches!(error, crate::Error::Model(_)));
 }
 
@@ -41,14 +44,18 @@ async fn stop_finish_reason_completes_the_turn() {
     let model = single_response_model(model_response(FinishReason::Stop, Vec::new()));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let outcome = turn.step().await.expect("step should complete");
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(4))))
+        .await
+        .expect("turn should complete");
+    let outcome = run_outcome(&events);
 
     assert!(matches!(
         outcome,
-        StepOutcome::Completed {
+        RunOutcome::Completed {
             assistant_message,
-            steps_taken: 1
+            steps_taken: 1,
+            ..
         } if assistant_message == "done"
     ));
 }
@@ -62,22 +69,48 @@ async fn tool_calls_finish_reason_dispatches_tools() {
     let tool = TypedEchoTool::succeeding();
     let runtime = runtime(model, vec![tool.tool()]).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let outcome = turn.step().await.expect("step should dispatch tool");
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(1))))
+        .await
+        .expect("step should dispatch tool");
 
-    assert!(matches!(
-        outcome,
-        StepOutcome::Stepped { steps_taken: 1, .. }
-    ));
+    assert_eq!(steps(&events).len(), 1);
+    assert_eq!(executions(&events).len(), 1);
 }
 
 #[tokio::test]
 async fn tool_calls_finish_reason_without_calls_is_a_model_error() {
-    let model = invalid_response_model(model_response(FinishReason::ToolCalls, Vec::new()));
+    let model = Arc::new(Unimock::new(
+        ModelMock::stream.next_call(matching!(_)).answers(&|_, _| {
+            let stream: DynModelEventStream = Box::new(Unimock::new((
+                ModelEventStreamMock::next
+                    .next_call(matching!())
+                    .answers(&|_| {
+                        Ok(Some(ModelEvent::TextDelta {
+                            part_index: 0,
+                            delta: "done".to_owned(),
+                            provider_state: None,
+                        }))
+                    }),
+                ModelEventStreamMock::next
+                    .next_call(matching!())
+                    .answers(&|_| {
+                        Err(ModelError::invalid_output(
+                            "mock",
+                            "mock-model",
+                            "tool-call finish requires at least one complete tool call",
+                        ))
+                    }),
+            )));
+            Ok(stream)
+        }),
+    ));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let error = turn.step().await.expect_err("step should reject response");
+    let mut conversation = vec![user_message("start")];
+    let error = collect_events(runtime.run(&mut conversation, request(Some(4))))
+        .await
+        .expect_err("step should reject response");
 
     assert!(matches!(
         error,
@@ -86,45 +119,51 @@ async fn tool_calls_finish_reason_without_calls_is_a_model_error() {
 }
 
 #[tokio::test]
-async fn non_tool_finish_reason_with_calls_is_a_model_error() {
-    let model = invalid_response_model(model_response(FinishReason::Stop, vec![echo_tool_call()]));
+async fn non_tool_finish_reason_discards_calls_without_dispatch() {
+    let model = single_response_model(model_response(FinishReason::Stop, vec![echo_tool_call()]));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
-
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let error = turn.step().await.expect_err("step should reject response");
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(4))))
+        .await
+        .expect("shared fold should discard calls on stop");
 
     assert!(matches!(
-        error,
-        crate::Error::Model(error) if error.core().kind == ErrorKind::InvalidOutput
+        run_outcome(&events),
+        RunOutcome::Completed { steps_taken: 1, .. }
     ));
+    assert!(
+        events
+            .iter()
+            .all(|event| !matches!(event, AgentEvent::ToolStarted { .. }))
+    );
+    assert!(
+        conversation
+            .iter()
+            .all(|message| message.tool_calls().is_empty())
+    );
 }
 
 #[tokio::test]
 async fn truncated_finish_reason_ends_the_turn_without_completion() {
     let model = single_response_model(model_response(FinishReason::Truncated, Vec::new()));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
-
-    let mut turn = runtime.send(user_message("start"), Some(1));
-    let outcome = turn
-        .step()
-        .await
-        .expect("step should return partial output");
-
+    let mut conversation = vec![user_message("start")];
+    let mut stream = runtime.run(&mut conversation, request(Some(1)));
+    let outcome = loop {
+        let event = stream.next().await.unwrap().expect("terminal event");
+        if let AgentEvent::Finished(outcome) = event {
+            break outcome;
+        }
+    };
     assert_eq!(
         outcome,
-        StepOutcome::Truncated {
-            assistant_message: "done".to_owned(),
-            steps_taken: 1,
-        }
-    );
-    assert_eq!(
-        turn.run().await.unwrap(),
         RunOutcome::Truncated {
             assistant_message: "done".to_owned(),
             steps_taken: 1,
         }
     );
-    assert_eq!(turn.step().await.unwrap(), outcome);
+    assert!(stream.next().await.unwrap().is_none());
+    assert!(stream.next().await.unwrap().is_none());
 }
 
 #[tokio::test]
@@ -141,8 +180,10 @@ async fn filtered_finish_reason_is_a_model_error() {
     let model = single_response_model(response);
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let error = turn.step().await.expect_err("step should reject response");
+    let mut conversation = vec![user_message("start")];
+    let error = collect_events(runtime.run(&mut conversation, request(Some(4))))
+        .await
+        .expect_err("step should reject response");
 
     let crate::Error::Model(error) = error else {
         panic!("expected a model error");
@@ -161,8 +202,10 @@ async fn other_finish_reason_is_a_model_error_with_raw_reason() {
     ));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let error = turn.step().await.expect_err("step should reject response");
+    let mut conversation = vec![user_message("start")];
+    let error = collect_events(runtime.run(&mut conversation, request(Some(4))))
+        .await
+        .expect_err("step should reject response");
 
     assert!(matches!(
         error,
@@ -176,14 +219,6 @@ fn single_response_model(response: ModelResponse) -> Arc<dyn Model> {
         ModelMock::stream
             .next_call(matching!(_))
             .answers_arc(stream_result(Ok(response))),
-    ))
-}
-
-fn invalid_response_model(response: ModelResponse) -> Arc<dyn Model> {
-    Arc::new(Unimock::new(
-        ModelMock::complete
-            .next_call(matching!(_))
-            .returns(Ok(response)),
     ))
 }
 

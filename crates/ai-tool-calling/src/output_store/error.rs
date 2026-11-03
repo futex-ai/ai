@@ -42,7 +42,7 @@ pub enum ToolOutputStoreError {
         /// Store-computed degraded first window.
         window: ToolOutputStoreWindow,
         /// Underlying storage failure.
-        source: SafeErrorSource,
+        source: Box<SafeErrorSource>,
     },
     /// The requested output id is not available in this store scope.
     #[error(
@@ -92,7 +92,7 @@ impl ToolOutputStoreError {
     ) -> Self {
         Self::WriteFailure {
             window,
-            source: SafeErrorSource::redacted(source),
+            source: Box::new(SafeErrorSource::redacted(source)),
         }
     }
 }

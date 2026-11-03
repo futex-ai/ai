@@ -11,8 +11,9 @@ use ai_interface::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::event_support::{collect_events, request, run_outcome};
 use crate::tests::support::{response_parts, stream_result};
-use crate::{RunOutcome, Turn};
+use crate::{Agent, RunOutcome};
 
 use super::support::{TypedEchoTool, provider_reasoning, runtime_with_logger, user_message};
 
@@ -76,15 +77,18 @@ async fn signed_replay_context_survives_turns_but_not_success_logs() {
     )));
     let runtime =
         runtime_with_logger(model, logger, vec![TypedEchoTool::succeeding().tool()]).unwrap();
-    let mut turn = runtime.send(user_message("start"), Some(4));
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(4))))
+        .await
+        .unwrap();
     assert_eq!(
-        turn.run().await.unwrap(),
+        run_outcome(&events),
         RunOutcome::Completed {
             assistant_message: "visible".to_owned(),
-            steps_taken: 2
+            steps_taken: 2,
+            structured_output: None,
         }
     );
-    let conversation = runtime.conversation();
     let assistant = conversation
         .iter()
         .find(|m| m.role == ConversationRole::Assistant)
@@ -121,12 +125,12 @@ async fn signed_replay_context_is_removed_from_failed_request_logs() {
         ),
     ));
     let runtime = runtime_with_logger(model, logger, Vec::new()).unwrap();
-    runtime.replace_conversation(vec![ConversationMessage::new(
+    let mut conversation = vec![ConversationMessage::new(
         ConversationRole::Assistant,
         response_parts("visible", Vec::new(), context),
-    )]);
+    )];
     assert!(matches!(
-        runtime.resume(Some(1)).step().await,
+        collect_events(runtime.run(&mut conversation, request(Some(1)))).await,
         Err(crate::Error::Model(error)) if error.core().kind == ErrorKind::InvalidOutput
     ));
 }

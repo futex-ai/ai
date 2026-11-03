@@ -6,7 +6,8 @@ use std::task::{Context, Poll, Waker};
 
 use ai_interface::{ConversationMessage, DynModel, NoopLogger, Tool};
 use ai_tool_calling::{
-    InMemoryToolOutputStore, RunOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn,
+    Agent, AgentEvent, AgentRequest, InMemoryToolOutputStore, RunOutcome, ToolCallingRuntime,
+    ToolOutputPolicy,
 };
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 
@@ -28,7 +29,6 @@ pub(crate) fn run() -> Result<()> {
     let mcp_tool: Arc<dyn Tool> = Arc::new(build_mcp_tool()?);
     let _oauth_mcp_client = build_oauth_mcp_client()?;
     let runtime = match ToolCallingRuntime::new(
-        "Use registered tools when helpful.",
         model,
         Arc::new(NoopLogger),
         vec![tool, mcp_tool],
@@ -40,8 +40,21 @@ pub(crate) fn run() -> Result<()> {
     };
 
     let outcome = match block_on(async {
-        let mut turn = runtime.send(ConversationMessage::user("Run the smoke flow."), Some(5));
-        turn.run().await
+        let mut conversation = vec![ConversationMessage::user("Run the smoke flow.")];
+        let request = AgentRequest {
+            system_prompt: "Use registered tools when helpful.".to_owned(),
+            max_steps: Some(5),
+            ..Default::default()
+        };
+        let mut events = runtime.run(&mut conversation, request);
+        while let Some(event) = events.next().await? {
+            if let AgentEvent::Finished(outcome) = event {
+                return Ok(outcome);
+            }
+        }
+        Err(ai_tool_calling::Error::checkpoint(
+            SmokeModelError::UnexpectedOutcome,
+        ))
     }) {
         Ok(outcome) => outcome,
         Err(source) => return Err(Error::SmokeRuntime { source }),

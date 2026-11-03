@@ -10,8 +10,9 @@ use parking_lot::Mutex;
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::event_support::{collect_events, executions, request};
 use crate::tests::support::{response_parts, stream_result};
-use crate::{InMemoryToolOutputStore, StepOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn};
+use crate::{Agent, InMemoryToolOutputStore, ToolCallingRuntime, ToolOutputPolicy};
 
 use super::super::support::user_message;
 
@@ -43,7 +44,6 @@ async fn tool_dispatch_passes_operation_id_to_tool_boundary() {
             }))),
     ));
     let runtime = ToolCallingRuntime::new(
-        "system prompt",
         model,
         Arc::new(ai_interface::NoopLogger),
         vec![Arc::new(Unimock::new((
@@ -75,18 +75,17 @@ async fn tool_dispatch_passes_operation_id_to_tool_boundary() {
     )
     .expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(1));
-    let outcome = turn.step().await.expect("step should succeed");
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(1))))
+        .await
+        .expect("step should succeed");
 
     assert_eq!(
         captured_operation_ids.lock().as_slice(),
         &["operation-1".to_owned()]
     );
     assert!(matches!(
-        outcome,
-        StepOutcome::Stepped {
-            tool_results,
-            ..
-        } if tool_results[0].operation_id == "operation-1"
+        executions(&events).as_slice(),
+        [record] if record.operation_id == "operation-1"
     ));
 }

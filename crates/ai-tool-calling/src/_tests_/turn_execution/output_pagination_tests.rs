@@ -10,8 +10,9 @@ use ai_interface::{
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::event_support::{collect_events, executions, request, run_outcome};
 use crate::tests::support::{response_parts, stream_result, tool_result_id};
-use crate::{InMemoryToolOutputStore, RunOutcome, ToolOutputPolicy, Turn};
+use crate::{Agent, InMemoryToolOutputStore, RunOutcome, ToolOutputPolicy};
 
 use super::super::support::{runtime_with_store_and_policy, user_message};
 
@@ -83,26 +84,28 @@ async fn multi_window_output_can_be_followed_to_completion() {
     )
     .expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(5));
-    let outcome = turn.run().await.expect("pagination run should complete");
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(5))))
+        .await
+        .expect("pagination run should complete");
+    let outcome = run_outcome(&events);
 
     assert!(matches!(
         outcome,
         RunOutcome::Completed {
             assistant_message,
             steps_taken: 4,
+            ..
         } if assistant_message == "done"
     ));
-    assert_eq!(turn.successful_tool_calls().len(), 3);
+    assert_eq!(executions(&events).len(), 3);
     assert_eq!(
-        turn.successful_tool_calls()[1].raw_output["type"],
+        executions(&events)[1].raw_output["type"],
         json!("tool_output_window")
     );
     assert_eq!(
-        turn.successful_tool_calls()[1]
-            .model_visible_output
-            .output_id(),
-        turn.successful_tool_calls()[1].output_id.as_ref()
+        executions(&events)[1].model_visible_output.output_id(),
+        executions(&events)[1].output_id.as_ref()
     );
 }
 

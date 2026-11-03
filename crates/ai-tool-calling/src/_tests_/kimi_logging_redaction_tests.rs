@@ -11,8 +11,9 @@ use ai_interface::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::event_support::{collect_events, request, run_outcome};
 use crate::tests::support::{provider_reasoning, replay_parts, response_parts, stream_result};
-use crate::{RunOutcome, Turn};
+use crate::{Agent, RunOutcome};
 
 use super::support::{TypedEchoTool, runtime_with_logger, user_message};
 
@@ -70,14 +71,17 @@ async fn kimi_reasoning_is_replayed_but_redacted_from_success_logs() {
     let runtime =
         runtime_with_logger(model, logger, vec![tool.tool()]).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let outcome = turn.run().await.expect("turn should complete");
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(4))))
+        .await
+        .expect("turn should complete");
+    let outcome = run_outcome(&events);
 
     assert!(matches!(
         outcome,
         RunOutcome::Completed { steps_taken: 2, .. }
     ));
-    assert!(runtime.conversation().iter().any(|message| {
+    assert!(conversation.iter().any(|message| {
         message.role == ConversationRole::Assistant && contains_kimi_context(&message.parts)
     }));
 }
@@ -116,13 +120,14 @@ async fn kimi_reasoning_is_redacted_from_failed_request_logs() {
         ),
     ));
     let runtime = runtime_with_logger(model, logger, Vec::new()).expect("runtime should build");
-    runtime.replace_conversation(vec![ConversationMessage::new(
+    let mut conversation = vec![ConversationMessage::new(
         ConversationRole::Assistant,
         response_parts("calling tool", Vec::new(), provider_context),
-    )]);
+    )];
 
-    let mut turn = runtime.resume(Some(1));
-    let error = turn.step().await.expect_err("model failure should surface");
+    let error = collect_events(runtime.run(&mut conversation, request(Some(1))))
+        .await
+        .expect_err("model failure should surface");
 
     assert!(matches!(error, crate::Error::Model(_)));
 }

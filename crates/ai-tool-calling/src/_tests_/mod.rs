@@ -1,5 +1,15 @@
+//! Agent-loop tests and shared fixtures.
+
+//! Agent-loop, output-store, policy, and provider-state regression tests.
+
 mod conversation_runtime_tests;
 mod deepseek_logging_redaction_tests;
+#[cfg(test)]
+#[path = "event_support.rs"]
+mod event_support;
+#[cfg(test)]
+#[path = "intrinsic_catalog_tests.rs"]
+mod intrinsic_catalog_tests;
 mod intrinsic_reader_tests;
 mod kimi_logging_redaction_tests;
 mod model_controls_tests;

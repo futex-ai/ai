@@ -10,8 +10,8 @@ use ai_interface::{
 use ai_models_policy::RetryingModel;
 use ai_testkit::event_snapshot::ModelEventSnapshot;
 use ai_tool_calling::{
-    InMemoryToolOutputStore, ModelResponseCheckpoint, NoopTurnCheckpoint, StepOutcome,
-    ToolCallingRuntime, ToolOutputPolicy,
+    Agent, AgentEvent, AgentRequest, InMemoryToolOutputStore, RunOutcome, ToolCallingRuntime,
+    ToolOutputPolicy,
 };
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 
@@ -168,9 +168,6 @@ pub(super) async fn complete_through_runtime(
 ) -> Result<ObservedCompletion, String> {
     let (model, event_log) = observing_model(model);
     let runtime = ToolCallingRuntime::new(
-        format!(
-            "You are a CI connectivity probe. Reply with exactly {EXPECTED_TEXT} and no other text."
-        ),
         model,
         Arc::new(NoopLogger),
         Vec::new(),
@@ -178,24 +175,36 @@ pub(super) async fn complete_through_runtime(
         ToolOutputPolicy::default(),
     )
     .map_err(|error| format!("generic runtime construction failed: {error}"))?;
-    let mut turn = runtime
-        .send(
-            ConversationMessage::user(format!("Reply with {EXPECTED_TEXT}.")),
-            Some(1),
-        )
-        .with_controls(probe_controls(completion_mode, effort));
-    let mut turn_checkpoint = NoopTurnCheckpoint;
-    let mut response_checkpoint = ResponseCapture::default();
-    let outcome = turn
-        .step_with_checkpoints(&mut turn_checkpoint, &mut response_checkpoint)
+    let mut conversation = vec![ConversationMessage::user(format!(
+        "Reply with {EXPECTED_TEXT}."
+    ))];
+    let request = AgentRequest {
+        system_prompt: format!(
+            "You are a CI connectivity probe. Reply with exactly {EXPECTED_TEXT} and no other text."
+        ),
+        controls: probe_controls(completion_mode, effort),
+        max_steps: Some(1),
+        ..Default::default()
+    };
+    let mut events = runtime.run(&mut conversation, request);
+    let mut response = None;
+    let mut outcome = None;
+    while let Some(event) = events
+        .next()
         .await
-        .map_err(|error| format!("generic runtime execution failed: {error}"))?;
-    if !matches!(outcome, StepOutcome::Completed { steps_taken: 1, .. }) {
+        .map_err(|error| format!("generic runtime execution failed: {error}"))?
+    {
+        match event {
+            AgentEvent::Response(value) => response = Some(value),
+            AgentEvent::Finished(value) => outcome = Some(value),
+            _ => {}
+        }
+    }
+    if !matches!(outcome, Some(RunOutcome::Completed { steps_taken: 1, .. })) {
         return Err(format!("generic runtime returned {outcome:?}"));
     }
-    let response = response_checkpoint
-        .response
-        .ok_or_else(|| "generic runtime did not expose the model response".to_owned())?;
+    let response =
+        response.ok_or_else(|| "generic runtime did not expose the model response".to_owned())?;
     Ok(ObservedCompletion {
         response,
         events: event_log.recorded(),
@@ -221,18 +230,6 @@ pub(super) fn probe_controls(
             total_timeout: Some(MODEL_TIMEOUT),
             completion_mode,
         },
-    }
-}
-
-#[derive(Default)]
-struct ResponseCapture {
-    response: Option<ModelResponse>,
-}
-
-impl ModelResponseCheckpoint for ResponseCapture {
-    fn checkpoint_response(&mut self, response: &mut ModelResponse) -> ai_tool_calling::Result<()> {
-        self.response = Some(response.clone());
-        Ok(())
     }
 }
 

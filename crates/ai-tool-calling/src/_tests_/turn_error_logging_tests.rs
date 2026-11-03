@@ -10,7 +10,8 @@ use ai_interface::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
-use crate::Turn;
+use crate::Agent;
+use crate::tests::event_support::{collect_events, request, tool_errors};
 use crate::tests::support::{response_parts, stream_result};
 
 use super::support::{TypedEchoTool, runtime_with_logger, user_message};
@@ -43,8 +44,10 @@ async fn model_errors_are_logged_before_the_turn_aborts() {
     ));
     let runtime = runtime_with_logger(model, logger, Vec::new()).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let error = turn.step().await.expect_err("model error should abort");
+    let mut conversation = vec![user_message("start")];
+    let error = collect_events(runtime.run(&mut conversation, request(Some(4))))
+        .await
+        .expect_err("model error should abort");
 
     assert!(matches!(error, crate::Error::Model(_)));
     let crate::Error::Model(ModelError::Internal { core, source, .. }) = error else {
@@ -116,13 +119,18 @@ async fn tool_errors_include_debug_details_in_logger_callbacks() {
                 assert_eq!(entry.phase, ToolActivityPhase::Completed);
                 Ok(())
             }),
+        LoggerMock::log_turn_outcome
+            .some_call(matching!(_))
+            .returns(Ok(())),
     )));
     let tool = TypedEchoTool::fail_once();
     let runtime =
         runtime_with_logger(model, logger, vec![tool.tool()]).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let error = turn.step().await.expect_err("tool error should surface");
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(1))))
+        .await
+        .expect("tool error should not fail the turn");
 
-    assert!(matches!(error, crate::Error::Tool(_)));
+    assert_eq!(tool_errors(&events).len(), 1);
 }
