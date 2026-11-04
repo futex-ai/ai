@@ -103,7 +103,11 @@ constructor default-effort decision stays open.
 Each spec lists its supported efforts and its default. Set
 `controls.generation.effort` on a model or agent request to select effort.
 The capability check lowers unsupported effort to a supported value and
-never raises it. The [control matrix](docs/protocol/model-capabilities.md#control-matrix)
+never raises it. A spec without a default effort leaves the reasoning to the
+provider. Such a call sends no thinking field and reports no effort. A
+disabled request sends the explicit off value of the provider. It fails
+before transport when the provider has none.
+The [control matrix](docs/protocol/model-capabilities.md#control-matrix)
 lists the limits and controls. Regenerate it after a spec change with
 `cargo xtask capability-matrix`.
 

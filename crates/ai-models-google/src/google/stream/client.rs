@@ -24,7 +24,7 @@ pub(in crate::google) fn open(
     context: ErrorContext,
     catalog_model_id: String,
     provider_model_id: String,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
     synthetic_tool_call_scope: String,
     response_schema: Option<StructuredOutputSchema>,
 ) -> DynModelEventStream {
@@ -56,7 +56,7 @@ struct GoogleEventStream {
     events_received: u64,
     catalog_model_id: String,
     provider_model_id: String,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
     response_schema: Option<StructuredOutputSchema>,
 }
 

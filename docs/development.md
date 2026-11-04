@@ -10,14 +10,14 @@ each live suite.
 
 Credentialed model checks live in `xtask/tests/live_models.rs`. They construct
 provider adapters only at the composition boundary. They then call each
-chat-capable model spec once for each effort that the spec lists, with the
-default effort first, through the same `DynModel` and `ToolCallingRuntime`
-path with portable controls. Each provider first proves synchronous text
+chat-capable model spec once at its default and once for each other effort
+that the spec lists, through the same `DynModel` and `ToolCallingRuntime`
+path with portable controls. The default call of a spec without a default
+effort sets no effort. Each provider first proves synchronous text
 parity on its first chat spec at its default effort, and every catalog call,
 also each xAI deferred call, keeps that parity. Parity means that the text
 parts of the deltas, joined in part position order, equal the response
-text. Run
-the credential-free catalog, event-policy, bridge, validation, and workflow
+text. Run the credential-free catalog, bridge, validation, and workflow
 guards with:
 
 ```sh
@@ -94,10 +94,10 @@ and pushes to `main`: formatting, Clippy, tests, Rust file-length lint,
 credential-free smoke tests, and `cargo xtask check`. Limiting push-triggered CI
 to `main` prevents an open pull request from running the same commit once for
 the branch push and again for the pull-request event. The separate `Live model
-APIs` workflow makes billable calls through the production adapters for each
-listed effort of every chat-capable catalog spec through the generic
-tool-calling runtime on eligible pull requests as well as its daily schedule
-and manual dispatch. The separate
+APIs` workflow makes billable calls through the production adapters for the
+default and each listed effort of every chat-capable catalog spec through
+the generic tool-calling runtime on eligible pull requests as well as its
+daily schedule and manual dispatch. The separate
 `Live image APIs` workflow exercises every Google and OpenAI image-capable
 catalog spec through `DynImageGenerator` with image-specific validation and
 sequential provider jobs. The `Live judgment APIs`
@@ -106,8 +106,8 @@ with `TYPESAFE_API_KEY`, shared answer validation, and sequential retries once
 `LIVE_JUDGMENT_API_TESTS_ENABLED` opts the repository into those billable
 checks. Forked and Dependabot pull requests skip all credentialed workflows
 because GitHub does not provide them repository Actions secrets. The ordinary
-credential-free suite still enforces the live model registry and model event
-coverage policy without making provider calls.
+credential-free suite still enforces the live model registry without making
+provider calls.
 
 ## Firna adoption
 

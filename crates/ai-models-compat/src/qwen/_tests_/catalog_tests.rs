@@ -28,7 +28,7 @@ fn catalog_exposes_each_stable_qwen_model_once_with_all_efforts() {
         vec!["qwen3.7-max", "qwen3.7-plus", "qwen3.7-flash"]
     );
     for model in models {
-        assert_eq!(model.default_effort, Effort::High);
+        assert_eq!(model.default_effort, Some(Effort::High));
         assert_eq!(
             model.efforts.iter().collect::<Vec<_>>(),
             vec![Effort::Disabled, Effort::High]

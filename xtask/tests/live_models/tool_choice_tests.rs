@@ -59,7 +59,7 @@ pub(super) async fn run_minimax_m3_required_tool_call() {
             response_schema: None,
             controls: ModelCallControls {
                 generation: ModelGenerationControls {
-                    effort: Some(spec.default_effort),
+                    effort: spec.default_effort,
                     tool_choice: Some(ModelToolChoice::Required),
                     ..Default::default()
                 },

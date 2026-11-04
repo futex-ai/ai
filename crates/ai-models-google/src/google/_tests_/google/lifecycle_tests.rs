@@ -50,7 +50,7 @@ async fn emits_complete_function_call_before_last_usage_and_finish() {
             }}}),
             json!({"Finish": {
                 "finish_reason": "ToolCalls", "provider": "google", "model_id": "gemini-3.6-flash",
-                "catalog_model_id": "google/gemini-3.6-flash", "effort": "disabled"
+                "catalog_model_id": "google/gemini-3.6-flash"
             }}),
         ]
     );

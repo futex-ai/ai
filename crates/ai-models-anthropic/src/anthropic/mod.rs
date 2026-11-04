@@ -238,3 +238,7 @@ mod config_tests;
 #[cfg(test)]
 #[path = "_tests_/config_auth_tests.rs"]
 mod config_auth_tests;
+
+#[cfg(test)]
+#[path = "_tests_/provider_default_tests.rs"]
+mod provider_default_tests;

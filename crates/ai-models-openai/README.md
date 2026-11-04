@@ -103,12 +103,16 @@ high, and max. Every effort sends provider model id `gpt-5.6-sol`.
 Terra and Luna list low and medium efforts, with medium as their default. The
 GPT-5.5 spec remains available for pinned deployments. Cost-optimized routing
 uses GPT-5.4 Mini and Nano because OpenAI does not expose GPT-5.5 Mini or
-Nano aliases. The
+Nano aliases. GPT-5.4 Mini and Nano list only the disabled effort, which
+sends `reasoning: {"effort": "none"}`. The
 [control matrix](../../docs/protocol/model-capabilities.md#control-matrix)
 lists the efforts and limits of each spec. Build a model that the catalog
 does not list from
-`ModelSpec::custom(PROVIDER_ID, model_id, &CUSTOM_DEFAULTS)`. Its default
-effort is disabled.
+`ModelSpec::custom(PROVIDER_ID, model_id, &CUSTOM_DEFAULTS)`. It has no
+default effort. A request without an effort then sends no `reasoning`
+field, omits caller sampling controls, and reports no effort. A disabled
+request on a custom spec sends `reasoning: {"effort": "none"}`. An unlisted
+model can reject that value.
 OpenAI generation uses workspace-defined function tools with `strict: false` during
 the Responses cutover. OpenAI built-in tools are intentionally not exposed by
 this crate.

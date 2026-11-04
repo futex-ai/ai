@@ -87,8 +87,8 @@ automatically.
 
 Both specs use a 64,000-token context window (the documented combined state
 and question budget), `IntelligenceScore::Five`, `SpeedTier::VeryFast`,
-`CostTier::Low`, and only the disabled effort. `jev-preview` is not in the
-catalog because its target changes without notice.
+`CostTier::Low`, no effort, and no default effort. `jev-preview` is not in
+the catalog because its target changes without notice.
 
 ## Request Contract
 

@@ -13,8 +13,6 @@ use ai_testkit::event_snapshot::ModelEventSnapshot;
 use async_trait::async_trait;
 use json_http::test_support::Redactor;
 
-use super::provider_tests::CompletionEventExpectation;
-
 #[derive(Clone, Default)]
 pub(super) struct CompletionEventLog {
     events: Arc<Mutex<Vec<ModelEventSnapshot>>>,
@@ -96,7 +94,6 @@ pub(super) fn observing_model(inner: DynModel) -> (DynModel, CompletionEventLog)
 
 pub(super) fn completion_event_failures(
     model_id: &str,
-    _expectation: CompletionEventExpectation,
     assistant_message: &str,
     events: &[ModelEventSnapshot],
 ) -> Vec<String> {

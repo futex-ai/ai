@@ -33,10 +33,10 @@ pub struct CustomModelDefaults {
     pub context_window_tokens: u32,
     /// Maximum allowed generated-token limit.
     pub max_output_tokens: u32,
-    /// Nonempty ordered set of supported efforts.
+    /// Ordered set of explicitly supported efforts, which can be empty.
     pub efforts: EffortSet,
-    /// Effort used when a request supplies none.
-    pub default_effort: Effort,
+    /// Effort used when a request supplies none. `None` leaves reasoning to the provider.
+    pub default_effort: Option<Effort>,
     /// Conditions under which forced tool choices are allowed.
     pub forced_tool_choice: ForcedToolChoice,
     /// Conditions under which sampling values are adjustable.

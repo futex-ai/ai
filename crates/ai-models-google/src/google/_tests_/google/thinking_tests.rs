@@ -12,87 +12,109 @@ use super::{GoogleModel, recording_http_client, simple_request, stream_support::
 
 #[tokio::test]
 async fn maps_gemini_2_5_thinking_to_token_budget() {
-    let (http_client, requests) = recording_http_client(google_thinking_response());
-    let model =
-        GoogleModel::with_catalog_auth(http_client, custom_spec(GEMINI_2_5_PRO), google_auth());
+    for (effort, budget) in [
+        (Effort::Low, 1024),
+        (Effort::Medium, 4096),
+        (Effort::High, 8192),
+        (Effort::ExtraHigh, 16_384),
+        (Effort::Max, 32_768),
+    ] {
+        let (http_client, requests) = recording_http_client(google_thinking_response());
+        let model =
+            GoogleModel::with_catalog_auth(http_client, custom_spec(GEMINI_2_5_PRO), google_auth());
 
-    let mut request = simple_request();
-    request.controls.generation.effort = Some(Effort::Max);
-    let response = model
-        .complete(&request)
-        .await
-        .expect("Google thinking response should parse");
+        let mut request = simple_request();
+        request.controls.generation.effort = Some(effort);
+        let response = model
+            .complete(&request)
+            .await
+            .expect("Google thinking response should parse");
 
-    let requests = requests
-        .lock()
-        .expect("requests lock should not be poisoned");
-    let body = serde_json::from_slice::<serde_json::Value>(
-        requests[0]
-            .body
-            .as_ref()
-            .expect("body present")
-            .as_json_bytes()
-            .expect("JSON request body"),
-    )
-    .expect("valid JSON request body");
-    assert_eq!(
-        body["generationConfig"]["thinkingConfig"]["thinkingBudget"],
-        32768
-    );
-    assert!(
-        body["generationConfig"]["thinkingConfig"]
-            .get("thinkingLevel")
-            .is_none()
-    );
-    assert_eq!(
-        response.catalog_model_id.as_deref(),
-        Some("google/gemini-2.5-pro")
-    );
-    assert_thinking_response(&response, "max", "gemini-2.5-pro");
+        let requests = requests
+            .lock()
+            .expect("requests lock should not be poisoned");
+        let body = serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body present")
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body");
+        assert_eq!(
+            body["generationConfig"]["thinkingConfig"]["thinkingBudget"],
+            budget
+        );
+        assert!(
+            body["generationConfig"]["thinkingConfig"]
+                .get("thinkingLevel")
+                .is_none()
+        );
+        assert_eq!(
+            response.catalog_model_id.as_deref(),
+            Some("google/gemini-2.5-pro")
+        );
+        assert_thinking_response(&response, effort.as_str(), "gemini-2.5-pro");
+    }
 }
 
 #[tokio::test]
 async fn maps_gemini_3_thinking_to_named_level() {
-    let (http_client, requests) = recording_http_client(google_thinking_response());
-    let model = GoogleModel::with_catalog_auth(http_client, GEMINI_3_6_FLASH, google_auth());
+    for (spec, effort, native) in [
+        (GEMINI_3_6_FLASH, Effort::High, "high"),
+        (custom_spec("gemini-3-custom"), Effort::Low, "low"),
+        (custom_spec("gemini-3-custom"), Effort::Medium, "medium"),
+        (custom_spec("gemini-3-custom"), Effort::High, "high"),
+        (custom_spec("gemini-3-custom"), Effort::ExtraHigh, "high"),
+        (custom_spec("gemini-3-custom"), Effort::Max, "high"),
+        (custom_spec("gemini-3.6-flash"), Effort::ExtraHigh, "high"),
+        (custom_spec("gemini-3.6-flash"), Effort::Max, "high"),
+        (
+            custom_spec("gemini-3.5-flash-lite"),
+            Effort::ExtraHigh,
+            "high",
+        ),
+        (custom_spec("gemini-3.5-flash-lite"), Effort::Max, "high"),
+    ] {
+        let (http_client, requests) = recording_http_client(google_thinking_response());
+        let model_id = spec.provider_model_id.to_string();
+        let model = GoogleModel::with_catalog_auth(http_client, spec, google_auth());
 
-    let mut request = simple_request();
-    request.controls.generation.effort = Some(Effort::High);
-    let response = model
-        .complete(&request)
-        .await
-        .expect("Gemini 3 thinking response should parse");
+        let mut request = simple_request();
+        request.controls.generation.effort = Some(effort);
+        let response = model
+            .complete(&request)
+            .await
+            .expect("Gemini 3 thinking response should parse");
 
-    let requests = requests
-        .lock()
-        .expect("requests lock should not be poisoned");
-    let body = serde_json::from_slice::<serde_json::Value>(
-        requests[0]
-            .body
-            .as_ref()
-            .expect("body present")
-            .as_json_bytes()
-            .expect("JSON request body"),
-    )
-    .expect("valid JSON request body");
-    assert_eq!(
-        body["generationConfig"]["thinkingConfig"]["thinkingLevel"],
-        "high"
-    );
-    assert!(
-        body["generationConfig"]["thinkingConfig"]
-            .get("thinkingBudget")
-            .is_none()
-    );
-    assert_eq!(
-        response.catalog_model_id.as_deref(),
-        Some("google/gemini-3.6-flash")
-    );
-    assert_thinking_response(
-        &response,
-        "high",
-        GEMINI_3_6_FLASH.provider_model_id.as_ref(),
-    );
+        let requests = requests
+            .lock()
+            .expect("requests lock should not be poisoned");
+        let body = serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body present")
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body");
+        assert_eq!(
+            body["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            native
+        );
+        assert!(
+            body["generationConfig"]["thinkingConfig"]
+                .get("thinkingBudget")
+                .is_none()
+        );
+        assert_eq!(
+            response.catalog_model_id.as_deref(),
+            Some(format!("google/{model_id}").as_str())
+        );
+        assert_thinking_response(&response, effort.as_str(), &model_id);
+    }
 }
 
 #[tokio::test]

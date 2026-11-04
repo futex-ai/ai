@@ -2,7 +2,7 @@
 
 use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
-use ai_interface::{DynModel, ModelCatalog, ModelFeature, ModelSpec};
+use ai_interface::{DynModel, Effort, ModelCatalog, ModelFeature, ModelSpec};
 use ai_models_registry::{ProviderConfig, Registry, catalog};
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use serde::{Deserialize, Serialize};
@@ -86,7 +86,7 @@ impl Provider {
         let model = if matches!(scenario, Scenario::ToolLoop | Scenario::AgentToolLoop) {
             catalog
                 .iter()
-                .find(|model| model.default_effort.is_enabled())
+                .find(|model| model.default_effort.is_none_or(Effort::is_enabled))
                 .or_else(|| catalog.first())
         } else {
             catalog.first()

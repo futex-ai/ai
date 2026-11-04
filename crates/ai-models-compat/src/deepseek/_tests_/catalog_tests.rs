@@ -33,7 +33,7 @@ fn catalog_exposes_each_deepseek_model_once_with_all_efforts() {
         vec!["deepseek-v4-pro", "deepseek-v4-flash"]
     );
     for model in models {
-        assert_eq!(model.default_effort, Effort::High);
+        assert_eq!(model.default_effort, Some(Effort::High));
         assert_eq!(
             model.efforts.iter().collect::<Vec<_>>(),
             vec![Effort::Disabled, Effort::High, Effort::Max]

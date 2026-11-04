@@ -31,7 +31,7 @@ fn catalog_matches_supported_minimax_models() {
             intelligence_score: IntelligenceScore::Nine,
             speed: SpeedTier::Medium,
             cost: CostTier::Low,
-            default_effort: Effort::Medium,
+            default_effort: Some(Effort::Medium),
             features: &[
                 ModelFeature::ToolCalling,
                 ModelFeature::StructuredOutput,
@@ -50,7 +50,7 @@ fn catalog_matches_supported_minimax_models() {
             intelligence_score: IntelligenceScore::Eight,
             speed: SpeedTier::Medium,
             cost: CostTier::Low,
-            default_effort: Effort::Medium,
+            default_effort: Some(Effort::Medium),
             features: &[
                 ModelFeature::ToolCalling,
                 ModelFeature::StructuredOutput,
@@ -67,7 +67,7 @@ fn catalog_matches_supported_minimax_models() {
             intelligence_score: IntelligenceScore::Eight,
             speed: SpeedTier::Fast,
             cost: CostTier::Medium,
-            default_effort: Effort::Medium,
+            default_effort: Some(Effort::Medium),
             features: &[
                 ModelFeature::ToolCalling,
                 ModelFeature::StructuredOutput,
@@ -112,7 +112,7 @@ struct ExpectedModel {
     intelligence_score: IntelligenceScore,
     speed: SpeedTier,
     cost: CostTier,
-    default_effort: Effort,
+    default_effort: Option<Effort>,
     features: &'static [ModelFeature],
 }
 

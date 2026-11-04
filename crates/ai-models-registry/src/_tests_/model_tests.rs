@@ -43,7 +43,7 @@ async fn model_factories_forward_replacement_config_and_keep_known_and_custom_sp
                 response.catalog_model_id.as_deref(),
                 Some(spec.text_id().as_str())
             );
-            assert_eq!(response.thinking_level, Some(spec.default_effort));
+            assert_eq!(response.thinking_level, spec.default_effort);
             let requests = requests.lock().unwrap();
             let sent = &requests[index];
             let path = case.path.replace("{model}", &spec.provider_model_id);

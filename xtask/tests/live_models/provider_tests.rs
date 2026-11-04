@@ -20,18 +20,13 @@ pub(super) enum LiveProvider {
     Xai,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum CompletionEventExpectation {
-    AssistantTextParity,
-}
-
 #[derive(Clone, Debug)]
 /// One paid catalog probe with an explicit request effort.
 pub(super) struct LiveProbe {
     /// Provider model facts used to build the adapter.
     pub(super) spec: ModelSpec,
     /// Existing catalog effort selected for this probe.
-    pub(super) effort: Effort,
+    pub(super) effort: Option<Effort>,
 }
 
 impl LiveProvider {
@@ -91,23 +86,6 @@ impl LiveProvider {
         }
     }
 
-    pub(super) fn synchronous_event_expectation(self) -> CompletionEventExpectation {
-        match self {
-            Self::Anthropic
-            | Self::DeepSeek
-            | Self::Google
-            | Self::Kimi
-            | Self::MiniMax
-            | Self::OpenAi
-            | Self::Qwen
-            | Self::Xai => CompletionEventExpectation::AssistantTextParity,
-        }
-    }
-
-    pub(super) fn preferred_mode_event_expectation(self) -> CompletionEventExpectation {
-        self.synchronous_event_expectation()
-    }
-
     pub(super) fn catalog(self) -> Vec<ModelSpec> {
         catalog()
             .all()
@@ -138,6 +116,7 @@ impl LiveProvider {
                     .chain(
                         spec.efforts
                             .iter()
+                            .map(Some)
                             .filter(move |effort| *effort != default_effort),
                     )
                     .map(move |effort| LiveProbe {
@@ -180,6 +159,6 @@ fn live_probe_efforts_keep_the_default_first_without_duplicate_pairs() {
 
     assert_eq!(
         probes.iter().map(|probe| probe.effort).collect::<Vec<_>>(),
-        vec![Effort::Max, Effort::Low, Effort::High]
+        vec![Some(Effort::Max), Some(Effort::Low), Some(Effort::High)]
     );
 }

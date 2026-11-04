@@ -19,7 +19,7 @@ fn resolves_default_and_requested_efforts_without_raising() {
 
         assert_eq!(
             resolve(&request, &spec).map(|controls| controls.effort),
-            Ok(expected),
+            Ok(Some(expected)),
             "requested effort: {requested:?}"
         );
     }

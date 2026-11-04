@@ -131,6 +131,7 @@ async fn merged_fragments_match_rich_buffered_response() {
         .unwrap(),
     );
 
+    buffered.thinking_level = None;
     assert_eq!(streamed, buffered);
     assert_eq!(streamed.finish_reason, FinishReason::ToolCalls);
 }
@@ -183,6 +184,7 @@ async fn structured_fragments_match_buffered_response() {
     );
     buffered.structured_output = Some(json!({"summary": "Done"}));
 
+    buffered.thinking_level = None;
     assert_eq!(streamed, buffered);
 }
 
@@ -201,7 +203,7 @@ async fn prompt_block_stream_matches_buffered_response() {
         .complete(&request)
         .await
         .expect("prompt block should remain a filtered response");
-    let buffered = expected_response(
+    let mut buffered = expected_response(
         "",
         FinishReason::Filtered,
         ModelUsage {
@@ -211,6 +213,7 @@ async fn prompt_block_stream_matches_buffered_response() {
         },
     );
 
+    buffered.thinking_level = None;
     assert_eq!(streamed, buffered);
 }
 
@@ -244,6 +247,7 @@ async fn same_chunk_text_parts_preserve_buffered_boundaries() {
         ConversationPart::text("\nSecond"),
     ];
 
+    buffered.thinking_level = None;
     assert_eq!(streamed, buffered);
     assert_eq!(streamed.text(), "First\nSecond");
 }

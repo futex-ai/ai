@@ -3,16 +3,16 @@
 use std::borrow::Cow;
 
 use crate::{
-    CostTier, CustomModelDefaults, Effort, EffortSet, ForcedToolChoice, IntelligenceScore,
-    MOCK_PROVIDER, ModelFeature, ModelSpec, RoutingTiers, Sampling, SpeedTier,
+    CostTier, CustomModelDefaults, EffortSet, ForcedToolChoice, IntelligenceScore, MOCK_PROVIDER,
+    ModelFeature, ModelSpec, RoutingTiers, Sampling, SpeedTier,
 };
 
 /// Defaults for an unlisted development and test model.
 pub const MOCK_CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
     context_window_tokens: 128_000,
     max_output_tokens: 128_000,
-    efforts: EffortSet::new(Effort::Disabled),
-    default_effort: Effort::Disabled,
+    efforts: EffortSet::empty(),
+    default_effort: None,
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
     supports_stop_sequences: true,
