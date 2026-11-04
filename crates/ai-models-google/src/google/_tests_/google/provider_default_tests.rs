@@ -16,8 +16,10 @@ use super::{
 
 #[tokio::test]
 async fn provider_default_omits_thinking_and_reports_no_effort() {
+    let mut flash_lite = GEMINI_3_5_FLASH_LITE;
+    flash_lite.default_effort = None;
     for spec in [
-        GEMINI_3_5_FLASH_LITE,
+        flash_lite,
         ModelSpec::custom(PROVIDER_ID, "gemini-custom", &CUSTOM_DEFAULTS),
     ] {
         let (http, requests) = recording_streaming_client(vec![vec![event(json!({

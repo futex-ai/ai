@@ -3,9 +3,11 @@
 use std::borrow::Cow;
 
 use ai_interface::{
-    CostTier, CustomModelDefaults, Effort, EffortSet, ForcedToolChoice, IntelligenceScore,
-    ModelFeature, ModelSpec, ProviderId, RoutingTiers, Sampling, SpeedTier,
+    CostTier, CustomModelDefaults, Effort, ForcedToolChoice, IntelligenceScore, ModelFeature,
+    ModelSpec, ProviderId, RoutingTiers, Sampling, SpeedTier,
 };
+
+use crate::effort_mapping::{EffortProfile, FLASH_ID, FLASH_LITE_ID, IMAGE_ID, supported_efforts};
 
 /// Stable identity of the Google provider.
 pub const PROVIDER_ID: ProviderId = ProviderId::new("google");
@@ -14,12 +16,7 @@ pub const PROVIDER_ID: ProviderId = ProviderId::new("google");
 pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
     context_window_tokens: 0,
     max_output_tokens: u32::MAX,
-    efforts: EffortSet::new(Effort::Disabled)
-        .with(Effort::Low)
-        .with(Effort::Medium)
-        .with(Effort::High)
-        .with(Effort::ExtraHigh)
-        .with(Effort::Max),
+    efforts: supported_efforts(EffortProfile::Budget),
     default_effort: None,
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
@@ -51,12 +48,10 @@ const IMAGE_FEATURES: &[ModelFeature] = &[ModelFeature::ImageGeneration, ModelFe
 /// Balanced Gemini model with low, medium, and high thinking.
 pub const GEMINI_3_6_FLASH: ModelSpec = ModelSpec {
     provider: PROVIDER_ID,
-    provider_model_id: Cow::Borrowed("gemini-3.6-flash"),
+    provider_model_id: Cow::Borrowed(FLASH_ID),
     context_window_tokens: 1_048_576,
     max_output_tokens: 65_536,
-    efforts: EffortSet::new(Effort::Low)
-        .with(Effort::Medium)
-        .with(Effort::High),
+    efforts: supported_efforts(EffortProfile::Flash),
     default_effort: Some(Effort::Medium),
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
@@ -72,14 +67,14 @@ pub const GEMINI_3_6_FLASH: ModelSpec = ModelSpec {
     }),
 };
 
-/// Low-latency Gemini model with provider-default minimal thinking.
+/// Low-latency Gemini model whose default low effort uses native minimal thinking.
 pub const GEMINI_3_5_FLASH_LITE: ModelSpec = ModelSpec {
     provider: PROVIDER_ID,
-    provider_model_id: Cow::Borrowed("gemini-3.5-flash-lite"),
+    provider_model_id: Cow::Borrowed(FLASH_LITE_ID),
     context_window_tokens: 1_048_576,
     max_output_tokens: 65_536,
-    efforts: EffortSet::empty(),
-    default_effort: None,
+    efforts: supported_efforts(EffortProfile::FlashLite),
+    default_effort: Some(Effort::Low),
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
     supports_stop_sequences: true,
@@ -97,10 +92,10 @@ pub const GEMINI_3_5_FLASH_LITE: ModelSpec = ModelSpec {
 /// Gemini image generation model.
 pub const GEMINI_3_1_FLASH_IMAGE: ModelSpec = ModelSpec {
     provider: PROVIDER_ID,
-    provider_model_id: Cow::Borrowed("gemini-3.1-flash-image"),
+    provider_model_id: Cow::Borrowed(IMAGE_ID),
     context_window_tokens: 131_072,
     max_output_tokens: 0,
-    efforts: EffortSet::empty(),
+    efforts: supported_efforts(EffortProfile::Image),
     default_effort: None,
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,

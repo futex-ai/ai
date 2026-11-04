@@ -104,7 +104,7 @@ impl GoogleModel {
             &self.spec.provider_model_id,
             request,
             &controls,
-        )) {
+        )?) {
             Ok(builder) => builder,
             Err(source) => return Err(ModelError::internal(source)),
         };

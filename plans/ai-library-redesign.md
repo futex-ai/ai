@@ -146,6 +146,9 @@ milestone keeps all behavior that this list does not name.
   default and an explicit off value, as item 27 says. A spec with no listed
   effort rejects a requested effort instead of lowering it to disabled. The
   user approved this change with the answer of 2026-11-04.
+- The Gemini 3.5 Flash-Lite default without a thinking field: replaced by
+  the low effort, sent as `thinkingLevel: "minimal"`, as item 26 says. The
+  user approved this change with the answer of 2026-11-04.
 
 The MCP crates change only after the MCP decision of Milestone 11.
 
@@ -216,6 +219,13 @@ answers that differ from the recommendation.
   value. Claude Sonnet 5 and Opus 5 gain disabled, and Fable 5 does not.
   The alternative was to fix each false off claim by hand. B was the
   recommendation.
+- Item 26, Flash-Lite falsely advertises disabled reasoning, answered on
+  2026-11-04: option C. One Google effort table gives both the efforts of a
+  model and their wire values, and no entry leaves the field out. Gemini
+  3.5 Flash-Lite maps low to `minimal`, medium to `medium`, and high to
+  `high`. Its default is low, and it rejects disabled. The alternatives
+  were native `low` as the default, a portable minimal effort, the provider
+  default, and a direct Flash-Lite branch. C was the recommendation.
 
 ## Design calls
 
@@ -321,8 +331,11 @@ All calls are mine, made on 2026-11-01.
   - A catalog spec lists only the efforts of its exact model. Custom
     defaults list the generic wire mapping of the provider, and the caller
     owns each custom spec.
-  - Gemini 3.5 Flash-Lite uses the provider default until item 26, the
-    Flash-Lite effort follow-up, is applied.
+  - Gemini 3.5 Flash-Lite used the provider default until item 26 was
+    applied.
+- 2026-11-04, applying item 26: a custom spec that reuses a known Gemini
+  model id still sends a thinking value for each enabled effort. It rejects
+  disabled when the effort table gives that model no off value.
 
 ## Pull requests
 

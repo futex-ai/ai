@@ -3,6 +3,7 @@
 #![warn(unreachable_pub)]
 
 mod catalog;
+mod effort_mapping;
 mod google;
 
 pub use catalog::{

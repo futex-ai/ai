@@ -230,7 +230,7 @@ Bold marks the default effort or provider default. `default` marks an output lim
 | `deepseek/deepseek-v4-flash` | disabled, **high**, max | 393216 | 1000000 | fixed while thinking | yes | only without thinking | no | high, max |
 | `deepseek/custom` | disabled, **high**, max | 393216 | 0 | fixed while thinking | yes | only without thinking | no | high, max |
 | `google/gemini-3.6-flash` | low, **medium**, high | 65536 | 1048576 | adjustable | yes | always | no | low, medium, high |
-| `google/gemini-3.5-flash-lite` | **provider default** | 65536 | 1048576 | adjustable | yes | always | no | none |
+| `google/gemini-3.5-flash-lite` | **low**, medium, high | 65536 | 1048576 | adjustable | yes | always | no | low, medium, high |
 | `google/gemini-3.1-flash-image` | **provider default** | 0 | 131072 | adjustable | yes | always | no | none |
 | `google/custom` | **provider default**, disabled, low, medium, high, extra_high, max | u32::MAX | 0 | adjustable | yes | always | no | disabled, low, medium, high, extra_high, max |
 | `kimi/kimi-k3` | low, high, **max** | 131072 | 1000000 | fixed | yes | always | no | low, high, max |

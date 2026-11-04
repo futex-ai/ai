@@ -58,9 +58,11 @@ against the spec before transport. The adapter handles:
   and operation ids when Gemini omits `functionCall.id`, preventing distinct
   no-id calls from sharing runtime idempotency keys
 - Gemini `generationConfig.responseJsonSchema` mapping for structured outputs
-- Gemini 3 `generationConfig.thinkingConfig.thinkingLevel` mapping from the
-  resolved request effort, while retaining Gemini 2.5 `thinkingBudget`
-  mapping
+- one Google effort table that gives the efforts and the native
+  `generationConfig.thinkingConfig` values of each catalog model. The same
+  table holds the generic Gemini 3 `thinkingLevel` and Gemini 2.5
+  `thinkingBudget` mappings for other models. No table entry leaves the
+  field out
 - effort lowering to the highest effort that the spec lists at or below the
   request, with the resolved effort and the text id retained in responses
 - provider response usage extraction into normalized input, output, cached
@@ -82,10 +84,11 @@ them in that order, and `known_models()` returns a copy of it.
 workspace examples. It lists low, medium, and high efforts. Its default
 effort is medium. A request with the high
 effort sends provider model id `gemini-3.6-flash` with
-`thinkingLevel: "high"`. Gemini 3.5 Flash-Lite lists no effort and has no
-default effort. Its requests leave out `thinkingConfig`, so the provider
-uses its minimal default, and responses report no effort. A Flash-Lite
-request that sets an effort fails with `UnsupportedControl`. The
+`thinkingLevel: "high"`. Gemini 3.5 Flash-Lite lists low, medium, and high
+efforts, with low as its default. It sends `thinkingLevel: "minimal"` for
+low, `"medium"` for medium, and `"high"` for high. Flash-Lite cannot turn
+thinking off, so a disabled request fails with `UnsupportedControl` before
+transport. The
 [control matrix](../../docs/protocol/model-capabilities.md#control-matrix)
 lists the efforts and limits of each spec. Gemini 2.5 models are not in the
 catalog because the API does not make them available to new users. Callers
@@ -95,8 +98,11 @@ and `GEMINI_2_5_FLASH_LITE` provider model ids with
 request mapper keeps fixed `thinkingBudget` compatibility for those models.
 A custom spec has no default effort, so a request without an effort leaves
 out `thinkingConfig` and reports no effort. A disabled request on a custom
-spec sends `thinkingBudget: 0`. An unlisted model that cannot turn thinking
-off rejects that value, so remove disabled from its custom spec. Response
+spec sends `thinkingBudget: 0`. The effort table knows some model ids, such
+as Gemini 3.6 Flash and Flash-Lite. When it gives such a model no off value,
+a disabled request on a custom spec fails with `UnsupportedControl` before
+transport. Another model that cannot turn thinking off rejects
+`thinkingBudget: 0`, so remove disabled from its custom spec. Response
 parts marked as provider thoughts are not surfaced as assistant text, but
 event-observing callers receive them as reasoning deltas. Schema-constrained
 calls suppress all public deltas in version one.
@@ -182,7 +188,12 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 - `src/google/mod.rs` - `Model` implementation and request dispatch
 - `src/catalog.rs` - Google provider id, model spec constants, `CATALOG`,
-  custom defaults, and the retained Gemini 2.5 provider model ids
+  custom defaults, and the retained Gemini 2.5 provider model ids. Each
+  spec and the custom defaults take their efforts from the effort table
+- `src/effort_mapping.rs` - the one effort table: the efforts and native
+  thinking controls of each catalog model and of the generic mappings
+- `src/google/thinking.rs` - serializes the selected thinking control into
+  `generationConfig.thinkingConfig`
 - `src/google/request.rs` - Google request and continuation mapping
 - `src/google/request_types.rs` - typed Gemini request bodies
 - `src/google/response.rs` - Google response parsing
