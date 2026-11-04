@@ -1,6 +1,8 @@
 //! Shared response normalization and local structured-output checks.
 
-use ai_interface::{FinishReason, ModelError, ModelResponse, ModelResult, StructuredOutputSchema};
+use ai_interface::{
+    Effort, FinishReason, ModelError, ModelResponse, ModelResult, StructuredOutputSchema,
+};
 use ai_models_core::{assistant_text, parse_structured_output};
 use serde_json::Value;
 
@@ -84,7 +86,7 @@ pub(crate) fn parse_response(
     let dispatchable = matches!(finish_reason, FinishReason::ToolCalls);
     if dispatchable
         && dialect.required_reasoning
-        && thinking_level.is_enabled()
+        && thinking_level.is_none_or(Effort::is_enabled)
         && reasoning_content.is_none()
     {
         return Err(ModelError::provider(
@@ -137,7 +139,7 @@ pub(crate) fn parse_response(
         provider: dialect.provider.to_owned(),
         model_id: provider_model_id.to_owned(),
         catalog_model_id: Some(catalog_model_id.to_owned()),
-        thinking_level: Some(thinking_level),
+        thinking_level,
         assistant_message,
         tool_calls,
         finish_reason,

@@ -13,6 +13,7 @@ mod event_tests;
 mod finish_reason_tests;
 mod multimodal_tests;
 mod operation_id_tests;
+mod provider_default_tests;
 mod replay_tests;
 mod request_tests;
 #[cfg(test)]

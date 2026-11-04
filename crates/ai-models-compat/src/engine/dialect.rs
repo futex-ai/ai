@@ -92,6 +92,6 @@ pub(crate) struct CompletionContext<'a> {
     pub(crate) dialect: &'a Dialect,
     pub(crate) catalog_model_id: &'a str,
     pub(crate) provider_model_id: &'a str,
-    pub(crate) thinking_level: Effort,
+    pub(crate) thinking_level: Option<Effort>,
     pub(crate) synthetic_tool_call_scope: &'a str,
 }

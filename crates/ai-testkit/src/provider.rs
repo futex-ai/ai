@@ -2,7 +2,7 @@
 
 use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
-use ai_interface::{DynModel, ModelCatalog, ModelFeature, ModelSpec};
+use ai_interface::{DynModel, Effort, ModelCatalog, ModelFeature, ModelSpec};
 use ai_models_anthropic::AnthropicModel;
 use ai_models_compat::deepseek::DeepSeekModel;
 use ai_models_compat::kimi::KimiModel;
@@ -100,7 +100,7 @@ impl Provider {
         let model = if scenario == Scenario::ToolLoop {
             catalog
                 .iter()
-                .find(|model| model.default_effort.is_enabled())
+                .find(|model| model.default_effort.is_none_or(Effort::is_enabled))
                 .or_else(|| catalog.first())
         } else {
             catalog.first()

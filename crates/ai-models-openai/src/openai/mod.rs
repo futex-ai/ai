@@ -189,3 +189,7 @@ mod stream_support;
 #[cfg(test)]
 #[path = "_tests_/request_effort_tests.rs"]
 mod request_effort_tests;
+
+#[cfg(test)]
+#[path = "_tests_/provider_default_tests.rs"]
+mod provider_default_tests;

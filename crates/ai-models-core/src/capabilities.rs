@@ -23,8 +23,8 @@ pub enum ResolvedToolChoice {
 #[derive(Clone, Debug, PartialEq)]
 /// Portable controls after every model capability rule has been applied.
 pub struct ResolvedModelControls {
-    /// Supported effort that never exceeds the requested effort.
-    pub effort: Effort,
+    /// Supported effort that never exceeds the request, or `None` for provider defaults.
+    pub effort: Option<Effort>,
     /// Sampling temperature, absent when sampling is fixed.
     pub temperature: Option<f64>,
     /// Nucleus-sampling probability, absent when sampling is fixed.
@@ -47,16 +47,20 @@ pub fn resolve_controls(
     spec: &ModelSpec,
 ) -> ModelResult<ResolvedModelControls> {
     let generation = &request.controls.generation;
-    let requested_effort = generation.effort.unwrap_or(spec.default_effort);
-    let effort = spec
-        .efforts
-        .iter()
-        .filter(|effort| *effort <= requested_effort)
-        .max()
-        .ok_or_else(|| unsupported(spec, ModelControl::Effort))?;
+    let requested_effort = generation.effort.or(spec.default_effort);
+    let effort = match requested_effort {
+        Some(requested) => Some(
+            spec.efforts
+                .iter()
+                .filter(|effort| *effort <= requested)
+                .max()
+                .ok_or_else(|| unsupported(spec, ModelControl::Effort))?,
+        ),
+        None => None,
+    };
     let sampling_adjustable = match spec.sampling {
         Sampling::Adjustable => true,
-        Sampling::FixedWhileThinking => !effort.is_enabled(),
+        Sampling::FixedWhileThinking => effort == Some(Effort::Disabled),
         Sampling::Fixed => false,
     };
     if !spec.supports_stop_sequences && !generation.stop_sequences.is_empty() {
@@ -89,16 +93,16 @@ pub fn resolve_controls(
 fn resolve_tool_choice(
     choice: Option<&ModelToolChoice>,
     spec: &ModelSpec,
-    effort: Effort,
+    effort: Option<Effort>,
 ) -> ModelResult<Option<ResolvedToolChoice>> {
     let required_allowed = match spec.forced_tool_choice {
         ForcedToolChoice::Always | ForcedToolChoice::RequiredOnly => true,
-        ForcedToolChoice::OnlyWithoutThinking => !effort.is_enabled(),
+        ForcedToolChoice::OnlyWithoutThinking => effort == Some(Effort::Disabled),
         ForcedToolChoice::Never => false,
     };
     let function_allowed = match spec.forced_tool_choice {
         ForcedToolChoice::Always => true,
-        ForcedToolChoice::OnlyWithoutThinking => !effort.is_enabled(),
+        ForcedToolChoice::OnlyWithoutThinking => effort == Some(Effort::Disabled),
         ForcedToolChoice::RequiredOnly | ForcedToolChoice::Never => false,
     };
     Ok(match choice {

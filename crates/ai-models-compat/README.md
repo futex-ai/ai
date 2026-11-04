@@ -31,8 +31,11 @@ of `ai-models-core` against the spec before transport, so efforts, output
 limits, sampling, stops, tool choice, and the deferred lifecycle follow the
 spec data. The dialect then maps the resolved controls to its wire fields.
 For example, DeepSeek omits `tool_choice` for the resolved automatic choice
-while thinking is on. Responses record the resolved effort and the text id
-of the spec.
+while thinking is on. A call without a resolved effort sends no thinking
+field. The disabled effort sends the explicit off value of the dialect.
+Kimi has no off value, so it rejects disabled before transport, also on a
+custom spec. Responses record the resolved effort, or no effort, and the
+text id of the spec.
 
 The engine keeps the current buffered `complete` and opt-in
 `complete_with_events` methods. Schema calls suppress public text events.

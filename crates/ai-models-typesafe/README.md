@@ -22,8 +22,9 @@ JSON state with explicit credentials.
 model id, and either an explicit API key or auth hook. The crate exports
 `PROVIDER_ID`, the Jev specs `JEV_LATEST` and `JEV_1_13_0`, the `CATALOG`
 slice, and `CUSTOM_DEFAULTS`. A spec gives its provider model id through
-`provider_model_id`. Each spec advertises only `ModelFeature::Judgment` and
-lists only the disabled effort. The adapter sends one request to
+`provider_model_id`. Each spec advertises only `ModelFeature::Judgment`. It
+lists no effort and has no default effort, because the adapter has no
+reasoning control. The adapter sends one request to
 `https://api.typesafe.ai/v1/systemone` for all supplied questions, using a
 60-second timeout by default. Endpoint and timeout overrides support alternate
 deployments and deterministic tests.

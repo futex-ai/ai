@@ -20,7 +20,7 @@ pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
         .with(Effort::High)
         .with(Effort::ExtraHigh)
         .with(Effort::Max),
-    default_effort: Effort::Disabled,
+    default_effort: None,
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::FixedWhileThinking,
     supports_stop_sequences: false,
@@ -165,7 +165,7 @@ const fn gpt_spec(
         context_window_tokens,
         max_output_tokens: 128_000,
         efforts,
-        default_effort,
+        default_effort: Some(default_effort),
         forced_tool_choice: ForcedToolChoice::Always,
         sampling: Sampling::FixedWhileThinking,
         supports_stop_sequences: false,
@@ -187,8 +187,8 @@ const fn media_spec(
         provider_model_id: Cow::Borrowed(model_id),
         context_window_tokens: 0,
         max_output_tokens: 0,
-        efforts: EffortSet::new(Effort::Disabled),
-        default_effort: Effort::Disabled,
+        efforts: EffortSet::empty(),
+        default_effort: None,
         forced_tool_choice: ForcedToolChoice::Always,
         sampling: Sampling::FixedWhileThinking,
         supports_stop_sequences: false,

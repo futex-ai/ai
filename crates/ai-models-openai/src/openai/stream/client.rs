@@ -17,7 +17,7 @@ pub(in crate::openai) async fn complete(
     mut stream: DynJsonHttpSseStream,
     catalog_model_id: &str,
     provider_model_id: &str,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
     response_schema: Option<&StructuredOutputSchema>,
     event_sink: &dyn ModelCompletionEventSink,
 ) -> ModelResult<ModelResponse> {

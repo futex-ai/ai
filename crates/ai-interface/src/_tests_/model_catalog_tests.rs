@@ -12,7 +12,7 @@ fn text_id_lookup_splits_once_and_matches_case_exactly() {
         context_window_tokens: 128_000,
         max_output_tokens: 64_000,
         efforts: EffortSet::new(Effort::Disabled),
-        default_effort: Effort::Disabled,
+        default_effort: Some(Effort::Disabled),
         forced_tool_choice: ForcedToolChoice::Always,
         sampling: Sampling::Adjustable,
         supports_stop_sequences: true,

@@ -13,8 +13,15 @@ pub(super) struct GoogleThinkingConfig {
 
 pub(super) fn thinking_config(
     model_id: &str,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
 ) -> Option<GoogleThinkingConfig> {
+    let thinking_level = thinking_level?;
+    if thinking_level == Effort::Disabled {
+        return Some(GoogleThinkingConfig {
+            thinking_budget: Some(0),
+            thinking_level: None,
+        });
+    }
     if model_id.starts_with("gemini-3") {
         return thinking_level_for_gemini_3(thinking_level).map(|thinking_level| {
             GoogleThinkingConfig {

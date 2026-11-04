@@ -23,7 +23,7 @@ pub(crate) fn build_request(
 ) -> ModelResult<ChatCompletionsRequest> {
     validate_content_parts(dialect, model_id, request)?;
     let effort = controls.effort;
-    let (thinking, reasoning_effort) = thinking_fields(dialect, model_id, effort);
+    let (thinking, reasoning_effort) = thinking_fields(dialect, model_id, effort)?;
     let mut messages = Vec::new();
     let system_prompt = system_prompt(dialect, request);
     if !system_prompt.trim().is_empty() {
@@ -31,7 +31,7 @@ pub(crate) fn build_request(
     }
     messages.extend(conversation_messages(dialect, model_id, &request.messages)?);
     let omit_tools = matches!(dialect.tool_choice, ToolChoiceWire::OmitWhileThinking)
-        && effort.is_enabled()
+        && effort.is_none_or(Effort::is_enabled)
         && controls.tool_choice == Some(ResolvedToolChoice::None);
     let tools = if omit_tools {
         Vec::new()
@@ -47,9 +47,11 @@ pub(crate) fn build_request(
         tool_choice: tool_choice(dialect, !request.tools.is_empty(), controls),
         parallel_tool_calls: (dialect.parallel_tools && !request.tools.is_empty()).then_some(true),
         enable_thinking: matches!(dialect.thinking, ThinkingFormat::Flags)
-            .then_some(effort.is_enabled()),
+            .then(|| effort.map(Effort::is_enabled))
+            .flatten(),
         preserve_thinking: matches!(dialect.thinking, ThinkingFormat::Flags)
-            .then_some(effort.is_enabled()),
+            .then(|| effort.map(Effort::is_enabled))
+            .flatten(),
         stream: !deferred,
         deferred,
         stream_options: (!deferred).then_some(ChatCompletionsStreamOptions {
@@ -98,14 +100,14 @@ The response must be a JSON object matching schema `{}`.\nJSON Schema:\n{}",
 fn response_format(
     dialect: &Dialect,
     model_id: &str,
-    thinking: Effort,
+    thinking: Option<Effort>,
     request: &ModelRequest,
 ) -> Option<ChatCompletionsResponseFormat> {
     let schema = request.response_schema.as_ref()?;
     Some(match dialect.structured_output {
         StructuredOutput::JsonObjectPrompt => ChatCompletionsResponseFormat::JsonObject,
         StructuredOutput::JsonObjectWhenDisabled(models)
-            if models.contains(&model_id) && !thinking.is_enabled() =>
+            if models.contains(&model_id) && thinking == Some(Effort::Disabled) =>
         {
             ChatCompletionsResponseFormat::JsonObject
         }

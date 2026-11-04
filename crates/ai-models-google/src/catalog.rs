@@ -20,7 +20,7 @@ pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
         .with(Effort::High)
         .with(Effort::ExtraHigh)
         .with(Effort::Max),
-    default_effort: Effort::Disabled,
+    default_effort: None,
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
     supports_stop_sequences: true,
@@ -57,7 +57,7 @@ pub const GEMINI_3_6_FLASH: ModelSpec = ModelSpec {
     efforts: EffortSet::new(Effort::Low)
         .with(Effort::Medium)
         .with(Effort::High),
-    default_effort: Effort::Medium,
+    default_effort: Some(Effort::Medium),
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
     supports_stop_sequences: true,
@@ -78,8 +78,8 @@ pub const GEMINI_3_5_FLASH_LITE: ModelSpec = ModelSpec {
     provider_model_id: Cow::Borrowed("gemini-3.5-flash-lite"),
     context_window_tokens: 1_048_576,
     max_output_tokens: 65_536,
-    efforts: EffortSet::new(Effort::Disabled),
-    default_effort: Effort::Disabled,
+    efforts: EffortSet::empty(),
+    default_effort: None,
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
     supports_stop_sequences: true,
@@ -100,8 +100,8 @@ pub const GEMINI_3_1_FLASH_IMAGE: ModelSpec = ModelSpec {
     provider_model_id: Cow::Borrowed("gemini-3.1-flash-image"),
     context_window_tokens: 131_072,
     max_output_tokens: 0,
-    efforts: EffortSet::new(Effort::Disabled),
-    default_effort: Effort::Disabled,
+    efforts: EffortSet::empty(),
+    default_effort: None,
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
     supports_stop_sequences: true,

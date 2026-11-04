@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use ai_interface::{
-    Effort, FinishReason, Model, ModelCallControls, ModelExecutionControls, StructuredOutputSchema,
+    FinishReason, Model, ModelCallControls, ModelExecutionControls, StructuredOutputSchema,
 };
 use ai_models_core::synthetic_tool_call_scope;
 use serde_json::{Value, json};
@@ -98,7 +98,7 @@ async fn merged_fragments_match_rich_buffered_response() {
     let buffered = parse_response(
         "google/gemini-3.6-flash",
         "gemini-3.6-flash",
-        Effort::Disabled,
+        None,
         &synthetic_tool_call_scope(&request),
         buffered_body,
         None,
@@ -148,7 +148,7 @@ async fn structured_fragments_match_buffered_response() {
     let buffered = parse_response(
         "google/gemini-3.6-flash",
         "gemini-3.6-flash",
-        Effort::Disabled,
+        None,
         &synthetic_tool_call_scope(&request),
         buffered_body,
         Some(&schema),
@@ -176,7 +176,7 @@ async fn prompt_block_stream_matches_buffered_response() {
     let buffered = parse_response(
         "google/gemini-3.6-flash",
         "gemini-3.6-flash",
-        Effort::Disabled,
+        None,
         &synthetic_tool_call_scope(&request),
         body,
         None,
@@ -206,7 +206,7 @@ async fn same_chunk_text_parts_preserve_buffered_boundaries() {
     let buffered = parse_response(
         "google/gemini-3.6-flash",
         "gemini-3.6-flash",
-        Effort::Disabled,
+        None,
         &synthetic_tool_call_scope(&request),
         body,
         None,

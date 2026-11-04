@@ -83,7 +83,7 @@ fn maps_missing_google_finish_reason_with_tool_calls() {
     let response = parse_response(
         "gemini-2.5-pro",
         "gemini-2.5-pro",
-        Effort::Disabled,
+        Some(Effort::Disabled),
         &synthetic_tool_call_scope(&request),
         google_response_body(None, true),
         None,
@@ -99,7 +99,7 @@ fn maps_missing_google_finish_reason_without_tool_calls_to_other() {
     let response = parse_response(
         "gemini-2.5-pro",
         "gemini-2.5-pro",
-        Effort::Disabled,
+        Some(Effort::Disabled),
         &synthetic_tool_call_scope(&request),
         google_response_body(None, false),
         None,

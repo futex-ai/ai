@@ -82,9 +82,10 @@ them in that order, and `known_models()` returns a copy of it.
 workspace examples. It lists low, medium, and high efforts. Its default
 effort is medium. A request with the high
 effort sends provider model id `gemini-3.6-flash` with
-`thinkingLevel: "high"`. Gemini 3.5 Flash-Lite lists only the disabled
-effort and leaves the thinking control unset so the provider uses its
-minimal default. The
+`thinkingLevel: "high"`. Gemini 3.5 Flash-Lite lists no effort and has no
+default effort. Its requests leave out `thinkingConfig`, so the provider
+uses its minimal default, and responses report no effort. A Flash-Lite
+request that sets an effort fails with `UnsupportedControl`. The
 [control matrix](../../docs/protocol/model-capabilities.md#control-matrix)
 lists the efforts and limits of each spec. Gemini 2.5 models are not in the
 catalog because the API does not make them available to new users. Callers
@@ -92,10 +93,13 @@ can still build them from the retained `GEMINI_2_5_PRO`, `GEMINI_2_5_FLASH`,
 and `GEMINI_2_5_FLASH_LITE` provider model ids with
 `ModelSpec::custom(PROVIDER_ID, GEMINI_2_5_PRO, &CUSTOM_DEFAULTS)`. The
 request mapper keeps fixed `thinkingBudget` compatibility for those models.
-A custom spec starts with the disabled effort as its default. Response parts marked
-as provider thoughts are not surfaced as assistant text, but event-observing
-callers receive them as reasoning deltas. Schema-constrained calls suppress all
-public deltas in version one.
+A custom spec has no default effort, so a request without an effort leaves
+out `thinkingConfig` and reports no effort. A disabled request on a custom
+spec sends `thinkingBudget: 0`. An unlisted model that cannot turn thinking
+off rejects that value, so remove disabled from its custom spec. Response
+parts marked as provider thoughts are not surfaced as assistant text, but
+event-observing callers receive them as reasoning deltas. Schema-constrained
+calls suppress all public deltas in version one.
 
 `GoogleImageGenerator` uses the current `v1` compatibility endpoint with an
 injected `json-http` client and explicit API key or auth hook. It maps text and

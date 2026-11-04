@@ -21,7 +21,7 @@
   - **A.** List low, medium, and high, with low as the default, and send the native `low` level for low. This raises the default from the provider's `minimal`. Effort: Small.
   - **B.** Add a portable `Minimal` effort, use it as the Flash-Lite default, and reject disabled. This keeps the provider minimum, but it expands the public contract. Effort: Medium.
   - **C.** Define one Google effort mapping table that gives both the supported efforts and the wire values. Flash-Lite maps low to native `minimal`, medium to `medium`, and high to `high`, with low as the default, and rejects disabled. The table has no entry that leaves the field out, so a disabled entry needs a real off value. Add request regressions for the disabled rejection and each level, and regenerate the matrix. Effort: Medium.
-  - **D.** Separate "send no thinking control" from disabled in the contracts, as `plans/follow-ups/disabled-effort-means-off.md` describes. Flash-Lite then keeps the provider default and rejects disabled. Effort: Large.
+  - **D.** Separate "send no thinking control" from disabled in the contracts. Flash-Lite then keeps the provider default and rejects disabled. Effort: Large.
   - **E.** Apply the result of C as a direct fix: list low, medium, and high with low as the default, reject disabled, and add one Flash-Lite branch in the Gemini 3 mapping that sends `minimal` for low. It puts one more model fact into request code. Effort: Small.
 - **Left out:**
   - Change nothing. It keeps the false off claim.
@@ -29,9 +29,9 @@
   - Remove the model. It breaks the rule that the redesign keeps every model.
   - Keep disabled listed but report no effort. The check and the matrix still claim an off setting.
 - **Wider fix:** D. It removes the false off claim for every provider and for custom specs, not only for Google catalog specs.
-- **Previous examples:** `plans/follow-ups/claude-5-disabled-thinking.md` describes the same false-off result from a left-out thinking field.
+- **Previous examples:** Before the redesign, a disabled request to Claude Sonnet 5 and Opus 5 left out the `thinking` field, so the provider still thought. Since 2026-11-04, those specs list disabled and send `thinking: {"type": "disabled"}`.
 - **Related:**
   - `plans/follow-ups/constructor-default-effort.md`, the same cause and options that interact: its option A sets disabled on migrated calls, which fails on Flash-Lite after any option here. Answer both together.
-  - `plans/follow-ups/disabled-effort-means-off.md`, the shared wider fix.
+  - The shared wider fix is option D. On 2026-11-04, the user chose that contract change for every provider. Since then, Flash-Lite uses the provider default and lists no effort until this item is applied.
 - **Recommendation:** C. It fixes the claim without a contract change and keeps the provider minimum as the default behaviour. D best protects the codebase, but it is Large and changes the default-effort rule.
 - **Action:** ask the user, because every option rejects disabled on Flash-Lite and changes its documented default effort.

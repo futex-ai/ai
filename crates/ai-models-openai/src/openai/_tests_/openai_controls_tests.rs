@@ -145,7 +145,7 @@ fn controlled_request() -> ModelRequest {
     }];
     request.controls = ModelCallControls {
         generation: ModelGenerationControls {
-            effort: None,
+            effort: Some(Effort::Disabled),
             temperature: Some(0.2),
             top_p: Some(0.8),
             max_output_tokens: Some(700),

@@ -22,3 +22,7 @@ pub(crate) use dialect::{CompletionContext, Dialect};
 #[cfg(test)]
 #[path = "_tests_/spec_controls_tests.rs"]
 mod spec_controls_tests;
+
+#[cfg(test)]
+#[path = "_tests_/provider_default_tests.rs"]
+mod provider_default_tests;

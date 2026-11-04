@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use ai_interface::{ConversationMessage, Effort, Model, ModelRequest};
+use ai_interface::{ConversationMessage, Model, ModelRequest};
 use json_http::StaticHeaderAuth;
 use serde_json::json;
 
@@ -243,7 +243,7 @@ async fn streamed_deltas_match_the_buffered_response_mapper() {
     let buffered = parse_response(
         "anthropic/claude-opus-streaming",
         "claude-opus-streaming",
-        Effort::Disabled,
+        None,
         buffered,
         None,
     )

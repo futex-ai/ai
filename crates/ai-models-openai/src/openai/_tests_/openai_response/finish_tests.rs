@@ -48,7 +48,7 @@ fn maps_response_finish_reasons() {
 
     for (body, expected, label) in cases {
         let response =
-            parse_response("gpt-5.5", "gpt-5.5", Effort::Medium, body, None).expect(label);
+            parse_response("gpt-5.5", "gpt-5.5", Some(Effort::Medium), body, None).expect(label);
         assert_eq!(response.finish_reason, expected, "{label}");
     }
 }
@@ -58,7 +58,7 @@ fn maps_refusal_content_to_filtered_finish_reason() {
     let response = parse_response(
         "gpt-5.5",
         "gpt-5.5",
-        Effort::Medium,
+        Some(Effort::Medium),
         json!({
             "status": "completed",
             "output": [{
@@ -83,7 +83,7 @@ fn parses_multiple_function_call_output_items() {
     let response = parse_response(
         "gpt-5.5",
         "gpt-5.5",
-        Effort::Medium,
+        Some(Effort::Medium),
         json!({
             "status": "completed",
             "output": [
@@ -116,7 +116,7 @@ fn incomplete_function_call_response_is_not_dispatchable() {
     let response = parse_response(
         "gpt-5.5",
         "gpt-5.5",
-        Effort::Medium,
+        Some(Effort::Medium),
         json!({
             "status": "incomplete",
             "incomplete_details": { "reason": "max_output_tokens" },
@@ -141,7 +141,7 @@ fn rejects_invalid_function_call_arguments() {
     let error = parse_response(
         "gpt-5.5",
         "gpt-5.5",
-        Effort::Medium,
+        Some(Effort::Medium),
         openai_function_call_body("not json"),
         None,
     )

@@ -9,9 +9,10 @@ hold the requirements of each live suite.
 
 Credentialed model checks live in `xtask/tests/live_models.rs`. They construct
 provider adapters only at the composition boundary. They then call each
-chat-capable model spec once for each effort that the spec lists, with the
-default effort first, through the same `DynModel` and `ToolCallingRuntime`
-path with portable controls. A test-only model wrapper opts those calls into
+chat-capable model spec once at its default and once for each other effort
+that the spec lists, through the same `DynModel` and `ToolCallingRuntime`
+path with portable controls. The default call of a spec without a default
+effort sets no effort. A test-only model wrapper opts those calls into
 `complete_with_events`: each provider first proves synchronous
 assistant-delta parity on its first chat spec at its default effort, every
 synchronous catalog call retains terminal parity, and xAI's deferred catalog
@@ -92,10 +93,10 @@ and pushes to `main`: formatting, Clippy, tests, Rust file-length lint,
 credential-free smoke tests, and `cargo xtask check`. Limiting push-triggered CI
 to `main` prevents an open pull request from running the same commit once for
 the branch push and again for the pull-request event. The separate `Live model
-APIs` workflow makes billable calls through the production adapters for each
-listed effort of every chat-capable catalog spec through the generic
-tool-calling runtime on eligible pull requests as well as its daily schedule
-and manual dispatch. The separate
+APIs` workflow makes billable calls through the production adapters for the
+default and each listed effort of every chat-capable catalog spec through
+the generic tool-calling runtime on eligible pull requests as well as its
+daily schedule and manual dispatch. The separate
 `Live image APIs` workflow exercises every Google and OpenAI image-capable
 catalog spec through `DynImageGenerator` with image-specific validation and
 sequential provider jobs. The `Live judgment APIs`

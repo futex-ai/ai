@@ -14,7 +14,7 @@ const SYNTHETIC_TOOL_CALL_ID_PREFIX: &str = "google_function_call:";
 pub(super) fn parse_response(
     catalog_model_id: &str,
     provider_model_id: &str,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
     synthetic_tool_call_scope: &str,
     body: Value,
     response_schema: Option<&StructuredOutputSchema>,
@@ -134,7 +134,7 @@ pub(super) fn parse_response(
         provider: PROVIDER.to_owned(),
         model_id: provider_model_id.to_owned(),
         catalog_model_id: Some(catalog_model_id.to_owned()),
-        thinking_level: Some(thinking_level),
+        thinking_level,
         assistant_message,
         finish_reason,
         tool_calls,
@@ -214,14 +214,14 @@ fn finish_reason(value: Option<&str>, has_tool_calls: bool) -> FinishReason {
 fn prompt_block_response(
     catalog_model_id: &str,
     provider_model_id: &str,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
     usage: GoogleUsageMetadata,
 ) -> ModelResponse {
     ModelResponse {
         provider: PROVIDER.to_owned(),
         model_id: provider_model_id.to_owned(),
         catalog_model_id: Some(catalog_model_id.to_owned()),
-        thinking_level: Some(thinking_level),
+        thinking_level,
         assistant_message: String::new(),
         finish_reason: FinishReason::Filtered,
         tool_calls: Vec::new(),

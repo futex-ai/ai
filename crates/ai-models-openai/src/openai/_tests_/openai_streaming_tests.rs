@@ -84,7 +84,7 @@ async fn completed_stream_matches_rich_buffered_response() {
         .complete(&request)
         .await
         .expect("streamed response should parse");
-    let buffered = parse_response("openai/gpt-5.5", "gpt-5.5", Effort::High, body, None)
+    let buffered = parse_response("openai/gpt-5.5", "gpt-5.5", Some(Effort::High), body, None)
         .expect("buffered response should parse");
 
     assert_eq!(streamed, buffered);
@@ -112,14 +112,8 @@ async fn completed_structured_stream_matches_buffered_response() {
         .complete(&request)
         .await
         .expect("structured stream should parse");
-    let buffered = parse_response(
-        "openai/gpt-5.5",
-        "gpt-5.5",
-        Effort::Disabled,
-        body,
-        Some(&schema),
-    )
-    .expect("buffered response should parse");
+    let buffered = parse_response("openai/gpt-5.5", "gpt-5.5", None, body, Some(&schema))
+        .expect("buffered response should parse");
 
     assert_eq!(streamed, buffered);
 }
@@ -143,7 +137,7 @@ async fn incomplete_stream_matches_buffered_truncation() {
         .complete(&simple_request())
         .await
         .expect("incomplete response should remain usable");
-    let buffered = parse_response("openai/gpt-5.5", "gpt-5.5", Effort::Disabled, body, None)
+    let buffered = parse_response("openai/gpt-5.5", "gpt-5.5", None, body, None)
         .expect("buffered incomplete response should parse");
 
     assert_eq!(streamed, buffered);

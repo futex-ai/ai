@@ -20,8 +20,8 @@ a spec for short.
 | Context window | The total context tokens that the provider documents, or 0 when unknown |
 | Max output | The largest output-token limit that the provider accepts for the model |
 | Output limit required | Whether the provider requires an output limit on every request |
-| Efforts | The ordered set of efforts that the model supports. It is never empty |
-| Default effort | The effort of a request that sets none. It is one of the efforts |
+| Efforts | The ordered set of efforts that the model supports. It can be empty |
+| Default effort | The effort of a request that sets none. It is one of the efforts, or absent when the provider chooses the reasoning |
 | Forced tool choice | The forced-tool-choice rule of the model |
 | Sampling | Adjustable, fixed while thinking is on, or always fixed |
 | Stop sequences | Supported or not supported |
@@ -32,7 +32,8 @@ a spec for short.
 
 - The speed tiers are slow, medium, fast, and very fast. The cost tiers are
   low, medium, high, and premium.
-- The routing tiers describe the model at its default effort.
+- The routing tiers describe the model at its default effort, or at the
+  provider default when the spec has no default effort.
 - The replay need is data for callers and for the test kit. The planned
   conformance milestone checks replay for each spec that has this need.
 - Model specs hold no prices. Decision: prices come from the deployment, as
@@ -94,6 +95,13 @@ a spec for short.
   provider.
 - The custom defaults of a provider give a max output when the provider
   requires an output limit on every request.
+- A catalog spec lists only the efforts that its exact model supports. The
+  custom defaults list each effort that the generic wire mapping of the
+  provider can send. An unlisted model can reject one of them, so the
+  caller owns the efforts of its custom spec.
+- Decision: the Anthropic, Google, OpenAI, and xAI custom defaults use the
+  provider default. The rejected alternative defaulted to disabled, which
+  claimed thinking off while an unlisted model could still reason.
 - A custom spec has no features and no routing tiers until the caller sets
   them.
 - The [provider registry protocol](provider-registry.md) says how the
@@ -104,19 +112,35 @@ a spec for short.
 - `Effort` has these values, in order: disabled, low, medium, high, extra
   high, and max.
 - A request can set an effort in its generation controls.
-- Thinking is on when the resolved effort is not disabled.
-- A request without an effort uses the default effort of the spec.
+- Disabled means thinking off. A spec lists disabled only when its adapter
+  sends an explicit off value for the model.
+- An adapter without an explicit off value fails a disabled request with the
+  unsupported control kind for effort, also on a custom spec that lists
+  disabled.
+- A request without an effort uses the default effort of the spec. A spec
+  without a default effort uses the provider default. Then the call has no
+  resolved effort and sends no thinking field.
 - The capability check lowers a requested effort that the spec does not
   list to the highest listed effort below it.
 - The check never raises an effort. When no listed effort is at or below the
   request, the call fails with the unsupported control kind for effort.
-- The response of an adapter records the resolved effort and the text id of
-  its spec. The [model stream protocol](model-stream.md) puts the resolved
-  effort on its finish event.
+- Thinking is off only when the resolved effort is disabled. The sampling
+  and tool-choice rules count a call without a resolved effort as thinking
+  on.
+- The response of an adapter records the resolved effort, or no effort, and
+  the text id of its spec. The [model stream protocol](model-stream.md)
+  puts the resolved effort on its finish event.
 - Each adapter maps each effort to the wire fields of its provider.
 - Decision: the check lowers and never raises. The rejected alternative
   raised to the nearest effort, which can add cost that the caller did not
   ask for.
+- Decision: a spec can leave the reasoning to the provider, and disabled
+  goes to the wire only as an explicit off value. The rejected alternative
+  kept one disabled effort for both meanings and fixed each false off claim
+  by hand. New specs could then repeat the claim.
+- Decision: a call without a resolved effort counts as thinking on, because
+  the provider may reason. The rejected alternative counted it as off, which
+  can send sampling values or a forced tool choice that the provider rejects.
 
 ## Capability check
 
@@ -179,7 +203,8 @@ the generated section is committed. Do not edit it by hand.
   provider that shows its custom defaults.
 - Its columns are these:
   - The text id.
-  - The efforts, with the default effort marked.
+  - The efforts, with the default effort marked. A spec without a default
+    effort shows a marked provider default before its efforts.
   - The max output and the context window.
   - Sampling and stop sequences.
   - The forced tool-choice rule.
@@ -189,51 +214,51 @@ the generated section is committed. Do not edit it by hand.
 
 <!-- capability-matrix:start -->
 
-Bold effort marks the default effort. `default` marks an output limit sent when the request omits one.
+Bold marks the default effort or provider default. `default` marks an output limit sent when the request omits one.
 `u32::MAX` adds no output ceiling beyond the request type. Context 0 means unknown.
 
 | Text id | Efforts | Max output | Context | Sampling | Stops | Forced tools | Deferred | Replay efforts |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `anthropic/claude-sonnet-5` | low, medium, **high** | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | low, medium, high |
-| `anthropic/claude-opus-5` | low, medium, **high**, max | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | low, medium, high, max |
+| `anthropic/claude-sonnet-5` | disabled, low, medium, **high** | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | low, medium, high |
+| `anthropic/claude-opus-5` | disabled, low, medium, **high**, max | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | low, medium, high, max |
 | `anthropic/claude-fable-5` | low, medium, **high** | 128000 default | 1000000 | fixed while thinking | yes | only without thinking | no | low, medium, high |
 | `anthropic/claude-sonnet-4-6` | **disabled** | 128000 default | 200000 | fixed while thinking | yes | only without thinking | no | none |
 | `anthropic/claude-opus-4-7` | **disabled**, max | 128000 default | 200000 | fixed while thinking | yes | only without thinking | no | max |
 | `anthropic/claude-haiku-4-5` | **disabled** | 64000 default | 200000 | fixed while thinking | yes | only without thinking | no | none |
-| `anthropic/custom` | **disabled**, low, medium, high, extra_high, max | 64000 default | 0 | fixed while thinking | yes | only without thinking | no | low, medium, high, extra_high, max |
+| `anthropic/custom` | **provider default**, disabled, low, medium, high, extra_high, max | 64000 default | 0 | fixed while thinking | yes | only without thinking | no | low, medium, high, extra_high, max |
 | `deepseek/deepseek-v4-pro` | disabled, **high**, max | 393216 | 1000000 | fixed while thinking | yes | only without thinking | no | high, max |
 | `deepseek/deepseek-v4-flash` | disabled, **high**, max | 393216 | 1000000 | fixed while thinking | yes | only without thinking | no | high, max |
 | `deepseek/custom` | disabled, **high**, max | 393216 | 0 | fixed while thinking | yes | only without thinking | no | high, max |
 | `google/gemini-3.6-flash` | low, **medium**, high | 65536 | 1048576 | adjustable | yes | always | no | low, medium, high |
-| `google/gemini-3.5-flash-lite` | **disabled** | 65536 | 1048576 | adjustable | yes | always | no | disabled |
-| `google/gemini-3.1-flash-image` | **disabled** | 0 | 131072 | adjustable | yes | always | no | none |
-| `google/custom` | **disabled**, low, medium, high, extra_high, max | u32::MAX | 0 | adjustable | yes | always | no | disabled, low, medium, high, extra_high, max |
+| `google/gemini-3.5-flash-lite` | **provider default** | 65536 | 1048576 | adjustable | yes | always | no | none |
+| `google/gemini-3.1-flash-image` | **provider default** | 0 | 131072 | adjustable | yes | always | no | none |
+| `google/custom` | **provider default**, disabled, low, medium, high, extra_high, max | u32::MAX | 0 | adjustable | yes | always | no | disabled, low, medium, high, extra_high, max |
 | `kimi/kimi-k3` | low, high, **max** | 131072 | 1000000 | fixed | yes | always | no | low, high, max |
 | `kimi/custom` | low, high, **max** | 131072 | 0 | fixed | yes | always | no | low, high, max |
 | `minimax/MiniMax-M3` | disabled, **medium** | 512000 | 1000000 | adjustable | no | required only | no | medium |
 | `minimax/MiniMax-M2.7` | **medium** | 131072 | 204800 | adjustable | no | never | no | medium |
 | `minimax/MiniMax-M2.7-highspeed` | **medium** | 131072 | 204800 | adjustable | no | never | no | medium |
 | `minimax/custom` | disabled, low, **medium**, high, extra_high, max | u32::MAX | 0 | adjustable | no | never | no | low, medium, high, extra_high, max |
-| `mock/mock` | **disabled** | 128000 | 128000 | adjustable | yes | always | no | none |
-| `mock/custom` | **disabled** | 128000 | 128000 | adjustable | yes | always | no | none |
+| `mock/mock` | **provider default** | 128000 | 128000 | adjustable | yes | always | no | none |
+| `mock/custom` | **provider default** | 128000 | 128000 | adjustable | yes | always | no | none |
 | `openai/gpt-5.6-sol` | low, **medium**, high, extra_high, max | 128000 | 1050000 | fixed while thinking | no | always | no | low, medium, high, extra_high, max |
 | `openai/gpt-5.6-terra` | low, **medium** | 128000 | 1050000 | fixed while thinking | no | always | no | low, medium |
 | `openai/gpt-5.6-luna` | low, **medium** | 128000 | 1050000 | fixed while thinking | no | always | no | low, medium |
 | `openai/gpt-5.5` | low, **medium**, high, extra_high | 128000 | 400000 | fixed while thinking | no | always | no | low, medium, high, extra_high |
 | `openai/gpt-5.4-mini` | **disabled** | 128000 | 400000 | fixed while thinking | no | always | no | disabled |
 | `openai/gpt-5.4-nano` | **disabled** | 128000 | 400000 | fixed while thinking | no | always | no | disabled |
-| `openai/gpt-image-2` | **disabled** | 0 | 0 | fixed while thinking | no | always | no | none |
-| `openai/custom` | **disabled**, low, medium, high, extra_high, max | u32::MAX | 0 | fixed while thinking | no | always | no | disabled, low, medium, high, extra_high, max |
+| `openai/gpt-image-2` | **provider default** | 0 | 0 | fixed while thinking | no | always | no | none |
+| `openai/custom` | **provider default**, disabled, low, medium, high, extra_high, max | u32::MAX | 0 | fixed while thinking | no | always | no | disabled, low, medium, high, extra_high, max |
 | `qwen/qwen3.7-max` | disabled, **high** | 65536 | 1000000 | fixed while thinking | yes | only without thinking | no | high |
 | `qwen/qwen3.7-plus` | disabled, **high** | 65536 | 1000000 | fixed while thinking | yes | only without thinking | no | high |
 | `qwen/qwen3.7-flash` | disabled, **high** | 65536 | 1000000 | fixed while thinking | yes | only without thinking | no | high |
 | `qwen/custom` | disabled, **high** | 65536 | 0 | fixed while thinking | yes | only without thinking | no | high |
-| `typesafe/jev-latest` | **disabled** | 0 | 64000 | fixed | no | never | no | none |
-| `typesafe/jev-1.13.0` | **disabled** | 0 | 64000 | fixed | no | never | no | none |
-| `typesafe/custom` | **disabled** | 0 | 0 | fixed | no | never | no | none |
+| `typesafe/jev-latest` | **provider default** | 0 | 64000 | fixed | no | never | no | none |
+| `typesafe/jev-1.13.0` | **provider default** | 0 | 64000 | fixed | no | never | no | none |
+| `typesafe/custom` | **provider default** | 0 | 0 | fixed | no | never | no | none |
 | `xai/grok-4.5` | low, medium, **high** | 500000 | 500000 | adjustable | yes | always | yes | none |
 | `xai/grok-4.20-reasoning` | **high** | 1000000 | 1000000 | adjustable | yes | always | yes | none |
-| `xai/grok-4.20` | **disabled** | 1000000 | 1000000 | adjustable | yes | always | yes | none |
-| `xai/custom` | **disabled**, low, medium, high, extra_high, max | u32::MAX | 0 | adjustable | yes | always | yes | none |
+| `xai/grok-4.20` | **provider default** | 1000000 | 1000000 | adjustable | yes | always | yes | none |
+| `xai/custom` | **provider default**, disabled, low, medium, high, extra_high, max | u32::MAX | 0 | adjustable | yes | always | yes | none |
 
 <!-- capability-matrix:end -->

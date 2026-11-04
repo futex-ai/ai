@@ -59,12 +59,13 @@ DTOs without taking a dependency on a stateful runtime implementation.
   only `MOCK_PROVIDER` (`mock`).
 - Defines `ModelSpec`, the facts of one provider model: the provider id, the
   provider model id, the context window, the max output, whether every
-  request needs an output limit, the supported efforts as a nonempty
-  `EffortSet`, the default effort, the `ForcedToolChoice` and `Sampling`
-  rules, stop-sequence and deferred-lifecycle support, the efforts whose tool
-  continuations need replay state, the routing features, and optional
-  `RoutingTiers` (intelligence, speed, and cost). Every field is public.
-  `text_id()` returns the `provider/model` text id.
+  request needs an output limit, the supported efforts as an `EffortSet`
+  that can be empty, the optional default effort, the `ForcedToolChoice`
+  and `Sampling` rules, stop-sequence and deferred-lifecycle support, the
+  efforts whose tool continuations need replay state, the routing features,
+  and optional `RoutingTiers` (intelligence, speed, and cost). Every field
+  is public. `text_id()` returns the `provider/model` text id. A
+  `default_effort` of `None` means that the provider chooses the reasoning.
 - Defines `CustomModelDefaults` and
   `ModelSpec::custom(provider, model_id, &defaults)` for a model that no
   catalog lists. Each provider crate exports the defaults of its provider. A
@@ -74,16 +75,19 @@ DTOs without taking a dependency on a stateful runtime implementation.
   splits the text id at its first slash and matches the provider id and the
   provider model id exactly, with case.
 - Defines `Effort`, ordered from `Disabled` through `Low`, `Medium`, `High`,
-  `ExtraHigh`, and `Max`. A request sets it in
+  `ExtraHigh`, and `Max`. `Disabled` turns thinking off with an explicit
+  provider off value. A request sets it in
   `ModelGenerationControls::effort`. A request without one uses the default
-  effort of the spec. The shared capability check in `ai-models-core`
+  effort of the spec. A spec without a default effort leaves the reasoning
+  to the provider. The shared capability check in `ai-models-core`
   resolves it against the spec.
 - Defines `MOCK_MODEL`, `MOCK_CATALOG`, and `MOCK_CUSTOM_DEFAULTS` for local
   development and tests.
 - Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
-  `ModelResponse::effort()` returns the resolved effort. The typed
-  `thinking_level` field holds it and serializes as `effort`.
+  `ModelResponse::effort()` returns the resolved effort, or `None` when the
+  provider chose the reasoning. The typed `thinking_level` field holds it
+  and serializes as `effort`.
   `catalog_model_id` records the text id of the spec.
   `ModelError::Interrupted` identifies a streaming completion that failed only
   after provider events had arrived, keeping it distinct from a safe-to-retry
@@ -219,7 +223,7 @@ tool dispatch live in `ai-tool-calling`.
 - `src/model_spec.rs` - `ModelSpec`, its text id, and `ModelSpec::custom`.
 - `src/model_capabilities.rs` - `ForcedToolChoice`, `Sampling`, and
   `CustomModelDefaults`.
-- `src/effort.rs` - `Effort` and the nonempty `EffortSet`.
+- `src/effort.rs` - `Effort` and `EffortSet`, which can be empty.
 - `src/provider_id.rs` - `ProviderId` and `MOCK_PROVIDER`.
 - `src/model_catalog.rs` - `ModelCatalog` and its case-sensitive text-id
   lookup.

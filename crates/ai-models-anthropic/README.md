@@ -43,7 +43,8 @@ against the spec before transport. The adapter handles:
 - Anthropic `stop_reason` normalization into `ai_interface::FinishReason`
 - terminal Anthropic stop reasons suppress parsed tool calls unless the
   normalized finish reason is `ToolCalls`
-- Anthropic adaptive thinking mapping from the resolved request effort
+- Anthropic adaptive thinking and explicit off mapping from the resolved
+  request effort
 - effort lowering to the highest effort that the spec lists at or below the
   request, with the resolved effort and the text id retained in responses
 - validated structured-output requests via JSON-only final responses
@@ -62,17 +63,23 @@ model: `CLAUDE_SONNET_5`, `CLAUDE_OPUS_5`, `CLAUDE_FABLE_5`,
 lists them in that order, and `known_models()` returns a copy of it.
 `CLAUDE_SONNET_5` is the first catalog spec and the balanced default used by
 workspace examples. The Claude 5 specs list low, medium, and high efforts.
-Opus 5 also lists max. The Claude 5 specs default to the high effort. The
-Sonnet 4.6, Opus 4.7, and Haiku 4.5 specs default to disabled thinking and
-remain available for pinned deployments. The
+Opus 5 also lists max. Sonnet 5 and Opus 5 also list disabled. Fable 5
+cannot turn thinking off, so it does not list disabled. The Claude 5 specs
+default to the high effort. The Sonnet 4.6, Opus 4.7, and Haiku 4.5 specs
+default to disabled thinking and remain available for pinned deployments. A
+disabled request sends `thinking: {"type": "disabled"}` and no
+`output_config`. The
 [control matrix](../../docs/protocol/model-capabilities.md#control-matrix)
 lists the efforts and limits of each spec.
 `new`, `with_auth`, and `with_catalog_auth` all take a spec. Every Anthropic
 spec fixes sampling while thinking is on, so adaptive-thinking requests omit
 caller sampling controls as Anthropic requires. Build a model that the
 catalog does not list from
-`ModelSpec::custom(PROVIDER_ID, model_id, &CUSTOM_DEFAULTS)`. Its thinking
-stays off unless the request sets an effort.
+`ModelSpec::custom(PROVIDER_ID, model_id, &CUSTOM_DEFAULTS)`. Its default
+leaves the reasoning to the provider. A request without an effort then sends
+no `thinking` field and reports no effort. That request counts as thinking
+on, so it omits caller sampling controls and cannot force a tool. The custom
+defaults list every effort, but an unlisted model can reject one of them.
 A request with the max effort on `CLAUDE_OPUS_5` sends provider model id
 `claude-opus-5`, enables adaptive thinking, sets `output_config.effort` to
 `max`, and requests omitted thinking display.

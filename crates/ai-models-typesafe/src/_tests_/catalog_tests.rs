@@ -1,6 +1,6 @@
 //! TypeSafe catalog contract tests.
 
-use ai_interface::{CostTier, Effort, IntelligenceScore, ModelFeature, ProviderId, SpeedTier};
+use ai_interface::{CostTier, IntelligenceScore, ModelFeature, ProviderId, SpeedTier};
 use serde_json::json;
 
 use super::{JEV_1_13_0, JEV_LATEST, PROVIDER_ID, known_models};
@@ -51,7 +51,7 @@ fn catalog_entries_have_the_typesafe_judgment_contract() {
         assert_eq!(routing.intelligence, IntelligenceScore::Five);
         assert_eq!(routing.speed, SpeedTier::VeryFast);
         assert_eq!(routing.cost, CostTier::Low);
-        assert_eq!(model.default_effort, Effort::Disabled);
+        assert_eq!(model.default_effort, None);
         assert_eq!(model.features.as_ref(), [ModelFeature::Judgment]);
     }
 }
