@@ -17,7 +17,7 @@ use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 
 use super::{
     event_tests::{completion_event_failures, observing_model},
-    provider_tests::{CompletionEventExpectation, LiveProvider},
+    provider_tests::LiveProvider,
     validation_tests::validate_response,
 };
 
@@ -46,7 +46,11 @@ async fn run_catalog(provider: LiveProvider) {
     let mut failures = Vec::new();
     for probe in &catalog {
         let spec = &probe.spec;
-        println!("checking {} at {}", spec.text_id(), probe.effort.as_str());
+        println!(
+            "checking {} at {}",
+            spec.text_id(),
+            probe.effort.map_or("provider default", Effort::as_str)
+        );
         let model: DynModel = Arc::new(RetryingModel::with_standard_retry(provider.build(
             client.clone(),
             auth.clone(),
@@ -59,7 +63,6 @@ async fn run_catalog(provider: LiveProvider) {
                 probe.effort,
                 model,
                 ModelCompletionMode::PreferDeferred,
-                provider.preferred_mode_event_expectation(),
             )
             .await,
         );
@@ -93,7 +96,6 @@ async fn run_synchronous_stream_probe(provider: LiveProvider) {
         probe.effort,
         model,
         ModelCompletionMode::Synchronous,
-        provider.synchronous_event_expectation(),
     )
     .await;
     assert!(
@@ -106,10 +108,9 @@ async fn run_synchronous_stream_probe(provider: LiveProvider) {
 pub(super) async fn run_probe_with_marker_retry(
     provider: LiveProvider,
     spec: &ModelSpec,
-    effort: Effort,
+    effort: Option<Effort>,
     model: DynModel,
     completion_mode: ModelCompletionMode,
-    event_expectation: CompletionEventExpectation,
 ) -> Vec<String> {
     let mut retry_available = true;
     loop {
@@ -128,7 +129,6 @@ pub(super) async fn run_probe_with_marker_retry(
         );
         let event_failures = completion_event_failures(
             &spec.text_id(),
-            event_expectation,
             &completion.response.text(),
             &completion.events,
         );
@@ -164,7 +164,7 @@ fn has_failure_message(failure: &str, expected: &str) -> bool {
 pub(super) async fn complete_through_runtime(
     model: DynModel,
     completion_mode: ModelCompletionMode,
-    effort: Effort,
+    effort: Option<Effort>,
 ) -> Result<ObservedCompletion, String> {
     let (model, event_log) = observing_model(model);
     let runtime = ToolCallingRuntime::new(
@@ -209,11 +209,11 @@ pub(super) struct ObservedCompletion {
 
 pub(super) fn probe_controls(
     completion_mode: ModelCompletionMode,
-    effort: Effort,
+    effort: Option<Effort>,
 ) -> ModelCallControls {
     ModelCallControls {
         generation: ModelGenerationControls {
-            effort: Some(effort),
+            effort,
             tool_choice: Some(ModelToolChoice::None),
             ..Default::default()
         },

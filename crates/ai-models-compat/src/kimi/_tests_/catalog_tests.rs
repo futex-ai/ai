@@ -22,7 +22,7 @@ fn catalog_exposes_one_k3_model_with_all_efforts() {
     assert_eq!(models, CATALOG);
     assert_eq!(models.len(), 1);
     assert_eq!(models[0].provider_model_id, "kimi-k3");
-    assert_eq!(models[0].default_effort, Effort::Max);
+    assert_eq!(models[0].default_effort, Some(Effort::Max));
     assert_eq!(
         models[0].efforts.iter().collect::<Vec<_>>(),
         vec![Effort::Low, Effort::High, Effort::Max]

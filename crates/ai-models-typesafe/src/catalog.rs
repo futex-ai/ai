@@ -3,8 +3,8 @@
 use std::borrow::Cow;
 
 use ai_interface::{
-    CostTier, CustomModelDefaults, Effort, EffortSet, ForcedToolChoice, IntelligenceScore,
-    ModelFeature, ModelSpec, ProviderId, RoutingTiers, Sampling, SpeedTier,
+    CostTier, CustomModelDefaults, EffortSet, ForcedToolChoice, IntelligenceScore, ModelFeature,
+    ModelSpec, ProviderId, RoutingTiers, Sampling, SpeedTier,
 };
 
 /// Stable identity of the TypeSafe provider.
@@ -14,8 +14,8 @@ pub const PROVIDER_ID: ProviderId = ProviderId::new("typesafe");
 pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
     context_window_tokens: 0,
     max_output_tokens: 0,
-    efforts: EffortSet::new(Effort::Disabled),
-    default_effort: Effort::Disabled,
+    efforts: EffortSet::empty(),
+    default_effort: None,
     forced_tool_choice: ForcedToolChoice::Never,
     sampling: Sampling::Fixed,
     supports_stop_sequences: false,
@@ -44,8 +44,8 @@ const fn jev_spec(model_id: &'static str) -> ModelSpec {
         provider_model_id: Cow::Borrowed(model_id),
         context_window_tokens: 64_000,
         max_output_tokens: 0,
-        efforts: EffortSet::new(Effort::Disabled),
-        default_effort: Effort::Disabled,
+        efforts: EffortSet::empty(),
+        default_effort: None,
         forced_tool_choice: ForcedToolChoice::Never,
         sampling: Sampling::Fixed,
         supports_stop_sequences: false,

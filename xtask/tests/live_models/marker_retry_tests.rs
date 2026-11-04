@@ -103,7 +103,6 @@ async fn runner_retries_one_marker_miss_and_uses_the_second_reply() {
         spec.default_effort,
         model,
         ModelCompletionMode::Synchronous,
-        provider.synchronous_event_expectation(),
     )
     .await;
 
@@ -130,7 +129,6 @@ async fn runner_reports_the_second_marker_miss_after_one_retry() {
         spec.default_effort,
         model,
         ModelCompletionMode::Synchronous,
-        provider.synchronous_event_expectation(),
     )
     .await;
 
@@ -146,7 +144,7 @@ async fn runner_reports_the_second_marker_miss_after_one_retry() {
 
 #[test]
 fn probe_controls_are_provider_neutral() {
-    let controls = probe_controls(ModelCompletionMode::PreferDeferred, Effort::Medium);
+    let controls = probe_controls(ModelCompletionMode::PreferDeferred, Some(Effort::Medium));
 
     assert_eq!(controls.generation.tool_choice, Some(ModelToolChoice::None));
     assert_eq!(controls.execution.total_timeout, Some(MODEL_TIMEOUT));
@@ -161,7 +159,7 @@ async fn generic_runtime_executes_a_dynamic_model() {
     let response = complete_through_runtime(
         Arc::new(MockModel::new("live-probe")),
         ModelCompletionMode::Synchronous,
-        Effort::Disabled,
+        Some(Effort::Disabled),
     )
     .await
     .expect("generic runtime should complete through the model trait");
@@ -214,7 +212,7 @@ fn valid_response(spec: &ModelSpec, assistant_message: &str) -> ModelResponse {
         provider: spec.provider.as_str().to_owned(),
         model_id: spec.provider_model_id.to_string(),
         catalog_model_id: Some(spec.text_id().to_owned()),
-        thinking_level: Some(spec.default_effort),
+        thinking_level: spec.default_effort,
         parts: vec![ai_interface::ConversationPart::text(
             assistant_message.to_owned(),
         )],

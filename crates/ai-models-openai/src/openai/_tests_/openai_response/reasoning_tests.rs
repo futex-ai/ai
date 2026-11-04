@@ -15,7 +15,7 @@ async fn ignores_reasoning_output_items() {
     let response = response_from_fixture(
         "gpt-5.5-thinking-extra-high",
         "gpt-5.5",
-        Effort::ExtraHigh,
+        Some(Effort::ExtraHigh),
         json!({
             "status": "completed",
             "output": [
@@ -56,7 +56,7 @@ async fn preserves_reasoning_items_for_stateless_tool_continuation() {
     let response = response_from_fixture(
         "gpt-5.5-thinking-extra-high",
         "gpt-5.5",
-        Effort::ExtraHigh,
+        Some(Effort::ExtraHigh),
         json!({
             "status": "completed",
             "output": [
@@ -107,7 +107,7 @@ async fn preserves_function_call_items_for_stateless_replay_context() {
     let response = response_from_fixture(
         "gpt-5.5-thinking-extra-high",
         "gpt-5.5",
-        Effort::ExtraHigh,
+        Some(Effort::ExtraHigh),
         json!({
             "status": "completed",
             "output": [
@@ -163,7 +163,7 @@ async fn preserves_assistant_message_phase_for_stateless_replay_context() {
     let response = response_from_fixture(
         "gpt-5.5-thinking-extra-high",
         "gpt-5.5",
-        Effort::ExtraHigh,
+        Some(Effort::ExtraHigh),
         json!({
             "status": "completed",
             "output": [
@@ -206,7 +206,7 @@ async fn preserves_phase_less_assistant_message_order_for_stateless_replay_conte
     let response = response_from_fixture(
         "gpt-5.5-thinking-extra-high",
         "gpt-5.5",
-        Effort::ExtraHigh,
+        Some(Effort::ExtraHigh),
         json!({
             "status": "completed",
             "output": [

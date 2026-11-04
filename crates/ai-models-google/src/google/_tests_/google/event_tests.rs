@@ -128,7 +128,7 @@ fn usage_event(input: u64, output: u64, total: u64) -> Value {
 
 fn finish_event(structured: Option<Value>) -> Value {
     let mut finish = json!({"finish_reason": "Stop", "provider": "google", "model_id": "gemini-3.6-flash",
-        "catalog_model_id": "google/gemini-3.6-flash", "effort": "disabled"});
+        "catalog_model_id": "google/gemini-3.6-flash"});
     if let Some(structured) = structured {
         finish["structured_output"] = structured;
     }

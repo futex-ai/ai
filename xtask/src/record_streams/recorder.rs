@@ -97,7 +97,7 @@ impl StreamRecorder for ProviderStreamRecorder {
             )?;
             let result = self
                 .runner
-                .execute(model, scenario, Some(spec.default_effort), &redactor)
+                .execute(model, scenario, spec.default_effort, &redactor)
                 .await;
             self.storage.write(
                 provider,
@@ -106,7 +106,7 @@ impl StreamRecorder for ProviderStreamRecorder {
                     source: RecordingSource::Recorded,
                     catalog_model_id: spec.text_id(),
                     base_url: None,
-                    effort: Some(spec.default_effort),
+                    effort: spec.default_effort,
                     exchanges: log.snapshot(),
                 },
             )?;

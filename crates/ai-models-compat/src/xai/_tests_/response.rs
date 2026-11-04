@@ -24,7 +24,7 @@ pub(super) fn parse_response(
             error: &error,
             catalog_model_id,
             provider_model_id,
-            thinking_level,
+            thinking_level: Some(thinking_level),
             synthetic_tool_call_scope,
         },
         body,

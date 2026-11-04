@@ -48,7 +48,7 @@ fn grok_4_5_keeps_current_metadata_and_all_efforts() {
     assert_eq!(model.provider_model_id, "grok-4.5");
     assert_eq!(model.context_window_tokens, 500_000);
     assert_eq!(model.max_output_tokens, 500_000);
-    assert_eq!(model.default_effort, Effort::High);
+    assert_eq!(model.default_effort, Some(Effort::High));
     assert_eq!(
         model.efforts.iter().collect::<Vec<_>>(),
         vec![Effort::Low, Effort::Medium, Effort::High]
@@ -59,13 +59,13 @@ fn grok_4_5_keeps_current_metadata_and_all_efforts() {
 
 #[test]
 fn grok_primary_models_advertise_vision() {
-    for (model, expected_effort) in [(&CATALOG[1], Effort::High), (&CATALOG[2], Effort::Disabled)] {
+    for (model, expected_effort) in [(&CATALOG[1], Some(Effort::High)), (&CATALOG[2], None)] {
         assert!(model.has_feature(ModelFeature::Vision));
         assert_eq!(model.context_window_tokens, 1_000_000);
         assert_eq!(model.default_effort, expected_effort);
         assert_eq!(
             model.efforts.iter().collect::<Vec<_>>(),
-            vec![expected_effort]
+            expected_effort.into_iter().collect::<Vec<_>>()
         );
     }
 }

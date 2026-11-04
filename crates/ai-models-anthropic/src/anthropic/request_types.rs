@@ -80,7 +80,8 @@ pub(super) struct AnthropicTool {
 pub(super) struct AnthropicThinking {
     #[serde(rename = "type")]
     pub(super) kind: String,
-    pub(super) display: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) display: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

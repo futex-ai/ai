@@ -44,7 +44,8 @@ models. Provider crates retain their public constructors.
 `tests/live_models.rs` owns the chat live suite and its credential-free guards.
 Each ignored provider test reads one explicit `LIVE_MODEL_API_KEY` and takes
 every chat-capable spec of that provider in the registry's combined catalog. It runs
-one probe for each effort that the spec lists, with the default effort first.
+one probe at the default of the spec, then one probe for each other listed
+effort. The default probe of a spec without a default effort sets no effort.
 Each probe builds the adapter through the registry from the spec and provider
 config, wraps it in the standard retry
 layer of `ai-models-policy`, erases it behind `DynModel`, sets the probe
@@ -69,8 +70,8 @@ wording but does not retry request, identity, finish, tool, usage, or other
 event failures, and costs at most one extra billable call per probe.
 Image-, video-, and judgment-capable specs are excluded because they
 use separate specialized interfaces. Credentialed tests never run as part of
-`check` or `smoke-test`; credential-free event policy, bridge, validation,
-catalog, and workflow guards do. The dedicated GitHub Actions workflow invokes
+`check` or `smoke-test`; credential-free bridge, validation, catalog, and
+workflow guards do. The dedicated GitHub Actions workflow invokes
 the ignored tests for eligible pull requests, daily verification, and manual
 dispatch. The MiniMax job first sends MiniMax-M3 a real tool with strict
 `Required` selection and asserts that the provider returns that tool call.
@@ -106,9 +107,10 @@ None of the live suites makes provider calls during `check` or
 text, two-turn tool, schema, and image scenarios from `ai-testkit`.
 Provider names are `anthropic`, `openai`, `google`, `deepseek`, `kimi`,
 `qwen`, `minimax`, and `xai`. The command uses the first chat spec at its
-default effort. For the tool scenario it uses the first spec whose default
-effort enables thinking. Each file stores the text id of the spec and that
-effort. xAI stays synchronous.
+default. For the tool scenario it uses the first spec whose default can
+think: an effort above disabled, or the provider default. Each file stores
+the text id of the spec and its default effort, or no effort for the
+provider default. xAI stays synchronous.
 It writes four files under `crates/ai-testkit/recordings/<provider>/`
 with `source: "recorded"`. It preserves errors and reports their count.
 It never retries model calls. Rate-limit and stream-cut files stay synthetic.

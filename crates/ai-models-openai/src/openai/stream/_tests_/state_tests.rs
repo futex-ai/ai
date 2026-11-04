@@ -18,7 +18,7 @@ fn anonymous_text_waits_for_terminal_replay_item_order() {
         )
         .unwrap();
     assert_eq!(first.len(), 0);
-    let events = state.complete("openai/gpt-5.5","gpt-5.5",Effort::Disabled,serde_json::from_value(json!({"status":"completed","output":[
+    let events = state.complete("openai/gpt-5.5","gpt-5.5",Some(Effort::Disabled),serde_json::from_value(json!({"status":"completed","output":[
         {"type":"reasoning","id":"rs-one","summary":[],"encrypted_content":"signed"},
         {"type":"message","phase":"commentary","content":[{"type":"output_text","text":"Checking now"}]}
     ]})).unwrap(),None).unwrap();
@@ -42,7 +42,7 @@ fn anonymous_fragments_survive_terminal_output_validation_errors() {
                 .unwrap(),
         )
         .unwrap();
-    let error = state.complete("openai/gpt-5.5","gpt-5.5",Effort::Disabled,serde_json::from_value(json!({"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"{"}]}]})).unwrap(),Some(&StructuredOutputSchema { name:"answer".to_owned(),schema:json!({"type":"object"}) }));
+    let error = state.complete("openai/gpt-5.5","gpt-5.5",Some(Effort::Disabled),serde_json::from_value(json!({"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"{"}]}]})).unwrap(),Some(&StructuredOutputSchema { name:"answer".to_owned(),schema:json!({"type":"object"}) }));
     assert!(
         matches!(error, Err(ref error) if error.core().kind == ai_interface::ErrorKind::InvalidOutput)
     );

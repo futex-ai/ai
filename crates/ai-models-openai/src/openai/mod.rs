@@ -231,3 +231,7 @@ mod auth_context_tests;
 #[cfg(test)]
 #[path = "_tests_/config/mod.rs"]
 mod config_tests;
+
+#[cfg(test)]
+#[path = "_tests_/provider_default_tests.rs"]
+mod provider_default_tests;

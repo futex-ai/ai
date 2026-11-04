@@ -75,9 +75,9 @@ fn text_format(response_schema: &StructuredOutputSchema) -> ResponsesText {
     }
 }
 
-fn reasoning(thinking_level: Effort) -> Option<ResponsesReasoning> {
-    let effort = match thinking_level {
-        Effort::Disabled => return None,
+fn reasoning(thinking_level: Option<Effort>) -> Option<ResponsesReasoning> {
+    let effort = match thinking_level? {
+        Effort::Disabled => "none",
         Effort::Low => "low",
         Effort::Medium => "medium",
         Effort::High => "high",
@@ -89,9 +89,9 @@ fn reasoning(thinking_level: Effort) -> Option<ResponsesReasoning> {
     })
 }
 
-fn include_items(thinking_level: Effort) -> Vec<String> {
+fn include_items(thinking_level: Option<Effort>) -> Vec<String> {
     thinking_level
-        .is_enabled()
+        .is_some_and(Effort::is_enabled)
         .then(|| "reasoning.encrypted_content".to_owned())
         .into_iter()
         .collect()

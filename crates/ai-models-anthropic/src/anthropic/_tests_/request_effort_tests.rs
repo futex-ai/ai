@@ -45,7 +45,7 @@ async fn request_effort_overrides_default_for_each_call() {
         .expect("valid JSON request body")["output_config"]["effort"],
         "max"
     );
-    assert!(
+    assert_eq!(
         serde_json::from_slice::<serde_json::Value>(
             requests[1]
                 .body
@@ -54,9 +54,8 @@ async fn request_effort_overrides_default_for_each_call() {
                 .as_json_bytes()
                 .expect("JSON request body")
         )
-        .expect("valid JSON request body")
-        .get("thinking")
-        .is_none()
+        .expect("valid JSON request body")["thinking"],
+        json!({"type": "disabled"})
     );
 }
 
