@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use ai_interface::{
-    ConversationMessage, ConversationPart, FinishReason, Model, ModelRequest,
-    ModelResponse, ModelUsage, ToolCall,
+    ConversationMessage, ConversationPart, FinishReason, Model, ModelRequest, ModelResponse,
+    ModelUsage, ToolCall,
 };
 use json_http::StaticHeaderAuth;
 use serde_json::json;

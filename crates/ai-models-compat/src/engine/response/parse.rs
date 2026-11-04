@@ -1,7 +1,8 @@
 //! Shared response normalization and local structured-output checks.
 
 use ai_interface::{
-    Effort, FinishReason, ModelError, ModelResponse, ModelResult, ModelUsage, StructuredOutputSchema,
+    Effort, FinishReason, ModelError, ModelResponse, ModelResult, ModelUsage,
+    StructuredOutputSchema,
 };
 use ai_models_core::{assistant_text, parse_structured_output};
 use serde_json::Value;

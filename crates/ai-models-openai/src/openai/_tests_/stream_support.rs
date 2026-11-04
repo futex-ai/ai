@@ -106,7 +106,7 @@ fn mock_stream(items: Vec<StreamItem>) -> DynJsonHttpSseStream {
 pub(super) async fn response_from_fixture(
     catalog_model_id: &str,
     provider_model_id: &str,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
     body: Value,
     schema: Option<&StructuredOutputSchema>,
 ) -> ModelResult<ModelResponse> {
@@ -126,7 +126,7 @@ pub(super) async fn response_from_fixture(
 
 pub(super) fn expected_response(
     assistant_message: &str,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
     finish_reason: FinishReason,
     usage: ModelUsage,
 ) -> ModelResponse {
@@ -134,7 +134,7 @@ pub(super) fn expected_response(
         provider: "openai".to_owned(),
         model_id: "gpt-5.5".to_owned(),
         catalog_model_id: Some("openai/gpt-5.5".to_owned()),
-        thinking_level: Some(thinking_level),
+        thinking_level,
         parts: vec![ConversationPart::text(assistant_message)],
         finish_reason,
         structured_output: None,

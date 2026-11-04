@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ai_interface::{ConversationPart, Effort, FinishReason, ModelResponse, ModelSpec, ModelUsage};
+use ai_interface::{ConversationPart, FinishReason, ModelResponse, ModelSpec, ModelUsage};
 use json_http::{
     DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpSseEvent, JsonHttpSseStreamMock,
     JsonHttpTransportMock, TransportBackedJsonHttpClient,
@@ -84,7 +84,7 @@ pub(super) fn expected_response(
         provider: "google".to_owned(),
         model_id: "gemini-3.6-flash".to_owned(),
         catalog_model_id: Some("google/gemini-3.6-flash".to_owned()),
-        thinking_level: Some(Effort::Disabled),
+        thinking_level: None,
         parts: if assistant_message.is_empty() {
             Vec::new()
         } else {

@@ -47,9 +47,10 @@ async fn maps_response_finish_reasons() {
     ];
 
     for (body, expected, label) in cases {
-        let response = response_from_fixture("gpt-5.5", "gpt-5.5", Some(Effort::Medium), body, None)
-            .await
-            .expect(label);
+        let response =
+            response_from_fixture("gpt-5.5", "gpt-5.5", Some(Effort::Medium), body, None)
+                .await
+                .expect(label);
         assert_eq!(response.finish_reason, expected, "{label}");
     }
 }

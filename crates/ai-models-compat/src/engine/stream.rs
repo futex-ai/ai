@@ -26,7 +26,7 @@ pub(super) struct StreamIdentity {
     pub(super) dialect: &'static Dialect,
     pub(super) catalog_model_id: String,
     pub(super) provider_model_id: String,
-    pub(super) thinking_level: Effort,
+    pub(super) thinking_level: Option<Effort>,
     pub(super) synthetic_tool_call_scope: String,
 }
 
