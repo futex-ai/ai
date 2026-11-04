@@ -2,9 +2,9 @@
 
 use std::sync::Arc;
 
-use ai_interface::{Effort, Model, ModelControl, ModelError, ModelSpec};
-use json_http::TransportBackedJsonHttpClient;
-use serde_json::json;
+use ai_interface::{Effort, ErrorKind, Model, ModelControl, ModelSpec};
+use json_http::{JsonHttpBody, TransportBackedJsonHttpClient};
+use serde_json::{Value, json};
 use unimock::Unimock;
 
 use crate::{CUSTOM_DEFAULTS, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH, GoogleModel, PROVIDER_ID};
@@ -31,7 +31,7 @@ async fn flash_lite_efforts_reach_native_levels_and_lower_stronger_requests() {
         let response = model.complete(&request).await;
         let requests = requests.lock().unwrap();
         assert_eq!(requests.len(), 1, "{requested:?}: {response:?}");
-        let body = requests[0].body.as_ref().unwrap();
+        let body = request_body(requests[0].body.as_ref().unwrap());
         assert_eq!(
             body["generationConfig"]["thinkingConfig"],
             json!({"thinkingLevel": native}),
@@ -49,7 +49,7 @@ async fn flash_lite_default_sends_minimal_and_reports_low() {
     let response = model.complete(&simple_request()).await.unwrap();
     assert_eq!(response.effort(), Some(Effort::Low));
     assert_eq!(
-        requests.lock().unwrap()[0].body.as_ref().unwrap()["generationConfig"]["thinkingConfig"],
+        request_body(requests.lock().unwrap()[0].body.as_ref().unwrap())["generationConfig"]["thinkingConfig"],
         json!({"thinkingLevel": "minimal"})
     );
 }
@@ -69,8 +69,9 @@ async fn known_gemini_custom_specs_cannot_advertise_an_off_control() {
         request.controls.generation.effort = Some(Effort::Disabled);
 
         assert!(matches!(model.complete(&request).await,
-            Err(ModelError::UnsupportedControl { provider, model_id: rejected, control: ModelControl::Effort })
-            if provider == "google" && rejected == model_id
+            Err(ref error)
+            if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::Effort)
+                && error.core().provider == "google" && error.core().model_id == model_id
         ));
     }
 }
@@ -79,4 +80,9 @@ fn response() -> serde_json::Value {
     json!({"candidates": [{
         "content": {"parts": [{"text": "Done"}]}, "finishReason": "STOP"
     }]})
+}
+
+fn request_body(body: &JsonHttpBody) -> Value {
+    serde_json::from_slice(body.as_json_bytes().expect("JSON request body"))
+        .expect("valid JSON request body")
 }

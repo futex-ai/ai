@@ -1,7 +1,8 @@
 //! Provider-default reasoning and the explicit Responses off control.
 
 use ai_interface::{ConversationMessage, Effort, Model, ModelRequest};
-use serde_json::json;
+use json_http::JsonHttpBody;
+use serde_json::{Value, json};
 
 use crate::{GPT_5_4_MINI, GPT_5_4_NANO, OpenAiModel};
 
@@ -34,7 +35,7 @@ async fn provider_default_omits_reasoning_and_reports_no_effort() {
     let response = model.complete(&request).await.unwrap();
     assert_eq!(response.effort(), None);
     let requests = requests.lock().unwrap();
-    let body = requests[0].body.as_ref().unwrap();
+    let body = request_body(requests[0].body.as_ref().unwrap());
     assert_eq!(body.get("reasoning"), None);
     assert_eq!(body.get("temperature"), None);
     assert_eq!(body.get("top_p"), None);
@@ -50,8 +51,13 @@ async fn explicit_off_sends_none_for_mini_and_nano() {
         request.controls.generation.effort = Some(Effort::Disabled);
         let response = model.complete(&request).await.unwrap();
         let requests = requests.lock().unwrap();
-        let body = requests[0].body.as_ref().unwrap();
+        let body = request_body(requests[0].body.as_ref().unwrap());
         assert_eq!(body["reasoning"], json!({"effort": "none"}));
         assert_eq!(response.effort(), Some(Effort::Disabled));
     }
+}
+
+fn request_body(body: &JsonHttpBody) -> Value {
+    serde_json::from_slice(body.as_json_bytes().expect("JSON request body"))
+        .expect("valid JSON request body")
 }

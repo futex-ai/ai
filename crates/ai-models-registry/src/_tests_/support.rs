@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    CustomModelDefaults, Effort, EffortSet, ForcedToolChoice, ModelSpec, ProviderId, Sampling,
+    CustomModelDefaults, EffortSet, ForcedToolChoice, ModelSpec, ProviderId, Sampling,
 };
 use json_http::{DynJsonHttpClient, TransportBackedJsonHttpClient};
 use unimock::Unimock;
@@ -60,8 +60,8 @@ pub(super) const PROVIDERS: &[(&str, bool, [bool; 5])] = &[
 const DEFAULTS: CustomModelDefaults = CustomModelDefaults {
     context_window_tokens: 0,
     max_output_tokens: u32::MAX,
-    efforts: EffortSet::new(Effort::Disabled),
-    default_effort: Effort::Disabled,
+    efforts: EffortSet::empty(),
+    default_effort: None,
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
     supports_stop_sequences: true,
