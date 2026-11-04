@@ -226,7 +226,10 @@ builds each adapter from a spec. A request sets its effort in
 `controls.generation.effort`. The shared capability check lowers an effort
 that the spec does not list to the highest listed effort below it, and never
 raises an effort. A request without an effort uses the default effort of the
-spec.
+spec. A spec without a default effort leaves the reasoning to the provider.
+Such a call sends no thinking field and reports no effort. A disabled
+request sends the explicit off value of the provider. It fails before
+transport when the provider has none.
 
 ```rust
 use std::{sync::Arc, time::Duration};

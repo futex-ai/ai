@@ -22,7 +22,7 @@ pub(in crate::anthropic) fn open(
     context: ErrorContext,
     catalog_model_id: String,
     provider_model_id: String,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
     response_schema: Option<StructuredOutputSchema>,
 ) -> DynModelEventStream {
     let context = context.for_response(stream.headers());
@@ -47,7 +47,7 @@ struct AnthropicEventStream {
     events_received: u64,
     catalog_model_id: String,
     provider_model_id: String,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
     response_schema: Option<StructuredOutputSchema>,
 }
 

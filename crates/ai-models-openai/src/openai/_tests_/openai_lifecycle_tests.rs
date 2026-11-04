@@ -92,7 +92,7 @@ async fn emits_indexed_interleaved_tools_reasoning_and_refusal_before_terminal_m
             }}}),
             json!({"Finish": {
                 "finish_reason": "ToolCalls", "provider": "openai", "model_id": "gpt-5.5",
-                "catalog_model_id": "openai/gpt-5.5", "effort": "disabled",
+                "catalog_model_id": "openai/gpt-5.5",
 
             }}),
         ]

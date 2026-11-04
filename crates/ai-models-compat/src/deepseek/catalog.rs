@@ -17,7 +17,7 @@ pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
     efforts: EffortSet::new(Effort::Disabled)
         .with(Effort::High)
         .with(Effort::Max),
-    default_effort: Effort::High,
+    default_effort: Some(Effort::High),
     forced_tool_choice: ForcedToolChoice::OnlyWithoutThinking,
     sampling: Sampling::FixedWhileThinking,
     supports_stop_sequences: true,
@@ -35,7 +35,7 @@ pub const DEEPSEEK_V4_PRO: ModelSpec = ModelSpec {
     efforts: EffortSet::new(Effort::Disabled)
         .with(Effort::High)
         .with(Effort::Max),
-    default_effort: Effort::High,
+    default_effort: Some(Effort::High),
     forced_tool_choice: ForcedToolChoice::OnlyWithoutThinking,
     sampling: Sampling::FixedWhileThinking,
     supports_stop_sequences: true,
@@ -64,7 +64,7 @@ pub const DEEPSEEK_V4_FLASH: ModelSpec = ModelSpec {
     efforts: EffortSet::new(Effort::Disabled)
         .with(Effort::High)
         .with(Effort::Max),
-    default_effort: Effort::High,
+    default_effort: Some(Effort::High),
     forced_tool_choice: ForcedToolChoice::OnlyWithoutThinking,
     sampling: Sampling::FixedWhileThinking,
     supports_stop_sequences: true,

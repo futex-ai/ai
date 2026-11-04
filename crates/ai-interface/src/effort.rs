@@ -1,4 +1,4 @@
-//! Portable reasoning effort and nonempty supported-effort sets.
+//! Portable reasoning effort and supported-effort sets.
 
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 /// Portable effort ordered from disabled thinking to maximum thinking.
 pub enum Effort {
-    /// Disable explicit thinking.
+    /// Turn thinking off with the provider's explicit off control.
     Disabled,
     /// Use the lowest thinking effort.
     Low,
@@ -50,10 +50,15 @@ impl Effort {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-/// A nonempty ordered set of supported efforts.
+/// An ordered set of explicitly supported efforts, which can be empty.
 pub struct EffortSet(u8);
 
 impl EffortSet {
+    /// Builds a set with no explicit effort controls.
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+
     /// Builds a set with one supported effort.
     pub const fn new(effort: Effort) -> Self {
         Self(1 << effort as u8)

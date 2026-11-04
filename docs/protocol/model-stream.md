@@ -57,7 +57,7 @@ Responses, or event streams that are persisted, resumed, or reattached.
 | Tool-call argument delta | part position, JSON text | The next fragment of the argument text of a call. |
 | Tool-call end | part position, optional provider state | The argument text of a call is complete. |
 | Usage | usage | The usage of the attempt. |
-| Finish | finish reason, provider id, model id, text id, effort, optional structured output | The attempt is complete. |
+| Finish | finish reason, provider id, model id, text id, optional effort, optional structured output | The attempt is complete. |
 | Fallback | error of the failed attempt | The attempt failed, and its events are void. |
 
 - The event type is non-exhaustive.
@@ -74,6 +74,7 @@ Responses, or event streams that are persisted, resumed, or reattached.
 - An event carries only the provider state of its own part.
 - The finish event names the provider id, the provider model id, and the
   text id of the attempt, and the effort that the capability check resolved.
+  It has no effort when the call leaves the reasoning to the provider.
 - Only a policy layer emits a fallback event. An adapter never emits one.
 
 ## Event order

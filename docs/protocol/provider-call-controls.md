@@ -64,7 +64,8 @@ Completion mode is one of:
 
 All fields default to absence and `Synchronous`. An entirely default controls
 object is omitted when `ModelRequest` is serialized. A request without an
-effort uses the default effort of the model spec.
+effort uses the default effort of the model spec, or the provider default
+when the spec has no default effort.
 
 `total_timeout` is the total duration available to one adapter invocation. A
 streaming immediate adapter uses it as the overall stream deadline without
@@ -105,10 +106,8 @@ each adapter also keeps its constructors. `new`, `with_auth`, and
 `with_catalog_auth` take the spec, except that the DeepSeek, Kimi, and Qwen
 `new` and `with_auth` build the default spec of their provider. The spec
 carries the sampling rule of its model, so a model with adaptive thinking
-omits a caller temperature while thinking is on. A model that no catalog
-lists uses a [custom spec](model-capabilities.md#custom-specs). The
-Anthropic custom defaults keep thinking off unless the request sets an
-effort.
+omits a caller temperature unless thinking is off. A model that no catalog
+lists uses a [custom spec](model-capabilities.md#custom-specs).
 
 Malformed provider responses, terminal provider failures, and transport
 failures take their kinds from [model policies](model-policies.md#error-kinds).

@@ -129,7 +129,7 @@ fn usage_event() -> Value {
 
 fn finish_event(structured: Option<Value>) -> Value {
     let mut finish = json!({"finish_reason": "Stop", "provider": "openai", "model_id": "gpt-5.5",
-        "catalog_model_id": "openai/gpt-5.5", "effort": "disabled"});
+        "catalog_model_id": "openai/gpt-5.5"});
     if let Some(structured) = structured {
         finish["structured_output"] = structured;
     }

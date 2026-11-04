@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use ai_interface::{
-    ConversationMessage, ConversationPart, Effort, FinishReason, Model, ModelRequest,
-    ModelResponse, ModelUsage, ToolCall,
+    ConversationMessage, ConversationPart, FinishReason, Model, ModelRequest, ModelResponse,
+    ModelUsage, ToolCall,
 };
 use json_http::StaticHeaderAuth;
 use serde_json::json;
@@ -239,7 +239,7 @@ async fn streamed_deltas_preserve_complete_response_fields() {
         provider: "anthropic".to_owned(),
         model_id: "claude-opus-streaming".to_owned(),
         catalog_model_id: Some("anthropic/claude-opus-streaming".to_owned()),
-        thinking_level: Some(Effort::Disabled),
+        thinking_level: None,
         parts: vec![
             ConversationPart::reasoning("private thought").with_provider_state(expected_state(
                 "claude-opus-streaming",

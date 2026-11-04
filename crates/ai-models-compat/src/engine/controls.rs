@@ -1,5 +1,6 @@
 //! Provider wire forms for tool choices that the shared checker resolved.
 
+use ai_interface::Effort;
 use ai_models_core::{ResolvedModelControls, ResolvedToolChoice};
 
 use super::{
@@ -16,7 +17,7 @@ pub(super) fn tool_choice(
 ) -> Option<ChatCompletionsToolChoice> {
     let choice = controls.tool_choice.as_ref();
     if matches!(dialect.tool_choice, ToolChoiceWire::OmitWhileThinking)
-        && controls.effort.is_enabled()
+        && controls.effort.is_none_or(Effort::is_enabled)
         && matches!(
             choice,
             None | Some(ResolvedToolChoice::None | ResolvedToolChoice::Auto)

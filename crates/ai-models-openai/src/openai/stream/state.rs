@@ -114,7 +114,7 @@ impl OpenAiStreamState {
         &mut self,
         catalog_model_id: &str,
         provider_model_id: &str,
-        thinking_level: Effort,
+        thinking_level: Option<Effort>,
         parsed: ResponsesResponse,
         response_schema: Option<&StructuredOutputSchema>,
     ) -> ModelResult<Vec<ModelEvent>> {
@@ -140,7 +140,7 @@ impl OpenAiStreamState {
         &mut self,
         catalog_model_id: &str,
         provider_model_id: &str,
-        thinking_level: Effort,
+        thinking_level: Option<Effort>,
         parsed: ResponsesResponse,
         response_schema: Option<&StructuredOutputSchema>,
     ) -> ModelResult<Vec<ModelEvent>> {

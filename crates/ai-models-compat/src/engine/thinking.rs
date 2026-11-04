@@ -1,6 +1,6 @@
 //! Thinking-parameter wire forms for a resolved request effort.
 
-use ai_interface::Effort;
+use ai_interface::{Effort, ModelControl, ModelError, ModelResult};
 
 use super::{
     dialect::{Dialect, ThinkingFormat},
@@ -10,20 +10,20 @@ use super::{
 pub(super) fn thinking_fields(
     dialect: &Dialect,
     model_id: &str,
-    effort: Effort,
-) -> (Option<ChatCompletionsThinking>, Option<String>) {
-    match dialect.thinking {
+    effort: Option<Effort>,
+) -> ModelResult<(Option<ChatCompletionsThinking>, Option<String>)> {
+    let Some(effort) = effort else {
+        return Ok((None, None));
+    };
+    Ok(match dialect.thinking {
         ThinkingFormat::GrokEffort { fixed_prefix } => {
-            let wire_effort = if model_id.starts_with(fixed_prefix) {
-                None
-            } else {
-                match effort {
-                    Effort::Disabled => None,
-                    Effort::Low => Some("low"),
-                    Effort::Medium => Some("medium"),
-                    Effort::High | Effort::Max => Some("high"),
-                    Effort::ExtraHigh => Some("xhigh"),
-                }
+            let wire_effort = match effort {
+                Effort::Disabled => Some("none"),
+                _ if model_id.starts_with(fixed_prefix) => None,
+                Effort::Low => Some("low"),
+                Effort::Medium => Some("medium"),
+                Effort::High | Effort::Max => Some("high"),
+                Effort::ExtraHigh => Some("xhigh"),
             };
             (None, wire_effort.map(str::to_owned))
         }
@@ -38,6 +38,13 @@ pub(super) fn thinking_fields(
             None,
         ),
         ThinkingFormat::Flags => (None, None),
+        ThinkingFormat::Effort if effort == Effort::Disabled => {
+            return Err(ModelError::unsupported_control(
+                dialect.provider,
+                model_id,
+                ModelControl::Effort,
+            ));
+        }
         ThinkingFormat::Effort => (None, Some(effort.as_str().to_owned())),
         ThinkingFormat::ToggleEffort => (
             Some(ChatCompletionsThinking {
@@ -49,5 +56,5 @@ pub(super) fn thinking_fields(
             }),
             effort.is_enabled().then(|| effort.as_str().to_owned()),
         ),
-    }
+    })
 }
