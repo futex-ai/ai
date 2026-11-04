@@ -91,9 +91,11 @@ against the spec before transport. The adapter handles:
   no-id calls from sharing runtime idempotency keys. The tool-call start
   event carries both ids.
 - Gemini `generationConfig.responseJsonSchema` mapping for structured outputs
-- Gemini 3 `generationConfig.thinkingConfig.thinkingLevel` mapping from the
-  resolved request effort, while retaining Gemini 2.5 `thinkingBudget`
-  mapping
+- one Google effort table that gives the efforts and the native
+  `generationConfig.thinkingConfig` values of each catalog model. The same
+  table holds the generic Gemini 3 `thinkingLevel` and Gemini 2.5
+  `thinkingBudget` mappings for other models. No table entry leaves the
+  field out
 - effort lowering to the highest effort that the spec lists at or below the
   request, with the resolved effort and the text id retained in responses
 - provider response usage extraction into normalized input, output, cached
@@ -114,9 +116,11 @@ them in that order, and `known_models()` returns a copy of it.
 workspace examples. It lists low, medium, and high efforts. Its default
 effort is medium. A request with the high
 effort sends provider model id `gemini-3.6-flash` with
-`thinkingLevel: "high"`. Gemini 3.5 Flash-Lite lists only the disabled
-effort and leaves the thinking control unset so the provider uses its
-minimal default. The
+`thinkingLevel: "high"`. Gemini 3.5 Flash-Lite lists low, medium, and high
+efforts, with low as its default. It sends `thinkingLevel: "minimal"` for
+low, `"medium"` for medium, and `"high"` for high. Flash-Lite cannot turn
+thinking off, so a disabled request fails with `UnsupportedControl` before
+transport. The
 [control matrix](../../docs/protocol/model-capabilities.md#control-matrix)
 lists the efforts and limits of each spec. Gemini 2.5 models are not in the
 catalog because the API does not make them available to new users. Callers
@@ -124,11 +128,17 @@ can still build them from the retained `GEMINI_2_5_PRO`, `GEMINI_2_5_FLASH`,
 and `GEMINI_2_5_FLASH_LITE` provider model ids with
 `ModelSpec::custom(PROVIDER_ID, GEMINI_2_5_PRO, &CUSTOM_DEFAULTS)`. The
 request mapper keeps fixed `thinkingBudget` compatibility for those models.
-A custom spec starts with the disabled effort as its default. Response parts marked
-as provider thoughts are not surfaced as assistant text, but stream consumers
-receive them as reasoning deltas. A call with a response schema emits text
-deltas like any other call, and its finish event carries the validated
-structured output.
+A custom spec has no default effort, so a request without an effort leaves
+out `thinkingConfig` and reports no effort. A disabled request on a custom
+spec sends `thinkingBudget: 0`. The effort table knows some model ids, such
+as Gemini 3.6 Flash and Flash-Lite. When it gives such a model no off value,
+a disabled request on a custom spec fails with `UnsupportedControl` before
+transport. Another model that cannot turn thinking off rejects
+`thinkingBudget: 0`, so remove disabled from its custom spec. Response
+parts marked as provider thoughts are not surfaced as assistant text, but
+stream consumers receive them as reasoning deltas. A call with a response
+schema emits text deltas like any other call, and its finish event carries
+the validated structured output.
 
 `GoogleImageGenerator` uses the current `v1` compatibility endpoint with an
 injected `json-http` client and explicit API key or auth hook. It maps text and
@@ -211,7 +221,12 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 - `src/google/mod.rs` - `Model::stream` implementation and request dispatch
 - `src/catalog.rs` - Google provider id, model spec constants, `CATALOG`,
-  custom defaults, and the retained Gemini 2.5 provider model ids
+  custom defaults, and the retained Gemini 2.5 provider model ids. Each
+  spec and the custom defaults take their efforts from the effort table
+- `src/effort_mapping.rs` - the one effort table: the efforts and native
+  thinking controls of each catalog model and of the generic mappings
+- `src/google/thinking.rs` - serializes the selected thinking control into
+  `generationConfig.thinkingConfig`
 - `src/google/request.rs` - Google request mapping
 - `src/google/contents.rs` - maps ordered parts to Gemini contents, and
   replays own state

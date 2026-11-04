@@ -46,3 +46,7 @@ mod finish_state_tests;
 #[cfg(test)]
 #[path = "_tests_/part_replay_tests.rs"]
 mod part_replay_tests;
+
+#[cfg(test)]
+#[path = "_tests_/provider_default_tests.rs"]
+mod provider_default_tests;

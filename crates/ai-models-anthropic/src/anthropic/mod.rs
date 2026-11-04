@@ -179,3 +179,7 @@ mod legacy_replay_tests;
 #[cfg(test)]
 #[path = "_tests_/anthropic_lifecycle_tests.rs"]
 mod anthropic_lifecycle_tests;
+
+#[cfg(test)]
+#[path = "_tests_/provider_default_tests.rs"]
+mod provider_default_tests;

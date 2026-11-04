@@ -87,7 +87,7 @@ async fn completed_stream_matches_rich_buffered_response() {
         .expect("streamed response should parse");
     let mut buffered = expected_response(
         "Checking. ",
-        Effort::High,
+        Some(Effort::High),
         FinishReason::ToolCalls,
         ModelUsage {
             input_tokens: 80,
@@ -137,7 +137,7 @@ async fn completed_structured_stream_matches_buffered_response() {
         .expect("structured stream should parse");
     let mut buffered = expected_response(
         "{\"summary\":\"Done\"}",
-        Effort::Disabled,
+        None,
         FinishReason::Stop,
         ModelUsage {
             input_tokens: 4,
@@ -172,7 +172,7 @@ async fn incomplete_stream_matches_buffered_truncation() {
         .expect("incomplete response should remain usable");
     let buffered = expected_response(
         "Partial",
-        Effort::Disabled,
+        None,
         FinishReason::Truncated,
         ModelUsage {
             input_tokens: 4,

@@ -20,7 +20,7 @@ pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
         .with(Effort::High)
         .with(Effort::ExtraHigh)
         .with(Effort::Max),
-    default_effort: Effort::Disabled,
+    default_effort: None,
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
     supports_stop_sequences: true,
@@ -38,7 +38,7 @@ pub const GROK_4_5: ModelSpec = ModelSpec {
     efforts: EffortSet::new(Effort::Low)
         .with(Effort::Medium)
         .with(Effort::High),
-    default_effort: Effort::High,
+    default_effort: Some(Effort::High),
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
     supports_stop_sequences: true,
@@ -66,7 +66,7 @@ pub const GROK_4_20_REASONING: ModelSpec = ModelSpec {
     context_window_tokens: 1_000_000,
     max_output_tokens: 1_000_000,
     efforts: EffortSet::new(Effort::High),
-    default_effort: Effort::High,
+    default_effort: Some(Effort::High),
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
     supports_stop_sequences: true,
@@ -87,14 +87,14 @@ pub const GROK_4_20_REASONING: ModelSpec = ModelSpec {
     }),
 };
 
-/// grok-4.20 model facts at its default disabled effort.
+/// grok-4.20 model facts without an explicit effort control.
 pub const GROK_4_20: ModelSpec = ModelSpec {
     provider: PROVIDER_ID,
     provider_model_id: Cow::Borrowed("grok-4.20"),
     context_window_tokens: 1_000_000,
     max_output_tokens: 1_000_000,
-    efforts: EffortSet::new(Effort::Disabled),
-    default_effort: Effort::Disabled,
+    efforts: EffortSet::empty(),
+    default_effort: None,
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Adjustable,
     supports_stop_sequences: true,

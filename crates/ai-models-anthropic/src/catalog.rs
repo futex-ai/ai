@@ -28,7 +28,7 @@ pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
         .with(Effort::High)
         .with(Effort::ExtraHigh)
         .with(Effort::Max),
-    default_effort: Effort::Disabled,
+    default_effort: None,
     forced_tool_choice: ForcedToolChoice::OnlyWithoutThinking,
     sampling: Sampling::FixedWhileThinking,
     supports_stop_sequences: true,
@@ -57,7 +57,8 @@ pub const CLAUDE_SONNET_5: ModelSpec = claude_spec(
     "claude-sonnet-5",
     1_000_000,
     128_000,
-    EffortSet::new(Effort::Low)
+    EffortSet::new(Effort::Disabled)
+        .with(Effort::Low)
         .with(Effort::Medium)
         .with(Effort::High),
     Effort::High,
@@ -74,7 +75,8 @@ pub const CLAUDE_OPUS_5: ModelSpec = claude_spec(
     "claude-opus-5",
     1_000_000,
     128_000,
-    EffortSet::new(Effort::Low)
+    EffortSet::new(Effort::Disabled)
+        .with(Effort::Low)
         .with(Effort::Medium)
         .with(Effort::High)
         .with(Effort::Max),
@@ -179,7 +181,7 @@ const fn claude_spec(
         context_window_tokens,
         max_output_tokens,
         efforts,
-        default_effort,
+        default_effort: Some(default_effort),
         forced_tool_choice: ForcedToolChoice::OnlyWithoutThinking,
         sampling: Sampling::FixedWhileThinking,
         supports_stop_sequences: true,

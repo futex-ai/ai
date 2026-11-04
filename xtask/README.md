@@ -41,7 +41,8 @@ require real credentials.
 `tests/live_models.rs` owns the chat live suite and its credential-free guards.
 Each ignored provider test reads one explicit `LIVE_MODEL_API_KEY` and takes
 every chat-capable spec returned by that provider's `known_models()`. It runs
-one probe for each effort that the spec lists, with the default effort first.
+one probe at the default of the spec, then one probe for each other listed
+effort. The default probe of a spec without a default effort sets no effort.
 Each probe builds the adapter from the spec, erases it behind `DynModel`,
 sets the probe effort in the request controls, and sends real one-step turns
 through `ToolCallingRuntime`.
@@ -99,9 +100,10 @@ None of the four live suites makes provider calls during `check` or
 text, two-turn tool, schema, and image scenarios from `ai-testkit`.
 Provider names are `anthropic`, `openai`, `google`, `deepseek`, `kimi`,
 `qwen`, `minimax`, and `xai`. The command uses the first chat spec at its
-default effort. For the tool scenario it uses the first spec whose default
-effort enables thinking. Each file stores the text id of the spec and that
-effort. xAI stays synchronous.
+default. For the tool scenario it uses the first spec whose default can
+think: an effort above disabled, or the provider default. Each file stores
+the text id of the spec and its default effort, or no effort for the
+provider default. xAI stays synchronous.
 It writes four files under `crates/ai-testkit/recordings/<provider>/`
 with `source: "recorded"`. It preserves errors and reports their count.
 It never retries model calls. Rate-limit and stream-cut files stay synthetic.

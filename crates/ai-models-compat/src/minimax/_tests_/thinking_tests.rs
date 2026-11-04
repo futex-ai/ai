@@ -60,7 +60,7 @@ fn m2_7_catalog_entries_always_enable_thinking() {
             .iter()
             .find(|model| model.provider_model_id == id.provider_model_id)
             .expect("M2.7 model should exist");
-        assert!(model.default_effort.is_enabled());
+        assert!(model.default_effort.is_some_and(Effort::is_enabled));
     }
 }
 

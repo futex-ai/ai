@@ -72,21 +72,27 @@ fn tool(tool: &ToolDefinition) -> AnthropicTool {
     }
 }
 
-fn thinking(thinking_level: Effort) -> Option<AnthropicThinking> {
-    thinking_level.is_enabled().then(|| AnthropicThinking {
-        kind: "adaptive".to_owned(),
-        display: "omitted".to_owned(),
+fn thinking(thinking_level: Option<Effort>) -> Option<AnthropicThinking> {
+    let thinking_level = thinking_level?;
+    Some(AnthropicThinking {
+        kind: if thinking_level.is_enabled() {
+            "adaptive"
+        } else {
+            "disabled"
+        }
+        .to_owned(),
+        display: thinking_level.is_enabled().then(|| "omitted".to_owned()),
     })
 }
 
-fn output_config(thinking_level: Effort) -> Option<AnthropicOutputConfig> {
+fn output_config(thinking_level: Option<Effort>) -> Option<AnthropicOutputConfig> {
     effort(thinking_level).map(|effort| AnthropicOutputConfig {
         effort: effort.to_owned(),
     })
 }
 
-fn effort(thinking_level: Effort) -> Option<&'static str> {
-    match thinking_level {
+fn effort(thinking_level: Option<Effort>) -> Option<&'static str> {
+    match thinking_level? {
         Effort::Disabled => None,
         Effort::Low => Some("low"),
         Effort::Medium => Some("medium"),

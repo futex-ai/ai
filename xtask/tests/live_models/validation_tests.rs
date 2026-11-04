@@ -11,7 +11,7 @@ use super::{
 pub(super) fn validate_response(
     provider: LiveProvider,
     spec: &ModelSpec,
-    effort: Effort,
+    effort: Option<Effort>,
     response: &ModelResponse,
     failures: &mut Vec<String>,
 ) {
@@ -38,12 +38,12 @@ pub(super) fn validate_response(
             response.catalog_model_id
         ));
     }
-    if response.effort() != Some(effort) {
+    if response.effort() != effort {
         failures.push(format!(
             "{}: effort was {:?}, expected `{}`",
             spec.text_id(),
             response.effort(),
-            effort.as_str()
+            effort.map_or("provider default", Effort::as_str)
         ));
     }
     if !matches!(response.finish_reason, FinishReason::Stop) {

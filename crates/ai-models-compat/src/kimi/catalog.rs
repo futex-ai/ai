@@ -17,7 +17,7 @@ pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
     efforts: EffortSet::new(Effort::Low)
         .with(Effort::High)
         .with(Effort::Max),
-    default_effort: Effort::Max,
+    default_effort: Some(Effort::Max),
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Fixed,
     supports_stop_sequences: true,
@@ -35,7 +35,7 @@ pub const KIMI_K3: ModelSpec = ModelSpec {
     efforts: EffortSet::new(Effort::Low)
         .with(Effort::High)
         .with(Effort::Max),
-    default_effort: Effort::Max,
+    default_effort: Some(Effort::Max),
     forced_tool_choice: ForcedToolChoice::Always,
     sampling: Sampling::Fixed,
     supports_stop_sequences: true,

@@ -21,7 +21,7 @@ pub(in crate::openai) fn open(
     stream: DynJsonHttpSseStream,
     catalog_model_id: String,
     provider_model_id: String,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
     response_schema: Option<StructuredOutputSchema>,
 ) -> DynModelEventStream {
     Box::new(OpenAiEventStream {
@@ -44,7 +44,7 @@ struct OpenAiEventStream {
     events_received: u64,
     catalog_model_id: String,
     provider_model_id: String,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
     response_schema: Option<StructuredOutputSchema>,
     deferred_error: Option<ModelError>,
 }

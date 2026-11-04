@@ -27,13 +27,17 @@ The Chat Completions engine and its accumulator live in
 
 `resolve_controls(&request, &spec)` is the shared capability check. Every
 chat adapter calls it before transport and sends exactly the returned
-`ResolvedModelControls`: the effort, temperature, top-p, output limit, stop
-sequences, tool choice, total timeout, and whether to use the deferred
-lifecycle. The check does no I/O. Its rules are these:
+`ResolvedModelControls`: the optional effort, temperature, top-p, output
+limit, stop sequences, tool choice, total timeout, and whether to use the
+deferred lifecycle. The check does no I/O. Its rules are these:
 
 - A request without an effort uses the default effort of the spec. The check
   lowers an effort that the spec does not list to the highest listed effort
   below it. It never raises an effort.
+- When the request sets no effort and the spec has no default effort, the
+  resolved effort is `None`. The adapter then sends no thinking field.
+- Thinking counts as off only for the resolved `Effort::Disabled`. The
+  sampling and tool-choice rules below count a `None` effort as thinking on.
 - An output limit above the max output of the spec becomes that max output.
   When the spec requires an output limit, a request without one gets the max
   output.
@@ -97,7 +101,7 @@ code uses `TokioPollingRuntime`; deterministic provider tests enable the
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, DynModel, Effort, MOCK_MODEL, MockModel, ModelRequest, ModelResult,
+    ConversationMessage, DynModel, MOCK_MODEL, MockModel, ModelRequest, ModelResult,
 };
 use ai_models_core::{
     ConcurrencyLimitedModel, ModelPricing, ResolvedModelControls, RetryingModel,
@@ -119,11 +123,12 @@ fn resolve_mock_controls() -> ModelResult<ResolvedModelControls> {
         response_schema: None,
         controls: Default::default(),
     };
-    request.controls.generation.effort = Some(Effort::High);
     request.controls.generation.max_output_tokens = Some(1_000_000);
 
-    // The mock spec lists only `Effort::Disabled` and allows 128,000 output
-    // tokens, so the effort lowers to disabled and the limit becomes 128,000.
+    // The mock spec lists no effort, has no default effort, and allows
+    // 128,000 output tokens. The resolved effort is `None`, and the limit
+    // becomes 128,000. A request that sets an effort fails with
+    // `ModelError::UnsupportedControl`.
     resolve_controls(&request, &MOCK_MODEL)
 }
 ```

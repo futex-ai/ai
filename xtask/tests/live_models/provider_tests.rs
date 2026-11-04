@@ -38,7 +38,7 @@ pub(super) struct LiveProbe {
     /// Provider model facts used to build the adapter.
     pub(super) spec: ModelSpec,
     /// Existing catalog effort selected for this probe.
-    pub(super) effort: Effort,
+    pub(super) effort: Option<Effort>,
 }
 
 impl LiveProvider {
@@ -149,6 +149,7 @@ impl LiveProvider {
                     .chain(
                         spec.efforts
                             .iter()
+                            .map(Some)
                             .filter(move |effort| *effort != default_effort),
                     )
                     .map(move |effort| LiveProbe {
@@ -203,6 +204,6 @@ fn live_probe_efforts_keep_the_default_first_without_duplicate_pairs() {
 
     assert_eq!(
         probes.iter().map(|probe| probe.effort).collect::<Vec<_>>(),
-        vec![Effort::Max, Effort::Low, Effort::High]
+        vec![Some(Effort::Max), Some(Effort::Low), Some(Effort::High)]
     );
 }

@@ -47,7 +47,7 @@ async fn maps_response_finish_reasons() {
     ];
 
     for (body, expected, label) in cases {
-        let response = response_from_fixture("gpt-5.5", "gpt-5.5", Effort::Medium, body, None)
+        let response = response_from_fixture("gpt-5.5", "gpt-5.5", Some(Effort::Medium), body, None)
             .await
             .expect(label);
         assert_eq!(response.finish_reason, expected, "{label}");
@@ -59,7 +59,7 @@ async fn maps_refusal_content_to_filtered_finish_reason() {
     let response = response_from_fixture(
         "gpt-5.5",
         "gpt-5.5",
-        Effort::Medium,
+        Some(Effort::Medium),
         json!({
             "status": "completed",
             "output": [{
@@ -85,7 +85,7 @@ async fn parses_multiple_function_call_output_items() {
     let response = response_from_fixture(
         "gpt-5.5",
         "gpt-5.5",
-        Effort::Medium,
+        Some(Effort::Medium),
         json!({
             "status": "completed",
             "output": [
@@ -119,7 +119,7 @@ async fn incomplete_function_call_response_is_not_dispatchable() {
     let response = response_from_fixture(
         "gpt-5.5",
         "gpt-5.5",
-        Effort::Medium,
+        Some(Effort::Medium),
         json!({
             "status": "incomplete",
             "incomplete_details": { "reason": "max_output_tokens" },
@@ -150,7 +150,7 @@ async fn rejects_invalid_function_call_arguments() {
     let error = response_from_fixture(
         "gpt-5.5",
         "gpt-5.5",
-        Effort::Medium,
+        Some(Effort::Medium),
         openai_function_call_body("not json"),
         None,
     )

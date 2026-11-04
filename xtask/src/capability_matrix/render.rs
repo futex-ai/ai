@@ -4,7 +4,7 @@ use ai_interface::{Effort, ForcedToolChoice, ModelSpec, Sampling};
 
 pub(super) fn render_matrix(specs: &[ModelSpec]) -> String {
     let mut output = String::from(concat!(
-        "Bold effort marks the default effort. `default` marks an output limit sent when the request omits one.\n",
+        "Bold marks the default effort or provider default. `default` marks an output limit sent when the request omits one.\n",
         "`u32::MAX` adds no output ceiling beyond the request type. Context 0 means unknown.\n\n",
         "| Text id | Efforts | Max output | Context | Sampling | Stops | Forced tools | Deferred | Replay efforts |\n",
         "| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n",
@@ -16,11 +16,11 @@ pub(super) fn render_matrix(specs: &[ModelSpec]) -> String {
 }
 
 fn render_row(spec: &ModelSpec) -> String {
-    let efforts = spec
+    let mut efforts = spec
         .efforts
         .iter()
         .map(|effort| {
-            if effort == spec.default_effort {
+            if Some(effort) == spec.default_effort {
                 format!("**{}**", effort.as_str())
             } else {
                 effort.as_str().to_owned()
@@ -28,6 +28,13 @@ fn render_row(spec: &ModelSpec) -> String {
         })
         .collect::<Vec<_>>()
         .join(", ");
+    if spec.default_effort.is_none() {
+        efforts = if efforts.is_empty() {
+            "**provider default**".to_owned()
+        } else {
+            format!("**provider default**, {efforts}")
+        };
+    }
     let replay = spec
         .efforts
         .iter()

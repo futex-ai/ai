@@ -2,17 +2,19 @@
 
 ## Purpose
 
-Continuously verify that every real chat-provider adapter and every listed
-effort of every chat-capable exported model spec can complete a request
-through the generic tool-calling runtime and its upstream production API.
+Continuously verify that every real chat-provider adapter, and the default
+and every listed effort of every chat-capable exported model spec, can
+complete a request through the generic tool-calling runtime and its
+upstream production API.
 
 ## Scope
 
 The credentialed suite covers Anthropic, DeepSeek, Google Gemini, Kimi,
 MiniMax, OpenAI, QwenCloud, and xAI. Each provider test obtains its specs from
-that crate's `known_models()` function. It runs one probe for each effort
-that a chat-capable spec lists, with the default effort first, so new specs
-and efforts enter the live test automatically. Probes that share a spec
+that crate's `known_models()` function. It runs one probe at the default of
+each chat-capable spec, then one probe for each other listed effort, so new
+specs and efforts enter the live test automatically. The default probe of a
+spec without a default effort sets no effort. Probes that share a spec
 still run separately because each effort exercises different thinking
 controls. Specs advertising `ModelFeature::ImageGeneration`,
 `ModelFeature::VideoGeneration`, or `ModelFeature::Judgment` are routed through
@@ -57,11 +59,11 @@ test:
 
 1. Requires a non-empty `LIVE_MODEL_API_KEY`.
 2. Selects every spec that advertises neither image generation, video
-   generation, nor judgment, and expands it into one probe for each listed
-   effort, with the default effort first. It constructs the production chat
-   adapter from the spec with `ReqwestJsonHttpClient` and explicit provider
-   authentication, and it sets the effort of the probe in the request
-   controls.
+   generation, nor judgment, and expands it into one probe at its default,
+   then one probe for each other listed effort. It constructs the production
+   chat adapter from the spec with `ReqwestJsonHttpClient` and explicit
+   provider authentication, and it sets the effort of the probe in the
+   request controls.
    Each probe uses the production adapter lifecycle without a live-test-only
    branch.
 3. Erases the concrete adapter behind `DynModel` and applies the standard
@@ -107,7 +109,7 @@ Each live completion must:
 - complete one generic runtime step;
 - return the expected normalized provider id;
 - record the text id of the spec, the provider model id, and the effort of
-  the probe;
+  the probe, or no effort for a probe that sets none;
 - finish naturally with non-empty text containing the probe marker;
 - return no tool calls when none were offered; and
 - report a non-zero total token count.

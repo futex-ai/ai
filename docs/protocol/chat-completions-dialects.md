@@ -162,7 +162,7 @@ the dialect, with the auth of the dialect.
 | Model ids | The models of the xAI catalog |
 | Output-limit field | `max_tokens` |
 | Reasoning field | `reasoning_content` deltas when xAI exposes them. The dialect writes no reasoning state |
-| Thinking parameter | `reasoning_effort`: `low`, `medium`, or `high` for those efforts, `xhigh` for extra high, and `high` for max. Left out for disabled and for Grok 4.20 models |
+| Thinking parameter | `reasoning_effort`: `none` for disabled, `low`, `medium`, or `high` for those efforts, `xhigh` for extra high, and `high` for max. Left out without a resolved effort, and for the efforts above disabled on Grok 4.20 models |
 | Usage fields | Cached input from `prompt_tokens_details.cached_tokens`. Reasoning from `completion_tokens_details.reasoning_tokens` |
 | Tool-choice forms | `none`, `auto`, `required`, and a named `function` object. `auto` when tools are present and the request sets none |
 | Structured output | `response_format` of type `json_schema` with `strict: false`, and no instruction |

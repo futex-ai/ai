@@ -24,9 +24,10 @@ folds the events with the fold of `Model::complete`. xAI uses its
 synchronous path. No scenario uses a video adapter.
 
 Each provider starts with its first chat spec. The tool loop uses the first
-spec whose default effort enables thinking, when the catalog has one. Each
-request of a scenario carries the effort of its recording. A recording
-without an effort runs at the default effort of the spec.
+spec whose default can think, when the catalog has one. That default is an
+effort above disabled, or the provider default. Each request of a scenario
+carries the effort of its recording. A recording without an effort runs at
+the default of the spec.
 The scenarios are:
 
 | Filename stem | Request and expected exercise |

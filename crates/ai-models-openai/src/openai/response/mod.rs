@@ -31,7 +31,7 @@ pub(super) fn finish_reason(parsed: &ResponsesResponse) -> FinishReason {
 pub(super) fn terminal_events(
     catalog_model_id: &str,
     provider_model_id: &str,
-    thinking_level: Effort,
+    thinking_level: Option<Effort>,
     parsed: ResponsesResponse,
     assistant_message: &str,
     response_schema: Option<&StructuredOutputSchema>,
@@ -71,7 +71,7 @@ pub(super) fn terminal_events(
             provider: PROVIDER.to_owned(),
             model_id: provider_model_id.to_owned(),
             catalog_model_id: Some(catalog_model_id.to_owned()),
-            thinking_level: Some(thinking_level),
+            thinking_level,
             structured_output,
         },
     ])

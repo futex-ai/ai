@@ -142,6 +142,13 @@ milestone keeps all behavior that this list does not name.
   outcome, as item 4 says.
 - The fall-through-on-any-error default of fallback: replaced by a required
   policy, as decision 5 says.
+- The disabled effort as "send no thinking field": replaced by the provider
+  default and an explicit off value, as item 27 says. A spec with no listed
+  effort rejects a requested effort instead of lowering it to disabled. The
+  user approved this change with the answer of 2026-11-04.
+- The Gemini 3.5 Flash-Lite default without a thinking field: replaced by
+  the low effort, sent as `thinkingLevel: "minimal"`, as item 26 says. The
+  user approved this change with the answer of 2026-11-04.
 
 The MCP crates change only after the MCP decision of Milestone 11.
 
@@ -205,6 +212,20 @@ answers that differ from the recommendation.
   filters, a pull-request label, schedules only, a small pull-request set,
   one run for each merged change, or a run set from the Cargo dependency
   graph. The recommendation was path filters.
+- Item 27, disabled effort mixes "no control" and "off", answered on
+  2026-11-04: option B. A spec and the custom defaults can leave the
+  reasoning to the provider. Such a call sends no thinking field and
+  reports no effort. Disabled goes to the wire only as an explicit off
+  value. Claude Sonnet 5 and Opus 5 gain disabled, and Fable 5 does not.
+  The alternative was to fix each false off claim by hand. B was the
+  recommendation.
+- Item 26, Flash-Lite falsely advertises disabled reasoning, answered on
+  2026-11-04: option C. One Google effort table gives both the efforts of a
+  model and their wire values, and no entry leaves the field out. Gemini
+  3.5 Flash-Lite maps low to `minimal`, medium to `medium`, and high to
+  `high`. Its default is low, and it rejects disabled. The alternatives
+  were native `low` as the default, a portable minimal effort, the provider
+  default, and a direct Flash-Lite branch. C was the recommendation.
 
 ## Design calls
 
@@ -313,6 +334,19 @@ All calls are mine, made on 2026-11-01.
     `crates/ai-mcp/tests/tool_runtime_smoke.rs`. This follows the trait
     change and changes no MCP production code, so the MCP crates still
     change only after Milestone 11.
+- 2026-11-04, applying item 27:
+  - The default effort of `ModelSpec` and `CustomModelDefaults` and the
+    resolved effort are `Option<Effort>`. `None` is the provider default. A
+    request cannot ask for it on a spec with a default effort. An
+    `EffortSet` can be empty.
+  - A catalog spec lists only the efforts of its exact model. Custom
+    defaults list the generic wire mapping of the provider, and the caller
+    owns each custom spec.
+  - Gemini 3.5 Flash-Lite used the provider default until item 26 was
+    applied.
+- 2026-11-04, applying item 26: a custom spec that reuses a known Gemini
+  model id still sends a thinking value for each enabled effort. It rejects
+  disabled when the effort table gives that model no off value.
 
 ## Pull requests
 

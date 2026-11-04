@@ -95,7 +95,7 @@ async fn catalog_spec_uses_provider_model_and_requested_effort() {
 }
 
 #[tokio::test]
-async fn unknown_model_constructor_remains_direct_with_thinking_disabled() {
+async fn unknown_model_constructor_keeps_provider_default_thinking() {
     let (http_client, requests) = recording_client();
     let model = AnthropicModel::new(http_client, custom_spec("custom-claude"), "key");
     let mut request = base_request();
@@ -110,7 +110,7 @@ async fn unknown_model_constructor_remains_direct_with_thinking_disabled() {
     let body = requests[0].body.as_ref().expect("request body");
     assert_eq!(body["model"], "custom-claude");
     assert!(body.get("thinking").is_none());
-    assert_eq!(body["temperature"], 0.0);
+    assert_eq!(body.get("temperature"), None);
 }
 
 #[tokio::test]

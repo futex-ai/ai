@@ -37,7 +37,10 @@ async fn request_effort_overrides_default_for_each_call() {
         requests[0].body.as_ref().unwrap()["output_config"]["effort"],
         "max"
     );
-    assert!(requests[1].body.as_ref().unwrap().get("thinking").is_none());
+    assert_eq!(
+        requests[1].body.as_ref().unwrap()["thinking"],
+        json!({"type": "disabled"})
+    );
 }
 
 #[tokio::test]

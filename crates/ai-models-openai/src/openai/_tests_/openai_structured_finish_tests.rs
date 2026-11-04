@@ -10,7 +10,7 @@ async fn structured_output_refusal_preserves_filtered_finish_reason() {
     let response = response_from_fixture(
         "gpt-5.5",
         "gpt-5.5",
-        Effort::Medium,
+        Some(Effort::Medium),
         json!({
             "status": "completed",
             "output": [{
@@ -37,7 +37,7 @@ async fn structured_output_truncation_preserves_truncated_finish_reason() {
     let response = response_from_fixture(
         "gpt-5.5",
         "gpt-5.5",
-        Effort::Medium,
+        Some(Effort::Medium),
         json!({
             "status": "incomplete",
             "incomplete_details": { "reason": "max_output_tokens" },

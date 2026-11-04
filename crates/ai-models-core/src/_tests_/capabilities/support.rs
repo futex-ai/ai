@@ -16,7 +16,7 @@ pub(super) fn spec() -> ModelSpec {
         context_window_tokens: 128_000,
         max_output_tokens: 64_000,
         efforts: EffortSet::new(Effort::Disabled).with(Effort::High),
-        default_effort: Effort::High,
+        default_effort: Some(Effort::High),
         forced_tool_choice: ForcedToolChoice::Always,
         sampling: Sampling::Adjustable,
         supports_stop_sequences: true,

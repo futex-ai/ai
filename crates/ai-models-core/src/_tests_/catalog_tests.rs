@@ -17,7 +17,7 @@ fn mock_catalog_contains_valid_development_model() {
 
     assert_eq!(routing.intelligence.value(), 5);
     assert_eq!(model.provider_model_id, "mock");
-    assert_eq!(model.default_effort, Effort::Disabled);
+    assert_eq!(model.default_effort, None);
     assert!(model.context_window_tokens > 0);
     assert!(model.has_feature(ModelFeature::ToolCalling));
     assert_eq!(model.max_output_tokens, 128_000);
@@ -46,8 +46,8 @@ fn one_catalog_model_supports_distinct_request_efforts() {
     assert_eq!(spec.provider_model_id, "model");
     assert_eq!(catalog.all().len(), 1);
     assert_ne!(low, extra_high);
-    assert_eq!(low, Ok(Effort::Low));
-    assert_eq!(extra_high, Ok(Effort::ExtraHigh));
+    assert_eq!(low, Ok(Some(Effort::Low)));
+    assert_eq!(extra_high, Ok(Some(Effort::ExtraHigh)));
 }
 
 #[test]
@@ -74,9 +74,12 @@ fn resolves_to_the_highest_supported_effort_not_above_the_request() {
     ]);
     let spec = catalog.find("provider-a/model-a").expect("model exists");
 
-    assert_eq!(resolved_effort(spec, Effort::Max), Ok(Effort::ExtraHigh));
-    assert_eq!(resolved_effort(spec, Effort::High), Ok(Effort::High));
-    assert_eq!(resolved_effort(spec, Effort::Medium), Ok(Effort::Low));
+    assert_eq!(
+        resolved_effort(spec, Effort::Max),
+        Ok(Some(Effort::ExtraHigh))
+    );
+    assert_eq!(resolved_effort(spec, Effort::High), Ok(Some(Effort::High)));
+    assert_eq!(resolved_effort(spec, Effort::Medium), Ok(Some(Effort::Low)));
     assert_eq!(
         resolved_effort(spec, Effort::Disabled),
         Err(ModelControl::Effort)
@@ -92,11 +95,11 @@ fn model(model_id: &'static str, efforts: EffortSet, default_effort: Effort) -> 
         &MOCK_CUSTOM_DEFAULTS,
     );
     spec.efforts = efforts;
-    spec.default_effort = default_effort;
+    spec.default_effort = Some(default_effort);
     spec
 }
 
-fn resolved_effort(spec: &ModelSpec, effort: Effort) -> Result<Effort, ModelControl> {
+fn resolved_effort(spec: &ModelSpec, effort: Effort) -> Result<Option<Effort>, ModelControl> {
     let mut request = ModelRequest {
         system_prompt: String::new(),
         messages: Vec::new(),

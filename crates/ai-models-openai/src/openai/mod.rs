@@ -173,3 +173,7 @@ mod parts_tests;
 #[cfg(test)]
 #[path = "_tests_/conversion_tests.rs"]
 mod conversion_tests;
+
+#[cfg(test)]
+#[path = "_tests_/provider_default_tests.rs"]
+mod provider_default_tests;
