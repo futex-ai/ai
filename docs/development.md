@@ -18,8 +18,7 @@ each call's `Model::stream`: each provider first proves synchronous text
 parity on its first chat spec at its default effort, and every catalog call,
 also each xAI deferred call, keeps that parity. Parity means that the text
 parts of the deltas, joined in part position order, equal the response
-text. Run
-the credential-free catalog, event-policy, bridge, validation, and workflow
+text. Run the credential-free catalog, bridge, validation, and workflow
 guards with:
 
 ```sh
@@ -108,8 +107,8 @@ with `TYPESAFE_API_KEY`, shared answer validation, and sequential retries once
 `LIVE_JUDGMENT_API_TESTS_ENABLED` opts the repository into those billable
 checks. Forked and Dependabot pull requests skip all credentialed workflows
 because GitHub does not provide them repository Actions secrets. The ordinary
-credential-free suite still enforces the live model registry and model event
-coverage policy without making provider calls.
+credential-free suite still enforces the live model registry without making
+provider calls.
 
 ## Firna adoption
 

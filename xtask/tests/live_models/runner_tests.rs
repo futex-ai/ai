@@ -17,7 +17,7 @@ use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 
 use super::{
     event_tests::{completion_event_failures, observing_model},
-    provider_tests::{CompletionEventExpectation, LiveProvider},
+    provider_tests::LiveProvider,
     validation_tests::validate_response,
 };
 
@@ -61,7 +61,6 @@ async fn run_catalog(provider: LiveProvider) {
                 probe.effort,
                 model,
                 ModelCompletionMode::PreferDeferred,
-                provider.preferred_mode_event_expectation(),
             )
             .await,
         );
@@ -93,7 +92,6 @@ async fn run_synchronous_stream_probe(provider: LiveProvider) {
         probe.effort,
         model,
         ModelCompletionMode::Synchronous,
-        provider.synchronous_event_expectation(),
     )
     .await;
     assert!(
@@ -109,7 +107,6 @@ pub(super) async fn run_probe_with_marker_retry(
     effort: Option<Effort>,
     model: DynModel,
     completion_mode: ModelCompletionMode,
-    event_expectation: CompletionEventExpectation,
 ) -> Vec<String> {
     let mut retry_available = true;
     loop {
@@ -128,7 +125,6 @@ pub(super) async fn run_probe_with_marker_retry(
         );
         let event_failures = completion_event_failures(
             &spec.text_id(),
-            event_expectation,
             &completion.response.text(),
             &completion.events,
         );

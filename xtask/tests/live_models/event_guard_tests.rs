@@ -1,4 +1,4 @@
-//! Offline guards for ordered events in every live completion mode.
+//! Offline checks of ordered model events and terminal parity.
 
 use std::sync::Arc;
 
@@ -9,8 +9,6 @@ use ai_interface::{
 use ai_testkit::event_snapshot::ModelEventSnapshot;
 use async_trait::async_trait;
 use serde_json::json;
-
-use crate::provider_tests::{CompletionEventExpectation, LiveProvider};
 
 use super::{completion_event_failures, observing_model};
 
@@ -35,33 +33,9 @@ async fn observing_model_routes_complete_through_the_public_event_boundary() {
         .await
         .expect("event-observing model should complete");
     assert!(
-        completion_event_failures(
-            "eventing-probe",
-            CompletionEventExpectation::AssistantTextParity,
-            &response.text(),
-            &events.recorded()
-        )
-        .is_empty()
+        completion_event_failures("eventing-probe", &response.text(), &events.recorded())
+            .is_empty()
     );
-}
-
-#[test]
-fn every_provider_has_parity_in_synchronous_and_preferred_modes() {
-    for provider in LiveProvider::ALL {
-        assert_eq!(
-            provider.synchronous_event_expectation(),
-            CompletionEventExpectation::AssistantTextParity,
-            "{provider:?} must exercise synchronous completion events"
-        );
-    }
-    let preferred_parity = LiveProvider::ALL
-        .into_iter()
-        .filter(|provider| {
-            provider.preferred_mode_event_expectation()
-                == CompletionEventExpectation::AssistantTextParity
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(preferred_parity, LiveProvider::ALL.to_vec());
 }
 
 #[test]
@@ -174,16 +148,6 @@ fn assistant_event_validation_rejects_empty_deltas_and_restarts() {
 }
 
 #[test]
-fn deferred_event_validation_accepts_deliberate_emission() {
-    let failures = validate(
-        "xai-deferred",
-        "terminal",
-        with_terminal(vec![text(0, "terminal")]),
-    );
-    assert_eq!(failures, Vec::<String>::new());
-}
-
-#[test]
 fn assistant_event_validation_orders_interleaved_text_parts() {
     let failures = validate(
         "interleaved",
@@ -217,23 +181,13 @@ async fn observing_model_records_schema_text_usage_and_finish() {
     assert_eq!(events.recorded().len(), 3);
     assert_eq!(response.structured_output, Some(json!({"ok": true})));
     assert_eq!(
-        completion_event_failures(
-            "schema-probe",
-            CompletionEventExpectation::AssistantTextParity,
-            &response.text(),
-            &events.recorded()
-        ),
+        completion_event_failures("schema-probe", &response.text(), &events.recorded()),
         Vec::<String>::new()
     );
 }
 
 fn validate(model_id: &str, message: &str, events: Vec<ModelEventSnapshot>) -> Vec<String> {
-    completion_event_failures(
-        model_id,
-        CompletionEventExpectation::AssistantTextParity,
-        message,
-        &events,
-    )
+    completion_event_failures(model_id, message, &events)
 }
 
 fn text(part_index: usize, delta: &str) -> ModelEventSnapshot {

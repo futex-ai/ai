@@ -103,7 +103,6 @@ async fn runner_retries_one_marker_miss_and_uses_the_second_reply() {
         spec.default_effort,
         model,
         ModelCompletionMode::Synchronous,
-        provider.synchronous_event_expectation(),
     )
     .await;
 
@@ -130,7 +129,6 @@ async fn runner_reports_the_second_marker_miss_after_one_retry() {
         spec.default_effort,
         model,
         ModelCompletionMode::Synchronous,
-        provider.synchronous_event_expectation(),
     )
     .await;
 

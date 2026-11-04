@@ -226,6 +226,15 @@ answers that differ from the recommendation.
   `high`. Its default is low, and it rejects disabled. The alternatives
   were native `low` as the default, a portable minimal effort, the provider
   default, and a direct Flash-Lite branch. C was the recommendation.
+- Item 76, live parity guard cannot fail, answered on 2026-11-04: option C.
+  Remove the guard, the one-variant expectation enum, its selector methods,
+  its unused arguments, and the duplicate deferred guard case. Call the
+  common event validator directly. Remove the claim of a credential-free
+  parity check from `live-model-api-tests.md` and the event-policy claims of
+  `xtask/README.md` and `docs/development.md`. Every probe keeps text-event
+  parity. The alternatives were the guard removal alone, the code removal
+  without the doc changes, and C with the mode kept for failure texts. C
+  was the recommendation.
 
 ## Design calls
 

@@ -133,12 +133,10 @@ A provider job fails if any final probe result violates this contract. For an
 eligible event, missing credentials also fail explicitly and must never be
 treated as skipped or successful coverage.
 
-Credential-free tests enforce that all eight registered providers receive the
-synchronous parity probe and the parity expectation for their catalog probes,
-including xAI with its deferred lifecycle. They also enforce that the test
-model records the events of the inner stream, and that the parity validator
-rejects incomplete observations. They check schema text, usage, and finish
-events without adding a paid probe. They do not send provider requests.
+Credential-free tests enforce that the test model records the events of the
+inner stream, and that the parity validator rejects incomplete observations.
+They check schema text, usage, and finish events without adding a paid probe.
+They do not send provider requests.
 
 ## CI And Credentials
 
