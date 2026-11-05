@@ -1,191 +1,55 @@
-//! Google Gemini response parsing.
+//! Google typed terminal metadata and validation.
 
 use ai_interface::{
-    Effort, FinishReason, GoogleAssistantPart, GoogleFunctionCallContext, ModelError,
-    ModelResponse, ModelUsage, ProviderConversationItem, StructuredOutputSchema, ToolCall,
+    Effort, FinishReason, ModelEvent, ModelResult, ModelUsage, StructuredOutputSchema,
 };
-use ai_models_core::{parse_structured_output, synthetic_tool_call_id};
-use serde::Deserialize;
-use serde_json::{Map, Value};
+use ai_models_core::parse_structured_output;
+
+use super::stream::types::{GoogleCompletion, GoogleUsageMetadata};
 
 const PROVIDER: &str = "google";
-const SYNTHETIC_TOOL_CALL_ID_PREFIX: &str = "google_function_call:";
 
-pub(super) fn parse_response(
+pub(super) fn terminal_events(
     catalog_model_id: &str,
     provider_model_id: &str,
     thinking_level: Option<Effort>,
-    synthetic_tool_call_scope: &str,
-    body: Value,
+    completion: GoogleCompletion,
     response_schema: Option<&StructuredOutputSchema>,
-) -> std::result::Result<ModelResponse, ModelError> {
-    let parsed: GoogleResponse = serde_json::from_value(body).map_err(|source| {
-        ModelError::provider(
-            PROVIDER,
-            provider_model_id,
-            format!("invalid Google response: {source}"),
+) -> ModelResult<Vec<ModelEvent>> {
+    let finish_reason = if completion.candidate_seen {
+        finish_reason(
+            completion.finish_reason.as_deref(),
+            completion.tool_call_count > 0,
         )
-    })?;
-    let GoogleResponse {
-        candidates,
-        prompt_feedback,
-        usage_metadata,
-    } = parsed;
-    let usage = usage_metadata.unwrap_or_default();
-    let candidate = match candidates.into_iter().next() {
-        Some(candidate) => candidate,
-        None if prompt_feedback
-            .and_then(|feedback| feedback.block_reason)
-            .is_some() =>
-        {
-            return Ok(prompt_block_response(
-                catalog_model_id,
-                provider_model_id,
-                thinking_level,
-                usage,
-            ));
-        }
-        None => {
-            return Err(ModelError::provider(
+    } else {
+        FinishReason::Filtered
+    };
+    let structured_output = match response_schema {
+        Some(schema) if matches!(finish_reason, FinishReason::Stop) => {
+            Some(parse_structured_output(
                 PROVIDER,
                 provider_model_id,
-                "Google response had no candidates",
-            ));
+                &completion.assistant_message,
+                schema,
+            )?)
         }
+        _ => None,
     };
-    let content = candidate.content.unwrap_or_default();
-    let provider_context = if content
-        .parts
-        .iter()
-        .any(|part| part.thought_signature.is_some())
-    {
-        vec![ProviderConversationItem::GoogleAssistantMessage {
-            parts: content.parts.clone(),
-        }]
-    } else {
-        Vec::new()
-    };
-    let mut assistant_parts = Vec::new();
-    let mut parsed_tool_calls = Vec::new();
-
-    for part in content.parts {
-        if part.thought != Some(true)
-            && let Some(text) = part.text
-            && !text.trim().is_empty()
-        {
-            assistant_parts.push(text);
-        }
-        if let Some(function_call) = part.function_call {
-            let call_index = parsed_tool_calls.len();
-            let GoogleFunctionCallContext { id, name, args } = function_call;
-            let input = args.unwrap_or_else(|| Value::Object(Map::new()));
-            let (id, operation_id) = match id {
-                Some(id) => (id, None),
-                None => {
-                    let id = synthetic_tool_call_id(
-                        SYNTHETIC_TOOL_CALL_ID_PREFIX,
-                        synthetic_tool_call_scope,
-                        call_index,
-                        &name,
-                        &input.to_string(),
-                    );
-                    (id.clone(), Some(id))
-                }
-            };
-            parsed_tool_calls.push(ToolCall {
-                id,
-                name,
-                input,
-                operation_id,
-            });
-        }
-    }
-
-    let assistant_message = assistant_parts.join("\n");
-    let finish_reason = finish_reason(
-        candidate.finish_reason.as_deref(),
-        !parsed_tool_calls.is_empty(),
-    );
-    let tool_calls = if matches!(finish_reason, FinishReason::ToolCalls) {
-        parsed_tool_calls
-    } else {
-        Vec::new()
-    };
-    let structured_output = response_schema
-        .filter(|_| matches!(finish_reason, FinishReason::Stop) && tool_calls.is_empty())
-        .map(|response_schema| {
-            parse_structured_output(
-                PROVIDER,
-                provider_model_id,
-                &assistant_message,
-                response_schema,
-            )
-        })
-        .transpose()?;
-    let assistant_message = if assistant_message.trim().is_empty() {
-        structured_output
-            .as_ref()
-            .map(Value::to_string)
-            .unwrap_or_default()
-    } else {
-        assistant_message
-    };
-    Ok(ModelResponse {
-        provider: PROVIDER.to_owned(),
-        model_id: provider_model_id.to_owned(),
-        catalog_model_id: Some(catalog_model_id.to_owned()),
-        thinking_level,
-        assistant_message,
-        finish_reason,
-        tool_calls,
-        structured_output,
-        provider_context,
-        usage: model_usage(usage),
-    })
-}
-
-#[derive(Debug, Deserialize)]
-struct GoogleResponse {
-    #[serde(default)]
-    candidates: Vec<GoogleCandidate>,
-    #[serde(default, rename = "promptFeedback")]
-    prompt_feedback: Option<GooglePromptFeedback>,
-    #[serde(default, rename = "usageMetadata")]
-    usage_metadata: Option<GoogleUsageMetadata>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GooglePromptFeedback {
-    #[serde(default, rename = "blockReason")]
-    block_reason: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GoogleCandidate {
-    #[serde(default)]
-    content: Option<GoogleContent>,
-    #[serde(default, rename = "finishReason")]
-    finish_reason: Option<String>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-struct GoogleContent {
-    #[serde(default)]
-    parts: Vec<GoogleAssistantPart>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-struct GoogleUsageMetadata {
-    #[serde(default, rename = "promptTokenCount")]
-    prompt_token_count: u32,
-    #[serde(default, rename = "candidatesTokenCount")]
-    candidates_token_count: u32,
-    #[serde(default, rename = "totalTokenCount")]
-    total_token_count: Option<u32>,
-    #[serde(default, rename = "cachedContentTokenCount")]
-    cached_content_token_count: u32,
-    #[serde(default, rename = "thoughtsTokenCount")]
-    thoughts_token_count: u32,
+    let mut events = completion.state_events;
+    events.extend([
+        ModelEvent::Usage {
+            usage: model_usage(completion.usage),
+        },
+        ModelEvent::Finish {
+            finish_reason,
+            provider: PROVIDER.to_owned(),
+            model_id: provider_model_id.to_owned(),
+            catalog_model_id: Some(catalog_model_id.to_owned()),
+            thinking_level,
+            structured_output,
+        },
+    ]);
+    Ok(events)
 }
 
 fn finish_reason(value: Option<&str>, has_tool_calls: bool) -> FinishReason {
@@ -208,26 +72,6 @@ fn finish_reason(value: Option<&str>, has_tool_calls: bool) -> FinishReason {
         ) => FinishReason::Filtered,
         Some(raw) => FinishReason::Other(raw.to_owned()),
         None => FinishReason::Other("missing".to_owned()),
-    }
-}
-
-fn prompt_block_response(
-    catalog_model_id: &str,
-    provider_model_id: &str,
-    thinking_level: Option<Effort>,
-    usage: GoogleUsageMetadata,
-) -> ModelResponse {
-    ModelResponse {
-        provider: PROVIDER.to_owned(),
-        model_id: provider_model_id.to_owned(),
-        catalog_model_id: Some(catalog_model_id.to_owned()),
-        thinking_level,
-        assistant_message: String::new(),
-        finish_reason: FinishReason::Filtered,
-        tool_calls: Vec::new(),
-        structured_output: None,
-        provider_context: Vec::new(),
-        usage: model_usage(usage),
     }
 }
 

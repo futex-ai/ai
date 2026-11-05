@@ -1,81 +1,47 @@
-//! Qwen provider conversation-item serde tests.
+//! Legacy item fields survive one-way conversion to opaque state.
 
-use crate::{ProviderConversationItem, QwenToolCallContext};
 use serde_json::json;
+
+use super::assert_preserved_legacy_item;
 
 #[test]
 fn qwen_assistant_context_deserializes_nullable_fields_and_ordered_raw_calls() {
-    let item: ProviderConversationItem = serde_json::from_value(json!({
-        "type": "qwen_assistant_message",
-        "content": null,
-        "reasoning_content": "Use both sources.",
-        "tool_calls": [
-            {
-                "id": "call_first",
-                "name": "memory_read",
-                "arguments": "{\n  \"path\": \"first\"\n}"
-            },
-            {
-                "id": "call_second",
-                "name": "memory_write",
-                "arguments": "{\"path\":\"second\",\"value\":2}"
-            }
-        ]
-    }))
-    .unwrap();
-
-    assert_eq!(
-        item,
-        ProviderConversationItem::QwenAssistantMessage {
-            content: None,
-            reasoning_content: Some("Use both sources.".to_owned()),
-            tool_calls: vec![
-                QwenToolCallContext {
-                    id: "call_first".to_owned(),
-                    name: "memory_read".to_owned(),
-                    arguments: "{\n  \"path\": \"first\"\n}".to_owned(),
+    assert_preserved_legacy_item(
+        "qwen",
+        json!({
+            "type": "qwen_assistant_message",
+            "content": null,
+            "reasoning_content": "Use both sources.",
+            "tool_calls": [
+                {
+                    "id": "call_first",
+                    "name": "memory_read",
+                    "arguments": "{\n  \"path\": \"first\"\n}"
                 },
-                QwenToolCallContext {
-                    id: "call_second".to_owned(),
-                    name: "memory_write".to_owned(),
-                    arguments: "{\"path\":\"second\",\"value\":2}".to_owned(),
-                },
-            ],
-        }
+                {
+                    "id": "call_second",
+                    "name": "memory_write",
+                    "arguments": "{\"path\":\"second\",\"value\":2}"
+                }
+            ]
+        }),
     );
 }
 
 #[test]
 fn qwen_assistant_context_omits_absent_optional_fields() {
-    let item = ProviderConversationItem::QwenAssistantMessage {
-        content: None,
-        reasoning_content: None,
-        tool_calls: Vec::new(),
-    };
-
-    assert_eq!(
-        serde_json::to_value(item).unwrap(),
+    assert_preserved_legacy_item(
+        "qwen",
         json!({
             "type": "qwen_assistant_message"
-        })
+        }),
     );
 }
 
 #[test]
 fn qwen_assistant_context_round_trips_raw_provider_fields() {
-    let item = ProviderConversationItem::QwenAssistantMessage {
-        content: Some("I will check.".to_owned()),
-        reasoning_content: Some("Need the source.".to_owned()),
-        tool_calls: vec![QwenToolCallContext {
-            id: "call_123".to_owned(),
-            name: "memory_read".to_owned(),
-            arguments: "{ \"path\": \"root\" }".to_owned(),
-        }],
-    };
-    let value = serde_json::to_value(&item).unwrap();
-
-    assert_eq!(
-        value,
+    assert_preserved_legacy_item(
+        "qwen",
         json!({
             "type": "qwen_assistant_message",
             "content": "I will check.",
@@ -85,10 +51,6 @@ fn qwen_assistant_context_round_trips_raw_provider_fields() {
                 "name": "memory_read",
                 "arguments": "{ \"path\": \"root\" }"
             }]
-        })
-    );
-    assert_eq!(
-        serde_json::from_value::<ProviderConversationItem>(value).unwrap(),
-        item
+        }),
     );
 }

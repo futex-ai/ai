@@ -1,133 +1,201 @@
-//! Shared SSE consumption, terminal validation, and progress-aware failures.
+//! Pull-based SSE consumption and typed terminal validation.
+
+use std::collections::VecDeque;
 
 use ai_interface::{
-    ModelCompletionEvent, ModelCompletionEventSink, ModelError, ModelResponse, ModelResult,
-    StructuredOutputSchema,
+    DynModelEventStream, Effort, ModelEvent, ModelEventStream, ModelResult, StructuredOutputSchema,
 };
 use ai_models_core::{classify_json_http_stream_error, classify_stream_error};
+use async_trait::async_trait;
 use json_http::DynJsonHttpSseStream;
-use serde_json::Value;
 
 use super::{
-    dialect::CompletionContext, errors::classify_chat_completions_provider_error, response,
+    dialect::{CompletionContext, Dialect, ReplayRule},
+    errors::classify_chat_completions_provider_error,
+    response,
+    stream_events::{EventParts, terminal_events},
 };
-use crate::{ChatCompletionsAccumulator, ChatCompletionsStreamError, ChatCompletionsStreamUpdate};
+use crate::{ChatCompletionsAccumulator, ChatCompletionsResponse, ChatCompletionsStreamError};
 
 pub(crate) trait StreamNormalizer: Send {
     fn normalize_data(&mut self, data: &str, model_id: &str, progress: u64) -> ModelResult<String>;
-    fn restore(self: Box<Self>, body: &mut Value) -> Result<Option<String>, serde_json::Error>;
+    fn restore(self: Box<Self>, body: &mut ChatCompletionsResponse) -> Option<String>;
 }
 
-pub(super) async fn complete(
-    mut stream: DynJsonHttpSseStream,
-    context: CompletionContext<'_>,
-    response_schema: Option<&StructuredOutputSchema>,
-    event_sink: &dyn ModelCompletionEventSink,
-) -> ModelResult<ModelResponse> {
-    let provider = context.dialect.provider;
-    let model_id = context.provider_model_id;
-    let mut accumulator = ChatCompletionsAccumulator::new();
-    let mut normalizer = context.dialect.normalizer.map(|create| create(model_id));
-    let mut progress = 0u64;
-    loop {
-        let event = match stream.next().await {
+pub(super) struct StreamIdentity {
+    pub(super) dialect: &'static Dialect,
+    pub(super) catalog_model_id: String,
+    pub(super) provider_model_id: String,
+    pub(super) thinking_level: Option<Effort>,
+    pub(super) synthetic_tool_call_scope: String,
+}
+
+impl StreamIdentity {
+    pub(super) fn context(&self) -> CompletionContext<'_> {
+        CompletionContext {
+            dialect: self.dialect,
+            catalog_model_id: &self.catalog_model_id,
+            provider_model_id: &self.provider_model_id,
+            thinking_level: self.thinking_level,
+            synthetic_tool_call_scope: &self.synthetic_tool_call_scope,
+        }
+    }
+}
+
+pub(super) fn open(
+    stream: DynJsonHttpSseStream,
+    identity: StreamIdentity,
+    response_schema: Option<StructuredOutputSchema>,
+) -> DynModelEventStream {
+    let normalizer = identity
+        .dialect
+        .normalizer
+        .map(|create| create(&identity.provider_model_id));
+    Box::new(CompatStream {
+        source: Some(stream),
+        identity,
+        response_schema,
+        accumulator: Some(ChatCompletionsAccumulator::for_model_stream()),
+        normalizer,
+        parts: EventParts::default(),
+        events: VecDeque::new(),
+        progress: 0,
+    })
+}
+
+struct CompatStream {
+    source: Option<DynJsonHttpSseStream>,
+    identity: StreamIdentity,
+    response_schema: Option<StructuredOutputSchema>,
+    accumulator: Option<ChatCompletionsAccumulator>,
+    normalizer: Option<Box<dyn StreamNormalizer>>,
+    parts: EventParts,
+    events: VecDeque<ModelEvent>,
+    progress: u64,
+}
+
+impl CompatStream {
+    async fn read(&mut self) -> ModelResult<()> {
+        let Some(source) = self.source.as_mut() else {
+            return Ok(());
+        };
+        let provider = self.identity.dialect.provider;
+        let model_id = &self.identity.provider_model_id;
+        let event = match source.next().await {
             Ok(Some(event)) => event,
-            Ok(None) if context.dialect.clean_eof => {
-                if let Err(source) = accumulator.push_data("[DONE]") {
-                    return Err(classify_stream_error(provider, model_id, progress, &source));
+            Ok(None) if self.identity.dialect.clean_eof => {
+                if let Some(accumulator) = self.accumulator.as_mut()
+                    && let Err(source) = accumulator.push_data("[DONE]")
+                {
+                    return Err(classify_stream_error(
+                        provider,
+                        model_id,
+                        self.progress,
+                        &source,
+                    ));
                 }
-                return finish(
-                    accumulator,
-                    normalizer,
-                    context,
-                    response_schema,
-                    progress,
-                    event_sink,
-                )
-                .await;
+                return self.finish(false);
             }
             Ok(None) => {
                 return Err(classify_stream_error(
                     provider,
                     model_id,
-                    progress,
+                    self.progress,
                     &ChatCompletionsStreamError::MissingDone,
                 ));
             }
             Err(source) => {
                 return Err(classify_json_http_stream_error(
-                    provider, model_id, progress, source,
+                    provider,
+                    model_id,
+                    self.progress,
+                    source,
                 ));
             }
         };
-        let data = match normalizer.as_mut() {
-            Some(normalizer) => normalizer.normalize_data(&event.data, model_id, progress)?,
+        let data = match self.normalizer.as_mut() {
+            Some(normalizer) => normalizer.normalize_data(&event.data, model_id, self.progress)?,
             None => event.data,
         };
-        match accumulator.push_data_with_deltas(&data) {
-            Ok(ChatCompletionsStreamUpdate::Chunk { deltas }) => {
-                progress = progress.saturating_add(1);
-                for delta in deltas {
-                    event_sink.emit(delta.into()).await;
-                }
+        let Some(accumulator) = self.accumulator.as_mut() else {
+            return Ok(());
+        };
+        match accumulator.push_data_with_chunk(&data) {
+            Ok(Some(chunk)) => {
+                self.progress = self.progress.saturating_add(1);
+                self.events.extend(
+                    self.parts
+                        .push_chunk(&chunk, self.identity.dialect.replay == ReplayRule::Xai),
+                );
+                Ok(())
             }
-            Ok(ChatCompletionsStreamUpdate::Done) => {
-                return finish(
-                    accumulator,
-                    normalizer,
-                    context,
-                    response_schema,
-                    progress,
-                    event_sink,
-                )
-                .await;
-            }
-            Err(ChatCompletionsStreamError::ProviderEvent { error }) => {
-                return Err(classify_chat_completions_provider_error(
-                    provider, model_id, progress, error,
+            Ok(None) => self.finish(true),
+            Err(ChatCompletionsStreamError::ProviderEvent { error }) => Err(
+                classify_chat_completions_provider_error(provider, model_id, self.progress, error),
+            ),
+            Err(source) => Err(classify_stream_error(
+                provider,
+                model_id,
+                self.progress,
+                &source,
+            )),
+        }
+    }
+
+    fn finish(&mut self, explicit_done: bool) -> ModelResult<()> {
+        let Some(accumulator) = self.accumulator.take() else {
+            return Ok(());
+        };
+        self.source = None;
+        let mut accumulated = match accumulator.finish_model_stream(explicit_done) {
+            Ok(accumulated) => accumulated,
+            Err(source) => {
+                return Err(classify_stream_error(
+                    self.identity.dialect.provider,
+                    &self.identity.provider_model_id,
+                    self.progress,
+                    &source,
                 ));
             }
-            Err(source) => {
-                return Err(classify_stream_error(provider, model_id, progress, &source));
-            }
+        };
+        let terminal_text = self
+            .normalizer
+            .take()
+            .and_then(|normalizer| normalizer.restore(&mut accumulated));
+        let legacy = accumulated
+            .choices
+            .first()
+            .and_then(|choice| choice.message.function_call.clone());
+        let context = self.identity.context();
+        let response =
+            response::parse_accumulated(context, accumulated, self.response_schema.as_ref())?;
+        self.events
+            .extend(self.parts.finish(context, legacy, &response));
+        if let Some(delta) = terminal_text.filter(|delta| !delta.is_empty()) {
+            self.events.push_back(self.parts.terminal_text(delta));
         }
+        self.events.extend(terminal_events(response));
+        Ok(())
     }
 }
 
-async fn finish(
-    accumulator: ChatCompletionsAccumulator,
-    normalizer: Option<Box<dyn StreamNormalizer>>,
-    context: CompletionContext<'_>,
-    schema: Option<&StructuredOutputSchema>,
-    progress: u64,
-    sink: &dyn ModelCompletionEventSink,
-) -> ModelResult<ModelResponse> {
-    let accumulated = match accumulator.finish() {
-        Ok(accumulated) => accumulated,
-        Err(source) => {
-            return Err(classify_stream_error(
-                context.dialect.provider,
-                context.provider_model_id,
-                progress,
-                &source,
-            ));
+#[async_trait]
+impl ModelEventStream for CompatStream {
+    async fn next(&mut self) -> ModelResult<Option<ModelEvent>> {
+        loop {
+            if let Some(event) = self.events.pop_front() {
+                return Ok(Some(event));
+            }
+            if self.source.is_none() {
+                return Ok(None);
+            }
+            if let Err(error) = self.read().await {
+                self.source = None;
+                self.accumulator = None;
+                self.normalizer = None;
+                self.events.clear();
+                return Err(error);
+            }
         }
-    };
-    let mut body = match serde_json::to_value(accumulated) {
-        Ok(body) => body,
-        Err(source) => return Err(ModelError::internal(source)),
-    };
-    let terminal_text = match normalizer {
-        Some(normalizer) => match normalizer.restore(&mut body) {
-            Ok(text) => text,
-            Err(source) => return Err(ModelError::internal(source)),
-        },
-        None => None,
-    };
-    let response = response::parse_response(context, body, schema)?;
-    if let Some(delta) = terminal_text.filter(|delta| !delta.is_empty()) {
-        sink.emit(ModelCompletionEvent::AssistantTextDelta { delta })
-            .await;
     }
-    Ok(response)
 }

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use ai_interface::{ConversationMessage, Effort, Model, ToolCall};
+use ai_interface::{ConversationMessage, ConversationPart, Effort, Model, ToolCall};
 use json_http::{DynJsonHttpClient, StaticHeaderAuth};
 use serde_json::{Value, json};
 
@@ -10,6 +10,7 @@ use crate::{GEMINI_3_6_FLASH, GoogleModel};
 
 use super::stream_support::custom_spec;
 use super::{
+    part_support::original_parts,
     simple_request,
     stream_support::{event, recording_streaming_client},
 };
@@ -37,19 +38,15 @@ async fn signed_google_parts_replay_without_merging_or_synthetic_ids() {
     let mut request = simple_request();
     request.controls.generation.effort = Some(Effort::High);
     let response = model.complete(&request).await.unwrap();
-    assert_eq!(
-        serde_json::to_value(&response.provider_context).unwrap(),
-        json!([
-            {"type": "google_assistant_message", "parts": parts}
-        ])
-    );
-    assert_eq!(response.assistant_message, "  before  \nafter");
-    assert_eq!(response.tool_calls.len(), 2);
-    let assistant = ConversationMessage::assistant_with_provider_context(
-        "normalized fallback",
-        Vec::new(),
-        response.provider_context,
-    );
+    assert_eq!(original_parts(&response), parts);
+    assert_eq!(response.text(), "  before  \nafter");
+    assert_eq!(response.tool_calls().len(), 2);
+    let mut assistant = response.to_assistant_message();
+    for part in &mut assistant.parts {
+        if let ConversationPart::Text { text, .. } = part {
+            *text = "normalized fallback".to_owned();
+        }
+    }
     let stored = serde_json::from_value(serde_json::to_value(assistant).unwrap()).unwrap();
     request.messages.push(stored);
     request
@@ -58,7 +55,7 @@ async fn signed_google_parts_replay_without_merging_or_synthetic_ids() {
     request.messages.push(ConversationMessage::tool(
         "7",
         "lookup",
-        &response.tool_calls[0].id,
+        &response.tool_calls()[0].id,
     ));
     model.complete(&request).await.unwrap();
     let requests = requests.lock().unwrap();
@@ -93,19 +90,8 @@ async fn streamed_google_signature_chunks_keep_their_own_parts() {
         {"text": "Done"}, {"text": "", "thoughtSignature": "tail"},
         {"text": "separate", "thoughtSignature": "other"}
     ]);
-    assert_eq!(
-        serde_json::to_value(&response.provider_context).unwrap(),
-        json!([
-            {"type": "google_assistant_message", "parts": parts}
-        ])
-    );
-    request
-        .messages
-        .push(ConversationMessage::assistant_with_provider_context(
-            response.assistant_message,
-            response.tool_calls,
-            response.provider_context,
-        ));
+    assert_eq!(original_parts(&response), parts);
+    request.messages.push(response.to_assistant_message());
     model.complete(&request).await.unwrap();
     let requests = requests.lock().unwrap();
     assert_eq!(
@@ -116,12 +102,17 @@ async fn streamed_google_signature_chunks_keep_their_own_parts() {
 
 #[tokio::test]
 async fn signed_no_id_tool_results_omit_ids_and_unsigned_keep_runtime_ids() {
-    for signed in [false, true] {
+    for signature in ["none", "call", "later"] {
+        let signed = signature != "none";
         let mut part = json!({"functionCall": {"name": "lookup", "args": {"id": 7}}});
-        if signed {
+        if signature == "call" {
             part["thoughtSignature"] = json!("call-signature");
         }
-        let (contents, calls) = tool_follow_up(json!([part])).await;
+        let mut parts = vec![part];
+        if signature == "later" {
+            parts.push(json!({"text": "later", "thoughtSignature": "later-signature"}));
+        }
+        let (contents, calls) = tool_follow_up(json!(parts)).await;
         assert_eq!(calls.len(), 1);
         assert!(calls[0].id.starts_with("google_function_call:"));
         let expected_call = if signed {
@@ -174,6 +165,84 @@ async fn signed_tool_results_keep_provider_ids_in_mixed_calls() {
     );
 }
 
+#[tokio::test]
+async fn unsigned_google_continuations_join_text_before_calls() {
+    let first = json!({"text":"First"});
+    let second = json!({"text":"Second"});
+    let call = json!({"functionCall":{"id":"call-7","name":"lookup","args":{"id":7}}});
+    let joined = json!({"text":"First\nSecond"});
+    let mut actual = Vec::new();
+    let mut expected = Vec::new();
+    for (parts, finish, replay, text, calls) in [
+        (
+            json!([first, call, second]),
+            "STOP",
+            json!([joined, call]),
+            "First\nSecond",
+            1,
+        ),
+        (
+            json!([first, second, call]),
+            "STOP",
+            json!([joined, call]),
+            "First\nSecond",
+            1,
+        ),
+        (
+            json!([call, first]),
+            "STOP",
+            json!([first, call]),
+            "First",
+            1,
+        ),
+        (
+            json!([first, second]),
+            "STOP",
+            json!([joined]),
+            "First\nSecond",
+            0,
+        ),
+        (
+            json!([first, call, second]),
+            "MAX_TOKENS",
+            json!([joined]),
+            "First\nSecond",
+            0,
+        ),
+    ] {
+        let (client, requests) = recording_streaming_client(vec![
+            vec![event(
+                json!({"candidates":[{"content":{"parts":parts},"finishReason":finish}]}),
+            )],
+            vec![event(
+                json!({"candidates":[{"content":{"parts":[{"text":"Done"}]},"finishReason":"STOP"}]}),
+            )],
+        ]);
+        let model = GoogleModel::new(client, custom_spec("gemini-2.5-pro"), "key");
+        let mut request = simple_request();
+        let response = model.complete(&request).await.unwrap();
+        let assistant = response.to_assistant_message();
+        request
+            .messages
+            .push(serde_json::from_value(serde_json::to_value(assistant).unwrap()).unwrap());
+        for call in response.tool_calls() {
+            request
+                .messages
+                .push(ConversationMessage::tool("7", &call.name, &call.id));
+        }
+        model.complete(&request).await.unwrap();
+        let requests = requests.lock().unwrap();
+        actual.push(json!({
+            "source":parts,"finish":finish,"text":response.text(),"calls":response.tool_calls().len(),
+            "replay":requests[1].body.as_ref().unwrap()["contents"][1]["parts"]
+        }));
+        expected.push(
+            json!({"source":parts,"finish":finish,"text":text,"calls":calls,"replay":replay}),
+        );
+    }
+    assert_eq!(actual, expected);
+}
+
 async fn tool_follow_up(parts: Value) -> (Value, Vec<ToolCall>) {
     let (client, requests) = recording_streaming_client(vec![
         vec![event(
@@ -186,14 +255,8 @@ async fn tool_follow_up(parts: Value) -> (Value, Vec<ToolCall>) {
     let model = GoogleModel::new(client, custom_spec("gemini-2.5-pro"), "key");
     let mut request = simple_request();
     let response = model.complete(&request).await.unwrap();
-    let calls = response.tool_calls.clone();
-    request
-        .messages
-        .push(ConversationMessage::assistant_with_provider_context(
-            response.assistant_message,
-            response.tool_calls,
-            response.provider_context,
-        ));
+    let calls = response.tool_calls();
+    request.messages.push(response.to_assistant_message());
     for call in &calls {
         request
             .messages

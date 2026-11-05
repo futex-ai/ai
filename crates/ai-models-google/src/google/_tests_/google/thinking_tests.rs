@@ -166,12 +166,8 @@ fn assert_thinking_response(
 ) {
     assert_eq!(response.effort().map(Effort::as_str), Some(thinking_level));
     assert_eq!(response.model_id, model_id);
-    assert_eq!(response.assistant_message, "Done");
-    assert!(
-        !response
-            .assistant_message
-            .contains("hidden provider thought")
-    );
+    assert_eq!(response.text(), "Done");
+    assert!(!response.text().contains("hidden provider thought"));
     assert_eq!(response.usage.input_tokens, 8);
     assert_eq!(response.usage.output_tokens, 6);
     assert_eq!(response.usage.total_tokens, 23);

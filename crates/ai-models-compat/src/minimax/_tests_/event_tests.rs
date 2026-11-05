@@ -1,12 +1,12 @@
 //! Public completion-event tests for MiniMax streams.
 
-use ai_interface::{Model, ModelCompletionEvent, ModelError, StructuredOutputSchema};
-use ai_models_core::test_support::{
-    SseFixture, done_event, event, recorded_completion_events, recording_completion_event_sink,
-    recording_streaming_client,
-};
+use ai_interface::{ModelError, StructuredOutputSchema};
+use ai_models_core::test_support::{SseFixture, done_event, event, recording_streaming_client};
 use serde_json::{Value, json};
-use unimock::Unimock;
+
+use crate::stream_test_support::{
+    assistant_delta, assistant_text, content_events, observe, reasoning_delta,
+};
 
 use crate::minimax::{MINIMAX_M2_7, MINIMAX_M3, MiniMaxModel};
 
@@ -26,13 +26,12 @@ async fn emits_terminal_cumulative_content_and_append_only_reasoning_with_parity
     ]);
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
     let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
-    let (sink, recorded) = recording_completion_event_sink();
+    let mut recorded = Vec::new();
 
-    let response = model
-        .complete_with_events(&simple_request(), &sink)
+    let response = observe(&model, &simple_request(), &mut recorded)
         .await
         .expect("event-observing completion should succeed");
-    let events = recorded_completion_events(&recorded);
+    let events = content_events(&recorded);
 
     assert_eq!(
         events,
@@ -42,11 +41,11 @@ async fn emits_terminal_cumulative_content_and_append_only_reasoning_with_parity
             assistant_delta("Hello"),
         ]
     );
-    assert_eq!(assistant_text(&events), response.assistant_message);
+    assert_eq!(assistant_text(&events), response.text());
 }
 
 #[tokio::test]
-async fn structured_completion_suppresses_normalized_content() {
+async fn structured_completion_emits_normalized_content() {
     let events = completed_stream(vec![
         text_chunk("{\"summary\":", None, "", None),
         text_chunk("{\"summary\":\"Done\"}", None, "", Some("stop")),
@@ -54,16 +53,16 @@ async fn structured_completion_suppresses_normalized_content() {
     ]);
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
     let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
-    let sink = Unimock::new(());
+    let mut recorded = Vec::new();
     let mut request = simple_request();
     request.response_schema = Some(summary_schema());
 
-    let response = model
-        .complete_with_events(&request, &sink)
+    let response = observe(&model, &request, &mut recorded)
         .await
-        .expect("structured completion should succeed silently");
+        .expect("structured completion should emit validated output");
 
     assert_eq!(response.structured_output, Some(json!({"summary": "Done"})));
+    assert_eq!(assistant_text(&recorded), "{\"summary\":\"Done\"}");
 }
 
 #[tokio::test]
@@ -74,18 +73,14 @@ async fn emits_partial_normalized_content_before_an_interruption() {
     ];
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
     let model = MiniMaxModel::new(http_client, MINIMAX_M3, "key");
-    let (sink, recorded) = recording_completion_event_sink();
+    let mut recorded = Vec::new();
 
-    let error = model
-        .complete_with_events(&simple_request(), &sink)
+    let error = observe(&model, &simple_request(), &mut recorded)
         .await
         .expect_err("interrupted completion should fail");
 
     assert!(matches!(error, ModelError::Interrupted { .. }));
-    assert_eq!(
-        recorded_completion_events(&recorded),
-        vec![assistant_delta("partial")]
-    );
+    assert_eq!(content_events(&recorded), vec![assistant_delta("partial")]);
 }
 
 #[tokio::test]
@@ -98,16 +93,15 @@ async fn revised_cumulative_content_emits_only_the_terminal_snapshot() {
     ]);
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
     let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
-    let (sink, recorded) = recording_completion_event_sink();
+    let mut recorded = Vec::new();
 
-    let response = model
-        .complete_with_events(&simple_request(), &sink)
+    let response = observe(&model, &simple_request(), &mut recorded)
         .await
         .expect("revised cumulative stream should succeed");
-    let events = recorded_completion_events(&recorded);
+    let events = content_events(&recorded);
 
     assert_eq!(events, vec![assistant_delta("replacement")]);
-    assert_eq!(assistant_text(&events), response.assistant_message);
+    assert_eq!(assistant_text(&events), response.text());
 }
 
 fn completed_stream(chunks: Vec<Value>) -> Vec<ai_models_core::test_support::StreamItem> {
@@ -146,28 +140,6 @@ fn usage_chunk() -> Value {
         "choices": [],
         "usage": {"prompt_tokens": 4, "completion_tokens": 4, "total_tokens": 8}
     })
-}
-
-fn assistant_text(events: &[ModelCompletionEvent]) -> String {
-    events
-        .iter()
-        .filter_map(|event| match event {
-            ModelCompletionEvent::AssistantTextDelta { delta } => Some(delta.as_str()),
-            _ => None,
-        })
-        .collect()
-}
-
-fn assistant_delta(delta: &str) -> ModelCompletionEvent {
-    ModelCompletionEvent::AssistantTextDelta {
-        delta: delta.to_owned(),
-    }
-}
-
-fn reasoning_delta(delta: &str) -> ModelCompletionEvent {
-    ModelCompletionEvent::ReasoningTextDelta {
-        delta: delta.to_owned(),
-    }
 }
 
 fn summary_schema() -> StructuredOutputSchema {

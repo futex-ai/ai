@@ -1,12 +1,12 @@
 //! Public completion-event tests for DeepSeek streams.
 
-use ai_interface::{Model, ModelCompletionEvent, ModelError, StructuredOutputSchema};
-use ai_models_core::test_support::{
-    SseFixture, done_event, event, recorded_completion_events, recording_completion_event_sink,
-    recording_streaming_client,
-};
+use ai_interface::{ModelError, StructuredOutputSchema};
+use ai_models_core::test_support::{SseFixture, done_event, event, recording_streaming_client};
 use serde_json::{Value, json};
-use unimock::Unimock;
+
+use crate::stream_test_support::{
+    assistant_delta, assistant_text, content_events, observe, reasoning_delta,
+};
 
 use super::{DeepSeekModel, test_support::simple_request};
 
@@ -20,13 +20,12 @@ async fn emits_reasoning_and_assistant_deltas_in_order_with_parity() {
     ]);
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
     let model = DeepSeekModel::new(http_client, "key");
-    let (sink, recorded) = recording_completion_event_sink();
+    let mut recorded = Vec::new();
 
-    let response = model
-        .complete_with_events(&simple_request(), &sink)
+    let response = observe(&model, &simple_request(), &mut recorded)
         .await
         .expect("event-observing completion should succeed");
-    let events = recorded_completion_events(&recorded);
+    let events = content_events(&recorded);
 
     assert_eq!(
         events,
@@ -37,11 +36,11 @@ async fn emits_reasoning_and_assistant_deltas_in_order_with_parity() {
             assistant_delta("lo"),
         ]
     );
-    assert_eq!(assistant_text(&events), response.assistant_message);
+    assert_eq!(assistant_text(&events), response.text());
 }
 
 #[tokio::test]
-async fn structured_completion_suppresses_text_deltas() {
+async fn structured_completion_emits_text_deltas() {
     let events = completed_stream(vec![
         text_chunk(None, Some("{\"summary\":"), None),
         text_chunk(None, Some("\"Done\"}"), Some("stop")),
@@ -49,16 +48,16 @@ async fn structured_completion_suppresses_text_deltas() {
     ]);
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
     let model = DeepSeekModel::new(http_client, "key");
-    let sink = Unimock::new(());
+    let mut recorded = Vec::new();
     let mut request = simple_request();
     request.response_schema = Some(summary_schema());
 
-    let response = model
-        .complete_with_events(&request, &sink)
+    let response = observe(&model, &request, &mut recorded)
         .await
-        .expect("structured completion should succeed silently");
+        .expect("structured completion should emit validated output");
 
     assert_eq!(response.structured_output, Some(json!({"summary": "Done"})));
+    assert_eq!(assistant_text(&recorded), "{\"summary\":\"Done\"}");
 }
 
 #[tokio::test]
@@ -69,18 +68,14 @@ async fn emits_partial_text_before_an_interruption() {
     ];
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
     let model = DeepSeekModel::new(http_client, "key");
-    let (sink, recorded) = recording_completion_event_sink();
+    let mut recorded = Vec::new();
 
-    let error = model
-        .complete_with_events(&simple_request(), &sink)
+    let error = observe(&model, &simple_request(), &mut recorded)
         .await
         .expect_err("interrupted completion should fail");
 
     assert!(matches!(error, ModelError::Interrupted { .. }));
-    assert_eq!(
-        recorded_completion_events(&recorded),
-        vec![assistant_delta("partial")]
-    );
+    assert_eq!(content_events(&recorded), vec![assistant_delta("partial")]);
 }
 
 fn completed_stream(chunks: Vec<Value>) -> Vec<ai_models_core::test_support::StreamItem> {
@@ -108,28 +103,6 @@ fn usage_chunk() -> Value {
         "choices": [],
         "usage": {"prompt_tokens": 4, "completion_tokens": 4, "total_tokens": 8}
     })
-}
-
-fn assistant_text(events: &[ModelCompletionEvent]) -> String {
-    events
-        .iter()
-        .filter_map(|event| match event {
-            ModelCompletionEvent::AssistantTextDelta { delta } => Some(delta.as_str()),
-            _ => None,
-        })
-        .collect()
-}
-
-fn assistant_delta(delta: &str) -> ModelCompletionEvent {
-    ModelCompletionEvent::AssistantTextDelta {
-        delta: delta.to_owned(),
-    }
-}
-
-fn reasoning_delta(delta: &str) -> ModelCompletionEvent {
-    ModelCompletionEvent::ReasoningTextDelta {
-        delta: delta.to_owned(),
-    }
 }
 
 fn summary_schema() -> StructuredOutputSchema {

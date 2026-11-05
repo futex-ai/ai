@@ -48,11 +48,11 @@ async fn builds_openai_tool_requests_and_parses_response() {
     assert!(body.get("response_format").is_none());
     assert!(body.get("reasoning_effort").is_none());
 
-    assert_eq!(response.assistant_message, "Done");
+    assert_eq!(response.text(), "Done");
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
-    assert_eq!(response.tool_calls.len(), 1);
-    assert_eq!(response.tool_calls[0].id, "call_1");
-    assert_eq!(response.tool_calls[0].name, "memory_read");
+    assert_eq!(response.tool_calls().len(), 1);
+    assert_eq!(response.tool_calls()[0].id, "call_1");
+    assert_eq!(response.tool_calls()[0].name, "memory_read");
     assert_eq!(response.structured_output, None);
     assert_eq!(response.usage.total_tokens, 152);
 }

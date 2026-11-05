@@ -2,10 +2,11 @@
 
 Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
-When implemented, this protocol replaces the retry and fallback rules of
-[model-completion-streaming.md](model-completion-streaming.md) and
-[model-completion-events.md](model-completion-events.md), and the wrapper
-contract of [provider-call-controls.md](provider-call-controls.md).
+When implemented, this protocol replaces the wrapper contract of
+[provider-call-controls.md](provider-call-controls.md). Until then, the
+section [Rules in force until Milestone 8](#rules-in-force-until-milestone-8)
+gives the errors, retry, and fallback rules that apply where they differ
+from the target rules.
 
 This protocol defines the error core, the scope of each error kind, and the
 retry, fallback, concurrency, and pricing layers. The
@@ -126,6 +127,72 @@ generation, video generation, audio transcription, and judgment.
   - A required policy with presets on classes that keep one undivided
     provider error.
   - No fallback in the library.
+
+## Rules in force until Milestone 8
+
+Milestone 8 of the plan implements the error core, the error kinds, retry,
+and fallback of this protocol. Until then, the rules of this section apply
+where they differ from the sections above. The concurrency, pricing, and
+composition rules below are in force.
+
+### Errors
+
+- The error core is not in force. A model error carries no retry-after and
+  no provider request id.
+- A model error is one of the current errors in this table. A kind that the
+  [model stream protocol](model-stream.md) or a provider doc names stands for
+  its current error.
+
+| Kind | Current error |
+| --- | --- |
+| Rate limited | `RateLimited` |
+| Transient | `TransientProvider` |
+| Interrupted | `Interrupted` |
+| Context limit exceeded | `ContextLimitExceeded` |
+| Unsupported control | `UnsupportedControl` |
+| Internal | `Internal` |
+| Invalid request, rejected key, unknown model, unsupported input, or invalid output | `Provider` |
+
+- `UnsupportedControl` carries the provider, the model id, and the control.
+  `Internal` carries its source. Each other current error carries the
+  provider, the model id, and a message.
+- An HTTP failure status gives a current error:
+  - 429 gives `RateLimited`.
+  - 408, 409, 425, and each status from 500 to 599 give
+    `TransientProvider`.
+  - 400 with a context-limit code in its body gives `ContextLimitExceeded`.
+  - Each other status from 400 to 499 gives `Provider`.
+- The image, video, transcription, and judgment adapters keep their own
+  typed errors.
+
+### Retry
+
+- The retry layer retries only `TransientProvider`. It does not retry
+  `RateLimited` or `Interrupted`.
+- The standard schedule makes at most three attempts: the first call and
+  two retries. The waits before the two retries are 100 ms and 250 ms.
+- A wait has no jitter. The layer ignores the retry-after of the provider.
+- A caller can set the list of waits. Each wait of the list allows one
+  retry.
+- The retry layer keeps the stream rules of the
+  [model stream protocol](model-stream.md#policy-layers-on-the-stream).
+
+### Fallback
+
+- The fallback layer has no policy. It moves to the next model after every
+  error, as the preset "any error" does.
+- It moves on also after `Interrupted`, so the interrupted attempt and the
+  next attempt can both bill. The README of the fallback crate must warn
+  callers about this.
+- When the last model fails, the layer returns the error of that model. That
+  error does not list the earlier attempts.
+- A successful response lists every failed attempt before it. An attempt
+  record holds a copy of the error of the failed attempt. It does not record
+  whether the attempt emitted events.
+- A fallback layer with no models fails every call with `Internal`.
+- The fallback layer keeps the stream rules of the
+  [model stream protocol](model-stream.md#policy-layers-on-the-stream). It
+  emits one fallback event for each failed model.
 
 ## Concurrency
 

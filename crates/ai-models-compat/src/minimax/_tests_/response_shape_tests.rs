@@ -33,7 +33,7 @@ fn accepts_null_or_empty_content_and_absent_usage() {
         }))
         .expect("nullable content should normalize");
 
-        assert_eq!(response.assistant_message, "");
+        assert_eq!(response.text(), "");
         assert_eq!(response.usage, ModelUsage::default());
     }
 }

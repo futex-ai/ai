@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's qwen adapter result for tool_loop using qwen/qwen3.7-max synthetic recordings."
 expression: outcome
 ---
@@ -7,36 +8,179 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "ReasoningDelta": {
+            "part_index": 0,
+            "delta": "Use "
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 1,
+            "delta": "Checking "
+          }
+        },
+        {
+          "ToolCallStart": {
+            "part_index": 2,
+            "id": "call_1",
+            "name": "lookup"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 2,
+            "delta": "{\"id\":"
+          }
+        },
+        {
+          "ReasoningDelta": {
+            "part_index": 0,
+            "delta": "lookup."
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 1,
+            "delta": "now"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 2,
+            "delta": "7}"
+          }
+        },
+        {
+          "ToolCallEnd": {
+            "part_index": 2,
+            "provider_state": {
+              "provider": "qwen",
+              "model": "qwen3.7-max",
+              "version": 2,
+              "payload": {
+                "call": {
+                  "arguments": "{\"id\":7}",
+                  "id": "call_1",
+                  "name": "lookup"
+                },
+                "kind": "tool_call",
+                "legacy": false
+              }
+            }
+          }
+        },
+        {
+          "ReasoningDelta": {
+            "part_index": 0,
+            "delta": "",
+            "provider_state": {
+              "provider": "qwen",
+              "model": "qwen3.7-max",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": "Use lookup.",
+                "reasoning_details": []
+              }
+            }
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 1,
+            "delta": "",
+            "provider_state": {
+              "provider": "qwen",
+              "model": "qwen3.7-max",
+              "version": 2,
+              "payload": {
+                "content": "Checking now",
+                "kind": "text"
+              }
+            }
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 9,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 0,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "ToolCalls",
+            "provider": "qwen",
+            "model_id": "qwen3.7-max",
+            "catalog_model_id": "qwen/qwen3.7-max",
+            "effort": "high"
+          }
+        }
+      ],
       "response": {
         "provider": "qwen",
         "model_id": "qwen3.7-max",
         "catalog_model_id": "qwen/qwen3.7-max",
         "effort": "high",
-        "assistant_message": "Checking now",
-        "tool_calls": [
+        "parts": [
           {
-            "id": "call_1",
-            "name": "lookup",
-            "input": {
+            "type": "reasoning",
+            "text": "Use lookup.",
+            "provider_state": {
+              "provider": "qwen",
+              "model": "qwen3.7-max",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": "Use lookup.",
+                "reasoning_details": []
+              }
+            }
+          },
+          {
+            "type": "text",
+            "text": "Checking now",
+            "provider_state": {
+              "provider": "qwen",
+              "model": "qwen3.7-max",
+              "version": 2,
+              "payload": {
+                "content": "Checking now",
+                "kind": "text"
+              }
+            }
+          },
+          {
+            "type": "tool_call",
+            "call_id": "call_1",
+            "tool_name": "lookup",
+            "arguments": {
               "id": 7
+            },
+            "provider_state": {
+              "provider": "qwen",
+              "model": "qwen3.7-max",
+              "version": 2,
+              "payload": {
+                "call": {
+                  "arguments": "{\"id\":7}",
+                  "id": "call_1",
+                  "name": "lookup"
+                },
+                "kind": "tool_call",
+                "legacy": false
+              }
             }
           }
         ],
         "finish_reason": "ToolCalls",
-        "provider_context": [
-          {
-            "type": "qwen_assistant_message",
-            "content": "Checking now",
-            "reasoning_content": "Use lookup.",
-            "tool_calls": [
-              {
-                "id": "call_1",
-                "name": "lookup",
-                "arguments": "{\"id\":7}"
-              }
-            ]
-          }
-        ],
         "usage": {
           "input_tokens": 15,
           "output_tokens": 9,
@@ -49,20 +193,107 @@ expression: outcome
     },
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "ne"
+          }
+        },
+        {
+          "ReasoningDelta": {
+            "part_index": 1,
+            "delta": "",
+            "provider_state": {
+              "provider": "qwen",
+              "model": "qwen3.7-max",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": null,
+                "reasoning_details": []
+              }
+            }
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "",
+            "provider_state": {
+              "provider": "qwen",
+              "model": "qwen3.7-max",
+              "version": 2,
+              "payload": {
+                "content": "Done",
+                "kind": "text"
+              }
+            }
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 9,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 0,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "qwen",
+            "model_id": "qwen3.7-max",
+            "catalog_model_id": "qwen/qwen3.7-max",
+            "effort": "high"
+          }
+        }
+      ],
       "response": {
         "provider": "qwen",
         "model_id": "qwen3.7-max",
         "catalog_model_id": "qwen/qwen3.7-max",
         "effort": "high",
-        "assistant_message": "Done",
-        "tool_calls": [],
-        "finish_reason": "Stop",
-        "provider_context": [
+        "parts": [
           {
-            "type": "qwen_assistant_message",
-            "content": "Done"
+            "type": "text",
+            "text": "Done",
+            "provider_state": {
+              "provider": "qwen",
+              "model": "qwen3.7-max",
+              "version": 2,
+              "payload": {
+                "content": "Done",
+                "kind": "text"
+              }
+            }
+          },
+          {
+            "type": "reasoning",
+            "text": "",
+            "provider_state": {
+              "provider": "qwen",
+              "model": "qwen3.7-max",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": null,
+                "reasoning_details": []
+              }
+            }
           }
         ],
+        "finish_reason": "Stop",
         "usage": {
           "input_tokens": 15,
           "output_tokens": 9,

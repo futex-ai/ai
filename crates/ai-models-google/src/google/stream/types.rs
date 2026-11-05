@@ -1,9 +1,11 @@
 //! Typed Google generate-content stream chunks and failures.
 
-use ai_interface::GoogleAssistantPart;
+use ai_interface::ModelEvent;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use thiserror::Error;
+
+use super::super::state::GoogleAssistantPart;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct GoogleStreamChunk {
@@ -37,18 +39,18 @@ pub(super) struct GooglePromptFeedback {
     pub(super) block_reason: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub(super) struct GoogleUsageMetadata {
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(in crate::google) struct GoogleUsageMetadata {
     #[serde(default, rename = "promptTokenCount")]
-    pub(super) prompt_token_count: u32,
+    pub(in crate::google) prompt_token_count: u32,
     #[serde(default, rename = "candidatesTokenCount")]
-    pub(super) candidates_token_count: u32,
+    pub(in crate::google) candidates_token_count: u32,
     #[serde(default, rename = "totalTokenCount")]
-    pub(super) total_token_count: Option<u32>,
+    pub(in crate::google) total_token_count: Option<u32>,
     #[serde(default, rename = "cachedContentTokenCount")]
-    pub(super) cached_content_token_count: u32,
+    pub(in crate::google) cached_content_token_count: u32,
     #[serde(default, rename = "thoughtsTokenCount")]
-    pub(super) thoughts_token_count: u32,
+    pub(in crate::google) thoughts_token_count: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -73,8 +75,18 @@ impl GoogleProviderError {
 
 #[derive(Debug)]
 pub(super) enum GoogleStreamUpdate {
-    Continue { deltas: Vec<GoogleStreamDelta> },
+    Continue { events: Vec<ModelEvent> },
     ProviderError(GoogleProviderError),
+}
+
+#[derive(Debug)]
+pub(in crate::google) struct GoogleCompletion {
+    pub(in crate::google) state_events: Vec<ModelEvent>,
+    pub(in crate::google) candidate_seen: bool,
+    pub(in crate::google) assistant_message: String,
+    pub(in crate::google) tool_call_count: usize,
+    pub(in crate::google) finish_reason: Option<String>,
+    pub(in crate::google) usage: GoogleUsageMetadata,
 }
 
 #[derive(Debug)]
@@ -87,6 +99,8 @@ pub(super) enum GoogleStreamDelta {
 pub(super) enum GoogleStreamError {
     #[error("[ai_models_google/stream] invalid chunk JSON: {source}")]
     DeserializeChunk { source: serde_json::Error },
+    #[error("[ai_models_google/stream] invalid replay state: {source}")]
+    SerializeState { source: serde_json::Error },
     #[error("[ai_models_google/stream] provider error HTTP {code} ({status:?}): {message}")]
     ProviderEvent {
         code: u16,

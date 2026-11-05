@@ -3,11 +3,12 @@
 use std::{env, sync::Arc, time::Duration};
 
 use ai_interface::{
-    ConversationMessage, DynModel, Effort, ModelCallControls, ModelCompletionEvent,
-    ModelCompletionMode, ModelExecutionControls, ModelGenerationControls, ModelResponse, ModelSpec,
-    ModelToolChoice, NoopLogger,
+    ConversationMessage, DynModel, Effort, ModelCallControls, ModelCompletionMode,
+    ModelExecutionControls, ModelGenerationControls, ModelResponse, ModelSpec, ModelToolChoice,
+    NoopLogger,
 };
 use ai_models_core::RetryingModel;
+use ai_testkit::event_snapshot::ModelEventSnapshot;
 use ai_tool_calling::{
     InMemoryToolOutputStore, ModelResponseCheckpoint, NoopTurnCheckpoint, StepOutcome,
     ToolCallingRuntime, ToolOutputPolicy,
@@ -16,7 +17,7 @@ use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 
 use super::{
     event_tests::{completion_event_failures, observing_model},
-    provider_tests::{CompletionEventExpectation, LiveProvider},
+    provider_tests::LiveProvider,
     validation_tests::validate_response,
 };
 
@@ -60,7 +61,6 @@ async fn run_catalog(provider: LiveProvider) {
                 probe.effort,
                 model,
                 ModelCompletionMode::PreferDeferred,
-                provider.preferred_mode_event_expectation(),
             )
             .await,
         );
@@ -92,7 +92,6 @@ async fn run_synchronous_stream_probe(provider: LiveProvider) {
         probe.effort,
         model,
         ModelCompletionMode::Synchronous,
-        provider.synchronous_event_expectation(),
     )
     .await;
     assert!(
@@ -108,7 +107,6 @@ pub(super) async fn run_probe_with_marker_retry(
     effort: Option<Effort>,
     model: DynModel,
     completion_mode: ModelCompletionMode,
-    event_expectation: CompletionEventExpectation,
 ) -> Vec<String> {
     let mut retry_available = true;
     loop {
@@ -127,8 +125,7 @@ pub(super) async fn run_probe_with_marker_retry(
         );
         let event_failures = completion_event_failures(
             &spec.text_id(),
-            event_expectation,
-            &completion.response.assistant_message,
+            &completion.response.text(),
             &completion.events,
         );
         if retry_available && should_retry_marker_miss(&response_failures, &event_failures) {
@@ -203,7 +200,7 @@ pub(super) async fn complete_through_runtime(
 
 pub(super) struct ObservedCompletion {
     pub(super) response: ModelResponse,
-    pub(super) events: Vec<ModelCompletionEvent>,
+    pub(super) events: Vec<ModelEventSnapshot>,
 }
 
 pub(super) fn probe_controls(

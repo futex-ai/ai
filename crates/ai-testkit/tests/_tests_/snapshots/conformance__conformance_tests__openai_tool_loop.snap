@@ -8,40 +8,139 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "ReasoningDelta": {
+            "part_index": 0,
+            "delta": "",
+            "provider_state": {
+              "provider": "openai",
+              "model": "gpt-5.6-sol",
+              "version": 1,
+              "payload": {
+                "encrypted_content": "synthetic-encrypted-reasoning",
+                "id": "rs_1"
+              }
+            }
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 1,
+            "delta": "Checking now",
+            "provider_state": {
+              "provider": "openai",
+              "model": "gpt-5.6-sol",
+              "version": 1,
+              "payload": {
+                "phase": "commentary"
+              }
+            }
+          }
+        },
+        {
+          "ToolCallStart": {
+            "part_index": 2,
+            "id": "call_1",
+            "name": "lookup"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 2,
+            "delta": "{\"id\":7}"
+          }
+        },
+        {
+          "ToolCallEnd": {
+            "part_index": 2,
+            "provider_state": {
+              "provider": "openai",
+              "model": "gpt-5.6-sol",
+              "version": 1,
+              "payload": {
+                "arguments": "{\"id\":7}",
+                "call_id": "call_1",
+                "id": "fc_1",
+                "name": "lookup"
+              }
+            }
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "ToolCalls",
+            "provider": "openai",
+            "model_id": "gpt-5.6-sol",
+            "catalog_model_id": "openai/gpt-5.6-sol",
+            "effort": "medium"
+          }
+        }
+      ],
       "response": {
         "provider": "openai",
         "model_id": "gpt-5.6-sol",
         "catalog_model_id": "openai/gpt-5.6-sol",
         "effort": "medium",
-        "assistant_message": "Checking now",
-        "tool_calls": [
+        "parts": [
           {
-            "id": "call_1",
-            "name": "lookup",
-            "input": {
+            "type": "reasoning",
+            "text": "",
+            "provider_state": {
+              "provider": "openai",
+              "model": "gpt-5.6-sol",
+              "version": 1,
+              "payload": {
+                "encrypted_content": "synthetic-encrypted-reasoning",
+                "id": "rs_1"
+              }
+            }
+          },
+          {
+            "type": "text",
+            "text": "Checking now",
+            "provider_state": {
+              "provider": "openai",
+              "model": "gpt-5.6-sol",
+              "version": 1,
+              "payload": {
+                "phase": "commentary"
+              }
+            }
+          },
+          {
+            "type": "tool_call",
+            "call_id": "call_1",
+            "tool_name": "lookup",
+            "arguments": {
               "id": 7
+            },
+            "provider_state": {
+              "provider": "openai",
+              "model": "gpt-5.6-sol",
+              "version": 1,
+              "payload": {
+                "arguments": "{\"id\":7}",
+                "call_id": "call_1",
+                "id": "fc_1",
+                "name": "lookup"
+              }
             }
           }
         ],
         "finish_reason": "ToolCalls",
-        "provider_context": [
-          {
-            "type": "openai_reasoning",
-            "id": "rs_1",
-            "encrypted_content": "synthetic-encrypted-reasoning"
-          },
-          {
-            "type": "openai_message",
-            "phase": "commentary"
-          },
-          {
-            "type": "openai_function_call",
-            "id": "fc_1",
-            "call_id": "call_1",
-            "name": "lookup",
-            "arguments": "{\"id\":7}"
-          }
-        ],
         "usage": {
           "input_tokens": 15,
           "output_tokens": 5,
@@ -54,20 +153,63 @@ expression: outcome
     },
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Done",
+            "provider_state": {
+              "provider": "openai",
+              "model": "gpt-5.6-sol",
+              "version": 1,
+              "payload": {
+                "phase": "final_answer"
+              }
+            }
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "openai",
+            "model_id": "gpt-5.6-sol",
+            "catalog_model_id": "openai/gpt-5.6-sol",
+            "effort": "medium"
+          }
+        }
+      ],
       "response": {
         "provider": "openai",
         "model_id": "gpt-5.6-sol",
         "catalog_model_id": "openai/gpt-5.6-sol",
         "effort": "medium",
-        "assistant_message": "Done",
-        "tool_calls": [],
-        "finish_reason": "Stop",
-        "provider_context": [
+        "parts": [
           {
-            "type": "openai_message",
-            "phase": "final_answer"
+            "type": "text",
+            "text": "Done",
+            "provider_state": {
+              "provider": "openai",
+              "model": "gpt-5.6-sol",
+              "version": 1,
+              "payload": {
+                "phase": "final_answer"
+              }
+            }
           }
         ],
+        "finish_reason": "Stop",
         "usage": {
           "input_tokens": 15,
           "output_tokens": 5,

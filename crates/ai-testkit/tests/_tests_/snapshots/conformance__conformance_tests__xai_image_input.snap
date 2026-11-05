@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's xai adapter result for image_input using xai/grok-4.5 synthetic recordings."
 expression: outcome
 ---
@@ -7,13 +8,52 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "ne"
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "xai",
+            "model_id": "grok-4.5",
+            "catalog_model_id": "xai/grok-4.5",
+            "effort": "high"
+          }
+        }
+      ],
       "response": {
         "provider": "xai",
         "model_id": "grok-4.5",
         "catalog_model_id": "xai/grok-4.5",
         "effort": "high",
-        "assistant_message": "Done",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "Done"
+          }
+        ],
         "finish_reason": "Stop",
         "usage": {
           "input_tokens": 15,

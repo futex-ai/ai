@@ -1,10 +1,11 @@
 //! Kimi tool request and response tests.
 
 use ai_interface::{
-    ConversationMessage, Effort, FinishReason, KimiToolCallContext, ModelError,
-    ProviderConversationItem, ToolCall, ToolDefinition,
+    ConversationMessage, Effort, FinishReason, ModelError, ToolCall, ToolDefinition,
 };
 use serde_json::{Value, json};
+
+use crate::part_test_support::replay_items;
 
 use crate::kimi::KIMI_K3;
 
@@ -76,31 +77,21 @@ fn parses_ordered_parallel_calls_and_preserves_raw_arguments() {
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
     assert_eq!(
         response
-            .tool_calls
+            .tool_calls()
             .iter()
             .map(|call| (call.id.as_str(), call.name.as_str()))
             .collect::<Vec<_>>(),
         vec![("call_1", "memory_read"), ("call_2", "memory_write")]
     );
-    assert_eq!(response.tool_calls[0].input, json!({"path": "one"}));
+    assert_eq!(response.tool_calls()[0].input, json!({"path": "one"}));
     assert_eq!(
-        response.provider_context,
-        vec![ProviderConversationItem::KimiAssistantMessage {
-            content: None,
-            reasoning_content: Some("Retain this reasoning.".to_owned()),
-            tool_calls: vec![
-                KimiToolCallContext {
-                    id: "call_1".to_owned(),
-                    name: "memory_read".to_owned(),
-                    arguments: "{ \"path\": \"one\" }".to_owned(),
-                },
-                KimiToolCallContext {
-                    id: "call_2".to_owned(),
-                    name: "memory_write".to_owned(),
-                    arguments: "{\n  \"path\": \"two\",\n  \"value\": 2\n}".to_owned(),
-                },
-            ],
-        }]
+        replay_items(&response),
+        vec![
+            json!({"type": "kimi_assistant_message", "content": serde_json::Value::Null, "reasoning_content": Some("Retain this reasoning.".to_owned()), "tool_calls": vec![
+                json!({"id": "call_1".to_owned(), "name": "memory_read".to_owned(), "arguments": "{ \"path\": \"one\" }".to_owned()}),
+                json!({"id": "call_2".to_owned(), "name": "memory_write".to_owned(), "arguments": "{\n  \"path\": \"two\",\n  \"value\": 2\n}".to_owned()}),
+            ]})
+        ]
     );
 }
 
@@ -168,13 +159,8 @@ fn non_tool_finishes_suppress_and_do_not_replay_tool_payloads() {
         ))
         .expect("terminal tool payload should not be parsed");
 
-        assert!(response.tool_calls.is_empty());
-        let ProviderConversationItem::KimiAssistantMessage { tool_calls, .. } =
-            &response.provider_context[0]
-        else {
-            unreachable!("Kimi response should retain Kimi context")
-        };
-        assert!(tool_calls.is_empty());
+        assert!(response.tool_calls().is_empty());
+        assert_eq!(replay_items(&response)[0]["tool_calls"], json!([]));
     }
 }
 
@@ -205,13 +191,8 @@ fn non_tool_finishes_ignore_structurally_partial_tool_calls() {
         }))
         .expect("terminal partial tool payload should be ignored");
 
-        assert!(response.tool_calls.is_empty());
-        let ProviderConversationItem::KimiAssistantMessage { tool_calls, .. } =
-            &response.provider_context[0]
-        else {
-            unreachable!("Kimi response should retain Kimi context")
-        };
-        assert!(tool_calls.is_empty());
+        assert!(response.tool_calls().is_empty());
+        assert_eq!(replay_items(&response)[0]["tool_calls"], json!([]));
     }
 }
 

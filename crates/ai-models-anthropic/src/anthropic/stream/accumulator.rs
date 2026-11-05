@@ -1,28 +1,39 @@
-//! Anthropic event-state validation and delta accumulation.
+//! Anthropic state validation and indexed event mapping.
 
 use std::collections::BTreeMap;
 
-use serde_json::{Value, json};
+use ai_interface::{ModelEvent, ProviderState};
+
+use crate::anthropic::replay::{AnthropicAssistantBlock, ReplayMode};
 
 use super::{
     block::ContentBlockState,
     types::{
-        AnthropicAccumulation, AnthropicEvent, AnthropicStreamDelta, AnthropicStreamError,
-        AnthropicUsage, AnthropicUsageDelta,
+        AnthropicAccumulation, AnthropicCompletion, AnthropicEvent, AnthropicStreamError,
+        AnthropicUsage, AnthropicUsageDelta, BlockEvent,
     },
 };
 
 #[derive(Debug, Default)]
 pub(super) struct AnthropicStreamAccumulator {
+    model_id: String,
     message_started: bool,
     message_stopped: bool,
     blocks: BTreeMap<u64, ContentBlockState>,
     stop_reason: Option<String>,
     usage: Option<AnthropicUsage>,
     assistant_blocks_emitted: usize,
+    next_part_index: usize,
 }
 
 impl AnthropicStreamAccumulator {
+    pub(super) fn new(model_id: String) -> Self {
+        Self {
+            model_id,
+            ..Self::default()
+        }
+    }
+
     pub(super) fn push_data(
         &mut self,
         data: &str,
@@ -34,40 +45,39 @@ impl AnthropicStreamAccumulator {
             Ok(event) => event,
             Err(source) => return Err(AnthropicStreamError::DeserializeEvent { source }),
         };
-        let delta = match event {
+        let (index, events) = match event {
             AnthropicEvent::MessageStart { message } => {
                 if self.message_started {
                     return Err(AnthropicStreamError::DuplicateMessageStart);
                 }
                 self.message_started = true;
                 self.usage = Some(message.usage);
-                None
+                return Ok(AnthropicAccumulation::Continue { events: Vec::new() });
             }
             AnthropicEvent::ContentBlockStart {
                 index,
                 content_block,
             } => {
                 self.require_started("content_block_start")?;
-                let (block, delta) = ContentBlockState::new(content_block);
+                let (block, event) = ContentBlockState::new(content_block);
                 if self.blocks.insert(index, block).is_some() {
                     return Err(AnthropicStreamError::DuplicateContentBlock { index });
                 }
-                delta
+                (index, event.into_iter().collect())
             }
             AnthropicEvent::ContentBlockDelta { index, delta } => {
                 self.require_started("content_block_delta")?;
                 let Some(block) = self.blocks.get_mut(&index) else {
                     return Err(AnthropicStreamError::UnknownContentBlock { index });
                 };
-                block.push_delta(index, delta)?
+                (index, block.push_delta(index, delta)?.into_iter().collect())
             }
             AnthropicEvent::ContentBlockStop { index } => {
                 self.require_started("content_block_stop")?;
                 let Some(block) = self.blocks.get_mut(&index) else {
                     return Err(AnthropicStreamError::UnknownContentBlock { index });
                 };
-                block.stop(index)?;
-                None
+                (index, block.stop(index)?)
             }
             AnthropicEvent::MessageDelta { delta, usage } => {
                 self.require_started("message_delta")?;
@@ -77,13 +87,23 @@ impl AnthropicStreamAccumulator {
                 if let Some(current) = self.usage.as_mut() {
                     current.merge(usage);
                 }
-                None
+                return Ok(AnthropicAccumulation::Continue { events: Vec::new() });
             }
             AnthropicEvent::MessageStop => {
                 self.require_started("message_stop")?;
-                let body = self.complete_body()?;
+                if self.blocks.values().any(|block| !block.stopped) {
+                    return Err(AnthropicStreamError::OpenContentBlocks);
+                }
                 self.message_stopped = true;
-                return Ok(AnthropicAccumulation::Complete(body));
+                return Ok(AnthropicAccumulation::Complete(AnthropicCompletion {
+                    blocks: self
+                        .blocks
+                        .values()
+                        .filter_map(ContentBlockState::replay)
+                        .collect(),
+                    stop_reason: self.stop_reason.take(),
+                    usage: self.usage.take().unwrap_or_default(),
+                }));
             }
             AnthropicEvent::Error { error } => {
                 return Err(AnthropicStreamError::ProviderEvent {
@@ -91,33 +111,91 @@ impl AnthropicStreamAccumulator {
                     message: error.message,
                 });
             }
-            AnthropicEvent::Ping | AnthropicEvent::Unknown => None,
+            AnthropicEvent::Ping | AnthropicEvent::Unknown => {
+                return Ok(AnthropicAccumulation::Continue { events: Vec::new() });
+            }
         };
         Ok(AnthropicAccumulation::Continue {
-            delta: self.normalize_delta(delta),
+            events: self.map_events(index, events)?,
         })
     }
 
-    fn normalize_delta(
+    fn map_events(
         &mut self,
-        delta: Option<AnthropicStreamDelta>,
-    ) -> Option<AnthropicStreamDelta> {
-        match delta {
-            Some(AnthropicStreamDelta::AssistantText {
-                mut delta,
-                starts_block: true,
-            }) => {
-                if self.assistant_blocks_emitted > 0 {
-                    delta.insert(0, '\n');
-                }
-                self.assistant_blocks_emitted = self.assistant_blocks_emitted.saturating_add(1);
-                Some(AnthropicStreamDelta::AssistantText {
-                    delta,
-                    starts_block: true,
-                })
-            }
-            other => other,
+        index: u64,
+        events: Vec<BlockEvent>,
+    ) -> Result<Vec<ModelEvent>, AnthropicStreamError> {
+        if events.is_empty() {
+            return Ok(Vec::new());
         }
+        let Some(block) = self.blocks.get_mut(&index) else {
+            return Err(AnthropicStreamError::UnknownContentBlock { index });
+        };
+        let part_index = match block.part_index {
+            Some(index) => index,
+            None => {
+                let index = self.next_part_index;
+                self.next_part_index = self.next_part_index.saturating_add(1);
+                block.part_index = Some(index);
+                index
+            }
+        };
+        let mut result = Vec::new();
+        for event in events {
+            result.push(match event {
+                BlockEvent::Text {
+                    mut delta,
+                    starts_block,
+                } => {
+                    if starts_block {
+                        if self.assistant_blocks_emitted > 0 {
+                            delta.insert(0, '\n');
+                        }
+                        self.assistant_blocks_emitted =
+                            self.assistant_blocks_emitted.saturating_add(1);
+                    }
+                    ModelEvent::TextDelta {
+                        part_index,
+                        delta,
+                        provider_state: None,
+                    }
+                }
+                BlockEvent::Reasoning { delta } => ModelEvent::ReasoningDelta {
+                    part_index,
+                    delta,
+                    provider_state: None,
+                },
+                BlockEvent::ToolStart { id, name } => ModelEvent::ToolCallStart {
+                    part_index,
+                    id,
+                    name,
+                    operation_id: None,
+                },
+                BlockEvent::ToolArguments { delta } => {
+                    ModelEvent::ToolCallArgumentsDelta { part_index, delta }
+                }
+                BlockEvent::ToolEnd { block } => ModelEvent::ToolCallEnd {
+                    part_index,
+                    provider_state: Some(provider_state(&block, &self.model_id)?),
+                },
+                BlockEvent::Replay { block } => {
+                    let provider_state = Some(provider_state(&block, &self.model_id)?);
+                    match block {
+                        AnthropicAssistantBlock::Text { .. } => ModelEvent::TextDelta {
+                            part_index,
+                            delta: String::new(),
+                            provider_state,
+                        },
+                        _ => ModelEvent::ReasoningDelta {
+                            part_index,
+                            delta: String::new(),
+                            provider_state,
+                        },
+                    }
+                }
+            });
+        }
+        Ok(result)
     }
 
     fn require_started(&self, event: &'static str) -> Result<(), AnthropicStreamError> {
@@ -127,27 +205,19 @@ impl AnthropicStreamAccumulator {
             Err(AnthropicStreamError::EventBeforeMessageStart { event })
         }
     }
+}
 
-    fn complete_body(&self) -> Result<Value, AnthropicStreamError> {
-        if self.blocks.values().any(|block| !block.stopped) {
-            return Err(AnthropicStreamError::OpenContentBlocks);
-        }
-        let content = self
-            .blocks
-            .iter()
-            .map(|(index, block)| block.body(*index))
-            .collect::<Result<Vec<_>, _>>()?;
-        let usage = self.usage.clone().unwrap_or_default();
-        Ok(json!({
-            "content": content,
-            "stop_reason": self.stop_reason,
-            "usage": {
-                "input_tokens": usage.input_tokens,
-                "output_tokens": usage.output_tokens,
-                "cache_read_input_tokens": usage.cache_read_input_tokens,
-                "cache_creation_input_tokens": usage.cache_creation_input_tokens
-            }
-        }))
+fn provider_state(
+    block: &AnthropicAssistantBlock,
+    model_id: &str,
+) -> Result<ProviderState, AnthropicStreamError> {
+    let mode = match block {
+        AnthropicAssistantBlock::Text { .. } => ReplayMode::NormalizedText,
+        _ => ReplayMode::Original,
+    };
+    match block.provider_state(model_id, mode) {
+        Ok(state) => Ok(state),
+        Err(source) => Err(AnthropicStreamError::SerializeState { source }),
     }
 }
 

@@ -2,10 +2,8 @@
 
 use std::sync::Arc;
 
-use ai_interface::{
-    FinishReason, Model, ModelCompletionEventSink, ModelMock, ModelRequest, ModelResponse,
-    ModelUsage,
-};
+use ai_interface::test_support::model_response_stream;
+use ai_interface::{FinishReason, Model, ModelMock, ModelRequest, ModelResponse, ModelUsage};
 use unimock::{MockFn, Unimock, matching};
 
 use crate::ConcurrencyLimitedModel;
@@ -13,19 +11,14 @@ use crate::ConcurrencyLimitedModel;
 #[tokio::test]
 async fn concurrency_wrapper_uses_the_event_observing_entrypoint() {
     let inner: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete_with_events
-            .next_call(matching!(_, _))
-            .answers(
-                &|_, _request: &ModelRequest, _sink: &dyn ModelCompletionEventSink| {
-                    Ok(success_response())
-                },
-            ),
+        ModelMock::stream
+            .next_call(matching!(_))
+            .answers(&|_, _request: &ModelRequest| Ok(model_response_stream(success_response()))),
     ));
     let model = ConcurrencyLimitedModel::new(inner, "mock", 1);
-    let sink = Unimock::new(());
 
     model
-        .complete_with_events(&empty_request(), &sink)
+        .complete(&empty_request())
         .await
         .expect("event-observing call should pass through");
 }
@@ -46,11 +39,11 @@ fn success_response() -> ModelResponse {
         model_id: "mock".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "ok".to_owned(),
-        tool_calls: Vec::new(),
+        parts: vec![ai_interface::ConversationPart::text("ok".to_owned())],
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
+
         usage: ModelUsage::default(),
+        attempts: Vec::new(),
     }
 }

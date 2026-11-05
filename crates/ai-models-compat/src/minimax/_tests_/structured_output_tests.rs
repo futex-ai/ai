@@ -77,6 +77,14 @@ async fn rejects_invalid_json_schema_and_schema_mismatches() {
     .await
     .expect_err("invalid requested schema should fail");
     assert!(matches!(invalid_schema, ModelError::Provider { .. }));
+
+    let mut body = stopped_response("not json".to_owned());
+    body["choices"][0]["message"]["tool_calls"] = json!([{
+        "id": "call_1",
+        "function": {"name": "lookup", "arguments": "{}"}
+    }]);
+    let raw_tool_stop = complete_with_schema(body, status_schema()).await;
+    assert!(matches!(raw_tool_stop, Err(ModelError::Provider { .. })));
 }
 
 #[tokio::test]

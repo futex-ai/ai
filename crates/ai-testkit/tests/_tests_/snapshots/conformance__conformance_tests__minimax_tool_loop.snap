@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's minimax adapter result for tool_loop using minimax/MiniMax-M3 synthetic recordings."
 expression: outcome
 ---
@@ -7,36 +8,159 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Checking "
+          }
+        },
+        {
+          "ToolCallStart": {
+            "part_index": 1,
+            "id": "call_1",
+            "name": "lookup"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 1,
+            "delta": "{\"id\":"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "now"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 1,
+            "delta": "7}"
+          }
+        },
+        {
+          "ToolCallEnd": {
+            "part_index": 1,
+            "provider_state": {
+              "provider": "minimax",
+              "model": "MiniMax-M3",
+              "version": 2,
+              "payload": {
+                "call": {
+                  "arguments": "{\"id\":7}",
+                  "id": "call_1",
+                  "name": "lookup"
+                },
+                "kind": "tool_call",
+                "legacy": false
+              }
+            }
+          }
+        },
+        {
+          "ReasoningDelta": {
+            "part_index": 2,
+            "delta": "",
+            "provider_state": {
+              "provider": "minimax",
+              "model": "MiniMax-M3",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": null,
+                "reasoning_details": [
+                  {
+                    "format": "MiniMax-response-v1",
+                    "id": "reasoning-1",
+                    "index": 0,
+                    "text": "Use lookup.",
+                    "type": "reasoning.text"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "ToolCalls",
+            "provider": "minimax",
+            "model_id": "MiniMax-M3",
+            "catalog_model_id": "minimax/MiniMax-M3",
+            "effort": "medium"
+          }
+        }
+      ],
       "response": {
         "provider": "minimax",
         "model_id": "MiniMax-M3",
         "catalog_model_id": "minimax/MiniMax-M3",
         "effort": "medium",
-        "assistant_message": "Checking now",
-        "tool_calls": [
+        "parts": [
           {
-            "id": "call_1",
-            "name": "lookup",
-            "input": {
+            "type": "text",
+            "text": "Checking now"
+          },
+          {
+            "type": "tool_call",
+            "call_id": "call_1",
+            "tool_name": "lookup",
+            "arguments": {
               "id": 7
+            },
+            "provider_state": {
+              "provider": "minimax",
+              "model": "MiniMax-M3",
+              "version": 2,
+              "payload": {
+                "call": {
+                  "arguments": "{\"id\":7}",
+                  "id": "call_1",
+                  "name": "lookup"
+                },
+                "kind": "tool_call",
+                "legacy": false
+              }
+            }
+          },
+          {
+            "type": "reasoning",
+            "text": "",
+            "provider_state": {
+              "provider": "minimax",
+              "model": "MiniMax-M3",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": null,
+                "reasoning_details": [
+                  {
+                    "format": "MiniMax-response-v1",
+                    "id": "reasoning-1",
+                    "index": 0,
+                    "text": "Use lookup.",
+                    "type": "reasoning.text"
+                  }
+                ]
+              }
             }
           }
         ],
         "finish_reason": "ToolCalls",
-        "provider_context": [
-          {
-            "type": "minimax_assistant",
-            "reasoning_details": [
-              {
-                "type": "reasoning.text",
-                "id": "reasoning-1",
-                "format": "MiniMax-response-v1",
-                "index": 0,
-                "text": "Use lookup."
-              }
-            ]
-          }
-        ],
         "usage": {
           "input_tokens": 15,
           "output_tokens": 5,
@@ -49,13 +173,52 @@ expression: outcome
     },
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "ne"
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "minimax",
+            "model_id": "MiniMax-M3",
+            "catalog_model_id": "minimax/MiniMax-M3",
+            "effort": "medium"
+          }
+        }
+      ],
       "response": {
         "provider": "minimax",
         "model_id": "MiniMax-M3",
         "catalog_model_id": "minimax/MiniMax-M3",
         "effort": "medium",
-        "assistant_message": "Done",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "Done"
+          }
+        ],
         "finish_reason": "Stop",
         "usage": {
           "input_tokens": 15,

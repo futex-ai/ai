@@ -6,6 +6,7 @@ use ai_interface::{FinishReason, LoggerMock, ModelMock, ModelResponse, ModelUsag
 use unimock::{MockFn, Unimock, matching};
 
 use crate::Turn;
+use crate::tests::support::{response_parts, stream_result};
 
 use super::support::{runtime_with_logger, user_message};
 
@@ -26,32 +27,32 @@ async fn terminal_logs_distinguish_completed_truncated_and_capped() {
                     Ok(())
                 })
             });
-        let (model, logger) = if max_steps == 0 {
-            (Unimock::new(()), Unimock::new(log_outcome))
-        } else {
-            (
-                Unimock::new(ModelMock::complete.some_call(matching!(_)).returns(Ok(
-                    ModelResponse {
-                        provider: "mock".to_owned(),
-                        model_id: "mock".to_owned(),
-                        catalog_model_id: None,
-                        thinking_level: None,
-                        assistant_message: "partial".to_owned(),
-                        tool_calls: Vec::new(),
-                        finish_reason: reason,
-                        structured_output: None,
-                        provider_context: Vec::new(),
-                        usage: ModelUsage::default(),
-                    },
-                ))),
-                Unimock::new((
-                    log_outcome,
-                    LoggerMock::log_model_call
-                        .some_call(matching!(_))
-                        .returns(Ok(())),
-                )),
-            )
-        };
+        let (model, logger) =
+            if max_steps == 0 {
+                (Unimock::new(()), Unimock::new(log_outcome))
+            } else {
+                (
+                    Unimock::new(ModelMock::stream.some_call(matching!(_)).answers_arc(
+                        stream_result(Ok(ModelResponse {
+                            attempts: Vec::new(),
+                            provider: "mock".to_owned(),
+                            model_id: "mock".to_owned(),
+                            catalog_model_id: None,
+                            thinking_level: None,
+                            parts: response_parts("partial".to_owned(), Vec::new(), Vec::new()),
+                            finish_reason: reason,
+                            structured_output: None,
+                            usage: ModelUsage::default(),
+                        })),
+                    )),
+                    Unimock::new((
+                        log_outcome,
+                        LoggerMock::log_model_call
+                            .some_call(matching!(_))
+                            .returns(Ok(())),
+                    )),
+                )
+            };
         let runtime = runtime_with_logger(Arc::new(model), Arc::new(logger), Vec::new()).unwrap();
         let mut turn = runtime.send(user_message("start"), Some(max_steps));
         let first = turn.step().await.unwrap();

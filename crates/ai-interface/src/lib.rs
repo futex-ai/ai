@@ -15,11 +15,16 @@ mod mock_judgment_model;
 mod mock_model;
 mod mock_video_generator;
 mod model;
+mod model_attempt;
 mod model_capabilities;
 mod model_catalog;
-mod model_completion_events;
 mod model_controls;
+mod model_error;
+mod model_event;
+mod model_helpers;
+mod model_response_fold;
 mod model_spec;
+mod model_stream;
 pub mod output;
 mod provider_id;
 mod router;
@@ -28,6 +33,9 @@ mod routing_tiers;
 mod tools;
 mod usage;
 mod video_generator;
+
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub mod test_support;
 
 pub use audio_transcriber::{
     AudioTranscriber, AudioTranscriptionRequest, AudioTranscriptionResponse, DynAudioTranscriber,
@@ -52,9 +60,10 @@ pub use logger::{
     TurnOutcome, TurnOutcomeLogEntry,
 };
 pub use messages::{
-    AnthropicAssistantBlock, ConversationContentPart, ConversationMessage, ConversationRole,
-    DeepSeekToolCallContext, GoogleAssistantPart, GoogleFunctionCallContext, KimiToolCallContext,
-    MiniMaxReasoningDetail, OpenAiReasoningSummary, ProviderConversationItem, QwenToolCallContext,
+    ConversationMessage, ConversationPart, ConversationRole, LegacyConversationMessage,
+    LegacyMessageConverter, LegacyPartAttachment, LegacyPartOrder, LegacyPartTarget,
+    LegacyProviderConverter, LegacyProviderItem, ProviderState, StoredMessageError,
+    compose_legacy_message, read_stored_message,
 };
 pub use mock_audio_transcriber::MockAudioTranscriber;
 pub use mock_catalog::{MOCK_CATALOG, MOCK_CUSTOM_DEFAULTS, MOCK_MODEL};
@@ -63,20 +72,20 @@ pub use mock_judgment_model::MockJudgmentModel;
 pub use mock_model::MockModel;
 pub use mock_video_generator::MockVideoGenerator;
 pub use model::{
-    DynModel, FinishReason, Model, ModelError, ModelRequest, ModelResponse, ModelResult,
-    StructuredOutputSchema,
+    DynModel, FinishReason, Model, ModelRequest, ModelResponse, ModelResult, StructuredOutputSchema,
 };
+pub use model_attempt::{ModelAttempt, ModelAttemptError};
 pub use model_capabilities::{CustomModelDefaults, ForcedToolChoice, Sampling};
 pub use model_catalog::ModelCatalog;
-pub use model_completion_events::{
-    DynModelCompletionEventSink, ModelCompletionEvent, ModelCompletionEventSink,
-    NoopModelCompletionEventSink,
-};
 pub use model_controls::{
     ModelCallControls, ModelCompletionMode, ModelControl, ModelExecutionControls,
     ModelGenerationControls, ModelToolChoice,
 };
+pub use model_error::ModelError;
+pub use model_event::ModelEvent;
+pub use model_response_fold::ModelResponseFold;
 pub use model_spec::ModelSpec;
+pub use model_stream::{DynModelEventStream, ModelEventStream};
 pub use output::{
     ToolOutputEnvelope, ToolOutputEnvelopeError, ToolOutputEnvelopeResult, ToolOutputId,
     ToolOutputInlineEnvelope, ToolOutputReadRequest, ToolOutputRemainderUnavailableReason,
@@ -106,9 +115,11 @@ pub use judgment::JudgmentModelMock;
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use logger::LoggerMock;
 #[cfg(any(test, doctest, feature = "test-support"))]
+pub use messages::LegacyProviderConverterMock;
+#[cfg(any(test, doctest, feature = "test-support"))]
 pub use model::ModelMock;
 #[cfg(any(test, doctest, feature = "test-support"))]
-pub use model_completion_events::ModelCompletionEventSinkMock;
+pub use model_stream::ModelEventStreamMock;
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use router::ModelRouterMock;
 #[cfg(any(test, doctest, feature = "test-support"))]

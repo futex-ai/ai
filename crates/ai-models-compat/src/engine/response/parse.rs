@@ -1,7 +1,8 @@
 //! Shared response normalization and local structured-output checks.
 
 use ai_interface::{
-    Effort, FinishReason, ModelError, ModelResponse, ModelResult, StructuredOutputSchema,
+    Effort, FinishReason, ModelError, ModelResponse, ModelResult, ModelUsage,
+    StructuredOutputSchema,
 };
 use ai_models_core::{assistant_text, parse_structured_output};
 use serde_json::Value;
@@ -10,21 +11,30 @@ use super::{
     super::dialect::{CompletionContext, ReplayRule},
     eager, legacy,
     mapping::{dispatchable_tool_calls, finish_reason, parse_tool_calls},
-    replay::provider_context,
+    replay::{ResponseContent, parts},
     types::{ChatCompletionsAssistantMessage, ChatCompletionsResponse},
     usage::normalize,
 };
 
+#[cfg(test)]
 pub(crate) fn parse_response(
     context: CompletionContext<'_>,
     body: Value,
     response_schema: Option<&StructuredOutputSchema>,
 ) -> ModelResult<ModelResponse> {
+    let (parsed, usage) = decode_response(context, body)?;
+    map_response(context, parsed, usage, response_schema)
+}
+
+pub(super) fn decode_response(
+    context: CompletionContext<'_>,
+    body: Value,
+) -> ModelResult<(ChatCompletionsResponse, ModelUsage)> {
     let CompletionContext {
         dialect,
-        catalog_model_id,
+        catalog_model_id: _,
         provider_model_id,
-        thinking_level,
+        thinking_level: _,
         synthetic_tool_call_scope: _,
     } = context;
     let parse_error = |source| match dialect.replay {
@@ -48,7 +58,7 @@ pub(crate) fn parse_response(
             "invalid Kimi response payload",
         ));
     }
-    let parsed: ChatCompletionsResponse = match match dialect.replay {
+    let mut parsed: ChatCompletionsResponse = match match dialect.replay {
         ReplayRule::MiniMax => eager::decode(body.take()),
         ReplayRule::Xai => legacy::decode(body.take()),
         _ => serde_json::from_value(body.take()),
@@ -56,10 +66,26 @@ pub(crate) fn parse_response(
         Ok(parsed) => parsed,
         Err(source) => return Err(parse_error(source)),
     };
-    let usage = match normalize(dialect.usage, parsed.usage) {
+    let usage = match normalize(dialect.usage, parsed.usage.take()) {
         Ok(usage) => usage,
         Err(source) => return Err(parse_error(source)),
     };
+    Ok((parsed, usage))
+}
+
+pub(super) fn map_response(
+    context: CompletionContext<'_>,
+    parsed: ChatCompletionsResponse,
+    usage: ModelUsage,
+    response_schema: Option<&StructuredOutputSchema>,
+) -> ModelResult<ModelResponse> {
+    let CompletionContext {
+        dialect,
+        catalog_model_id,
+        provider_model_id,
+        thinking_level,
+        synthetic_tool_call_scope: _,
+    } = context;
     if let Some(error) = dialect
         .base_error
         .and_then(|classify| classify(provider_model_id, parsed.base_resp.as_ref()))
@@ -99,19 +125,21 @@ pub(crate) fn parse_response(
         ));
     }
     let legacy_context = legacy::normalize(context, &mut eager_calls, function_call);
-    let has_raw_calls = eager_calls.as_ref().is_some_and(|calls| !calls.is_empty());
     let parsed_calls = match eager_calls {
         Some(calls) if dispatchable => calls,
         Some(_) => Vec::new(),
         None => dispatchable_tool_calls(dialect, provider_model_id, raw, dispatchable)?,
     };
+    if dispatchable && parsed_calls.is_empty() {
+        return Err(ModelError::provider(
+            dialect.provider,
+            provider_model_id,
+            format!("{} tool-call response had no tool calls", dialect.label),
+        ));
+    }
     let tool_calls = parse_tool_calls(dialect, provider_model_id, &parsed_calls)?;
     let structured_output = response_schema
-        .filter(|_| {
-            matches!(finish_reason, FinishReason::Stop)
-                && tool_calls.is_empty()
-                && !(dialect.replay == ReplayRule::MiniMax && has_raw_calls)
-        })
+        .filter(|_| matches!(finish_reason, FinishReason::Stop) && tool_calls.is_empty())
         .map(|schema| {
             parse_structured_output(
                 dialect.provider,
@@ -140,22 +168,22 @@ pub(crate) fn parse_response(
         model_id: provider_model_id.to_owned(),
         catalog_model_id: Some(catalog_model_id.to_owned()),
         thinking_level,
-        assistant_message,
-        tool_calls,
+        parts: parts(
+            context,
+            ResponseContent {
+                text: assistant_message,
+                raw_content: content,
+                reasoning: reasoning_content,
+                details: reasoning_details,
+                calls: tool_calls,
+                raw_calls: parsed_calls,
+                legacy: legacy_context,
+                dispatchable,
+            },
+        )?,
         finish_reason,
         structured_output,
-        provider_context: if dialect.replay == ReplayRule::Xai {
-            legacy_context
-        } else {
-            provider_context(
-                dialect.replay,
-                dispatchable,
-                content,
-                reasoning_content,
-                &parsed_calls,
-                reasoning_details,
-            )
-        },
         usage,
+        attempts: Vec::new(),
     })
 }

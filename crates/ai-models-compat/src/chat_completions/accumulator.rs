@@ -1,11 +1,13 @@
 //! Stateful ingestion of chat-completions SSE data payloads.
 
+use super::chunk::ChatCompletionsStreamChunk;
+
 use super::{
     deltas::primary_deltas,
     state::ChatCompletionsState,
     types::{
-        ChatCompletionsResponse, ChatCompletionsStreamChunk, ChatCompletionsStreamError,
-        ChatCompletionsStreamStatus, ChatCompletionsStreamUpdate,
+        ChatCompletionsResponse, ChatCompletionsStreamError, ChatCompletionsStreamStatus,
+        ChatCompletionsStreamUpdate,
     },
 };
 
@@ -14,12 +16,20 @@ use super::{
 pub struct ChatCompletionsAccumulator {
     state: ChatCompletionsState,
     done: bool,
+    model_stream: bool,
 }
 
 impl ChatCompletionsAccumulator {
     /// Creates an empty accumulator.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub(crate) fn for_model_stream() -> Self {
+        Self {
+            model_stream: true,
+            ..Self::default()
+        }
     }
 
     /// Parses and merges one SSE `data` payload.
@@ -40,12 +50,24 @@ impl ChatCompletionsAccumulator {
         &mut self,
         data: &str,
     ) -> Result<ChatCompletionsStreamUpdate, ChatCompletionsStreamError> {
+        match self.push_data_with_chunk(data)? {
+            Some(chunk) => Ok(ChatCompletionsStreamUpdate::Chunk {
+                deltas: primary_deltas(&chunk),
+            }),
+            None => Ok(ChatCompletionsStreamUpdate::Done),
+        }
+    }
+
+    pub(crate) fn push_data_with_chunk(
+        &mut self,
+        data: &str,
+    ) -> Result<Option<ChatCompletionsStreamChunk>, ChatCompletionsStreamError> {
         if self.done {
             return Err(ChatCompletionsStreamError::EventAfterDone);
         }
         if data == "[DONE]" {
             self.done = true;
-            return Ok(ChatCompletionsStreamUpdate::Done);
+            return Ok(None);
         }
         let value = match serde_json::from_str::<serde_json::Value>(data) {
             Ok(value) => value,
@@ -56,20 +78,29 @@ impl ChatCompletionsAccumulator {
                 error: error.clone(),
             });
         }
-        let chunk = match serde_json::from_value::<ChatCompletionsStreamChunk>(value) {
+        let mut chunk = match serde_json::from_value::<ChatCompletionsStreamChunk>(value) {
             Ok(chunk) => chunk,
             Err(source) => return Err(ChatCompletionsStreamError::DeserializeChunk { source }),
         };
-        let deltas = primary_deltas(&chunk);
-        self.state.push_chunk(chunk)?;
-        Ok(ChatCompletionsStreamUpdate::Chunk { deltas })
+        if self.model_stream {
+            chunk.choices.retain(|choice| choice.index == 0);
+        }
+        self.state.push_chunk(chunk.clone(), self.model_stream)?;
+        Ok(Some(chunk))
     }
 
     /// Validates terminal state and returns a buffered response-shaped value.
     pub fn finish(self) -> Result<ChatCompletionsResponse, ChatCompletionsStreamError> {
+        self.finish_model_stream(false)
+    }
+
+    pub(crate) fn finish_model_stream(
+        self,
+        explicit_done: bool,
+    ) -> Result<ChatCompletionsResponse, ChatCompletionsStreamError> {
         if !self.done {
             return Err(ChatCompletionsStreamError::MissingDone);
         }
-        self.state.finish()
+        self.state.finish(self.model_stream && explicit_done)
     }
 }

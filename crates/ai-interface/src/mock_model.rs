@@ -1,11 +1,13 @@
 //! Built-in mock model for development and tests.
 
+use std::vec::IntoIter;
+
 use async_trait::async_trait;
 use serde_json::{Map, Value};
 
 use crate::{
-    ConversationRole, FinishReason, Model, ModelError, ModelRequest, ModelResponse, ModelResult,
-    ModelUsage,
+    ConversationPart, ConversationRole, DynModelEventStream, FinishReason, Model, ModelError,
+    ModelEvent, ModelEventStream, ModelRequest, ModelResult, ModelUsage,
 };
 
 /// Simple deterministic mock model used by development and tests.
@@ -41,7 +43,7 @@ impl Default for MockModel {
 
 #[async_trait]
 impl Model for MockModel {
-    async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
+    async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
         let subject = extract_mock_subject(request);
         let fallback_message = format!("Acknowledged: {subject}");
         let structured_output = match request.response_schema.as_ref() {
@@ -70,30 +72,53 @@ impl Model for MockModel {
                 request
                     .messages
                     .iter()
-                    .map(|message| message.content.as_str()),
+                    .flat_map(|message| message.parts.iter())
+                    .filter_map(|part| match part {
+                        ConversationPart::Text { text, .. } => Some(text.as_str()),
+                        _ => None,
+                    }),
             ),
         );
         let output_tokens = estimate_tokens(std::iter::once(assistant_message.as_str()));
-        Ok(ModelResponse {
-            provider: self.provider.clone(),
-            model_id: self.model_id.clone(),
-            catalog_model_id: None,
-            thinking_level: None,
-            assistant_message,
-            tool_calls: Vec::new(),
-            finish_reason: FinishReason::Stop,
-            structured_output,
-            provider_context: Vec::new(),
-            usage: ModelUsage {
-                input_tokens: u64::from(input_tokens),
-                output_tokens: u64::from(output_tokens),
-                cached_input_tokens: 0,
-                reasoning_tokens: 0,
-                total_tokens: u64::from(input_tokens.saturating_add(output_tokens)),
-                estimated_cost_microusd: 0,
-                cost_lines: Vec::new(),
+        let usage = ModelUsage {
+            input_tokens: u64::from(input_tokens),
+            output_tokens: u64::from(output_tokens),
+            cached_input_tokens: 0,
+            reasoning_tokens: 0,
+            total_tokens: u64::from(input_tokens.saturating_add(output_tokens)),
+            estimated_cost_microusd: 0,
+            cost_lines: Vec::new(),
+        };
+        let events = vec![
+            ModelEvent::TextDelta {
+                part_index: 0,
+                delta: assistant_message,
+                provider_state: None,
             },
-        })
+            ModelEvent::Usage { usage },
+            ModelEvent::Finish {
+                provider: self.provider.clone(),
+                model_id: self.model_id.clone(),
+                catalog_model_id: None,
+                thinking_level: None,
+                finish_reason: FinishReason::Stop,
+                structured_output,
+            },
+        ];
+        Ok(Box::new(MockModelStream {
+            events: events.into_iter(),
+        }))
+    }
+}
+
+struct MockModelStream {
+    events: IntoIter<ModelEvent>,
+}
+
+#[async_trait]
+impl ModelEventStream for MockModelStream {
+    async fn next(&mut self) -> ModelResult<Option<ModelEvent>> {
+        Ok(self.events.next())
     }
 }
 
@@ -107,7 +132,7 @@ fn extract_mock_subject(request: &ModelRequest) -> String {
         return "no current task".to_owned();
     };
 
-    for line in message.content.lines() {
+    for line in message.text().lines() {
         if let Some(body) = line.trim().strip_prefix("- body: ") {
             return body.trim().to_owned();
         }
@@ -117,7 +142,7 @@ fn extract_mock_subject(request: &ModelRequest) -> String {
     }
 
     message
-        .content
+        .text()
         .lines()
         .rev()
         .find_map(|line| {

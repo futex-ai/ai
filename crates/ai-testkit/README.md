@@ -11,13 +11,17 @@ Product libraries do not depend on this crate.
   spec, and the request effort.
 - Run production adapters against ordered replay transports.
 - Compare every sanitized outbound request with its recorded exchange.
-- Snapshot complete responses and typed errors without provider credentials.
+- Snapshot the ordered model events of each scenario, then its folded
+  response or typed error, without provider credentials.
+- Prove that a stored version 1 tool loop, read through the composed
+  provider converters, still sends each recorded continuation request.
 
 ## What This Crate Does
 
 The providers are Anthropic, OpenAI, Google, DeepSeek, Kimi, Qwen,
-MiniMax, and xAI. The runner uses today's `Model::complete` contract.
-xAI uses its synchronous path. No scenario uses a video adapter.
+MiniMax, and xAI. The runner records every event of `Model::stream` and
+folds the events with the fold of `Model::complete`. xAI uses its
+synchronous path. No scenario uses a video adapter.
 
 Each provider starts with its first chat spec. The tool loop uses the first
 spec whose default can think, when the catalog has one. That default is an
@@ -35,8 +39,9 @@ The scenarios are:
 | `rate_limit` | A synthetic HTTP 429 opening failure. |
 | `stream_cut` | A transport failure after the first progress events. |
 
-The second tool step retains the assistant message, tool calls, and provider
-context. It appends the tool result and asks for the final answer.
+The second tool step appends the assistant message that holds every part of
+the first response with its provider state. It then appends one tool result
+for each call and asks for the final answer.
 The runner stops at the first model error and stores its variant and fields.
 It does not retry or change provider behavior.
 
@@ -58,14 +63,33 @@ DeepSeek and the first Qwen spec reject image input before transport.
 Their image recordings therefore contain no HTTP exchanges.
 
 File snapshots live under `tests/_tests_/snapshots/`.
-They preserve successful responses and remaining defects.
-The Anthropic and Google tool snapshots retain complete ordered replay context.
-Their second recorded requests replay Anthropic thinking blocks and Gemini
-thought signatures. Anthropic requests use the max output of the spec.
+Each snapshot shows the event sequence of a scenario, then its folded
+response or its error. They preserve successful responses and remaining
+defects. The schema scenarios show text deltas, because a call with a
+response schema emits text deltas like any other call.
+The events in the snapshots show the provider state of each part. The second
+recorded Anthropic and Google tool requests replay the signed thinking blocks
+and thought signatures in their original order. Anthropic requests use the
+max output of the spec.
 MiniMax and xAI currently lose their HTTP 429 message details.
 Synthetic fixtures can be refreshed offline by wrapping their replay transport
 with the recording transport and running the production adapter. This keeps
 `source: "synthetic"` and does not prove live provider acceptance.
+
+The legacy conversion test reads one stored version 1 assistant message for
+each provider from `tests/fixtures/version1/`. It reads the message through a
+`LegacyMessageConverter` that composes the converters of all eight
+providers. It replays the `tool_loop` recording with that converted message
+as the assistant message of the second step. Every outbound request must
+match its recorded exchange.
+
+Mixed version 1 request regressions use the real adapters with an in-memory
+transport. They check native content with only its converter and with all
+converters installed. They cover repeated text, native block order, calls
+without portable entries, repeated native calls, and OpenAI item order when
+a full native item comes first. The recorded requests stay unchanged.
+MiniMax regressions check that only the first version 1 reasoning item and
+its details reach the request, through conversion and plain serde reads.
 
 The rate-limit fixtures use these official error references.
 Messages and request ids are synthetic examples, without account details.
@@ -129,8 +153,15 @@ See `json-http` for the transport boundary's status and failure limits.
 - `src/storage.rs` defines `ScenarioRecording`, `RecordingStorage`, and its JSON
   filesystem implementation.
 - `src/runner.rs` implements `ConformanceRunner` with injected adapters and replay.
-- `src/outcome.rs` defines the serializable response and error results.
+- `src/event_snapshot.rs` captures typed, sanitized model events for snapshots.
+- `src/outcome.rs` defines the event sequences and response or error results.
 - `tests/_tests_/conformance_tests.rs` snapshots every available provider scenario.
+- `tests/_tests_/legacy_conversion_tests.rs` replays converted version 1 tool
+  loops from `tests/fixtures/version1/`.
+- `tests/_tests_/mixed_native_replay_tests.rs` checks mixed version 1 native
+  requests and the reverse OpenAI item order.
+- `tests/_tests_/minimax_legacy_replay_tests.rs` checks first-item reasoning
+  replay through both version 1 read paths.
 - `recordings/` holds the sanitized exchange files.
 
 ### Related Docs
@@ -139,4 +170,5 @@ See `json-http` for the transport boundary's status and failure limits.
 - [Model capabilities](../../docs/protocol/model-capabilities.md)
 - [json-http](../json-http/README.md)
 - [xtask recorder](../../xtask/README.md)
-- [Model completion streaming](../../docs/protocol/model-completion-streaming.md)
+- [Model stream](../../docs/protocol/model-stream.md)
+- [Conversation parts](../../docs/protocol/conversation-parts.md)

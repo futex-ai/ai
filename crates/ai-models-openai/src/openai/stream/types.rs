@@ -1,29 +1,99 @@
 //! Typed OpenAI Responses stream events and failures.
 
 use serde::Deserialize;
-use serde_json::Value;
 use thiserror::Error;
+
+use crate::openai::response::types::{ResponsesOutputItem, ResponsesResponse};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 pub(super) enum OpenAiStreamEvent {
     #[serde(rename = "response.completed")]
-    Completed { response: Value },
+    Completed { response: ResponsesResponse },
     #[serde(rename = "response.incomplete")]
-    Incomplete { response: Value },
+    Incomplete { response: ResponsesResponse },
     #[serde(rename = "response.failed")]
     Failed { response: FailedResponse },
     #[serde(rename = "error")]
     Error(OpenAiNativeError),
     #[serde(rename = "response.output_text.delta")]
-    OutputTextDelta { delta: String },
+    OutputTextDelta {
+        delta: String,
+        #[serde(flatten)]
+        location: ContentLocation,
+    },
+    #[serde(rename = "response.refusal.delta")]
+    RefusalDelta {
+        delta: String,
+        #[serde(flatten)]
+        location: ContentLocation,
+    },
     #[serde(
         rename = "response.reasoning_summary_text.delta",
         alias = "response.reasoning_text.delta"
     )]
-    ReasoningTextDelta { delta: String },
+    ReasoningTextDelta {
+        delta: String,
+        #[serde(flatten)]
+        location: ContentLocation,
+    },
+    #[serde(rename = "response.output_item.added")]
+    ItemAdded {
+        output_index: usize,
+        item: ResponsesOutputItem,
+    },
+    #[serde(rename = "response.output_item.done")]
+    ItemDone {
+        output_index: usize,
+        item: ResponsesOutputItem,
+    },
+    #[serde(rename = "response.function_call_arguments.delta")]
+    ArgumentsDelta {
+        delta: String,
+        #[serde(flatten)]
+        location: ItemLocation,
+    },
+    #[serde(rename = "response.function_call_arguments.done")]
+    ArgumentsDone {
+        arguments: String,
+        #[serde(flatten)]
+        location: ItemLocation,
+    },
     #[serde(other)]
     Progress,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct ItemLocation {
+    #[serde(default)]
+    pub(super) output_index: Option<usize>,
+    #[serde(default)]
+    pub(super) item_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct ContentLocation {
+    #[serde(flatten)]
+    pub(super) item: ItemLocation,
+    #[serde(default, alias = "summary_index")]
+    pub(super) content_index: usize,
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub(super) enum ItemKey {
+    Index(usize),
+    Id(String),
+    Anonymous,
+}
+
+impl ItemLocation {
+    pub(super) fn key(&self) -> ItemKey {
+        match (self.output_index, self.item_id.as_ref()) {
+            (Some(index), _) => ItemKey::Index(index),
+            (None, Some(id)) => ItemKey::Id(id.clone()),
+            (None, None) => ItemKey::Anonymous,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

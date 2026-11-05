@@ -5,6 +5,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     FinishReason, Model, ModelError, ModelGenerationControls, ModelMock, ModelRequest,
     ModelResponse, ModelToolChoice, ModelUsage,
@@ -209,7 +210,7 @@ fn control_asserting_model(
 ) -> Arc<dyn Model> {
     let result = Arc::new(Mutex::new(Some(result)));
     Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
             .answers_arc(Arc::new(move |_, request: &ModelRequest| {
                 assert_eq!(
@@ -222,6 +223,7 @@ fn control_asserting_model(
                     .expect("result lock should not be poisoned")
                     .take()
                     .expect("unexpected model call")
+                    .map(model_response_stream)
             })),
     ))
 }
@@ -231,7 +233,7 @@ fn scripted_model(
     result: std::result::Result<ModelResponse, ModelError>,
 ) -> Arc<dyn Model> {
     let result = Arc::new(Mutex::new(Some(result)));
-    Arc::new(Unimock::new(ModelMock::complete.stub(move |each| {
+    Arc::new(Unimock::new(ModelMock::stream.stub(move |each| {
         let calls = calls.clone();
         let result = result.clone();
         each.call(matching!(_))
@@ -242,6 +244,7 @@ fn scripted_model(
                     .expect("result lock should not be poisoned")
                     .take()
                     .expect("unexpected model call")
+                    .map(model_response_stream)
             }));
     })))
 }
@@ -262,11 +265,11 @@ fn success_response(provider: &str, model_id: &str) -> ModelResponse {
         model_id: model_id.to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "ok".to_owned(),
-        tool_calls: Vec::new(),
+        parts: vec![ai_interface::ConversationPart::text("ok".to_owned())],
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
+
         usage: ModelUsage::default(),
+        attempts: Vec::new(),
     }
 }

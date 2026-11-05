@@ -2,9 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use ai_interface::MiniMaxReasoningDetail;
 use serde_json::Value;
 use thiserror::Error;
+
+use crate::{ChatCompletionsResponse, minimax::state::ReasoningDetail};
 
 use super::MINIMAX_M3;
 
@@ -25,7 +26,7 @@ pub(super) enum NormalizedEvent {
 pub(super) struct MiniMaxNormalizer {
     content: BTreeMap<u64, String>,
     content_mode: ContentMode,
-    reasoning_details: BTreeMap<u64, Vec<MiniMaxReasoningDetail>>,
+    reasoning_details: BTreeMap<u64, Vec<ReasoningDetail>>,
     shape_evidence: ShapeEvidence,
 }
 
@@ -79,7 +80,7 @@ impl MiniMaxNormalizer {
             if details.is_null() {
                 continue;
             }
-            let current = match serde_json::from_value::<Vec<MiniMaxReasoningDetail>>(details) {
+            let current = match serde_json::from_value::<Vec<ReasoningDetail>>(details) {
                 Ok(current) => current,
                 Err(source) => return Err(MiniMaxStreamError::DeserializeChunk { source }),
             };
@@ -90,37 +91,21 @@ impl MiniMaxNormalizer {
         Ok(NormalizedEvent::Chunk(body))
     }
 
-    pub(super) fn restore_snapshots(
-        self,
-        body: &mut Value,
-    ) -> std::result::Result<Option<String>, serde_json::Error> {
+    pub(super) fn restore_snapshots(self, body: &mut ChatCompletionsResponse) -> Option<String> {
         let terminal_assistant_text = (self.content_mode == ContentMode::Inferred)
             .then(|| self.content.get(&0).cloned())
             .flatten();
-        let Some(choices) = body.get_mut("choices").and_then(Value::as_array_mut) else {
-            return Ok(terminal_assistant_text);
-        };
-        for (position, choice) in choices.iter_mut().enumerate() {
-            let choice_index = choice
-                .get("index")
-                .and_then(Value::as_u64)
-                .unwrap_or(position as u64);
-            let Some(message) = choice.get_mut("message").and_then(Value::as_object_mut) else {
-                continue;
-            };
+        for choice in &mut body.choices {
             if self.content_mode == ContentMode::Inferred
-                && let Some(content) = self.content.get(&choice_index)
+                && let Some(content) = self.content.get(&choice.index)
             {
-                message.insert("content".to_owned(), Value::String(content.clone()));
+                choice.message.content = Some(content.clone());
             }
-            if let Some(details) = self.reasoning_details.get(&choice_index) {
-                message.insert(
-                    "reasoning_details".to_owned(),
-                    serde_json::to_value(details)?,
-                );
+            if let Some(details) = self.reasoning_details.get(&choice.index) {
+                choice.message.reasoning_details = details.clone();
             }
         }
-        Ok(terminal_assistant_text)
+        terminal_assistant_text
     }
 
     /// Retains M2.x visible content while inferring whether the stream sends

@@ -1,8 +1,9 @@
 //! Typed Anthropic Messages request bodies.
 
-use ai_interface::AnthropicAssistantBlock;
 use serde::Serialize;
 use serde_json::Value;
+
+use super::replay::AnthropicAssistantBlock;
 
 #[derive(Debug, Serialize)]
 pub(super) struct AnthropicRequest {

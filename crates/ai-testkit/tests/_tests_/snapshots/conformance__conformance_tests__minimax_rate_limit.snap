@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's minimax adapter result for rate_limit using minimax/MiniMax-M3 synthetic recordings."
 expression: outcome
 ---
@@ -7,6 +8,7 @@ expression: outcome
   "steps": [
     {
       "kind": "error",
+      "events": [],
       "error": {
         "variant": "RateLimited",
         "provider": "minimax",

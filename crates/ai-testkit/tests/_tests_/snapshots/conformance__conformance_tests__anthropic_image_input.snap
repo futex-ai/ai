@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's anthropic adapter result for image_input using anthropic/claude-sonnet-5 synthetic recordings."
 expression: outcome
 ---
@@ -7,13 +8,88 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "ne"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "",
+            "provider_state": {
+              "provider": "anthropic",
+              "model": "claude-sonnet-5",
+              "version": 1,
+              "payload": {
+                "blocks": [
+                  {
+                    "text": "Done",
+                    "type": "text"
+                  }
+                ],
+                "mode": "normalized_text",
+                "scope": "part"
+              }
+            }
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 22,
+              "output_tokens": 9,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 0,
+              "total_tokens": 36,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "anthropic",
+            "model_id": "claude-sonnet-5",
+            "catalog_model_id": "anthropic/claude-sonnet-5",
+            "effort": "high"
+          }
+        }
+      ],
       "response": {
         "provider": "anthropic",
         "model_id": "claude-sonnet-5",
         "catalog_model_id": "anthropic/claude-sonnet-5",
         "effort": "high",
-        "assistant_message": "Done",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "Done",
+            "provider_state": {
+              "provider": "anthropic",
+              "model": "claude-sonnet-5",
+              "version": 1,
+              "payload": {
+                "blocks": [
+                  {
+                    "text": "Done",
+                    "type": "text"
+                  }
+                ],
+                "mode": "normalized_text",
+                "scope": "part"
+              }
+            }
+          }
+        ],
         "finish_reason": "Stop",
         "usage": {
           "input_tokens": 22,

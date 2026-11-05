@@ -1,11 +1,12 @@
 //! Qwen request, multimodal, tool, replay, and structured-output tests.
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, DeepSeekToolCallContext,
-    Effort, ModelError, ModelRequest, ProviderConversationItem, QwenToolCallContext,
+    ConversationMessage, ConversationPart, ConversationRole, Effort, ModelError, ModelRequest,
     StructuredOutputSchema, ToolCall, ToolDefinition,
 };
 use serde_json::{Value, json};
+
+use crate::part_test_support::{assistant_with_items, message};
 
 use super::catalog::{QWEN_3_7_FLASH_ID, QWEN_3_7_MAX_ID, QWEN_3_7_PLUS_ID};
 use super::{request::build_request, test_support::simple_request};
@@ -84,17 +85,14 @@ fn rejects_max_images_and_non_user_content_parts() {
 
     let request = ModelRequest {
         system_prompt: "system".to_owned(),
-        messages: vec![ConversationMessage {
-            role: ConversationRole::Assistant,
-            content: "fallback".to_owned(),
-            content_parts: vec![ConversationContentPart::Text {
-                text: "typed".to_owned(),
-            }],
-            name: None,
-            tool_call_id: None,
-            tool_calls: Vec::new(),
-            provider_context: Vec::new(),
-        }],
+        messages: vec![message(
+            ConversationRole::Assistant,
+            "fallback".to_owned(),
+            vec![ConversationPart::image("image/png", "abc123")],
+            None,
+            None,
+            Vec::new(),
+        )],
         tools: Vec::new(),
         response_schema: None,
         controls: Default::default(),
@@ -106,28 +104,12 @@ fn rejects_max_images_and_non_user_content_parts() {
 
 #[test]
 fn replays_qwen_owned_raw_fields_and_ignores_foreign_context() {
-    let assistant = ConversationMessage::assistant_with_provider_context(
+    let assistant = assistant_with_items(
         "normalized",
         Vec::new(),
         vec![
-            ProviderConversationItem::DeepSeekAssistantMessage {
-                content: "foreign".to_owned(),
-                reasoning_content: Some("foreign reasoning".to_owned()),
-                tool_calls: vec![DeepSeekToolCallContext {
-                    id: "foreign_call".to_owned(),
-                    name: "ignored".to_owned(),
-                    arguments: "{}".to_owned(),
-                }],
-            },
-            ProviderConversationItem::QwenAssistantMessage {
-                content: None,
-                reasoning_content: Some("private reasoning".to_owned()),
-                tool_calls: vec![QwenToolCallContext {
-                    id: "qwen_call".to_owned(),
-                    name: "memory_read".to_owned(),
-                    arguments: "{ \"path\": \"raw\" }".to_owned(),
-                }],
-            },
+            json!({"type": "deep_seek_assistant_message", "content": "foreign".to_owned(), "reasoning_content": Some("foreign reasoning".to_owned()), "tool_calls": vec![json!({"id": "foreign_call".to_owned(), "name": "ignored".to_owned(), "arguments": "{}".to_owned()})]}),
+            json!({"type": "qwen_assistant_message", "content": serde_json::Value::Null, "reasoning_content": Some("private reasoning".to_owned()), "tool_calls": vec![json!({"id": "qwen_call".to_owned(), "name": "memory_read".to_owned(), "arguments": "{ \"path\": \"raw\" }".to_owned()})]}),
         ],
     );
     let request = ModelRequest {
@@ -153,14 +135,12 @@ fn replays_qwen_owned_raw_fields_and_ignores_foreign_context() {
 
 #[test]
 fn replays_null_non_tool_content_as_an_empty_string() {
-    let assistant = ConversationMessage::assistant_with_provider_context(
+    let assistant = assistant_with_items(
         "",
         Vec::new(),
-        vec![ProviderConversationItem::QwenAssistantMessage {
-            content: None,
-            reasoning_content: Some("private reasoning".to_owned()),
-            tool_calls: Vec::new(),
-        }],
+        vec![
+            json!({"type": "qwen_assistant_message", "content": serde_json::Value::Null, "reasoning_content": Some("private reasoning".to_owned()), "tool_calls": []}),
+        ],
     );
     let request = ModelRequest {
         system_prompt: "system".to_owned(),
@@ -211,13 +191,13 @@ fn rejects_video_parts_with_typed_provider_error() {
     for tested_model in [QWEN_3_7_PLUS_ID, QWEN_3_7_FLASH_ID] {
         let request = ModelRequest {
             system_prompt: "system".to_owned(),
-            messages: vec![ConversationMessage::user_with_parts(
-                "fallback",
-                vec![ConversationContentPart::Video {
+            messages: vec![ConversationMessage::user_with_parts(vec![
+                ConversationPart::Video {
                     mime_type: "video/mp4".to_owned(),
                     data_base64: "dmlkZW8=".to_owned(),
-                }],
-            )],
+                    provider_state: None,
+                },
+            ])],
             tools: Vec::new(),
             response_schema: None,
             controls: Default::default(),
@@ -244,18 +224,17 @@ fn rejects_video_parts_with_typed_provider_error() {
 fn request_with_user_parts() -> ModelRequest {
     ModelRequest {
         system_prompt: "system".to_owned(),
-        messages: vec![ConversationMessage::user_with_parts(
-            "fallback",
-            vec![
-                ConversationContentPart::Text {
-                    text: "What is shown?".to_owned(),
-                },
-                ConversationContentPart::Image {
-                    mime_type: "image/png".to_owned(),
-                    data_base64: "abc123".to_owned(),
-                },
-            ],
-        )],
+        messages: vec![ConversationMessage::user_with_parts(vec![
+            ConversationPart::Text {
+                text: "What is shown?".to_owned(),
+                provider_state: None,
+            },
+            ConversationPart::Image {
+                mime_type: "image/png".to_owned(),
+                data_base64: "abc123".to_owned(),
+                provider_state: None,
+            },
+        ])],
         tools: Vec::new(),
         response_schema: None,
         controls: Default::default(),

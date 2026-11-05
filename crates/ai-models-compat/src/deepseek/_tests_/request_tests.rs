@@ -5,6 +5,8 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use ai_interface::{ConversationMessage, ConversationRole, Model, ModelRequest};
 use json_http::StaticHeaderAuth;
 
+use crate::part_test_support::message;
+
 use crate::deepseek::DEEPSEEK_V4_PRO;
 
 use super::{DeepSeekModel, test_support::recording_http_client};
@@ -140,13 +142,12 @@ async fn preserves_empty_plain_content_as_strings() {
 }
 
 fn named_message(role: ConversationRole, content: &str, name: &str) -> ConversationMessage {
-    ConversationMessage {
+    message(
         role,
-        content: content.to_owned(),
-        content_parts: Vec::new(),
-        name: Some(name.to_owned()),
-        tool_call_id: None,
-        tool_calls: Vec::new(),
-        provider_context: Vec::new(),
-    }
+        content.to_owned(),
+        Vec::new(),
+        Some(name.to_owned()),
+        None,
+        Vec::new(),
+    )
 }

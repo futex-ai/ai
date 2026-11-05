@@ -1,11 +1,13 @@
-//! In-memory Chat Completions SSE fixtures for provider adapter tests.
+//! Model event collection and in-memory SSE fixtures for provider adapter tests.
 
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
 };
 
-use ai_interface::{ModelCompletionEvent, ModelCompletionEventSinkMock};
+use ai_interface::{
+    Model, ModelError, ModelRequest, ModelResponse, ModelResponseFold, ModelResult,
+};
 use json_http::{
     DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpSseEvent,
     JsonHttpSseStreamMock, JsonHttpTransportMock, TransportBackedJsonHttpClient,
@@ -15,9 +17,6 @@ use unimock::{MockFn, Unimock, matching};
 
 /// Requests captured by an in-memory streaming transport.
 pub type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
-
-/// Completion events captured by an in-memory sink.
-pub type RecordedCompletionEvents = Arc<Mutex<Vec<ModelCompletionEvent>>>;
 
 /// One result returned by an in-memory SSE stream.
 pub type StreamItem = json_http::Result<Option<JsonHttpSseEvent>>;
@@ -30,31 +29,32 @@ pub enum SseFixture {
     OpeningError(json_http::Error),
 }
 
-/// Builds an event sink that records every ordered callback.
-pub fn recording_completion_event_sink() -> (Unimock, RecordedCompletionEvents) {
-    let events = Arc::new(Mutex::new(Vec::new()));
-    let sink = Unimock::new(
-        ModelCompletionEventSinkMock::emit
-            .each_call(matching!(_))
-            .answers_arc({
-                let events = events.clone();
-                Arc::new(move |_, event| {
-                    events
-                        .lock()
-                        .expect("event lock should not be poisoned")
-                        .push(event);
-                })
-            }),
-    );
-    (sink, events)
-}
-
-/// Clones the ordered completion events recorded by a test sink.
-pub fn recorded_completion_events(events: &RecordedCompletionEvents) -> Vec<ModelCompletionEvent> {
-    events
-        .lock()
-        .expect("event lock should not be poisoned")
-        .clone()
+/// Collects event snapshots and a folded response, retaining partial events on failure.
+pub async fn collect_model_events(
+    model: &dyn Model,
+    request: &ModelRequest,
+) -> (ModelResult<ModelResponse>, Vec<Value>) {
+    let mut events = Vec::new();
+    let mut stream = match model.stream(request).await {
+        Ok(stream) => stream,
+        Err(error) => return (Err(error), events),
+    };
+    let mut fold = ModelResponseFold::new();
+    loop {
+        let event = match stream.next().await {
+            Ok(Some(event)) => event,
+            Ok(None) => return (fold.finish(), events),
+            Err(error) => return (Err(error), events),
+        };
+        let snapshot = match serde_json::to_value(&event) {
+            Ok(snapshot) => snapshot,
+            Err(source) => return (Err(ModelError::internal(source)), events),
+        };
+        events.push(snapshot);
+        if let Err(error) = fold.push(event) {
+            return (Err(error), events);
+        }
+    }
 }
 
 /// Builds a recording client from ordered SSE fixtures.

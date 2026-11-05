@@ -27,7 +27,7 @@ fn structured_output_filter_preserves_filtered_finish_reason() {
 
     assert_eq!(response.finish_reason, FinishReason::Filtered);
     assert_eq!(response.structured_output, None);
-    assert_eq!(response.assistant_message, "I cannot provide that.");
+    assert_eq!(response.text(), "I cannot provide that.");
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn structured_output_truncation_preserves_truncated_finish_reason() {
 
     assert_eq!(response.finish_reason, FinishReason::Truncated);
     assert_eq!(response.structured_output, None);
-    assert_eq!(response.assistant_message, "{\"summary\":");
+    assert_eq!(response.text(), "{\"summary\":");
 }
 
 fn status_schema() -> StructuredOutputSchema {

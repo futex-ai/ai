@@ -1,72 +1,27 @@
 //! Tests for OpenAI Responses reasoning replay request mapping.
 
-use ai_interface::{
-    ConversationMessage, DeepSeekToolCallContext, KimiToolCallContext, Model, ModelRequest,
-    OpenAiReasoningSummary, ProviderConversationItem, QwenToolCallContext, ToolCall,
-};
+use ai_interface::{ConversationMessage, Model, ModelRequest, read_stored_message};
 use serde_json::json;
 
 use crate::openai::stream_support::client_for_buffered_bodies;
 use crate::openai::stream_support::custom_spec;
 
-use super::OpenAiModel;
+use super::{OpenAiLegacyConverter, OpenAiModel};
 
 #[tokio::test]
 async fn replays_openai_reasoning_context_before_tool_outputs() {
     let (http_client, requests) = client_for_buffered_bodies(vec![openai_text_response("Done")]);
     let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "sk-openai");
-    let assistant = ConversationMessage::assistant_with_provider_context(
-        "",
-        vec![ToolCall {
-            id: "call_1".to_owned(),
-            name: "memory_read".to_owned(),
-            input: json!({"path": "root"}),
-            operation_id: None,
-        }],
-        vec![
-            ProviderConversationItem::DeepSeekAssistantMessage {
-                content: "DeepSeek-owned content".to_owned(),
-                reasoning_content: Some("DeepSeek-owned reasoning".to_owned()),
-                tool_calls: vec![DeepSeekToolCallContext {
-                    id: "deepseek_call".to_owned(),
-                    name: "ignored".to_owned(),
-                    arguments: "{\"foreign\":true}".to_owned(),
-                }],
-            },
-            ProviderConversationItem::KimiAssistantMessage {
-                content: None,
-                reasoning_content: Some("Kimi-owned context".to_owned()),
-                tool_calls: vec![KimiToolCallContext {
-                    id: "kimi_call".to_owned(),
-                    name: "ignored".to_owned(),
-                    arguments: "{}".to_owned(),
-                }],
-            },
-            ProviderConversationItem::QwenAssistantMessage {
-                content: Some("Qwen-owned content".to_owned()),
-                reasoning_content: Some("Qwen-owned reasoning".to_owned()),
-                tool_calls: vec![QwenToolCallContext {
-                    id: "qwen_call".to_owned(),
-                    name: "ignored".to_owned(),
-                    arguments: "{}".to_owned(),
-                }],
-            },
-            ProviderConversationItem::OpenAiReasoning {
-                id: "rs_1".to_owned(),
-                summary: vec![OpenAiReasoningSummary {
-                    kind: "summary_text".to_owned(),
-                    text: "Need the memory tool.".to_owned(),
-                }],
-                encrypted_content: Some("encrypted-reasoning".to_owned()),
-            },
-            ProviderConversationItem::OpenAiFunctionCall {
-                id: Some("fc_1".to_owned()),
-                call_id: "call_1".to_owned(),
-                name: "memory_read".to_owned(),
-                arguments: "{\n  \"path\": \"root\"\n}".to_owned(),
-            },
-        ],
-    );
+    let assistant = read_stored_message(json!({
+        "role":"assistant","content":"","tool_calls":[{"id":"call_1","name":"memory_read","input":{"path":"root"}}],
+        "provider_context":[
+            {"type":"deep_seek_assistant_message","content":"DeepSeek-owned content","reasoning_content":"DeepSeek-owned reasoning","tool_calls":[{"id":"deepseek_call","name":"ignored","arguments":"{\"foreign\":true}"}]},
+            {"type":"kimi_assistant_message","reasoning_content":"Kimi-owned context","tool_calls":[{"id":"kimi_call","name":"ignored","arguments":"{}"}]},
+            {"type":"qwen_assistant_message","content":"Qwen-owned content","reasoning_content":"Qwen-owned reasoning","tool_calls":[{"id":"qwen_call","name":"ignored","arguments":"{}"}]},
+            {"type":"openai_reasoning","id":"rs_1","summary":[{"type":"summary_text","text":"Need the memory tool."}],"encrypted_content":"encrypted-reasoning"},
+            {"type":"openai_function_call","id":"fc_1","call_id":"call_1","name":"memory_read","arguments":"{\n  \"path\": \"root\"\n}"}
+        ]
+    }), &[&OpenAiLegacyConverter]).unwrap();
 
     model
         .complete(&ModelRequest {
@@ -106,26 +61,10 @@ async fn replays_openai_reasoning_context_before_tool_outputs() {
 async fn replays_assistant_message_phase_before_function_call_context() {
     let (http_client, requests) = client_for_buffered_bodies(vec![openai_text_response("Done")]);
     let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "sk-openai");
-    let assistant = ConversationMessage::assistant_with_provider_context(
-        "I'll inspect memory.",
-        vec![ToolCall {
-            id: "call_1".to_owned(),
-            name: "memory_read".to_owned(),
-            input: json!({"path": "root"}),
-            operation_id: None,
-        }],
-        vec![
-            ProviderConversationItem::OpenAiMessage {
-                phase: Some("commentary".to_owned()),
-            },
-            ProviderConversationItem::OpenAiFunctionCall {
-                id: Some("fc_1".to_owned()),
-                call_id: "call_1".to_owned(),
-                name: "memory_read".to_owned(),
-                arguments: "{\"path\":\"root\"}".to_owned(),
-            },
-        ],
-    );
+    let assistant = read_stored_message(json!({
+        "role":"assistant","content":"I'll inspect memory.","tool_calls":[{"id":"call_1","name":"memory_read","input":{"path":"root"}}],
+        "provider_context":[{"type":"openai_message","phase":"commentary"},{"type":"openai_function_call","id":"fc_1","call_id":"call_1","name":"memory_read","arguments":"{\"path\":\"root\"}"}]
+    }), &[&OpenAiLegacyConverter]).unwrap();
 
     model
         .complete(&ModelRequest {
@@ -159,24 +98,10 @@ async fn replays_assistant_message_phase_before_function_call_context() {
 async fn replays_phase_less_assistant_message_before_function_call_context() {
     let (http_client, requests) = client_for_buffered_bodies(vec![openai_text_response("Done")]);
     let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "sk-openai");
-    let assistant = ConversationMessage::assistant_with_provider_context(
-        "I'll inspect memory.",
-        vec![ToolCall {
-            id: "call_1".to_owned(),
-            name: "memory_read".to_owned(),
-            input: json!({"path": "root"}),
-            operation_id: None,
-        }],
-        vec![
-            ProviderConversationItem::OpenAiMessage { phase: None },
-            ProviderConversationItem::OpenAiFunctionCall {
-                id: Some("fc_1".to_owned()),
-                call_id: "call_1".to_owned(),
-                name: "memory_read".to_owned(),
-                arguments: "{\"path\":\"root\"}".to_owned(),
-            },
-        ],
-    );
+    let assistant = read_stored_message(json!({
+        "role":"assistant","content":"I'll inspect memory.","tool_calls":[{"id":"call_1","name":"memory_read","input":{"path":"root"}}],
+        "provider_context":[{"type":"openai_message"},{"type":"openai_function_call","id":"fc_1","call_id":"call_1","name":"memory_read","arguments":"{\"path\":\"root\"}"}]
+    }), &[&OpenAiLegacyConverter]).unwrap();
 
     model
         .complete(&ModelRequest {

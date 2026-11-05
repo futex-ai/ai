@@ -1,6 +1,5 @@
 //! Legacy function-call response decoding and deterministic identity.
 
-use ai_interface::ProviderConversationItem;
 use ai_models_core::synthetic_tool_call_id;
 use serde::Deserialize;
 use serde_json::Value;
@@ -64,12 +63,12 @@ pub(super) fn normalize(
     context: CompletionContext<'_>,
     calls: &mut Option<Vec<ChatCompletionsToolCall>>,
     function: Option<ChatCompletionsToolFunction>,
-) -> Vec<ProviderConversationItem> {
+) -> bool {
     let Some(calls) = calls.as_mut().filter(|calls| calls.is_empty()) else {
-        return Vec::new();
+        return false;
     };
     let Some(function) = function else {
-        return Vec::new();
+        return false;
     };
     let id = synthetic_tool_call_id(
         "xai_legacy_function_call:",
@@ -78,15 +77,10 @@ pub(super) fn normalize(
         &function.name,
         &function.arguments,
     );
-    let replay = ProviderConversationItem::XaiLegacyFunctionCall {
-        tool_call_id: id.clone(),
-        name: function.name.clone(),
-        arguments: function.arguments.clone(),
-    };
     calls.push(ChatCompletionsToolCall {
         id: id.clone(),
         function,
         operation_id: Some(id),
     });
-    vec![replay]
+    true
 }

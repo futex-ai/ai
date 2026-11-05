@@ -4,6 +4,8 @@ use ai_interface::{ModelControl, ModelError, ModelResponse};
 use json_http::test_support::Redactor;
 use serde::{Deserialize, Serialize};
 
+use crate::event_snapshot::ModelEventSnapshot;
+
 /// One scenario's ordered step results.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ScenarioOutcome {
@@ -19,11 +21,17 @@ pub struct ScenarioOutcome {
 pub enum StepOutcome {
     /// Successful completion.
     Response {
+        /// Ordered events from this model call.
+        #[serde(default)]
+        events: Vec<ModelEventSnapshot>,
         /// Full normalized model result, including provider context and usage.
         response: Box<ModelResponse>,
     },
     /// Failed completion.
     Error {
+        /// Ordered events received before this model call failed.
+        #[serde(default)]
+        events: Vec<ModelEventSnapshot>,
         /// Model error variant and its sanitized fields.
         error: ErrorOutcome,
     },

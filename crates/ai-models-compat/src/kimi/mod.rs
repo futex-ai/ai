@@ -3,6 +3,7 @@
 mod catalog;
 mod client;
 mod dialect;
+pub(crate) mod state;
 
 #[cfg(test)]
 #[path = "_tests_/request.rs"]
@@ -13,6 +14,7 @@ mod response;
 
 pub use catalog::{CATALOG, CUSTOM_DEFAULTS, KIMI_K3, PROVIDER_ID, known_models};
 pub use client::KimiModel;
+pub use state::LegacyConverter;
 
 #[cfg(test)]
 #[path = "_tests_/support.rs"]

@@ -1,8 +1,9 @@
 //! OpenAI Responses request DTOs.
 
-use ai_interface::OpenAiReasoningSummary;
 use serde::Serialize;
 use serde_json::Value;
+
+use super::replay_state::ReasoningSummary;
 
 #[derive(Debug, Serialize)]
 pub(super) struct ResponsesRequest {
@@ -93,7 +94,7 @@ pub(super) struct ResponsesReasoningInput {
     #[serde(rename = "type")]
     pub(super) kind: String,
     pub(super) id: String,
-    pub(super) summary: Vec<OpenAiReasoningSummary>,
+    pub(super) summary: Vec<ReasoningSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) encrypted_content: Option<String>,
 }

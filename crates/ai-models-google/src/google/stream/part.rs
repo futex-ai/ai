@@ -1,7 +1,6 @@
 //! Visible Gemini content accumulation without replay signature boundaries.
 
-use ai_interface::GoogleAssistantPart;
-use serde_json::{Value, json};
+use super::super::state::GoogleAssistantPart;
 
 use super::types::GoogleStreamDelta;
 
@@ -9,6 +8,7 @@ use super::types::GoogleStreamDelta;
 pub(super) struct AccumulatedPart {
     part: GoogleAssistantPart,
     assistant_emitted: bool,
+    pub(super) part_index: Option<usize>,
 }
 
 impl AccumulatedPart {
@@ -16,11 +16,12 @@ impl AccumulatedPart {
         parts: &mut Vec<Self>,
         mut part: GoogleAssistantPart,
         merge_with_previous: bool,
-    ) -> Option<GoogleStreamDelta> {
+    ) -> Option<(usize, Option<GoogleStreamDelta>)> {
         if part.thought_signature.is_some() && part.text.is_none() && part.function_call.is_none() {
             return None;
         }
         part.thought_signature = None;
+        let previous_index = parts.len().saturating_sub(1);
         if merge_with_previous
             && part.function_call.is_none()
             && let Some(text) = &part.text
@@ -29,7 +30,7 @@ impl AccumulatedPart {
             && previous.part.text.is_some()
             && previous.part.thought == part.thought
         {
-            return previous.append_text(text);
+            return Some((previous_index, previous.append_text(text)));
         }
         let delta = part
             .text
@@ -45,8 +46,9 @@ impl AccumulatedPart {
         parts.push(Self {
             part,
             assistant_emitted,
+            part_index: None,
         });
-        delta
+        Some((parts.len() - 1, delta))
     }
 
     fn append_text(&mut self, delta: &str) -> Option<GoogleStreamDelta> {
@@ -76,8 +78,15 @@ impl AccumulatedPart {
         })
     }
 
-    pub(super) fn body(&self) -> Value {
-        json!(&self.part)
+    pub(super) fn assistant_text(&self) -> Option<&str> {
+        self.part
+            .text
+            .as_deref()
+            .filter(|text| self.part.thought != Some(true) && !text.trim().is_empty())
+    }
+
+    pub(super) fn is_reasoning(&self) -> bool {
+        self.part.thought == Some(true)
     }
 }
 

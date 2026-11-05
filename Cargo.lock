@@ -30,11 +30,13 @@ name = "ai-interface"
 version = "0.3.0"
 dependencies = [
  "async-trait",
+ "insta",
  "internal-error",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
+ "tracing",
  "unimock",
 ]
 

@@ -1,7 +1,7 @@
 //! Multimodal serialization tests for xAI.
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, Model, ModelError, ModelRequest, ToolCall,
+    ConversationMessage, ConversationPart, Model, ModelError, ModelRequest, ToolCall,
 };
 use json_http::JsonHttpResponse;
 use serde_json::json;
@@ -35,18 +35,17 @@ async fn serializes_image_context_message() {
                     "attachment_view",
                     "call-view",
                 ),
-                ConversationMessage::user_with_parts(
-                    "Visual context is available.",
-                    vec![
-                        ConversationContentPart::Text {
-                            text: "Visual context is available.".to_owned(),
-                        },
-                        ConversationContentPart::Image {
-                            mime_type: "image/png".to_owned(),
-                            data_base64: "abc123".to_owned(),
-                        },
-                    ],
-                ),
+                ConversationMessage::user_with_parts(vec![
+                    ConversationPart::Text {
+                        text: "Visual context is available.".to_owned(),
+                        provider_state: None,
+                    },
+                    ConversationPart::Image {
+                        mime_type: "image/png".to_owned(),
+                        data_base64: "abc123".to_owned(),
+                        provider_state: None,
+                    },
+                ]),
             ],
             tools: Vec::new(),
             response_schema: None,
@@ -76,13 +75,13 @@ async fn rejects_video_content_parts_before_transport() {
     let error = model
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
-            messages: vec![ConversationMessage::user_with_parts(
-                "fallback",
-                vec![ConversationContentPart::Video {
+            messages: vec![ConversationMessage::user_with_parts(vec![
+                ConversationPart::Video {
                     mime_type: "video/mp4".to_owned(),
                     data_base64: "dmlkZW8=".to_owned(),
-                }],
-            )],
+                    provider_state: None,
+                },
+            ])],
             tools: Vec::new(),
             response_schema: None,
             controls: Default::default(),

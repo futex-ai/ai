@@ -3,7 +3,7 @@
 use ai_interface::Effort;
 use serde_json::json;
 
-use super::response::parse_response;
+use super::stream_support::response_from_fixture;
 
 mod finish_tests;
 mod reasoning_tests;

@@ -3,7 +3,7 @@
 use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
-    Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse, ModelResult,
+    DynModelEventStream, Model, ModelError, ModelEvent, ModelEventStream, ModelRequest, ModelResult,
 };
 use async_trait::async_trait;
 
@@ -43,40 +43,99 @@ impl RetryingModel {
 
 #[async_trait]
 impl Model for RetryingModel {
-    async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
-        let mut retry_index = 0usize;
+    async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
+        let mut stream = RetryStream {
+            inner: self.inner.clone(),
+            sleeper: self.sleeper.clone(),
+            retry_delays: self.retry_delays.clone(),
+            retry_index: 0,
+            request: request.clone(),
+            stream: None,
+            emitted_event: false,
+            terminal: false,
+        };
+        stream.open().await?;
+        Ok(Box::new(stream))
+    }
+}
 
+struct RetryStream {
+    inner: Arc<dyn Model>,
+    sleeper: DynSleeper,
+    retry_delays: Vec<Duration>,
+    retry_index: usize,
+    request: ModelRequest,
+    stream: Option<DynModelEventStream>,
+    emitted_event: bool,
+    terminal: bool,
+}
+
+impl RetryStream {
+    async fn open(&mut self) -> ModelResult<()> {
         loop {
-            match self.inner.complete(request).await {
-                Err(ModelError::TransientProvider { .. })
-                    if retry_index < self.retry_delays.len() =>
-                {
-                    let delay = self.retry_delays[retry_index];
-                    retry_index += 1;
-                    self.sleeper.sleep(delay).await;
+            match self.inner.stream(&self.request).await {
+                Ok(stream) => {
+                    self.stream = Some(stream);
+                    return Ok(());
                 }
-                other => return other,
+                Err(error) => {
+                    if !self.wait_for_retry(&error).await {
+                        return Err(error);
+                    }
+                }
             }
         }
     }
 
-    async fn complete_with_events(
-        &self,
-        request: &ModelRequest,
-        event_sink: &dyn ModelCompletionEventSink,
-    ) -> ModelResult<ModelResponse> {
-        let mut retry_index = 0usize;
+    async fn wait_for_retry(&mut self, error: &ModelError) -> bool {
+        if self.emitted_event || !matches!(error, ModelError::TransientProvider { .. }) {
+            return false;
+        }
+        let Some(delay) = self.retry_delays.get(self.retry_index).copied() else {
+            return false;
+        };
+        self.retry_index += 1;
+        self.sleeper.sleep(delay).await;
+        true
+    }
 
+    fn terminate(&mut self) {
+        self.stream = None;
+        self.terminal = true;
+    }
+}
+
+#[async_trait]
+impl ModelEventStream for RetryStream {
+    async fn next(&mut self) -> ModelResult<Option<ModelEvent>> {
+        if self.terminal {
+            return Ok(None);
+        }
         loop {
-            match self.inner.complete_with_events(request, event_sink).await {
-                Err(ModelError::TransientProvider { .. })
-                    if retry_index < self.retry_delays.len() =>
-                {
-                    let delay = self.retry_delays[retry_index];
-                    retry_index += 1;
-                    self.sleeper.sleep(delay).await;
+            let Some(stream) = &mut self.stream else {
+                self.terminate();
+                return Ok(None);
+            };
+            match stream.next().await {
+                Ok(Some(event)) => {
+                    self.emitted_event = true;
+                    return Ok(Some(event));
                 }
-                other => return other,
+                Ok(None) => {
+                    self.terminate();
+                    return Ok(None);
+                }
+                Err(error) => {
+                    self.stream = None;
+                    if !self.wait_for_retry(&error).await {
+                        self.terminate();
+                        return Err(error);
+                    }
+                    if let Err(error) = self.open().await {
+                        self.terminate();
+                        return Err(error);
+                    }
+                }
             }
         }
     }

@@ -19,7 +19,7 @@
   - **C.** Keep the transient kind, and make the retry layer skip calls that use the deferred lifecycle. The retry layer must then read the completion mode. Effort: Medium.
 - **Left out:** Changing nothing fails the goal, because a retry can submit a second billable job. Cancelling the first job before a retry fails the goal for now, because the adapter has no cancel call.
 - **Wider fix:** B. One error kind for jobs that outlive their timeout covers xAI deferred calls and the video jobs alike.
-- **Previous examples:** The rule that an interrupted stream is never retried, in `docs/protocol/model-completion-streaming.md`, exists for the same billing reason.
+- **Previous examples:** The rule that an interrupted stream is never retried, in `docs/protocol/model-stream.md`, exists for the same billing reason.
 - **Related:** None.
 - **Recommendation:** B. It names the case exactly and keeps the retry layer free of lifecycle checks.
 - **Action:** ask the user, because the fix changes the timeout classification that `docs/protocol/provider-call-controls.md` requires.

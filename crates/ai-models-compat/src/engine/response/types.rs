@@ -1,8 +1,9 @@
 //! Typed shared response and tool-call wire fields.
 
-use ai_interface::MiniMaxReasoningDetail;
 use serde::Deserialize;
 use serde_json::Value;
+
+use crate::minimax::state::ReasoningDetail;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ChatCompletionsResponse {
@@ -32,12 +33,12 @@ pub(super) struct ChatCompletionsAssistantMessage {
     #[serde(skip)]
     pub(super) parsed_tool_calls: Option<Vec<ChatCompletionsToolCall>>,
     #[serde(skip)]
-    pub(super) reasoning_details: Vec<MiniMaxReasoningDetail>,
+    pub(super) reasoning_details: Vec<ReasoningDetail>,
     #[serde(skip)]
     pub(super) function_call: Option<ChatCompletionsToolFunction>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub(super) struct ChatCompletionsToolCall {
     pub(super) id: String,
     pub(super) function: ChatCompletionsToolFunction,
@@ -45,7 +46,7 @@ pub(super) struct ChatCompletionsToolCall {
     pub(super) operation_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub(super) struct ChatCompletionsToolFunction {
     pub(super) name: String,
     pub(super) arguments: String,

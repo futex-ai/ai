@@ -1,11 +1,12 @@
 //! Text, image, video, and empty-content wire forms.
 
+use ai_interface::{
+    ConversationMessage, ConversationPart, ConversationRole, ModelError, ModelResult,
+};
+
 use super::{
     dialect::{Dialect, InputParts, ReplayRule},
     request_types::{ChatCompletionsContent, ChatCompletionsContentPart, ChatCompletionsImageUrl},
-};
-use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, ModelError, ModelResult,
 };
 
 pub(super) fn message_content(
@@ -13,55 +14,56 @@ pub(super) fn message_content(
     model_id: &str,
     message: &ConversationMessage,
 ) -> ModelResult<Option<ChatCompletionsContent>> {
-    if !message.content_parts.is_empty() {
-        return Ok(Some(ChatCompletionsContent::Parts(
-            message
-                .content_parts
-                .iter()
-                .map(|part| content_part(dialect, model_id, part))
-                .collect::<ModelResult<Vec<_>>>()?,
-        )));
+    if message.role == ConversationRole::User {
+        return match message.parts.as_slice() {
+            [] => Ok(Some(ChatCompletionsContent::Text(String::new()))),
+            [ConversationPart::Text { text, .. }] => {
+                Ok(Some(ChatCompletionsContent::Text(text.clone())))
+            }
+            parts => Ok(Some(ChatCompletionsContent::Parts(
+                parts
+                    .iter()
+                    .map(|part| content_part(dialect, model_id, part))
+                    .collect::<ModelResult<_>>()?,
+            ))),
+        };
     }
-    if dialect.replay == ReplayRule::Xai && message.content.is_empty() {
-        return Ok(None);
-    }
-    if dialect.replay == ReplayRule::MiniMax
-        && message.role != ConversationRole::Tool
-        && message.content.is_empty()
-    {
-        return Ok(None);
-    }
+    let text = message.text();
     if message.role == ConversationRole::Assistant
-        && message.content.is_empty()
-        && (dialect.replay == ReplayRule::Kimi
-            || dialect.replay == ReplayRule::Qwen && !message.tool_calls.is_empty())
+        && text.is_empty()
+        && (matches!(
+            dialect.replay,
+            ReplayRule::Xai | ReplayRule::MiniMax | ReplayRule::Kimi
+        ) || dialect.replay == ReplayRule::Qwen && !message.tool_calls().is_empty())
     {
         Ok(None)
     } else {
-        Ok(Some(ChatCompletionsContent::Text(message.content.clone())))
+        Ok(Some(ChatCompletionsContent::Text(text)))
     }
 }
 
 fn content_part(
     dialect: &Dialect,
     model_id: &str,
-    part: &ConversationContentPart,
+    part: &ConversationPart,
 ) -> ModelResult<ChatCompletionsContentPart> {
     match part {
-        ConversationContentPart::Text { text } => {
+        ConversationPart::Text { text, .. } => {
             Ok(ChatCompletionsContentPart::Text { text: text.clone() })
         }
-        ConversationContentPart::Image {
+        ConversationPart::Image {
             mime_type,
             data_base64,
+            ..
         } => Ok(ChatCompletionsContentPart::ImageUrl {
             image_url: ChatCompletionsImageUrl {
                 url: format!("data:{mime_type};base64,{data_base64}"),
             },
         }),
-        ConversationContentPart::Video {
+        ConversationPart::Video {
             mime_type,
             data_base64,
+            ..
         } if matches!(dialect.input, InputParts::TextImageVideo) => {
             Ok(ChatCompletionsContentPart::VideoUrl {
                 video_url: ChatCompletionsImageUrl {
@@ -69,7 +71,7 @@ fn content_part(
                 },
             })
         }
-        ConversationContentPart::Video { .. } => Err(ModelError::provider(
+        _ => Err(ModelError::provider(
             dialect.provider,
             model_id,
             format!(

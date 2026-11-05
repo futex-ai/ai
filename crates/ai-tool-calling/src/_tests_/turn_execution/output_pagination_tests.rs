@@ -1,5 +1,8 @@
+//! Runtime tests through the model stream contract.
+
 use std::sync::Arc;
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     ConversationRole, DynModel, DynTool, FinishReason, ModelMock, ModelRequest, ModelResponse,
     ModelUsage, ToolCall, ToolDefinition, ToolMock, ToolOutputEnvelope,
@@ -7,6 +10,7 @@ use ai_interface::{
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::support::{response_parts, stream_result, tool_result_id};
 use crate::{InMemoryToolOutputStore, RunOutcome, ToolOutputPolicy, Turn};
 
 use super::super::support::{runtime_with_store_and_policy, user_message};
@@ -15,51 +19,60 @@ use super::super::support::{runtime_with_store_and_policy, user_message};
 async fn multi_window_output_can_be_followed_to_completion() {
     let policy = ToolOutputPolicy::new(5, 5, 100, 100).unwrap();
     let model: DynModel = Arc::new(Unimock::new((
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(tool_call_response(tool_call(
+            .answers_arc(stream_result(Ok(tool_call_response(tool_call(
                 "call-big",
                 "big_output",
                 json!({}),
-            )))),
-        ModelMock::complete
+            ))))),
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                let window = last_tool_window(request);
-                assert_eq!(window.content(), "\"abcd");
-                assert_eq!(window.next_offset(), Some(5));
-                assert_first_window_does_not_expose_full_raw_output(request);
-                Ok(tool_call_response(tool_call(
-                    "call-read-1",
-                    "tool_output_read",
-                    json!({
-                        "output_id": window.output_id().unwrap(),
-                        "offset": window.next_offset().unwrap()
-                    }),
-                )))
+                {
+                    let window = last_tool_window(request);
+                    assert_eq!(window.content(), "\"abcd");
+                    assert_eq!(window.next_offset(), Some(5));
+                    assert_first_window_does_not_expose_full_raw_output(request);
+                    Ok(tool_call_response(tool_call(
+                        "call-read-1",
+                        "tool_output_read",
+                        json!({
+                            "output_id": window.output_id().unwrap(),
+                            "offset": window.next_offset().unwrap()
+                        }),
+                    )))
+                }
+                .map(model_response_stream)
             }),
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                let window = last_tool_window(request);
-                assert_eq!(window.content(), "efghi");
-                assert_eq!(window.next_offset(), Some(10));
-                Ok(tool_call_response(tool_call(
-                    "call-read-2",
-                    "tool_output_read",
-                    json!({
-                        "output_id": window.output_id().unwrap(),
-                        "offset": window.next_offset().unwrap()
-                    }),
-                )))
+                {
+                    let window = last_tool_window(request);
+                    assert_eq!(window.content(), "efghi");
+                    assert_eq!(window.next_offset(), Some(10));
+                    Ok(tool_call_response(tool_call(
+                        "call-read-2",
+                        "tool_output_read",
+                        json!({
+                            "output_id": window.output_id().unwrap(),
+                            "offset": window.next_offset().unwrap()
+                        }),
+                    )))
+                }
+                .map(model_response_stream)
             }),
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
-                let window = last_tool_window(request);
-                assert_eq!(window.content(), "j\"");
-                assert!(!window.truncated());
-                Ok(stop_response())
+                {
+                    let window = last_tool_window(request);
+                    assert_eq!(window.content(), "j\"");
+                    assert!(!window.truncated());
+                    Ok(stop_response())
+                }
+                .map(model_response_stream)
             }),
     )));
     let runtime = runtime_with_store_and_policy(
@@ -97,14 +110,14 @@ fn assert_first_window_does_not_expose_full_raw_output(request: &ModelRequest) {
     let tool_message = request
         .messages
         .iter()
-        .find(|message| message.tool_call_id.as_deref() == Some("call-big"))
+        .find(|message| tool_result_id(message) == Some("call-big"))
         .expect("first tool message should be retained");
     assert!(
         tool_message
-            .content
+            .text()
             .contains("\"type\":\"tool_output_window\"")
     );
-    assert!(!tool_message.content.contains("abcdefghij"));
+    assert!(!tool_message.text().contains("abcdefghij"));
 }
 
 fn last_tool_window(request: &ModelRequest) -> ai_interface::ToolOutputWindowEnvelope {
@@ -115,7 +128,7 @@ fn last_tool_window(request: &ModelRequest) -> ai_interface::ToolOutputWindowEnv
         .find(|message| message.role == ConversationRole::Tool)
         .expect("tool message should be retained");
     let envelope: ToolOutputEnvelope =
-        serde_json::from_str(&message.content).expect("tool message should be an envelope");
+        serde_json::from_str(&message.text()).expect("tool message should be an envelope");
     match envelope {
         ToolOutputEnvelope::Window(window) => window,
         ToolOutputEnvelope::Inline(_) => panic!("expected window envelope"),
@@ -149,30 +162,28 @@ fn tool_call(id: &str, name: &str, input: Value) -> ToolCall {
 
 fn tool_call_response(call: ToolCall) -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "mock".to_owned(),
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "calling tool".to_owned(),
-        tool_calls: vec![call],
+        parts: response_parts("calling tool".to_owned(), vec![call], Vec::new()),
         finish_reason: FinishReason::ToolCalls,
         structured_output: None,
-        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }
 
 fn stop_response() -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "mock".to_owned(),
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "done".to_owned(),
-        tool_calls: Vec::new(),
+        parts: response_parts("done".to_owned(), Vec::new(), Vec::new()),
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }

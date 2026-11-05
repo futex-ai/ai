@@ -3,6 +3,8 @@
 use ai_interface::{Effort, FinishReason, ModelError, ModelUsage};
 use serde_json::json;
 
+use crate::part_test_support::replay_items;
+
 use crate::deepseek::DEEPSEEK_V4_FLASH;
 
 use super::response;
@@ -27,10 +29,10 @@ fn maps_stopped_text_and_selected_model_metadata() {
         Some("host-deepseek-routing")
     );
     assert_eq!(response.effort().map(Effort::as_str), Some("disabled"));
-    assert_eq!(response.assistant_message, "Done");
+    assert_eq!(response.text(), "Done");
     assert_eq!(response.finish_reason, FinishReason::Stop);
-    assert!(response.tool_calls.is_empty());
-    assert!(response.provider_context.is_empty());
+    assert!(response.tool_calls().is_empty());
+    assert!(replay_items(&response).is_empty());
     assert_eq!(response.usage, ModelUsage::default());
 }
 
@@ -43,7 +45,7 @@ fn normalizes_nullable_content_and_rejects_missing_choices() {
         }]
     }))
     .expect("nullable content should normalize");
-    assert_eq!(response.assistant_message, "");
+    assert_eq!(response.text(), "");
 
     let error = complete(json!({"choices": []})).expect_err("missing choices should fail");
     assert!(matches!(error, ModelError::Provider { .. }));

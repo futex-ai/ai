@@ -1,8 +1,11 @@
 //! Typed Anthropic stream events and accumulator failures.
 
+use ai_interface::ModelEvent;
 use serde::Deserialize;
 use serde_json::Value;
 use thiserror::Error;
+
+use crate::anthropic::replay::AnthropicAssistantBlock;
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -43,19 +46,19 @@ pub(super) enum AnthropicEvent {
 #[derive(Debug, Deserialize)]
 pub(super) struct AnthropicMessageStart {
     #[serde(default)]
-    pub(super) usage: AnthropicUsage,
+    pub(in crate::anthropic) usage: AnthropicUsage,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct AnthropicUsage {
+pub(in crate::anthropic) struct AnthropicUsage {
     #[serde(default)]
-    pub(super) input_tokens: u32,
+    pub(in crate::anthropic) input_tokens: u32,
     #[serde(default)]
-    pub(super) output_tokens: u32,
+    pub(in crate::anthropic) output_tokens: u32,
     #[serde(default)]
-    pub(super) cache_read_input_tokens: u32,
+    pub(in crate::anthropic) cache_read_input_tokens: u32,
     #[serde(default)]
-    pub(super) cache_creation_input_tokens: u32,
+    pub(in crate::anthropic) cache_creation_input_tokens: u32,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -68,7 +71,7 @@ pub(super) struct AnthropicUsageDelta {
 
 #[derive(Debug, Default, Deserialize)]
 pub(super) struct AnthropicMessageDelta {
-    pub(super) stop_reason: Option<String>,
+    pub(in crate::anthropic) stop_reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -149,18 +152,31 @@ impl AnthropicProviderErrorKind {
 
 #[derive(Debug)]
 pub(super) enum AnthropicAccumulation {
-    Continue { delta: Option<AnthropicStreamDelta> },
-    Complete(Value),
+    Continue { events: Vec<ModelEvent> },
+    Complete(AnthropicCompletion),
 }
 
 #[derive(Debug)]
-pub(super) enum AnthropicStreamDelta {
-    AssistantText { delta: String, starts_block: bool },
-    ReasoningText { delta: String },
+pub(in crate::anthropic) struct AnthropicCompletion {
+    pub(in crate::anthropic) blocks: Vec<AnthropicAssistantBlock>,
+    pub(in crate::anthropic) stop_reason: Option<String>,
+    pub(in crate::anthropic) usage: AnthropicUsage,
+}
+
+#[derive(Debug)]
+pub(super) enum BlockEvent {
+    Text { delta: String, starts_block: bool },
+    Reasoning { delta: String },
+    ToolStart { id: String, name: String },
+    ToolArguments { delta: String },
+    ToolEnd { block: AnthropicAssistantBlock },
+    Replay { block: AnthropicAssistantBlock },
 }
 
 #[derive(Debug, Error)]
 pub(super) enum AnthropicStreamError {
+    #[error("[ai_models_anthropic/stream] cannot serialize provider state: {source}")]
+    SerializeState { source: serde_json::Error },
     #[error("[ai_models_anthropic/stream] invalid event JSON: {source}")]
     DeserializeEvent { source: serde_json::Error },
     #[error("[ai_models_anthropic/stream] received an event after message_stop")]

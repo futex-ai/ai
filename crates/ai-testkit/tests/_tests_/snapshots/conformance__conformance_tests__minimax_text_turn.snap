@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's minimax adapter result for text_turn using minimax/MiniMax-M3 synthetic recordings."
 expression: outcome
 ---
@@ -7,13 +8,52 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "ne"
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "minimax",
+            "model_id": "MiniMax-M3",
+            "catalog_model_id": "minimax/MiniMax-M3",
+            "effort": "medium"
+          }
+        }
+      ],
       "response": {
         "provider": "minimax",
         "model_id": "MiniMax-M3",
         "catalog_model_id": "minimax/MiniMax-M3",
         "effort": "medium",
-        "assistant_message": "Done",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "Done"
+          }
+        ],
         "finish_reason": "Stop",
         "usage": {
           "input_tokens": 15,

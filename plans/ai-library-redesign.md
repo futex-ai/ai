@@ -2,8 +2,8 @@
 
 Status: Active. [PR #24](https://github.com/futex-ai/ai/pull/24) is open for
 the first pull request, [PR #25](https://github.com/futex-ai/ai/pull/25)
-for the second, and [PR #26](https://github.com/futex-ai/ai/pull/26) for the
-third. The work spans eight stacked pull requests. Each earlier pull request keeps
+for the second, [PR #26](https://github.com/futex-ai/ai/pull/26) for the
+third, and [PR #27](https://github.com/futex-ai/ai/pull/27) for the fourth. The work spans eight stacked pull requests. Each earlier pull request keeps
 this plan. The last one deletes it, as the final milestone says.
 
 The workspace puts nine AI providers behind one interface, with a
@@ -226,6 +226,15 @@ answers that differ from the recommendation.
   `high`. Its default is low, and it rejects disabled. The alternatives
   were native `low` as the default, a portable minimal effort, the provider
   default, and a direct Flash-Lite branch. C was the recommendation.
+- Item 76, live parity guard cannot fail, answered on 2026-11-04: option C.
+  Remove the guard, the one-variant expectation enum, its selector methods,
+  its unused arguments, and the duplicate deferred guard case. Call the
+  common event validator directly. Remove the claim of a credential-free
+  parity check from `live-model-api-tests.md` and the event-policy claims of
+  `xtask/README.md` and `docs/development.md`. Every probe keeps text-event
+  parity. The alternatives were the guard removal alone, the code removal
+  without the doc changes, and C with the mode kept for failure texts. C
+  was the recommendation.
 
 ## Design calls
 
@@ -323,6 +332,17 @@ All calls are mine, made on 2026-11-01.
   - Milestone 9 marks `chat-completions-dialects.md` implemented. The doc
     describes the engine on the specs, events, parts, error kinds, and
     base URLs of Milestones 5 to 9.
+- 2026-11-02, before Milestone 6:
+  - Until Milestone 7, the finish event carries each adapter's message-level
+    `provider_context` items as an interim field, so that the fold rebuilds
+    today's response. Milestone 7 replaces it with per-part provider state.
+  - Milestone 7 marks `model-stream.md` implemented, because the provider
+    state rules of that doc need the parts of Milestone 7.
+  - The Milestone 6 implementor converts each test-only `Model`
+    implementation to `stream`, including the fixture in
+    `crates/ai-mcp/tests/tool_runtime_smoke.rs`. This follows the trait
+    change and changes no MCP production code, so the MCP crates still
+    change only after Milestone 11.
 - 2026-11-04, applying item 27:
   - The default effort of `ModelSpec` and `CustomModelDefaults` and the
     resolved effort are `Option<Effort>`. `None` is the provider default. A
@@ -486,23 +506,26 @@ Depends on: 5
 
 Make streaming the single model entry point.
 
-- [ ] Replace `complete` and `complete_with_events` on `Model` with
+- [x] Replace `complete` and `complete_with_events` on `Model` with
       `stream` and a provided `complete` fold.
-- [ ] Add the event types and the fold to `ai-interface`, beside `Model`,
+- [x] Add the event types and the fold to `ai-interface`, beside `Model`,
       so that `complete` and the agent loop share one fold.
-- [ ] Emit events directly in the Anthropic, OpenAI, and Google adapters
+- [x] Emit events directly in the Anthropic, OpenAI, and Google adapters
       and in the engine. Remove the JSON round trip.
-- [ ] Move the retry, concurrency, pricing, and fallback wrappers to
+- [x] Move the retry, concurrency, pricing, and fallback wrappers to
       stream semantics.
-- [ ] Re-run the recordings, and migrate the snapshots to events.
-- [ ] Mark `model-stream.md` implemented. Retire
-      `model-completion-events.md` and `model-completion-streaming.md`.
-- [ ] Keep the current retry and fallback rules in force until Milestone 8.
+- [x] Re-run the recordings, and migrate the snapshots to events.
+- [x] Retire `model-completion-events.md` and
+      `model-completion-streaming.md`.
+- [x] Keep the current retry and fallback rules in force until Milestone 8.
       Move them from the retired docs into `model-policies.md` as the rules
       in force, next to the target rules.
-- [ ] Update `live-model-api-tests.md`: deferred and schema calls now emit
+- [x] Update `live-model-api-tests.md`: deferred and schema calls now emit
       model events, so the live checks expect events for them.
-- [ ] Run `cargo xtask check`, then commit and push.
+- [x] Run `cargo xtask check`, then commit and push.
+
+Verification evidence: `.context/milestone-6/parity.md`,
+`.context/milestone-6/snapshot-review-root.md`, and `.context/milestone-6/gate.log`.
 
 ## Milestone 7: Conversation parts and provider state
 
@@ -510,16 +533,18 @@ Depends on: 6
 
 Replace the closed replay enum with opaque provider state.
 
-- [ ] Replace the message content fields and `ProviderConversationItem`
+- [x] Replace the message content fields and `ProviderConversationItem`
       with ordered parts and provider state.
-- [ ] Move the replay payload of each provider into its adapter as a
+- [x] Move the replay payload of each provider into its adapter as a
       private typed struct. This includes the Anthropic and Gemini variants
       of item 1.
-- [ ] Add each provider crate's conversion of its version 1 items.
-- [ ] Redact provider state in log copies.
-- [ ] Mark `conversation-parts.md` implemented.
-- [ ] Run `cargo xtask check`, then commit and push.
-- [ ] Run the ship steps for pull request 4.
+- [x] Add each provider crate's conversion of its version 1 items.
+- [x] Redact provider state in log copies.
+- [x] Replace the interim `provider_context` field of the finish event
+      with per-part provider state.
+- [x] Mark `conversation-parts.md` and `model-stream.md` implemented.
+- [x] Run `cargo xtask check`, then commit and push.
+- [x] Run the ship steps for pull request 4.
 
 ## Milestone 8: HTTP facts and policy layers
 

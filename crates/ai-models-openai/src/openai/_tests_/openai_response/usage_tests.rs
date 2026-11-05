@@ -2,11 +2,11 @@
 
 use serde_json::json;
 
-use super::{Effort, parse_response};
+use super::{Effort, response_from_fixture};
 
-#[test]
-fn parses_usage_token_details() {
-    let response = parse_response(
+#[tokio::test]
+async fn parses_usage_token_details() {
+    let response = response_from_fixture(
         "gpt-5.5-thinking-medium",
         "gpt-5.5",
         Some(Effort::Medium),
@@ -27,6 +27,7 @@ fn parses_usage_token_details() {
         }),
         None,
     )
+    .await
     .expect("usage details should parse");
 
     assert_eq!(response.usage.input_tokens, 80);
@@ -36,9 +37,9 @@ fn parses_usage_token_details() {
     assert_eq!(response.usage.reasoning_tokens, 12);
 }
 
-#[test]
-fn missing_total_tokens_falls_back_to_normalized_usage_sum() {
-    let response = parse_response(
+#[tokio::test]
+async fn missing_total_tokens_falls_back_to_normalized_usage_sum() {
+    let response = response_from_fixture(
         "gpt-5.5-thinking-medium",
         "gpt-5.5",
         Some(Effort::Medium),
@@ -58,6 +59,7 @@ fn missing_total_tokens_falls_back_to_normalized_usage_sum() {
         }),
         None,
     )
+    .await
     .expect("usage details should parse");
 
     assert_eq!(response.usage.input_tokens, 80);

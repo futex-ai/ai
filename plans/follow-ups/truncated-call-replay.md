@@ -1,0 +1,35 @@
+# Truncated answers replay requests Anthropic rejects
+
+- **Severity:** Medium. **Likelihood:** Rare. **Effort:** Small. **Confidence:** Medium. **Harder later:** No.
+- **Kind:** Needs decision.
+- **Added:** 2026-11-02, from branch `calummoore/redesign-4-stream-parts`, item 40 (review finding 40).
+- **Location:** `crates/ai-models-anthropic/src/anthropic/request_messages.rs:75`, `crates/ai-models-anthropic/src/anthropic/stream/accumulator.rs:177`, `crates/ai-models-anthropic/src/legacy.rs:98`, `crates/ai-models-google/src/google/stream/accumulator.rs:115`, `docs/protocol/conversation-parts.md` (section "Replay and skip rules")
+- **Reason:** The recommended option adds an exception to the requirement "An adapter replays all its own state" of `docs/protocol/conversation-parts.md`, and no user decision covers it.
+
+- **Terms:**
+  - **Provider state:** opaque replay data on a conversation part that only the writing adapter reads.
+  - **Fold:** the shared code in `ai-interface` that builds a response from model events. It keeps tool-call parts only when the finish reason is tool calls.
+  - **Truncated answer:** a response that ends because it reached its output limit (`max_tokens` for Anthropic, `MAX_TOKENS` for Gemini).
+- **Background:**
+  - When an answer is truncated, its tool calls never run. The fold drops their tool-call parts, so their provider state is dropped too.
+  - For a truncated Anthropic answer `[thinking, tool_use]`, the next request now replays only `[thinking]`. Before the redesign, it replayed the thinking block and the `tool_use` block.
+  - Anthropic rejects a replayed `tool_use` that has no `tool_result` in the next message, so the old request was rejected too. User reports of the Anthropic API show the error "The final block in an assistant message cannot be thinking" for an assistant message that ends with thinking. The official docs do not state that rule.
+  - Gemini checks thought signatures only in the current turn, and a request after a truncation starts a new turn. The OpenAI adapter dropped such calls before the redesign.
+  - Two related cases: a `max_tokens` stop during thinking replays a thinking-only Anthropic message (`request_messages.rs:75`), and a stored version 1 truncated answer replays a `tool_use` without a `tool_result` (`legacy.rs:98`). Both sent the same requests before the redesign.
+- **Problem:** After a truncated Anthropic answer, the next request in the same conversation can fail, because the replayed assistant message ends with thinking or holds an unanswered `tool_use`.
+- **Impact if no action:** A caller that continues a conversation after a truncated Anthropic answer gets a rejected request.
+- **Root question:** What must later requests send for a truncated answer whose calls never ran, so that each provider accepts them?
+- **Options:**
+  - **A.** Keep whole-message state for signed truncated responses through the native message scopes. This sends the unanswered `tool_use` again. Effort: Small.
+  - **B.** Separate replay retention from executable calls in the adapter-to-fold path, so that the suppressed call's state stays. This also sends the unanswered `tool_use`. Effort: Medium.
+  - **C.** Add a public part for calls that cannot run. Effort: Large.
+  - **D.** Keep the current replay, which drops the suppressed call. Record in `conversation-parts.md` that a call that never runs is not replay data. Add signed regression cases that check the next request in both adapters. The thinking-only Anthropic replay still fails. Effort: Small.
+  - **E.** Do D. Also make the Anthropic request mapping never end an assistant message with a thinking or redacted-thinking block: drop such trailing blocks from part-scoped state, and drop a message that then has no blocks. Add this exception to the rule "An adapter replays all its own state". The model loses the reasoning of the cut step, which Anthropic lists as valid. Effort: Small.
+  - **F.** Make the agent loop append no truncated answer that has no text, so that the caller retries with a larger output limit. Change `agent-loop.md`. A caller that appends the response itself still sends the thinking-only message. Effort: Medium.
+  - **G.** Keep the suppressed call, and close it in the next request with a synthetic tool result that says the call did not run. The library then invents a tool result that the model reads. Effort: Large.
+- **Left out:** Run suppressed calls: it breaks the finish rules of `model-stream.md`. Add invented text after a trailing thinking block: it changes the answer.
+- **Wider fix:** E. An Anthropic replay never ends with thinking, for every cause.
+- **Previous examples:** The Anthropic and Gemini replay fix of the redesign (item 1, option A, decided on 2026-11-01) kept signed content whole.
+- **Related:** `plans/follow-ups/anthropic-truncated-tool-json.md`, the same truncation path for a stop inside tool arguments.
+- **Recommendation:** E. It fixes the rejected request where the provider rules apply.
+- **Action:** ask the user, because E adds an exception to a replay requirement of `conversation-parts.md`.

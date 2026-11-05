@@ -8,8 +8,8 @@ output, routing, usage, and error contracts.
 
 ## Status
 
-This contract is implemented by `ai-models-compat`, with shared routing and
-replay types in `ai-interface`. The
+This contract is implemented by `ai-models-compat`, with shared routing
+types, conversation parts, and provider state in `ai-interface`. The
 [Add Kimi Model Provider plan](../../plans/add-kimi-model-provider.md) records
 the completed implementation milestones.
 
@@ -20,11 +20,12 @@ shared engine that serves this provider.
 ## Scope
 
 The provider supports Kimi K3 through Moonshot AI's Chat Completions API,
-accumulated internally over SSE. It includes text and image input, custom
-function tools, parallel tool calls, structured JSON output, automatic cache
-usage reporting, and K3 reasoning efforts. Its opt-in public path emits
-primary-choice assistant and reasoning fragments as defined by the
-[completion-events protocol](model-completion-events.md).
+streamed over SSE as the [model stream protocol](model-stream.md) defines. It
+includes text and image input, custom function tools, parallel tool calls,
+structured JSON output, automatic cache usage reporting, and K3 reasoning
+efforts. Its stream emits model events for the primary choice:
+`delta.content` gives text deltas, and `delta.reasoning_content` gives
+reasoning deltas.
 
 The provider does not support K2.x models, Moonshot V1 models, Partial Mode,
 video or file upload, dynamic or official Kimi tools, `prompt_cache_key`, or
@@ -35,11 +36,12 @@ a typed provider error before transport.
 
 ## Ownership
 
-- `ai-interface` owns the model spec types and typed Kimi assistant replay
-  context.
+- `ai-interface` owns the model spec types, conversation parts, opaque
+  provider state, and log copies.
 - `ai-models-compat` owns the `kimi` provider id, the Kimi model spec and
-  custom defaults, authentication, request and response mapping, replay
-  behavior, and provider error translation.
+  custom defaults, authentication, request and response mapping, the private
+  Kimi replay state and its version 1 conversion, replay behavior, and
+  provider error translation.
 - `ai-models-core` owns shared HTTP error classification, the capability
   check, tool-argument parsing, and structured-output parsing and
   validation.
@@ -103,12 +105,13 @@ K3 request mapping must:
 - apply a portable total timeout to the overall SSE deadline, use ordinary synchronous
   completion for `PreferDeferred`, and reject `RequireDeferred` with typed
   `UnsupportedControl`;
-- serialize plain content as a string and typed text/image parts as content
-  arrays, using base64 data URLs for images; reject shared video parts with a
-  typed provider error before transport; empty user and tool content
-  remains an empty string, while unavailable assistant content may be null;
+- serialize a user message with one text part as a string, and other user
+  messages as content arrays of text and image parts, using base64 data URLs
+  for images; reject shared video parts with a typed provider error before
+  transport; empty user and tool content remains an empty string, while
+  unavailable assistant content may be null;
 - serialize user and assistant names only when present and supported;
-- ignore provider context owned by other providers;
+- ignore provider state owned by other providers;
 - send `stream: true` and `stream_options.include_usage: true`, while sending
   no partial, file, video, or K2 `thinking` fields.
 
@@ -119,30 +122,30 @@ seconds. Kimi reports usage on the final choice-bearing event; its direct
 ## Preserved Assistant Context
 
 K3 requires complete prior assistant messages, including
-`reasoning_content`, on multi-turn and tool-calling continuations. Normalized
-`ConversationMessage` fields alone cannot preserve nullable content or the raw
-JSON argument strings returned for tool calls.
+`reasoning_content`, on multi-turn and tool-calling continuations. Portable
+conversation parts alone cannot preserve nullable content or the raw JSON
+argument strings returned for tool calls.
 
-`ai-interface` therefore adds a typed Kimi assistant replay item containing:
+The response adapter therefore records Kimi provider state, as the
+[conversation parts protocol](conversation-parts.md) defines:
 
-- nullable raw assistant `content`;
-- nullable raw `reasoning_content`;
-- ordered raw tool calls, each with provider id, function name, and raw JSON
-  argument string.
+- the text part keeps the nullable raw assistant `content`;
+- the reasoning part keeps the nullable raw `reasoning_content`;
+- each tool-call part keeps the provider call id, the function name, and the
+  raw JSON argument string of its call, in provider order.
 
-The response adapter retains this item in `ModelResponse::provider_context`.
-The tool-calling runtime already copies provider context onto the retained
+The tool-calling runtime keeps these parts with their state on the retained
 assistant message. On a later Kimi request, the adapter replays the raw Kimi
-assistant item when present and falls back to normalized assistant fields only
-for caller-authored messages without Kimi context.
+values of its own state. It falls back to the portable parts only for
+caller-authored messages without Kimi state.
 
-Provider reasoning is replay-only data. It must not be appended to normalized
-assistant text, parsed as structured output, or exposed as a tool call.
-The tool-calling runtime removes the complete Kimi replay item from request
-and response copies passed to model-call loggers while preserving it in the
-actual model request and retained conversation.
-Kimi replay context participates in the shared synthetic tool-call scope hash
-so distinct retained conversations cannot derive the same scope accidentally.
+Provider reasoning is replay-only data. It must not be appended to the
+response text, parsed as structured output, or exposed as a tool call.
+Model-call loggers receive log copies, which drop the provider state and the
+reasoning text. The actual model request and the retained conversation keep
+them. Kimi provider state participates in the shared synthetic tool-call
+scope hash so distinct retained conversations cannot derive the same scope
+accidentally.
 
 ## Tool Calling
 
@@ -160,106 +163,22 @@ dispatched.
 Tool results serialize as `role: "tool"` with matching `tool_call_id` and
 string content, including an empty string for an empty result. They do not send
 a `name` field. The preceding assistant message must replay its Kimi raw tool
-calls and reasoning context so every tool result remains paired with the
+calls and reasoning state so every tool result remains paired with the
 provider call that produced it.
 
 Tool-call payloads returned with terminal, truncated, filtered, unknown, or
 missing finish reasons are neither dispatched nor replayed.
 
-## Structured Output
+## Responses And Errors
 
-When `response_schema` is present, the request sends:
-
-```json
-{
-  "response_format": {
-    "type": "json_schema",
-    "json_schema": {
-      "name": "<schema name>",
-      "schema": {
-        "type": "object",
-        "properties": {
-          "answer": { "type": "string" }
-        },
-        "required": ["answer"]
-      },
-      "strict": false
-    }
-  }
-}
-```
-
-The `schema` object is copied verbatim from
-`ModelRequest::response_schema.schema`; the object above is illustrative.
-Kimi recommends strict mode, but strict mode accepts the narrower Moonshot
-Flavored JSON Schema contract. The workspace accepts general JSON Schema, so
-the adapter uses non-strict provider generation and always applies the shared
-local JSON parse and schema validation boundary.
-
-Only `message.content` from a normal `stop` response with no dispatchable tool
-calls is parsed. Reasoning content is never part of structured output.
-Truncated, filtered, tool-call, unknown, and missing-finish responses preserve
-their finish reason and do not attempt structured-output parsing.
-
-## Response Contract
-
-The first response choice maps to `ModelResponse`. An absent choice or invalid
-provider payload is a typed non-retryable provider failure.
-
-Finish reasons map as follows:
-
-| Kimi value | Shared value |
-| --- | --- |
-| `stop` | `FinishReason::Stop` |
-| `tool_calls` | `FinishReason::ToolCalls` |
-| `length` | `FinishReason::Truncated` |
-| `content_filter` | `FinishReason::Filtered` |
-| any other string | `FinishReason::Other(raw)` |
-| missing or null | `FinishReason::Other("missing")` |
-
-Nullable assistant content normalizes to an empty string unless valid
-structured output supplies its compact JSON representation. The response
-reports the text id and the resolved effort separately from the provider
-model id.
-
-## Usage
-
-Kimi usage fields map as follows:
-
-- `cached_input_tokens = cached_tokens`;
-- `input_tokens = prompt_tokens - cached_tokens`, saturating at zero;
-- `output_tokens = completion_tokens`;
-- `reasoning_tokens = 0`, because Kimi does not report a separate reasoning
-  token quantity;
-- `total_tokens = total_tokens` when supplied, otherwise the saturating sum of
-  normalized categories;
-- estimated cost and cost lines remain zero and empty until a composition root
-  applies `UsagePricingModel`.
-
-Missing usage is valid and maps to zero values.
-
-## Error Contract
-
-HTTP failures use the shared status classifier: `429` is rate limited;
-`408`, `409`, `425`, and `5xx` are transient; known typed context-limit codes
-are context-limit failures; other statuses are non-retryable provider
-failures. Provider error messages may be retained, but API keys and auth
-headers must never appear in errors or diagnostics.
-
-Transport and authentication-hook failures are transient provider failures.
-Local request serialization and response deserialization failures are
-internal errors. Invalid provider choices, tool arguments, or structured
-output are non-retryable provider failures.
-
-Malformed, incomplete, or provider-error streams before progress preserve
-their retryable/provider class. The same failures after progress become
-`ModelError::Interrupted` and are not blindly replayed.
+The [Kimi response protocol](kimi-responses.md) defines structured output,
+the response contract, usage, and the error contract.
 
 ## Required Verification
 
 Tests must cover provider identity, spec metadata, bearer auth,
 endpoint selection, all message roles, image input, reasoning-effort mapping,
-foreign provider-context isolation, raw Kimi assistant replay, parallel tool
+foreign provider-state isolation, raw Kimi assistant replay, parallel tool
 calls and paired results, terminal tool suppression, structured-output request
 and local validation, finish reasons, nullable content, missing choices,
 usage normalization, HTTP classification, transport failures, and malformed

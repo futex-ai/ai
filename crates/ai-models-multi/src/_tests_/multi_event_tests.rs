@@ -1,209 +1,118 @@
-//! Tests for ordered fallback completion events.
+//! Ordered fallback content events and nested attempt resets.
 
-use std::sync::{Arc, Mutex};
-
-use ai_interface::{
-    FinishReason, Model, ModelCompletionEvent, ModelCompletionEventSink,
-    ModelCompletionEventSinkMock, ModelError, ModelRequest, ModelResponse, ModelResult, ModelUsage,
-};
-use async_trait::async_trait;
-use unimock::{MockFn, Unimock, matching};
+use ai_interface::{ModelAttempt, ModelAttemptError, ModelError, ModelEvent};
 
 use crate::MultiModel;
 
+use super::fixtures::{Observed, collect, model, stream, success, text};
+
 #[tokio::test]
-async fn pre_delta_fallback_does_not_emit_a_restart() {
+async fn pre_delta_fallback_records_the_failed_attempt() {
     let model = MultiModel::new(vec![
-        event_model(Vec::new(), Err(provider_error("first"))),
-        event_model(vec![assistant_delta("done")], Ok(success_response("done"))),
+        model(vec![Err(provider_error("first"))]),
+        model(vec![Ok(success("done"))]),
     ]);
-    let events = Arc::new(Mutex::new(Vec::new()));
-    let sink = recording_sink(events.clone());
+    let (result, events) = collect(&model).await;
+    result.expect("fallback should succeed");
 
-    model
-        .complete_with_events(&empty_request(), &sink)
-        .await
-        .expect("fallback should succeed");
-
-    assert_eq!(recorded_events(&events), vec![assistant_delta("done")]);
+    assert_eq!(
+        recorded_events(events),
+        vec![fallback("first"), assistant_delta("done")]
+    );
 }
 
 #[tokio::test]
 async fn post_delta_fallback_emits_restart_before_the_next_lane() {
     let model = MultiModel::new(vec![
-        event_model(
-            vec![assistant_delta("partial"), reasoning_delta("thought")],
+        model(vec![Ok(stream(vec![
+            Ok(Some(text("partial"))),
+            Ok(Some(ModelEvent::ReasoningDelta {
+                provider_state: None,
+                part_index: 1,
+                delta: "thought".to_owned(),
+            })),
             Err(provider_error("first")),
-        ),
-        event_model(vec![assistant_delta("done")], Ok(success_response("done"))),
+        ]))]),
+        model(vec![Ok(success("done"))]),
     ]);
-    let events = Arc::new(Mutex::new(Vec::new()));
-    let sink = recording_sink(events.clone());
-
-    let response = model
-        .complete_with_events(&empty_request(), &sink)
-        .await
-        .expect("fallback should succeed");
+    let (response, events) = collect(&model).await;
+    let response = response.expect("fallback should succeed");
 
     assert_eq!(
-        recorded_events(&events),
+        recorded_events(events),
         vec![
             assistant_delta("partial"),
             reasoning_delta("thought"),
-            ModelCompletionEvent::AttemptRestarted,
+            fallback("first"),
             assistant_delta("done"),
         ]
     );
-    assert_eq!(response.assistant_message, "done");
+    assert_eq!(response.text(), "done");
 }
 
 #[tokio::test]
 async fn final_lane_failure_does_not_emit_a_restart() {
-    let model = MultiModel::new(vec![event_model(
-        vec![assistant_delta("partial")],
+    let model = MultiModel::new(vec![model(vec![Ok(stream(vec![
+        Ok(Some(text("partial"))),
         Err(provider_error("only")),
-    )]);
-    let events = Arc::new(Mutex::new(Vec::new()));
-    let sink = recording_sink(events.clone());
+    ]))])]);
+    let (result, events) = collect(&model).await;
+    result.expect_err("only lane should fail");
 
-    model
-        .complete_with_events(&empty_request(), &sink)
-        .await
-        .expect_err("only lane should fail");
-
-    assert_eq!(recorded_events(&events), vec![assistant_delta("partial")]);
+    assert_eq!(recorded_events(events), vec![assistant_delta("partial")]);
 }
 
 #[tokio::test]
 async fn nested_restart_resets_outer_public_text_tracking() {
     let model = MultiModel::new(vec![
-        event_model(
-            vec![
-                assistant_delta("discard"),
-                ModelCompletionEvent::AttemptRestarted,
-            ],
+        model(vec![Ok(stream(vec![
+            Ok(Some(text("discard"))),
+            Ok(Some(ModelEvent::Fallback {
+                error: provider_error("inner"),
+            })),
             Err(provider_error("nested")),
-        ),
-        event_model(vec![assistant_delta("done")], Ok(success_response("done"))),
+        ]))]),
+        model(vec![Ok(success("done"))]),
     ]);
-    let events = Arc::new(Mutex::new(Vec::new()));
-    let sink = recording_sink(events.clone());
-
-    model
-        .complete_with_events(&empty_request(), &sink)
-        .await
-        .expect("outer fallback should succeed");
+    let (result, events) = collect(&model).await;
+    result.expect("outer fallback should succeed");
 
     assert_eq!(
-        recorded_events(&events),
+        recorded_events(events),
         vec![
             assistant_delta("discard"),
-            ModelCompletionEvent::AttemptRestarted,
+            fallback("inner"),
+            fallback("nested"),
             assistant_delta("done"),
         ]
     );
 }
 
-struct EventModel {
-    events: Vec<ModelCompletionEvent>,
-    result: Mutex<Option<ModelResult<ModelResponse>>>,
-}
-
-#[async_trait]
-impl Model for EventModel {
-    async fn complete(&self, _request: &ModelRequest) -> ModelResult<ModelResponse> {
-        self.take_result()
-    }
-
-    async fn complete_with_events(
-        &self,
-        _request: &ModelRequest,
-        event_sink: &dyn ModelCompletionEventSink,
-    ) -> ModelResult<ModelResponse> {
-        for event in self.events.clone() {
-            event_sink.emit(event).await;
-        }
-        self.take_result()
-    }
-}
-
-impl EventModel {
-    fn take_result(&self) -> ModelResult<ModelResponse> {
-        self.result
-            .lock()
-            .expect("result lock should not be poisoned")
-            .take()
-            .expect("unexpected model call")
-    }
-}
-
-fn event_model(
-    events: Vec<ModelCompletionEvent>,
-    result: ModelResult<ModelResponse>,
-) -> Arc<dyn Model> {
-    Arc::new(EventModel {
-        events,
-        result: Mutex::new(Some(result)),
-    })
-}
-
-fn recording_sink(events: Arc<Mutex<Vec<ModelCompletionEvent>>>) -> Unimock {
-    Unimock::new(
-        ModelCompletionEventSinkMock::emit
-            .each_call(matching!(_))
-            .answers_arc(Arc::new(move |_, event| {
-                events
-                    .lock()
-                    .expect("event lock should not be poisoned")
-                    .push(event);
-            })),
-    )
-}
-
-fn recorded_events(events: &Mutex<Vec<ModelCompletionEvent>>) -> Vec<ModelCompletionEvent> {
+fn recorded_events(events: Vec<Observed>) -> Vec<Observed> {
     events
-        .lock()
-        .expect("event lock should not be poisoned")
-        .clone()
+        .into_iter()
+        .filter(|event| !matches!(event, Observed::Usage(_) | Observed::Finish(..)))
+        .collect()
 }
 
-fn assistant_delta(delta: &str) -> ModelCompletionEvent {
-    ModelCompletionEvent::AssistantTextDelta {
-        delta: delta.to_owned(),
-    }
+fn assistant_delta(delta: &str) -> Observed {
+    Observed::Text(0, delta.to_owned())
 }
 
-fn reasoning_delta(delta: &str) -> ModelCompletionEvent {
-    ModelCompletionEvent::ReasoningTextDelta {
-        delta: delta.to_owned(),
-    }
+fn reasoning_delta(delta: &str) -> Observed {
+    Observed::Reasoning(1, delta.to_owned())
+}
+
+fn fallback(model_id: &str) -> Observed {
+    Observed::Fallback(ModelAttempt {
+        error: ModelAttemptError::Provider {
+            provider: "mock".to_owned(),
+            model_id: model_id.to_owned(),
+            message: "failed".to_owned(),
+        },
+    })
 }
 
 fn provider_error(model_id: &str) -> ModelError {
     ModelError::provider("mock", model_id, "failed")
-}
-
-fn empty_request() -> ModelRequest {
-    ModelRequest {
-        system_prompt: "system".to_owned(),
-        messages: Vec::new(),
-        tools: Vec::new(),
-        response_schema: None,
-        controls: Default::default(),
-    }
-}
-
-fn success_response(message: &str) -> ModelResponse {
-    ModelResponse {
-        provider: "mock".to_owned(),
-        model_id: "mock".to_owned(),
-        catalog_model_id: None,
-        thinking_level: None,
-        assistant_message: message.to_owned(),
-        tool_calls: Vec::new(),
-        finish_reason: FinishReason::Stop,
-        structured_output: None,
-        provider_context: Vec::new(),
-        usage: ModelUsage::default(),
-    }
 }

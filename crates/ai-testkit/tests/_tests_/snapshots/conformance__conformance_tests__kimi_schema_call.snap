@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's kimi adapter result for schema_call using kimi/kimi-k3 synthetic recordings."
 expression: outcome
 ---
@@ -7,23 +8,113 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "{\"ok\""
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": ":true}"
+          }
+        },
+        {
+          "ReasoningDelta": {
+            "part_index": 1,
+            "delta": "",
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": null,
+                "reasoning_details": []
+              }
+            }
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "",
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "content": "{\"ok\":true}",
+                "kind": "text"
+              }
+            }
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 9,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 0,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "kimi",
+            "model_id": "kimi-k3",
+            "catalog_model_id": "kimi/kimi-k3",
+            "effort": "max",
+            "structured_output": {
+              "ok": true
+            }
+          }
+        }
+      ],
       "response": {
         "provider": "kimi",
         "model_id": "kimi-k3",
         "catalog_model_id": "kimi/kimi-k3",
         "effort": "max",
-        "assistant_message": "{\"ok\":true}",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "{\"ok\":true}",
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "content": "{\"ok\":true}",
+                "kind": "text"
+              }
+            }
+          },
+          {
+            "type": "reasoning",
+            "text": "",
+            "provider_state": {
+              "provider": "kimi",
+              "model": "kimi-k3",
+              "version": 2,
+              "payload": {
+                "kind": "reasoning",
+                "reasoning_content": null,
+                "reasoning_details": []
+              }
+            }
+          }
+        ],
         "finish_reason": "Stop",
         "structured_output": {
           "ok": true
         },
-        "provider_context": [
-          {
-            "type": "kimi_assistant_message",
-            "content": "{\"ok\":true}"
-          }
-        ],
         "usage": {
           "input_tokens": 15,
           "output_tokens": 9,

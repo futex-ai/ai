@@ -2,9 +2,7 @@
 
 use std::sync::Arc;
 
-use ai_interface::{
-    Model, ModelCompletionEventSink, ModelRequest, ModelResponse, ModelResult, ModelSpec,
-};
+use ai_interface::{DynModelEventStream, Model, ModelRequest, ModelResult, ModelSpec};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 
@@ -52,16 +50,8 @@ impl QwenModel {
 
 #[async_trait]
 impl Model for QwenModel {
-    async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
-        self.inner.complete(request).await
-    }
-
-    async fn complete_with_events(
-        &self,
-        request: &ModelRequest,
-        sink: &dyn ModelCompletionEventSink,
-    ) -> ModelResult<ModelResponse> {
-        self.inner.complete_with_events(request, sink).await
+    async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
+        self.inner.stream(request).await
     }
 }
 

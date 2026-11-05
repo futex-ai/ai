@@ -6,6 +6,7 @@ use std::{
     time::Duration,
 };
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     FinishReason, Model, ModelError, ModelGenerationControls, ModelMock, ModelRequest,
     ModelResponse, ModelToolChoice, ModelUsage,
@@ -36,7 +37,7 @@ async fn retries_transient_failures_using_the_configured_schedule() {
         .await
         .expect("third attempt should succeed");
 
-    assert_eq!(response.assistant_message, "ok");
+    assert_eq!(response.text(), "ok");
     assert_eq!(
         *sleeps.lock().expect("sleep lock should not be poisoned"),
         vec![Duration::from_millis(100), Duration::from_millis(250)]
@@ -92,14 +93,14 @@ async fn does_not_retry_an_interrupted_generation() {
 #[tokio::test]
 async fn forwards_call_controls_unchanged() {
     let model = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
             .answers(&|_, request: &ModelRequest| {
                 assert_eq!(
                     request.controls.generation.tool_choice,
                     Some(ModelToolChoice::RequiredOrAuto)
                 );
-                Ok(success_response())
+                Ok(model_response_stream(success_response()))
             }),
     ));
     let retrying = RetryingModel::new(model, Arc::new(Unimock::new(())), Vec::new());
@@ -120,7 +121,7 @@ fn scripted_model(
 ) -> Arc<dyn Model> {
     let responses = Arc::new(Mutex::new(VecDeque::from(responses)));
     Arc::new(Unimock::new(
-        ModelMock::complete.each_call(matching!(_)).answers_arc({
+        ModelMock::stream.each_call(matching!(_)).answers_arc({
             let responses = responses.clone();
             Arc::new(move |_, _request: &ModelRequest| {
                 responses
@@ -128,6 +129,7 @@ fn scripted_model(
                     .expect("responses lock should not be poisoned")
                     .pop_front()
                     .expect("unexpected model call")
+                    .map(model_response_stream)
             })
         }),
     ))
@@ -163,11 +165,11 @@ fn success_response() -> ModelResponse {
         model_id: "gpt-5.5".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "ok".to_owned(),
-        tool_calls: Vec::new(),
+        parts: vec![ai_interface::ConversationPart::text("ok".to_owned())],
         finish_reason: FinishReason::Stop,
         structured_output: None,
-        provider_context: Vec::new(),
+
         usage: ModelUsage::default(),
+        attempts: Vec::new(),
     }
 }

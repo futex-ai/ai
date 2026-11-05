@@ -53,10 +53,10 @@ pub(super) fn validate_response(
             response.finish_reason
         ));
     }
-    if !response.assistant_message.contains(EXPECTED_TEXT) {
+    if !response.text().contains(EXPECTED_TEXT) {
         failures.push(format!("{}: {MARKER_MISS_FAILURE}", spec.text_id()));
     }
-    if !response.tool_calls.is_empty() {
+    if !response.tool_calls().is_empty() {
         failures.push(format!(
             "{}: response unexpectedly requested tools",
             spec.text_id()

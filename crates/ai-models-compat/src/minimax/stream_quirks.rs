@@ -2,13 +2,15 @@
 
 use ai_interface::{ModelError, ModelResult};
 use ai_models_core::classify_stream_error;
-use serde_json::Value;
 
 use super::{
     dialect::DIALECT,
     stream_normalizer::{MiniMaxNormalizer, MiniMaxStreamError, NormalizedEvent},
 };
-use crate::engine::{response::stream_base_response_error, stream::StreamNormalizer};
+use crate::{
+    ChatCompletionsResponse,
+    engine::{response::stream_base_response_error, stream::StreamNormalizer},
+};
 
 pub(super) fn normalizer(model_id: &str) -> Box<dyn StreamNormalizer> {
     Box::new(MiniMaxNormalizer::new(model_id))
@@ -53,7 +55,7 @@ impl StreamNormalizer for MiniMaxNormalizer {
         }
     }
 
-    fn restore(self: Box<Self>, body: &mut Value) -> Result<Option<String>, serde_json::Error> {
+    fn restore(self: Box<Self>, body: &mut ChatCompletionsResponse) -> Option<String> {
         (*self).restore_snapshots(body)
     }
 }

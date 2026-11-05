@@ -1,8 +1,9 @@
 //! Typed eager tool-call decoding for response dialects that require it.
 
-use ai_interface::MiniMaxReasoningDetail;
 use serde::Deserialize;
 use serde_json::Value;
+
+use crate::minimax::state::ReasoningDetail;
 
 use super::types::{
     BaseResponse, ChatCompletionsAssistantMessage, ChatCompletionsChoice, ChatCompletionsResponse,
@@ -35,7 +36,7 @@ struct EagerMessage {
     #[serde(default)]
     reasoning_content: Option<String>,
     #[serde(default)]
-    reasoning_details: Vec<MiniMaxReasoningDetail>,
+    reasoning_details: Vec<ReasoningDetail>,
 }
 
 pub(super) fn decode(body: Value) -> Result<ChatCompletionsResponse, serde_json::Error> {

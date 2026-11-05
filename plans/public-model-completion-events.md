@@ -7,7 +7,7 @@ public `ai-interface::Model` boundary while preserving the existing terminal
 `ModelResponse` and unchanged `complete` behavior.
 
 The approved contract is
-[`docs/protocol/model-completion-events.md`](../docs/protocol/model-completion-events.md).
+[`docs/protocol/model-completion-events.md`](https://github.com/futex-ai/ai/blob/35da3dd9f5b7316bcfbdfa99c665e406220ffaec/docs/protocol/model-completion-events.md).
 Protocol and plan creation were approved by Cal in the 2026-08-22 handoff.
 
 ## Design Decisions

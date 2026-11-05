@@ -8,8 +8,8 @@ structured-output, usage, and error contracts.
 
 ## Status
 
-Implemented by `ai-models-compat`, with shared routing and replay types in
-`ai-interface`.
+Implemented by `ai-models-compat`, with shared routing types, conversation
+parts, and provider state in `ai-interface`.
 
 Once implemented, the
 [Chat Completions dialects protocol](chat-completions-dialects.md) governs the
@@ -19,12 +19,12 @@ shared engine that serves this provider.
 
 The adapter supports the current stable Qwen3.7 Max, Plus, and Flash models
 through QwenCloud's pay-as-you-go, OpenAI-compatible Chat Completions API,
-accumulated internally over SSE. It supports text, image input where the
-selected model accepts it, hybrid thinking, preserved reasoning, custom and
-parallel function calls, locally validated structured output, and normalized
-cache usage. Its opt-in public path emits primary-choice assistant and
-reasoning fragments as defined by the
-[completion-events protocol](model-completion-events.md).
+streamed over SSE as the [model stream protocol](model-stream.md) defines. It
+supports text, image input where the selected model accepts it, hybrid
+thinking, preserved reasoning, custom and parallel function calls, locally
+validated structured output, and normalized cache usage. Its stream emits
+model events for the primary choice: `delta.content` gives text deltas, and
+`delta.reasoning_content` gives reasoning deltas.
 
 Token Plan and Coding Plan endpoints, snapshot and preview ids, legacy Qwen
 models, built-in tools, web search, video and audio content, Responses and
@@ -35,16 +35,17 @@ partial support.
 
 ## Ownership
 
-- `ai-interface` owns the model spec types and typed Qwen assistant replay
-  context.
+- `ai-interface` owns the model spec types, conversation parts, opaque
+  provider state, and log copies.
 - `ai-models-compat` owns the stable `qwen` provider id, the Qwen model specs
-  and custom defaults, authentication, request and response mapping, replay,
-  and Qwen-specific error translation.
+  and custom defaults, authentication, request and response mapping, the
+  private Qwen replay state and its version 1 conversion, replay, and
+  Qwen-specific error translation.
 - `ai-models-core` owns shared HTTP classification, the capability check,
   tool-argument parsing, and structured-output validation.
 - `json-http` owns the injected HTTP client and authentication boundaries.
-- `ai-tool-calling` owns retention of provider context and removal of private
-  reasoning from model-call logger copies.
+- `ai-tool-calling` retains the response parts with their provider state,
+  and gives model-call loggers log copies.
 - Composition roots own credentials, retry and concurrency policy, pricing,
   deployment priority, and conversion of `QwenModel` into `DynModel`.
 
@@ -112,15 +113,17 @@ the matching `tool_call_id` and omit `name`.
 
 Plus and Flash map shared text and image parts to OpenAI-compatible `text` and
 `image_url` content parts. Base64 images use
-`data:<mime-type>;base64,<data>`. Max rejects every typed content-part message
-before authentication or transport. All models reject typed content parts on
-assistant and tool messages because those roles accept string content at this
-boundary. All models also reject shared video parts defined by the
+`data:<mime-type>;base64,<data>`. Max rejects every message with an image or
+video part before authentication or transport. All models reject image and
+video parts on assistant and tool messages, because the role table of the
+[conversation parts protocol](conversation-parts.md) does not allow them. All
+models also reject shared video parts defined by the
 [video input protocol](video-input.md) with a typed provider error before
 transport.
 
-Provider context owned by another adapter is never serialized as Qwen state.
-Without Qwen context, assistant calls are reconstructed from normalized calls.
+Provider state owned by another adapter is never serialized as Qwen state.
+Without Qwen state, assistant calls are reconstructed from the portable
+tool-call parts.
 
 ## Thinking And Replay
 
@@ -139,19 +142,21 @@ private `reasoning_content`. Qwen
 requires the complete assistant message, including reasoning and raw tool
 calls, when a thinking-mode tool flow continues.
 
-`ai-interface` therefore stores a typed Qwen assistant replay item with the
-nullable content, nullable reasoning, and ordered raw tool-call ids, names,
-and JSON argument strings. Qwen requests prefer this item over normalized
-assistant fields. Null replay content remains null only when raw tool calls are
-present; without calls it becomes an empty string so the next request remains
-a valid assistant message. An enabled-thinking tool-call finish without
-`reasoning_content` is a non-retryable provider failure because exact
-continuation cannot be guaranteed.
+The adapter therefore records Qwen provider state, as the
+[conversation parts protocol](conversation-parts.md) defines. The text part
+keeps the nullable content. The reasoning part keeps the nullable reasoning.
+Each tool-call part keeps its raw call id, name, and JSON argument string, in
+provider order. Qwen requests prefer this state over the portable parts.
+Null replay content remains null only when raw tool calls are present; without
+calls it becomes an empty string so the next request remains a valid assistant
+message. An enabled-thinking tool-call finish without `reasoning_content` is a
+non-retryable provider failure because exact continuation cannot be
+guaranteed.
 
-Reasoning is private provider state. It never enters normalized assistant text
-or structured output, and the tool runtime removes the complete Qwen replay
-item from logger copies while retaining it in the real conversation. Replay
-state participates in deterministic tool-call scope hashing.
+Reasoning is private provider state. It never enters the response text or
+structured output. Model-call log copies drop the provider state and the
+reasoning text, while the real conversation keeps them. Provider state
+participates in deterministic tool-call scope hashing.
 
 ## Tool Calling
 
@@ -169,74 +174,17 @@ Tool payloads attached to stop, truncated, filtered, unknown, or missing
 finish reasons are ignored and not retained. Tool results send string content
 and the corresponding provider id.
 
-## Structured Output
+## Responses And Errors
 
-Every structured request appends an instruction containing the word `JSON`,
-the schema name, and the complete JSON Schema to the system prompt. It requires
-raw JSON without Markdown fences or extra prose.
-
-Qwen's native JSON-object mode is used only for non-thinking Plus and Flash,
-where QwenCloud documents it as supported. Enabled-thinking requests and Max
-use prompt enforcement only. In all cases, a normal stopped response is parsed
-and validated locally against the caller's complete JSON Schema through the
-shared boundary. Native JSON mode guarantees JSON syntax, not arbitrary schema
-conformance, so local validation is mandatory.
-
-Structured parsing runs only for `FinishReason::Stop` with no dispatchable
-tool calls. Reasoning content is never parsed as output. Invalid JSON, an
-invalid schema, and schema mismatch are provider failures.
-
-## Response And Usage
-
-The first choice maps to `ModelResponse`; no choices is a provider failure.
-Wire deserialization failures are internal errors retaining their source.
-Nullable visible content becomes an empty string.
-
-| Qwen value | Shared outcome |
-| --- | --- |
-| `stop` | `FinishReason::Stop` |
-| `tool_calls` | `FinishReason::ToolCalls` |
-| `length` | `FinishReason::Truncated` |
-| `content_filter` | `FinishReason::Filtered` |
-| other string | `FinishReason::Other(raw)` |
-| missing or null | `FinishReason::Other("missing")` |
-
-Usage maps into non-overlapping normalized buckets:
-
-- `cached_input_tokens = prompt_tokens_details.cached_tokens`;
-- `input_tokens = prompt_tokens - cached_input_tokens`, saturating at zero;
-- `output_tokens = completion_tokens`;
-- `reasoning_tokens = 0`, because QwenCloud does not report reasoning tokens
-  separately in Chat Completions usage;
-- `total_tokens` uses the provider value when present, otherwise the
-  saturating sum of normalized buckets;
-- estimated cost and cost lines remain empty until a composition root applies
-  pricing.
-
-Missing usage and detail objects are valid and normalize to zero.
-
-## Error Contract
-
-HTTP `429` is rate limited; `408`, `409`, `425`, and `5xx` are transient;
-documented input-length failures are context-limit errors; and other statuses
-are non-retryable provider failures. Transport and authentication-hook
-failures are transient. Request serialization and response deserialization
-failures are internal.
-
-Missing choices, invalid calls, missing required reasoning, and invalid
-structured output are non-retryable provider failures. Errors and diagnostics
-must never contain credentials or authorization headers.
-
-The final empty-choice usage event and `[DONE]` are required. Stream failures
-before progress remain retryable, while failures after progress become
-`ModelError::Interrupted`.
+The [Qwen response protocol](qwen-responses.md) defines structured output,
+response and usage mapping, and the error contract.
 
 ## Required Verification
 
 Unit tests use `JsonHttpTransportMock` through `TransportBackedJsonHttpClient`
 and never call QwenCloud. Coverage includes provider identity, spec metadata,
 construction, bearer auth and endpoint, every message role, image mapping and
-Max rejection, thinking controls, private replay and foreign-context
+Max rejection, thinking controls, private replay and foreign-state
 isolation, parallel tools, terminal-call suppression, structured-output
 modes and validation, finish reasons, response shape, cache usage, HTTP and
 transport errors, logger redaction, deterministic hashing, and credential-free

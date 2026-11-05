@@ -23,8 +23,9 @@ filtered, truncated, tool-calling, missing, or unknown finish.
 
 ## Response Mapping
 
-The adapter consumes the first response choice. A successfully decoded
-response with no choices is a provider failure. Wire fields that cannot be
+The adapter consumes the first response choice. A stream without a choice
+is a stream failure under the progress rule, as the
+[dialect protocol](chat-completions-dialects.md) says. Wire fields that cannot be
 decoded into the typed response DTO are internal deserialization failures, as
 defined under Error Handling.
 
@@ -53,7 +54,7 @@ The normalized response records:
 - visible assistant content
 - normalized tool calls and finish reason
 - locally validated structured output when requested
-- typed MiniMax replay context
+- MiniMax provider state on the reasoning part
 - normalized usage
 
 ## Usage

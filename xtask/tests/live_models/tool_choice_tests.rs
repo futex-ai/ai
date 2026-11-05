@@ -78,7 +78,7 @@ pub(super) async fn run_minimax_m3_required_tool_call() {
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
     assert!(
         response
-            .tool_calls
+            .tool_calls()
             .iter()
             .any(|tool_call| tool_call.name == TOOL_NAME),
         "MiniMax-M3 required request did not call {TOOL_NAME}"

@@ -20,10 +20,7 @@ async fn mock_model_returns_acknowledged_subject_and_usage() {
 
     assert_eq!(response.provider, "mock");
     assert_eq!(response.model_id, "mock-dev");
-    assert_eq!(
-        response.assistant_message,
-        "Acknowledged: inspect the queue"
-    );
+    assert_eq!(response.text(), "Acknowledged: inspect the queue");
     assert!(response.usage.total_tokens > 0);
 }
 
@@ -59,7 +56,7 @@ async fn mock_model_returns_structured_output_when_requested() {
         }))
     );
     assert_eq!(
-        serde_json::from_str::<serde_json::Value>(&response.assistant_message)
+        serde_json::from_str::<serde_json::Value>(&response.text())
             .expect("assistant message should be JSON"),
         json!({
             "message": "Acknowledged: inspect the queue",

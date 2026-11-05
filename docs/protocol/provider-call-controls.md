@@ -157,7 +157,8 @@ When deferred completion is selected, the XAI adapter:
 5. never converts a retrieval retry into another completion submission;
 6. bounds each poll by the smaller of the remaining total duration and the
    adapter's per-poll timeout;
-7. returns the completed Chat Completions body on `200`;
+7. on `200`, maps the completed Chat Completions body to every event of the
+   call, as the [model stream protocol](model-stream.md#deadlines) says;
 8. surfaces other terminal responses through existing typed status
    classification and reports deadline exhaustion as a transient provider
    timeout.

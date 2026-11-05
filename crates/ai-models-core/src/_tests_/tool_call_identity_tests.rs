@@ -1,9 +1,17 @@
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, DeepSeekToolCallContext, KimiToolCallContext,
-    ModelRequest, ProviderConversationItem,
+    ConversationMessage, ConversationPart, ConversationRole, ModelRequest, ProviderId,
+    ProviderState,
 };
 
 use crate::{synthetic_tool_call_id, synthetic_tool_call_scope};
+
+#[test]
+fn portable_message_keeps_its_version_one_synthetic_scope() {
+    assert_eq!(
+        synthetic_tool_call_scope(&request_with_message("hello")),
+        "2e68385026f1eafd"
+    );
+}
 
 #[test]
 fn synthetic_scope_changes_with_request_history() {
@@ -36,34 +44,37 @@ fn synthetic_tool_call_id_changes_with_arguments() {
 
 #[test]
 fn synthetic_scope_distinguishes_video_parts_from_image_parts() {
-    let image_scope =
-        synthetic_tool_call_scope(&request_with_part(ConversationContentPart::Image {
-            mime_type: "video/mp4".to_owned(),
-            data_base64: "c2FtZQ==".to_owned(),
-        }));
-    let video_scope =
-        synthetic_tool_call_scope(&request_with_part(ConversationContentPart::Video {
-            mime_type: "video/mp4".to_owned(),
-            data_base64: "c2FtZQ==".to_owned(),
-        }));
+    let image_scope = synthetic_tool_call_scope(&request_with_part(ConversationPart::Image {
+        mime_type: "video/mp4".to_owned(),
+        data_base64: "c2FtZQ==".to_owned(),
+        provider_state: None,
+    }));
+    let video_scope = synthetic_tool_call_scope(&request_with_part(ConversationPart::Video {
+        mime_type: "video/mp4".to_owned(),
+        data_base64: "c2FtZQ==".to_owned(),
+        provider_state: None,
+    }));
 
     assert_ne!(image_scope, video_scope);
 }
 
 #[test]
 fn synthetic_scope_changes_with_video_part_fields() {
-    let baseline = synthetic_tool_call_scope(&request_with_part(ConversationContentPart::Video {
+    let baseline = synthetic_tool_call_scope(&request_with_part(ConversationPart::Video {
         mime_type: "video/mp4".to_owned(),
         data_base64: "b25l".to_owned(),
+        provider_state: None,
     }));
     let variants = [
-        ConversationContentPart::Video {
+        ConversationPart::Video {
             mime_type: "video/webm".to_owned(),
             data_base64: "b25l".to_owned(),
+            provider_state: None,
         },
-        ConversationContentPart::Video {
+        ConversationPart::Video {
             mime_type: "video/mp4".to_owned(),
             data_base64: "dHdv".to_owned(),
+            provider_state: None,
         },
     ];
 
@@ -191,10 +202,10 @@ fn request_with_message(content: &str) -> ModelRequest {
     }
 }
 
-fn request_with_part(part: ConversationContentPart) -> ModelRequest {
+fn request_with_part(part: ConversationPart) -> ModelRequest {
     ModelRequest {
         system_prompt: "system".to_owned(),
-        messages: vec![ConversationMessage::user_with_parts("fallback", vec![part])],
+        messages: vec![ConversationMessage::user_with_parts(vec![part])],
         tools: Vec::new(),
         response_schema: None,
         controls: Default::default(),
@@ -208,25 +219,13 @@ fn kimi_request(
     name: &str,
     arguments: &str,
 ) -> ModelRequest {
-    ModelRequest {
-        system_prompt: "system".to_owned(),
-        messages: vec![ConversationMessage::assistant_with_provider_context(
-            content.unwrap_or_default(),
-            Vec::new(),
-            vec![ProviderConversationItem::KimiAssistantMessage {
-                content: content.map(str::to_owned),
-                reasoning_content: reasoning_content.map(str::to_owned),
-                tool_calls: vec![KimiToolCallContext {
-                    id: id.to_owned(),
-                    name: name.to_owned(),
-                    arguments: arguments.to_owned(),
-                }],
-            }],
-        )],
-        tools: Vec::new(),
-        response_schema: None,
-        controls: Default::default(),
-    }
+    request_with_state(
+        "kimi",
+        serde_json::json!({
+            "content": content, "reasoning_content": reasoning_content,
+            "tool_calls": [{"id": id, "name": name, "arguments": arguments}],
+        }),
+    )
 }
 
 fn deepseek_request(
@@ -236,20 +235,28 @@ fn deepseek_request(
     name: &str,
     arguments: &str,
 ) -> ModelRequest {
+    request_with_state(
+        "deepseek",
+        serde_json::json!({
+            "content": content, "reasoning_content": reasoning_content,
+            "tool_calls": [{"id": id, "name": name, "arguments": arguments}],
+        }),
+    )
+}
+
+fn request_with_state(provider: &str, payload: serde_json::Value) -> ModelRequest {
     ModelRequest {
         system_prompt: "system".to_owned(),
-        messages: vec![ConversationMessage::assistant_with_provider_context(
-            content,
-            Vec::new(),
-            vec![ProviderConversationItem::DeepSeekAssistantMessage {
-                content: content.to_owned(),
-                reasoning_content: reasoning_content.map(str::to_owned),
-                tool_calls: vec![DeepSeekToolCallContext {
-                    id: id.to_owned(),
-                    name: name.to_owned(),
-                    arguments: arguments.to_owned(),
-                }],
-            }],
+        messages: vec![ConversationMessage::new(
+            ConversationRole::Assistant,
+            vec![
+                ConversationPart::reasoning("").with_provider_state(ProviderState {
+                    provider: ProviderId::from(provider.to_owned()),
+                    model: String::new(),
+                    version: 1,
+                    payload: payload.as_object().unwrap().clone(),
+                }),
+            ],
         )],
         tools: Vec::new(),
         response_schema: None,

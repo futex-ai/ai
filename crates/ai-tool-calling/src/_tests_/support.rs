@@ -1,17 +1,35 @@
+//! Runtime fixtures and model stream return adapters.
+
 use std::sync::{
-    Arc,
+    Arc, Mutex,
     atomic::{AtomicUsize, Ordering},
 };
 
 use ai_interface::{
-    ConversationMessage, ConversationRole, DynLogger, DynModel, DynTool, NoopLogger,
-    ToolDefinition, ToolError, ToolMock,
+    ConversationMessage, ConversationPart, DynLogger, DynModel, DynModelEventStream, DynTool,
+    ModelRequest, ModelResponse, ModelResult, NoopLogger, ProviderId, ProviderState, ToolCall,
+    ToolDefinition, ToolError, ToolMock, test_support::model_response_stream,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{InMemoryToolOutputStore, ToolCallingRuntime, ToolOutputPolicy};
+
+type ModelStreamAnswer =
+    dyn Fn(&Unimock, &ModelRequest) -> ModelResult<DynModelEventStream> + Send + Sync;
+
+pub(crate) fn stream_result(result: ModelResult<ModelResponse>) -> Arc<ModelStreamAnswer> {
+    let result = Mutex::new(Some(result));
+    Arc::new(move |_, _| {
+        result
+            .lock()
+            .expect("fixture result lock")
+            .take()
+            .expect("one fixture call")
+            .map(model_response_stream)
+    })
+}
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -136,13 +154,54 @@ pub(crate) fn runtime_with_logger_store_and_policy(
 }
 
 pub(crate) fn user_message(content: &str) -> ConversationMessage {
-    ConversationMessage {
-        role: ConversationRole::User,
-        content: content.to_owned(),
-        content_parts: Vec::new(),
-        name: None,
-        tool_call_id: None,
-        tool_calls: Vec::new(),
-        provider_context: Vec::new(),
+    ConversationMessage::user(content)
+}
+
+pub(crate) fn response_parts(
+    text: impl Into<String>,
+    calls: Vec<ToolCall>,
+    mut parts: Vec<ConversationPart>,
+) -> Vec<ConversationPart> {
+    let text = text.into();
+    if !text.is_empty() {
+        parts.push(ConversationPart::text(text));
+    }
+    parts.extend(calls.into_iter().map(ConversationPart::from_tool_call));
+    parts
+}
+
+pub(crate) fn provider_reasoning(
+    provider: &'static str,
+    model: &str,
+    text: &str,
+    payload: Value,
+) -> ConversationPart {
+    ConversationPart::reasoning(text).with_provider_state(ProviderState {
+        provider: ProviderId::new(provider),
+        model: model.to_owned(),
+        version: 1,
+        payload: payload.as_object().unwrap().clone(),
+    })
+}
+
+pub(crate) fn replay_parts(parts: &[ConversationPart]) -> Vec<ConversationPart> {
+    parts
+        .iter()
+        .filter(|part| part.provider_state().is_some())
+        .cloned()
+        .collect()
+}
+
+pub(crate) fn tool_result_id(message: &ConversationMessage) -> Option<&str> {
+    match message.parts.as_slice() {
+        [ConversationPart::ToolResult { call_id, .. }] => Some(call_id),
+        _ => None,
+    }
+}
+
+pub(crate) fn tool_result_name(message: &ConversationMessage) -> Option<&str> {
+    match message.parts.as_slice() {
+        [ConversationPart::ToolResult { tool_name, .. }] => Some(tool_name),
+        _ => None,
     }
 }

@@ -8,6 +8,8 @@ use ai_interface::{
 use json_http::{JsonHttpResponse, StaticHeaderAuth};
 use serde_json::json;
 
+use crate::part_test_support::{message, replay_items};
+
 use super::{MINIMAX_M3, MiniMaxModel, support::recording_http_client};
 
 #[tokio::test]
@@ -36,15 +38,14 @@ async fn builds_text_request_and_parses_stopped_response() {
         .complete(&ModelRequest {
             system_prompt: "You are concise.".to_owned(),
             messages: vec![
-                ConversationMessage {
-                    role: ConversationRole::User,
-                    content: "Hello".to_owned(),
-                    content_parts: Vec::new(),
-                    name: Some("caller".to_owned()),
-                    tool_call_id: None,
-                    tool_calls: Vec::new(),
-                    provider_context: Vec::new(),
-                },
+                message(
+                    ConversationRole::User,
+                    "Hello".to_owned(),
+                    Vec::new(),
+                    Some("caller".to_owned()),
+                    None,
+                    Vec::new(),
+                ),
                 ConversationMessage::assistant("Working", Vec::new()),
             ],
             tools: Vec::new(),
@@ -91,10 +92,10 @@ async fn builds_text_request_and_parses_stopped_response() {
         Some("minimax/MiniMax-M3".to_owned())
     );
     assert_eq!(response.effort().map(Effort::as_str), Some("medium"));
-    assert_eq!(response.assistant_message, "Done");
+    assert_eq!(response.text(), "Done");
     assert_eq!(response.finish_reason, FinishReason::Stop);
-    assert!(response.tool_calls.is_empty());
-    assert!(response.provider_context.is_empty());
+    assert!(response.tool_calls().is_empty());
+    assert!(replay_items(&response).is_empty());
     assert_eq!(
         response.usage,
         ModelUsage {

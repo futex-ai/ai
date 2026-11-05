@@ -3,8 +3,7 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, ConversationRole, FinishReason, Model, ModelRequest,
-    StructuredOutputSchema, ToolDefinition,
+    ConversationMessage, FinishReason, Model, ModelRequest, StructuredOutputSchema, ToolDefinition,
 };
 use json_http::{JsonHttpClient, JsonHttpResponse};
 use serde_json::json;
@@ -42,15 +41,7 @@ async fn builds_anthropic_tool_requests_and_parses_response() {
     let response = model
         .complete(&ModelRequest {
             system_prompt: "system".to_owned(),
-            messages: vec![ConversationMessage {
-                role: ConversationRole::User,
-                content: "hello".to_owned(),
-                content_parts: Vec::new(),
-                name: None,
-                tool_call_id: None,
-                tool_calls: Vec::new(),
-                provider_context: Vec::new(),
-            }],
+            messages: vec![ConversationMessage::user("hello")],
             tools: vec![ToolDefinition {
                 name: "memory_read".to_owned(),
                 description: "Read memory".to_owned(),
@@ -86,10 +77,10 @@ async fn builds_anthropic_tool_requests_and_parses_response() {
         "claude-sonnet-4-6"
     );
 
-    assert_eq!(response.assistant_message, "Done");
+    assert_eq!(response.text(), "Done");
     assert_eq!(response.finish_reason, FinishReason::ToolCalls);
-    assert_eq!(response.tool_calls.len(), 1);
-    assert_eq!(response.tool_calls[0].name, "memory_read");
+    assert_eq!(response.tool_calls().len(), 1);
+    assert_eq!(response.tool_calls()[0].name, "memory_read");
     assert_eq!(response.structured_output, None);
     assert_eq!(response.usage.total_tokens, 202);
     assert_eq!(response.usage.input_tokens, 130);

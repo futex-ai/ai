@@ -1,27 +1,30 @@
 //! OpenAI Responses API response DTOs.
 
-use ai_interface::OpenAiReasoningSummary;
 use serde::Deserialize;
 
+use crate::openai::replay_state::ReasoningSummary;
+
 #[derive(Debug, Deserialize)]
-pub(super) struct ResponsesResponse {
+pub(in crate::openai) struct ResponsesResponse {
     #[serde(default)]
-    pub(super) status: Option<String>,
+    pub(in crate::openai) status: Option<String>,
     #[serde(default)]
-    pub(super) output: Vec<ResponsesOutputItem>,
+    pub(in crate::openai) output: Vec<ResponsesOutputItem>,
     #[serde(default)]
-    pub(super) usage: Option<ResponsesUsage>,
+    pub(in crate::openai) usage: Option<ResponsesUsage>,
     #[serde(default)]
-    pub(super) incomplete_details: Option<ResponsesIncompleteDetails>,
+    pub(in crate::openai) incomplete_details: Option<ResponsesIncompleteDetails>,
     #[serde(default)]
-    pub(super) error: Option<ResponsesError>,
+    pub(in crate::openai) error: Option<ResponsesError>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
-pub(super) enum ResponsesOutputItem {
+pub(in crate::openai) enum ResponsesOutputItem {
     #[serde(rename = "message")]
     Message {
+        #[serde(default)]
+        id: Option<String>,
         #[serde(default)]
         phase: Option<String>,
         content: Vec<ResponsesContentPart>,
@@ -30,7 +33,7 @@ pub(super) enum ResponsesOutputItem {
     Reasoning {
         id: String,
         #[serde(default)]
-        summary: Vec<OpenAiReasoningSummary>,
+        summary: Vec<ReasoningSummary>,
         #[serde(default)]
         encrypted_content: Option<String>,
     },
@@ -48,7 +51,7 @@ pub(super) enum ResponsesOutputItem {
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
-pub(super) enum ResponsesContentPart {
+pub(in crate::openai) enum ResponsesContentPart {
     #[serde(rename = "output_text")]
     OutputText { text: String },
     #[serde(rename = "refusal")]
@@ -58,37 +61,37 @@ pub(super) enum ResponsesContentPart {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct ResponsesUsage {
+pub(in crate::openai) struct ResponsesUsage {
     #[serde(default)]
-    pub(super) input_tokens: u64,
+    pub(in crate::openai) input_tokens: u64,
     #[serde(default)]
-    pub(super) output_tokens: u64,
+    pub(in crate::openai) output_tokens: u64,
     #[serde(default)]
-    pub(super) total_tokens: Option<u64>,
+    pub(in crate::openai) total_tokens: Option<u64>,
     #[serde(default)]
-    pub(super) input_tokens_details: ResponsesInputTokenDetails,
+    pub(in crate::openai) input_tokens_details: ResponsesInputTokenDetails,
     #[serde(default)]
-    pub(super) output_tokens_details: ResponsesOutputTokenDetails,
+    pub(in crate::openai) output_tokens_details: ResponsesOutputTokenDetails,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct ResponsesInputTokenDetails {
+pub(in crate::openai) struct ResponsesInputTokenDetails {
     #[serde(default)]
-    pub(super) cached_tokens: u64,
+    pub(in crate::openai) cached_tokens: u64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct ResponsesOutputTokenDetails {
+pub(in crate::openai) struct ResponsesOutputTokenDetails {
     #[serde(default)]
-    pub(super) reasoning_tokens: u64,
+    pub(in crate::openai) reasoning_tokens: u64,
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct ResponsesIncompleteDetails {
-    pub(super) reason: Option<String>,
+pub(in crate::openai) struct ResponsesIncompleteDetails {
+    pub(in crate::openai) reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct ResponsesError {
-    pub(super) message: Option<String>,
+pub(in crate::openai) struct ResponsesError {
+    pub(in crate::openai) message: Option<String>,
 }

@@ -1,3 +1,5 @@
+//! Runtime tests through the model stream contract.
+
 use std::sync::Arc;
 
 use ai_interface::{
@@ -8,6 +10,7 @@ use parking_lot::Mutex;
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::support::{response_parts, stream_result};
 use crate::{InMemoryToolOutputStore, StepOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn};
 
 use super::super::support::user_message;
@@ -16,25 +19,28 @@ use super::super::support::user_message;
 async fn tool_dispatch_passes_operation_id_to_tool_boundary() {
     let captured_operation_ids = Arc::new(Mutex::new(Vec::<String>::new()));
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(ModelResponse {
+            .answers_arc(stream_result(Ok(ModelResponse {
+                attempts: Vec::new(),
                 provider: "mock".to_owned(),
                 model_id: "mock-model".to_owned(),
                 catalog_model_id: None,
                 thinking_level: None,
-                assistant_message: "calling tool".to_owned(),
-                tool_calls: vec![ToolCall {
-                    id: "call-1".to_owned(),
-                    name: "echo".to_owned(),
-                    input: json!({ "message": "hello" }),
-                    operation_id: Some("operation-1".to_owned()),
-                }],
+                parts: response_parts(
+                    "calling tool".to_owned(),
+                    vec![ToolCall {
+                        id: "call-1".to_owned(),
+                        name: "echo".to_owned(),
+                        input: json!({ "message": "hello" }),
+                        operation_id: Some("operation-1".to_owned()),
+                    }],
+                    Vec::new(),
+                ),
                 finish_reason: FinishReason::ToolCalls,
                 structured_output: None,
-                provider_context: Vec::new(),
                 usage: ModelUsage::default(),
-            })),
+            }))),
     ));
     let runtime = ToolCallingRuntime::new(
         "system prompt",

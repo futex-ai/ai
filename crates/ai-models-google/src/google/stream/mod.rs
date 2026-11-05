@@ -4,6 +4,6 @@ mod accumulator;
 mod client;
 mod part;
 mod replay;
-mod types;
+pub(super) mod types;
 
-pub(super) use client::complete;
+pub(super) use client::open;

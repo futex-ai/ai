@@ -1,0 +1,36 @@
+---
+source: crates/ai-interface/src/_tests_/messages/contract_tests.rs
+expression: value
+---
+{
+  "format_version": 2,
+  "name": "helper",
+  "parts": [
+    {
+      "provider_state": {
+        "model": "model-one",
+        "payload": {
+          "token": "signed"
+        },
+        "provider": "sample",
+        "version": 1
+      },
+      "text": "",
+      "type": "reasoning"
+    },
+    {
+      "text": "answer",
+      "type": "text"
+    },
+    {
+      "arguments": {
+        "query": "rust"
+      },
+      "call_id": "call-one",
+      "operation_id": "operation-one",
+      "tool_name": "search",
+      "type": "tool_call"
+    }
+  ],
+  "role": "assistant"
+}

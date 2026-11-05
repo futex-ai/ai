@@ -1,10 +1,12 @@
 //! Kimi one-turn request mapping tests.
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ConversationRole, DeepSeekToolCallContext,
-    Effort, ModelError, ModelRequest, OpenAiReasoningSummary, ProviderConversationItem, ToolCall,
+    ConversationMessage, ConversationPart, ConversationRole, Effort, ModelError, ModelRequest,
+    ToolCall,
 };
 use serde_json::{Value, json};
+
+use crate::part_test_support::{assistant_with_items, message};
 
 use crate::kimi::KIMI_K3;
 
@@ -68,13 +70,13 @@ fn serializes_empty_user_and_tool_content_as_strings() {
 fn rejects_video_content_parts_with_typed_provider_error() {
     let request = ModelRequest {
         system_prompt: "system".to_owned(),
-        messages: vec![ConversationMessage::user_with_parts(
-            "fallback",
-            vec![ConversationContentPart::Video {
+        messages: vec![ConversationMessage::user_with_parts(vec![
+            ConversationPart::Video {
                 mime_type: "video/mp4".to_owned(),
                 data_base64: "dmlkZW8=".to_owned(),
-            }],
-        )],
+                provider_state: None,
+            },
+        ])],
         tools: Vec::new(),
         response_schema: None,
         controls: Default::default(),
@@ -101,18 +103,17 @@ fn rejects_video_content_parts_with_typed_provider_error() {
 fn serializes_text_and_image_content_parts_as_data_urls() {
     let request = ModelRequest {
         system_prompt: "system".to_owned(),
-        messages: vec![ConversationMessage::user_with_parts(
-            "fallback",
-            vec![
-                ConversationContentPart::Text {
-                    text: "What is shown?".to_owned(),
-                },
-                ConversationContentPart::Image {
-                    mime_type: "image/png".to_owned(),
-                    data_base64: "abc123".to_owned(),
-                },
-            ],
-        )],
+        messages: vec![ConversationMessage::user_with_parts(vec![
+            ConversationPart::Text {
+                text: "What is shown?".to_owned(),
+                provider_state: None,
+            },
+            ConversationPart::Image {
+                mime_type: "image/png".to_owned(),
+                data_base64: "abc123".to_owned(),
+                provider_state: None,
+            },
+        ])],
         tools: Vec::new(),
         response_schema: None,
         controls: Default::default(),
@@ -130,7 +131,7 @@ fn serializes_text_and_image_content_parts_as_data_urls() {
 
 #[test]
 fn ignores_foreign_provider_context_and_uses_normalized_assistant_fields() {
-    let assistant = ConversationMessage::assistant_with_provider_context(
+    let assistant = assistant_with_items(
         "normalized",
         vec![ToolCall {
             id: "call_1".to_owned(),
@@ -139,31 +140,10 @@ fn ignores_foreign_provider_context_and_uses_normalized_assistant_fields() {
             operation_id: None,
         }],
         vec![
-            ProviderConversationItem::DeepSeekAssistantMessage {
-                content: "DeepSeek-owned content".to_owned(),
-                reasoning_content: Some("DeepSeek-owned reasoning".to_owned()),
-                tool_calls: vec![DeepSeekToolCallContext {
-                    id: "deepseek_call".to_owned(),
-                    name: "ignored".to_owned(),
-                    arguments: "{\"foreign\":true}".to_owned(),
-                }],
-            },
-            ProviderConversationItem::OpenAiMessage {
-                phase: Some("commentary".to_owned()),
-            },
-            ProviderConversationItem::OpenAiReasoning {
-                id: "reasoning_1".to_owned(),
-                summary: vec![OpenAiReasoningSummary {
-                    kind: "summary_text".to_owned(),
-                    text: "private".to_owned(),
-                }],
-                encrypted_content: None,
-            },
-            ProviderConversationItem::XaiLegacyFunctionCall {
-                tool_call_id: "xai_call".to_owned(),
-                name: "ignored".to_owned(),
-                arguments: "{\"foreign\":true}".to_owned(),
-            },
+            json!({"type": "deep_seek_assistant_message", "content": "DeepSeek-owned content".to_owned(), "reasoning_content": Some("DeepSeek-owned reasoning".to_owned()), "tool_calls": vec![json!({"id": "deepseek_call".to_owned(), "name": "ignored".to_owned(), "arguments": "{\"foreign\":true}".to_owned()})]}),
+            json!({"type": "openai_message", "phase": Some("commentary".to_owned())}),
+            json!({"type": "openai_reasoning", "id": "reasoning_1".to_owned(), "summary": vec![json!({"type": "summary_text".to_owned(), "text": "private".to_owned()})], "encrypted_content": serde_json::Value::Null}),
+            json!({"type": "xai_legacy_function_call", "tool_call_id": "xai_call".to_owned(), "name": "ignored".to_owned(), "arguments": "{\"foreign\":true}".to_owned()}),
         ],
     );
     let request = ModelRequest {
@@ -219,15 +199,14 @@ fn maps_exact_reasoning_effort_and_omits_unsupported_fields() {
 }
 
 fn named_message(role: ConversationRole, content: &str, name: &str) -> ConversationMessage {
-    ConversationMessage {
+    message(
         role,
-        content: content.to_owned(),
-        content_parts: Vec::new(),
-        name: Some(name.to_owned()),
-        tool_call_id: None,
-        tool_calls: Vec::new(),
-        provider_context: Vec::new(),
-    }
+        content.to_owned(),
+        Vec::new(),
+        Some(name.to_owned()),
+        None,
+        Vec::new(),
+    )
 }
 
 fn request_json(request: &ModelRequest, effort: Effort) -> Value {

@@ -5,7 +5,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ai_interface::ModelSpec;
+use ai_interface::{
+    ConversationPart, Effort, FinishReason, ModelResponse, ModelResponseFold, ModelResult,
+    ModelSpec, ModelUsage, StructuredOutputSchema,
+};
 use json_http::{
     DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpSseEvent, JsonHttpSseStreamMock,
     JsonHttpTransportMock, TransportBackedJsonHttpClient,
@@ -14,6 +17,8 @@ use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{CUSTOM_DEFAULTS, PROVIDER_ID};
+
+use super::stream;
 
 pub(super) type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 pub(super) type StreamItem = json_http::Result<Option<JsonHttpSseEvent>>;
@@ -96,4 +101,63 @@ fn mock_stream(items: Vec<StreamItem>) -> DynJsonHttpSseStream {
                     .unwrap_or(Ok(None))
             })),
     ))
+}
+
+pub(super) async fn response_from_fixture(
+    catalog_model_id: &str,
+    provider_model_id: &str,
+    thinking_level: Option<Effort>,
+    body: Value,
+    schema: Option<&StructuredOutputSchema>,
+) -> ModelResult<ModelResponse> {
+    let mut stream = stream::open(
+        mock_stream(vec![terminal_event("response.completed", body)]),
+        catalog_model_id.to_owned(),
+        provider_model_id.to_owned(),
+        thinking_level,
+        schema.cloned(),
+    );
+    let mut fold = ModelResponseFold::new();
+    while let Some(event) = stream.next().await? {
+        fold.push(event)?;
+    }
+    fold.finish()
+}
+
+pub(super) fn expected_response(
+    assistant_message: &str,
+    thinking_level: Option<Effort>,
+    finish_reason: FinishReason,
+    usage: ModelUsage,
+) -> ModelResponse {
+    ModelResponse {
+        provider: "openai".to_owned(),
+        model_id: "gpt-5.5".to_owned(),
+        catalog_model_id: Some("openai/gpt-5.5".to_owned()),
+        thinking_level,
+        parts: vec![ConversationPart::text(assistant_message)],
+        finish_reason,
+        structured_output: None,
+        usage,
+        attempts: Vec::new(),
+    }
+}
+
+pub(super) fn replay_states(response: &ModelResponse) -> Vec<super::replay_state::ReplayState> {
+    response
+        .parts
+        .iter()
+        .filter_map(|part| part.provider_state())
+        .filter(|state| state.provider == PROVIDER_ID)
+        .map(|state| serde_json::from_value(Value::Object(state.payload.clone())).unwrap())
+        .collect()
+}
+
+pub(super) fn state(payload: Value) -> ai_interface::ProviderState {
+    ai_interface::ProviderState {
+        provider: PROVIDER_ID,
+        model: "gpt-5.5".to_owned(),
+        version: 1,
+        payload: payload.as_object().unwrap().clone(),
+    }
 }

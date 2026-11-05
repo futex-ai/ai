@@ -1,5 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
+assertion_line: 31
 description: "Today's xai adapter result for tool_loop using xai/grok-4.5 synthetic recordings."
 expression: outcome
 ---
@@ -7,18 +8,109 @@ expression: outcome
   "steps": [
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Checking "
+          }
+        },
+        {
+          "ToolCallStart": {
+            "part_index": 1,
+            "id": "call_1",
+            "name": "lookup"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 1,
+            "delta": "{\"id\":"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "now"
+          }
+        },
+        {
+          "ToolCallArgumentsDelta": {
+            "part_index": 1,
+            "delta": "7}"
+          }
+        },
+        {
+          "ToolCallEnd": {
+            "part_index": 1,
+            "provider_state": {
+              "provider": "xai",
+              "model": "grok-4.5",
+              "version": 2,
+              "payload": {
+                "call": {
+                  "arguments": "{\"id\":7}",
+                  "id": "call_1",
+                  "name": "lookup"
+                },
+                "kind": "tool_call",
+                "legacy": false
+              }
+            }
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "ToolCalls",
+            "provider": "xai",
+            "model_id": "grok-4.5",
+            "catalog_model_id": "xai/grok-4.5",
+            "effort": "high"
+          }
+        }
+      ],
       "response": {
         "provider": "xai",
         "model_id": "grok-4.5",
         "catalog_model_id": "xai/grok-4.5",
         "effort": "high",
-        "assistant_message": "Checking now",
-        "tool_calls": [
+        "parts": [
           {
-            "id": "call_1",
-            "name": "lookup",
-            "input": {
+            "type": "text",
+            "text": "Checking now"
+          },
+          {
+            "type": "tool_call",
+            "call_id": "call_1",
+            "tool_name": "lookup",
+            "arguments": {
               "id": 7
+            },
+            "provider_state": {
+              "provider": "xai",
+              "model": "grok-4.5",
+              "version": 2,
+              "payload": {
+                "call": {
+                  "arguments": "{\"id\":7}",
+                  "id": "call_1",
+                  "name": "lookup"
+                },
+                "kind": "tool_call",
+                "legacy": false
+              }
             }
           }
         ],
@@ -35,13 +127,52 @@ expression: outcome
     },
     {
       "kind": "response",
+      "events": [
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "Do"
+          }
+        },
+        {
+          "TextDelta": {
+            "part_index": 0,
+            "delta": "ne"
+          }
+        },
+        {
+          "Usage": {
+            "usage": {
+              "input_tokens": 15,
+              "output_tokens": 5,
+              "cached_input_tokens": 5,
+              "reasoning_tokens": 4,
+              "total_tokens": 29,
+              "estimated_cost_microusd": 0
+            }
+          }
+        },
+        {
+          "Finish": {
+            "finish_reason": "Stop",
+            "provider": "xai",
+            "model_id": "grok-4.5",
+            "catalog_model_id": "xai/grok-4.5",
+            "effort": "high"
+          }
+        }
+      ],
       "response": {
         "provider": "xai",
         "model_id": "grok-4.5",
         "catalog_model_id": "xai/grok-4.5",
         "effort": "high",
-        "assistant_message": "Done",
-        "tool_calls": [],
+        "parts": [
+          {
+            "type": "text",
+            "text": "Done"
+          }
+        ],
         "finish_reason": "Stop",
         "usage": {
           "input_tokens": 15,

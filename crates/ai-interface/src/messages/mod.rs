@@ -1,16 +1,25 @@
 //! Conversation message DTOs.
 
-mod anthropic;
-mod content;
 mod conversation;
-mod google;
-mod provider_context;
+mod legacy;
+mod legacy_conversion;
+mod legacy_fallback;
+mod legacy_message_converter;
+mod part;
+mod part_helpers;
+mod state;
+mod stored;
 
-pub use anthropic::AnthropicAssistantBlock;
-pub use content::ConversationContentPart;
 pub use conversation::{ConversationMessage, ConversationRole};
-pub use google::{GoogleAssistantPart, GoogleFunctionCallContext};
-pub use provider_context::{
-    DeepSeekToolCallContext, KimiToolCallContext, MiniMaxReasoningDetail, OpenAiReasoningSummary,
-    ProviderConversationItem, QwenToolCallContext,
+pub use legacy::{
+    LegacyConversationMessage, LegacyPartAttachment, LegacyPartOrder, LegacyPartTarget,
+    LegacyProviderConverter, LegacyProviderItem,
 };
+pub use legacy_conversion::compose_legacy_message;
+pub use legacy_message_converter::LegacyMessageConverter;
+pub use part::ConversationPart;
+pub use state::ProviderState;
+pub use stored::{StoredMessageError, read_stored_message};
+
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub use legacy::LegacyProviderConverterMock;

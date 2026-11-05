@@ -17,6 +17,8 @@ use json_http::{
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
+use crate::stream_test_support::{assistant_delta, content_events, observe};
+
 use super::test_support::custom_spec;
 use super::{
     XaiModel,
@@ -27,7 +29,7 @@ type ScriptedResponse = std::result::Result<JsonHttpResponse<Value>, json_http::
 type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 
 #[tokio::test]
-async fn polls_one_accepted_completion_without_emitting_public_events() {
+async fn polls_one_accepted_completion_and_emits_result_events() {
     let (http_client, requests) = scripted_http_client(vec![
         response(200, json!({ "request_id": "req_abc-123" })),
         response(202, json!({ "status": "pending" })),
@@ -38,14 +40,20 @@ async fn polls_one_accepted_completion_without_emitting_public_events() {
     ]);
     let (runtime, sleeps) = advancing_runtime();
     let model = model(http_client, runtime);
-    let sink = Unimock::new(());
+    let mut recorded = Vec::new();
 
-    let result = model
-        .complete_with_events(&deferred_request(Duration::from_secs(60)), &sink)
-        .await
-        .expect("deferred completion should eventually succeed");
+    let result = observe(
+        &model,
+        &deferred_request(Duration::from_secs(60)),
+        &mut recorded,
+    )
+    .await
+    .expect("deferred completion should eventually succeed");
 
-    assert_eq!(result.assistant_message, "Done");
+    assert_eq!(result.text(), "Done");
+    assert_eq!(content_events(&recorded), vec![assistant_delta("Done")]);
+    assert_eq!(recorded.len(), 3);
+    assert_eq!(recorded[2]["Finish"]["finish_reason"], "Stop");
     let requests = requests.lock().expect("request lock should be available");
     assert_eq!(
         requests
@@ -98,12 +106,11 @@ async fn rejects_non_successful_submission_without_polling() {
     let runtime = stationary_runtime();
     let model = model(http_client, runtime);
 
-    let error = model
-        .complete(&deferred_request(Duration::from_secs(60)))
-        .await
-        .expect_err("redirected submission should fail");
+    let result = model
+        .stream(&deferred_request(Duration::from_secs(60)))
+        .await;
 
-    assert!(matches!(error, ModelError::Provider { .. }));
+    assert!(matches!(result, Err(ModelError::Provider { .. })));
     let requests = requests.lock().expect("request lock should be available");
     assert_eq!(requests.len(), 1);
     assert_eq!(requests[0].method, JsonHttpMethod::Post);
@@ -118,12 +125,11 @@ async fn returns_terminal_retrieval_errors_without_resubmitting() {
     let runtime = stationary_runtime();
     let model = model(http_client, runtime);
 
-    let error = model
-        .complete(&deferred_request(Duration::from_secs(60)))
-        .await
-        .expect_err("terminal retrieval should fail");
+    let result = model
+        .stream(&deferred_request(Duration::from_secs(60)))
+        .await;
 
-    assert!(matches!(error, ModelError::Provider { .. }));
+    assert!(matches!(result, Err(ModelError::Provider { .. })));
     let requests = requests.lock().expect("request lock should be available");
     assert_eq!(requests.len(), 2);
     assert_eq!(requests[0].method, JsonHttpMethod::Post);
@@ -139,12 +145,11 @@ async fn rejects_malformed_deferred_request_ids_before_polling() {
     let runtime = stationary_runtime();
     let model = model(http_client, runtime);
 
-    let error = model
-        .complete(&deferred_request(Duration::from_secs(60)))
-        .await
-        .expect_err("unsafe request id should fail");
+    let result = model
+        .stream(&deferred_request(Duration::from_secs(60)))
+        .await;
 
-    assert!(matches!(error, ModelError::Provider { .. }));
+    assert!(matches!(result, Err(ModelError::Provider { .. })));
     assert_eq!(
         requests
             .lock()
@@ -163,12 +168,11 @@ async fn total_timeout_bounds_submission_poll_and_sleep() {
     let (runtime, sleeps) = advancing_runtime();
     let model = model(http_client, runtime);
 
-    let error = model
-        .complete(&deferred_request(Duration::from_secs(3)))
-        .await
-        .expect_err("total timeout should stop polling");
+    let result = model
+        .stream(&deferred_request(Duration::from_secs(3)))
+        .await;
 
-    assert!(matches!(error, ModelError::TransientProvider { .. }));
+    assert!(matches!(result, Err(ModelError::TransientProvider { .. })));
     let requests = requests.lock().expect("request lock should be available");
     assert_eq!(requests.len(), 2);
     assert_eq!(requests[0].timeout, Duration::from_secs(3));

@@ -2,39 +2,46 @@
 
 use std::sync::Arc;
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
-    ConversationMessage, ConversationRole, FinishReason, LoggerMock, ModelCallLogEntry,
-    ModelCallLogResult, ModelError, ModelMock, ModelRequest, ModelResponse, ModelUsage,
-    ProviderConversationItem, ToolCall,
+    ConversationMessage, ConversationPart, ConversationRole, FinishReason, LoggerMock,
+    ModelCallLogEntry, ModelCallLogResult, ModelError, ModelMock, ModelRequest, ModelResponse,
+    ModelUsage, ToolCall,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::support::{response_parts, stream_result};
 use crate::{RunOutcome, Turn};
 
-use super::support::{TypedEchoTool, runtime_with_logger, user_message};
+use super::support::{TypedEchoTool, provider_reasoning, runtime_with_logger, user_message};
 
 #[tokio::test]
 async fn signed_replay_context_survives_turns_but_not_success_logs() {
     let context = signed_context();
-    let expected = context.clone();
+    let expected = response(context.clone()).parts;
     let model = Arc::new(Unimock::new((
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Ok(response(context))),
-        ModelMock::complete
+            .answers_arc(stream_result(Ok(response(context)))),
+        ModelMock::stream
             .next_call(matching!(_))
             .answers_arc(Arc::new(move |_, request: &ModelRequest| {
-                let assistant = request
-                    .messages
-                    .iter()
-                    .find(|m| m.role == ConversationRole::Assistant)
-                    .unwrap();
-                assert_eq!(assistant.provider_context, expected);
-                let mut response = response(Vec::new());
-                response.finish_reason = FinishReason::Stop;
-                response.tool_calls.clear();
-                Ok(response)
+                {
+                    let assistant = request
+                        .messages
+                        .iter()
+                        .find(|m| m.role == ConversationRole::Assistant)
+                        .unwrap();
+                    assert_eq!(assistant.parts, expected);
+                    let mut response = response(signed_context());
+                    response.finish_reason = FinishReason::Stop;
+                    response
+                        .parts
+                        .retain(|part| matches!(part, ConversationPart::Reasoning { .. }));
+                    Ok(response)
+                }
+                .map(model_response_stream)
             })),
     )));
     let logger = Arc::new(Unimock::new((
@@ -45,12 +52,15 @@ async fn signed_replay_context_survives_turns_but_not_success_logs() {
                         .request
                         .messages
                         .iter()
-                        .all(|m| m.provider_context.is_empty())
+                        .all(|m| private_parts(&m.parts).is_empty())
                 );
                 let ModelCallLogResult::Success { response } = &entry.result else {
                     panic!("expected success")
                 };
-                assert_eq!(response.provider_context, Vec::new());
+                assert_eq!(
+                    private_parts(&response.parts),
+                    Vec::<ConversationPart>::new()
+                );
                 Ok(())
             },
         ),
@@ -79,35 +89,41 @@ async fn signed_replay_context_survives_turns_but_not_success_logs() {
         .iter()
         .find(|m| m.role == ConversationRole::Assistant)
         .unwrap();
-    assert_eq!(assistant.provider_context, signed_context());
+    assert_eq!(assistant.parts, response(signed_context()).parts);
+    assert_eq!(conversation.last().unwrap().parts, signed_context());
 }
 
 #[tokio::test]
 async fn signed_replay_context_is_removed_from_failed_request_logs() {
     let context = signed_context();
-    let expected = context.clone();
+    let expected = response_parts("visible", Vec::new(), context.clone());
     let model = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .some_call(matching!(_))
             .answers_arc(Arc::new(move |_, request: &ModelRequest| {
-                assert_eq!(request.messages[0].provider_context, expected);
-                Err(ModelError::provider("mock", "mock", "failed"))
+                {
+                    assert_eq!(request.messages[0].parts, expected);
+                    Err(ModelError::provider("mock", "mock", "failed"))
+                }
+                .map(model_response_stream)
             })),
     ));
     let logger = Arc::new(Unimock::new(
         LoggerMock::log_model_call.some_call(matching!(_)).answers(
             &|_, entry: &ModelCallLogEntry| {
-                assert_eq!(entry.request.messages[0].provider_context, Vec::new());
+                assert_eq!(
+                    private_parts(&entry.request.messages[0].parts),
+                    Vec::<ConversationPart>::new()
+                );
                 assert!(matches!(entry.result, ModelCallLogResult::Error { .. }));
                 Ok(())
             },
         ),
     ));
     let runtime = runtime_with_logger(model, logger, Vec::new()).unwrap();
-    runtime.replace_conversation(vec![ConversationMessage::assistant_with_provider_context(
-        "visible",
-        Vec::new(),
-        context,
+    runtime.replace_conversation(vec![ConversationMessage::new(
+        ConversationRole::Assistant,
+        response_parts("visible", Vec::new(), context),
     )]);
     assert!(matches!(
         runtime.resume(Some(1)).step().await,
@@ -115,35 +131,93 @@ async fn signed_replay_context_is_removed_from_failed_request_logs() {
     ));
 }
 
-fn signed_context() -> Vec<ProviderConversationItem> {
-    serde_json::from_value(json!([
-        {"type": "anthropic_assistant_message", "blocks": [
-            {"type": "thinking", "thinking": "private", "signature": "private-signature"},
-            {"type": "redacted_thinking", "data": "private-data"}
-        ]},
-        {"type": "google_assistant_message", "parts": [
-            {"text": "private", "thought": true, "thoughtSignature": "private-signature"}
-        ]}
-    ]))
-    .unwrap()
+fn signed_context() -> Vec<ConversationPart> {
+    vec![
+        provider_reasoning(
+            "anthropic",
+            "claude",
+            "private",
+            json!({"blocks": [
+                {"type": "thinking", "thinking": "private", "signature": "private-signature"},
+                {"type": "redacted_thinking", "data": "private-data"}
+            ]}),
+        ),
+        provider_reasoning(
+            "google",
+            "gemini",
+            "private",
+            json!({"parts": [
+                {"text": "private", "thought": true, "thoughtSignature": "private-signature"}
+            ]}),
+        ),
+        provider_reasoning(
+            "openai",
+            "gpt",
+            "private summary",
+            json!({
+                "id": "reasoning-id", "encrypted_content": "private-encrypted-reasoning"
+            }),
+        ),
+        ConversationPart::reasoning("private reasoning without state"),
+    ]
 }
 
-fn response(provider_context: Vec<ProviderConversationItem>) -> ModelResponse {
+fn private_parts(parts: &[ConversationPart]) -> Vec<ConversationPart> {
+    parts
+        .iter()
+        .filter(|part| {
+            part.provider_state().is_some()
+                || matches!(part, ConversationPart::Reasoning { text, .. } if !text.is_empty())
+        })
+        .cloned()
+        .collect()
+}
+
+fn response(mut parts: Vec<ConversationPart>) -> ModelResponse {
+    let state = provider_reasoning(
+        "future-provider",
+        "future-model",
+        "",
+        json!({
+            "opaque": "private-call-state"
+        }),
+    )
+    .provider_state()
+    .unwrap()
+    .clone();
+    let call = ConversationPart::from_tool_call(ToolCall {
+        id: "call-1".to_owned(),
+        name: "echo".to_owned(),
+        input: json!({"message": "hello"}),
+        operation_id: None,
+    })
+    .with_provider_state(state);
+    let text_state = provider_reasoning(
+        "openai",
+        "gpt",
+        "",
+        json!({
+            "phase": "commentary"
+        }),
+    )
+    .provider_state()
+    .unwrap()
+    .clone();
+    if parts.is_empty() {
+        parts.push(call);
+    } else {
+        parts.insert(1, call);
+    }
+    parts.push(ConversationPart::text("visible").with_provider_state(text_state));
     ModelResponse {
+        attempts: Vec::new(),
         provider: "mock".to_owned(),
         model_id: "mock".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "visible".to_owned(),
-        tool_calls: vec![ToolCall {
-            id: "call-1".to_owned(),
-            name: "echo".to_owned(),
-            input: json!({"message": "hello"}),
-            operation_id: None,
-        }],
+        parts,
         finish_reason: FinishReason::ToolCalls,
         structured_output: None,
-        provider_context,
         usage: ModelUsage::default(),
     }
 }

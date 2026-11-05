@@ -2,9 +2,10 @@
 
 Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
-When implemented, this protocol governs the shared Chat Completions engine
-and replaces the shared chat-completions accumulator section of
-[model-completion-streaming.md](model-completion-streaming.md).
+When implemented, this protocol governs the shared Chat Completions engine.
+The "Stream" and "Response rules" sections are in force. Until Milestone 8,
+their kinds stand for the current errors that
+[model policies](model-policies.md#rules-in-force-until-milestone-8) gives.
 
 This protocol defines the engine that serves the Chat Completions providers,
 the settings of a dialect, and the xAI dialect. The provider docs of
@@ -65,12 +66,14 @@ the dialect, with the auth of the dialect.
 ## Stream
 
 - Each SSE `data` value is one JSON chunk or the exact value `[DONE]`.
+  Another value is a stream failure under the progress rule.
 - Only choice index 0 produces model events. The engine ignores other
   choices.
 - `delta.content` gives text deltas. The reasoning field of the dialect
   gives reasoning deltas.
 - When one chunk has both reasoning and text, the reasoning delta comes
-  first.
+  first. A JSON object does not give the order of its fields, so the engine
+  fixes this order.
 - `delta.tool_calls` entries have an `index`. The first entry of an index
   gives the call id and the function name, and starts a tool-call part.
 - Each `function.arguments` fragment gives one argument delta.
@@ -80,6 +83,8 @@ the dialect, with the auth of the dialect.
   event.
 - The last non-null `finish_reason` is the finish reason.
 - The last chunk with usage gives the usage.
+- A stream that ends without a chunk for choice index 0, or without a chunk
+  with usage, is a stream failure under the progress rule.
 - `[DONE]` is the terminal event, unless the dialect sets another terminal
   condition.
 - An end of stream before the terminal event is a stream failure under the

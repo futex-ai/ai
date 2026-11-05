@@ -5,9 +5,10 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
+use ai_interface::test_support::model_response_stream;
 use ai_interface::{
-    ConversationMessage, FinishReason, Model, ModelRequest, ModelResponse, ModelResult, ModelUsage,
-    NoopLogger, Tool, ToolCall,
+    ConversationMessage, DynModelEventStream, FinishReason, Model, ModelRequest, ModelResponse,
+    ModelResult, ModelUsage, NoopLogger, Tool, ToolCall,
 };
 use ai_mcp::{
     McpClient, McpContentBlock, McpServerConfig, McpServerHandshake, McpToolCallOutcome,
@@ -108,7 +109,7 @@ struct FixtureModel {
 
 #[async_trait]
 impl Model for FixtureModel {
-    async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
+    async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
         let call = self.calls.fetch_add(1, Ordering::SeqCst);
         assert_eq!(request.tools[0].name, "mcp__demo__echo");
         let (assistant_message, tool_calls, finish_reason) = if call == 0 {
@@ -125,17 +126,16 @@ impl Model for FixtureModel {
         } else {
             ("complete".to_owned(), Vec::new(), FinishReason::Stop)
         };
-        Ok(ModelResponse {
+        Ok(model_response_stream(ModelResponse {
             provider: "fixture".to_owned(),
             model_id: "fixture".to_owned(),
             catalog_model_id: None,
             thinking_level: None,
-            assistant_message,
-            tool_calls,
+            parts: ConversationMessage::assistant(assistant_message, tool_calls).parts,
             finish_reason,
             structured_output: None,
-            provider_context: Vec::new(),
             usage: ModelUsage::default(),
-        })
+            attempts: Vec::new(),
+        }))
     }
 }

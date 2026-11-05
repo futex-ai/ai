@@ -1,3 +1,5 @@
+//! Runtime tests through the model stream contract.
+
 use std::sync::Arc;
 
 use ai_interface::{
@@ -6,6 +8,7 @@ use ai_interface::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::support::{response_parts, stream_result};
 use crate::{RunOutcome, StepOutcome, Turn};
 
 use super::super::support::{TypedEchoTool, runtime, user_message};
@@ -17,9 +20,9 @@ async fn model_errors_abort_the_turn() {
     struct FixtureModelError;
 
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
-        ModelMock::complete
+        ModelMock::stream
             .next_call(matching!(_))
-            .returns(Err(ModelError::internal(FixtureModelError))),
+            .answers_arc(stream_result(Err(ModelError::internal(FixtureModelError)))),
     ));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
@@ -65,7 +68,7 @@ async fn tool_calls_finish_reason_dispatches_tools() {
 
 #[tokio::test]
 async fn tool_calls_finish_reason_without_calls_is_a_model_error() {
-    let model = single_response_model(model_response(FinishReason::ToolCalls, Vec::new()));
+    let model = invalid_response_model(model_response(FinishReason::ToolCalls, Vec::new()));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
     let mut turn = runtime.send(user_message("start"), Some(4));
@@ -79,7 +82,7 @@ async fn tool_calls_finish_reason_without_calls_is_a_model_error() {
 
 #[tokio::test]
 async fn non_tool_finish_reason_with_calls_is_a_model_error() {
-    let model = single_response_model(model_response(FinishReason::Stop, vec![echo_tool_call()]));
+    let model = invalid_response_model(model_response(FinishReason::Stop, vec![echo_tool_call()]));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
     let mut turn = runtime.send(user_message("start"), Some(4));
@@ -152,6 +155,14 @@ async fn other_finish_reason_is_a_model_error_with_raw_reason() {
 
 fn single_response_model(response: ModelResponse) -> Arc<dyn Model> {
     Arc::new(Unimock::new(
+        ModelMock::stream
+            .next_call(matching!(_))
+            .answers_arc(stream_result(Ok(response))),
+    ))
+}
+
+fn invalid_response_model(response: ModelResponse) -> Arc<dyn Model> {
+    Arc::new(Unimock::new(
         ModelMock::complete
             .next_call(matching!(_))
             .returns(Ok(response)),
@@ -160,15 +171,14 @@ fn single_response_model(response: ModelResponse) -> Arc<dyn Model> {
 
 fn model_response(finish_reason: FinishReason, tool_calls: Vec<ToolCall>) -> ModelResponse {
     ModelResponse {
+        attempts: Vec::new(),
         provider: "mock".to_owned(),
         model_id: "mock-model".to_owned(),
         catalog_model_id: None,
         thinking_level: None,
-        assistant_message: "done".to_owned(),
-        tool_calls,
+        parts: response_parts("done".to_owned(), tool_calls, Vec::new()),
         finish_reason,
         structured_output: None,
-        provider_context: Vec::new(),
         usage: ModelUsage::default(),
     }
 }

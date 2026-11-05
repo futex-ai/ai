@@ -1,7 +1,7 @@
 //! Shared requests for the six provider conformance scenarios.
 
 use ai_interface::{
-    ConversationContentPart, ConversationMessage, ModelRequest, ModelResponse, ModelToolChoice,
+    ConversationMessage, ConversationPart, ModelRequest, ModelResponse, ModelToolChoice,
     StructuredOutputSchema, ToolDefinition,
 };
 use serde::{Deserialize, Serialize};
@@ -91,10 +91,11 @@ impl Scenario {
             }
             Self::ImageInput => {
                 let prompt = "This image is a small test PNG. Reply with exactly Done.";
-                request.messages = vec![ConversationMessage::user_with_parts(prompt, vec![
-                    ConversationContentPart::Text { text: prompt.to_owned() },
-                    ConversationContentPart::Image {
+                request.messages = vec![ConversationMessage::user_with_parts(vec![
+                    ConversationPart::text(prompt),
+                    ConversationPart::Image {
                         mime_type: "image/png".to_owned(),
+                        provider_state: None,
                         data_base64: "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAKElEQVR4nO3NsQ0AAAzCMP5/un0CNkuZ41wybXsHAAAAAAAAAAAAxR4yw/wuPL6QkAAAAABJRU5ErkJggg==".to_owned(),
                     },
                 ])];
@@ -104,20 +105,14 @@ impl Scenario {
         request
     }
 
-    /// Preserves the first assistant message and its provider context on step two.
+    /// Preserves the first assistant message and its ordered parts and provider state on step two.
     pub fn follow_up(self, response: &ModelResponse) -> Result<ModelRequest> {
-        if response.tool_calls.is_empty() {
+        if response.tool_calls().is_empty() {
             return Err(Error::MissingToolCall);
         }
         let mut request = self.request();
-        request
-            .messages
-            .push(ConversationMessage::assistant_with_provider_context(
-                response.assistant_message.clone(),
-                response.tool_calls.clone(),
-                response.provider_context.clone(),
-            ));
-        for call in &response.tool_calls {
+        request.messages.push(response.to_assistant_message());
+        for call in response.tool_calls() {
             request.messages.push(ConversationMessage::tool(
                 "{\"value\":7}",
                 &call.name,

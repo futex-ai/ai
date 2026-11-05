@@ -1,36 +1,26 @@
-//! Completion-event observation, validation, and credential-free guards.
+//! Model stream observation and credential-free live-event validation.
 
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 
 use ai_interface::{
-    ConversationMessage, DynModel, MockModel, Model, ModelCompletionEvent,
-    ModelCompletionEventSink, ModelRequest, ModelResponse, ModelResult,
+    DynModel, DynModelEventStream, Model, ModelError, ModelEvent, ModelEventStream, ModelRequest,
+    ModelResult,
 };
+use ai_testkit::event_snapshot::ModelEventSnapshot;
 use async_trait::async_trait;
-
-use super::provider_tests::{CompletionEventExpectation, LiveProvider};
+use json_http::test_support::Redactor;
 
 #[derive(Clone, Default)]
 pub(super) struct CompletionEventLog {
-    events: Arc<Mutex<Vec<ModelCompletionEvent>>>,
+    events: Arc<Mutex<Vec<ModelEventSnapshot>>>,
 }
 
 impl CompletionEventLog {
-    pub(super) fn recorded(&self) -> Vec<ModelCompletionEvent> {
-        self.events
-            .lock()
-            .expect("completion event lock should not be poisoned")
-            .clone()
-    }
-}
-
-#[async_trait]
-impl ModelCompletionEventSink for CompletionEventLog {
-    async fn emit(&self, event: ModelCompletionEvent) {
-        self.events
-            .lock()
-            .expect("completion event lock should not be poisoned")
-            .push(event);
+    pub(super) fn recorded(&self) -> Vec<ModelEventSnapshot> {
+        self.events.lock().expect("completion event lock").clone()
     }
 }
 
@@ -41,8 +31,46 @@ struct EventObservingModel {
 
 #[async_trait]
 impl Model for EventObservingModel {
-    async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
-        self.inner.complete_with_events(request, &self.events).await
+    async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
+        Ok(Box::new(EventObservingStream {
+            inner: Some(self.inner.stream(request).await?),
+            events: self.events.clone(),
+        }))
+    }
+}
+
+struct EventObservingStream {
+    inner: Option<DynModelEventStream>,
+    events: CompletionEventLog,
+}
+
+#[async_trait]
+impl ModelEventStream for EventObservingStream {
+    async fn next(&mut self) -> ModelResult<Option<ModelEvent>> {
+        let Some(inner) = &mut self.inner else {
+            return Ok(None);
+        };
+        match inner.next().await {
+            Ok(Some(event)) => {
+                let snapshot = match ModelEventSnapshot::capture(&event, &Redactor::default()) {
+                    Ok(snapshot) => snapshot,
+                    Err(source) => {
+                        self.inner = None;
+                        return Err(ModelError::internal(source));
+                    }
+                };
+                self.events
+                    .events
+                    .lock()
+                    .expect("completion event lock")
+                    .push(snapshot);
+                Ok(Some(event))
+            }
+            result => {
+                self.inner = None;
+                result
+            }
+        }
     }
 }
 
@@ -57,214 +85,70 @@ pub(super) fn observing_model(inner: DynModel) -> (DynModel, CompletionEventLog)
 
 pub(super) fn completion_event_failures(
     model_id: &str,
-    expectation: CompletionEventExpectation,
     assistant_message: &str,
-    events: &[ModelCompletionEvent],
+    events: &[ModelEventSnapshot],
 ) -> Vec<String> {
-    if expectation == CompletionEventExpectation::Silent {
-        return if events.is_empty() {
-            Vec::new()
-        } else {
-            vec![format!(
-                "{model_id}: deferred completion must not emit completion events"
-            )]
-        };
-    }
-
     let mut failures = Vec::new();
-    let mut assistant_text = String::new();
+    let mut assistant_parts = BTreeMap::new();
     let mut assistant_event_count = 0;
+    let mut usage_event_count = 0;
+    let mut finish_event_count = 0;
     for event in events {
         match event {
-            ModelCompletionEvent::AssistantTextDelta { delta } => {
-                assistant_event_count += 1;
-                if delta.is_empty() {
+            ModelEventSnapshot::TextDelta {
+                part_index,
+                delta,
+                provider_state,
+            } => {
+                if !delta.is_empty() {
+                    assistant_event_count += 1;
+                }
+                if delta.is_empty() && provider_state.is_none() {
                     failures.push(format!("{model_id}: emitted an empty assistant delta"));
                 }
-                assistant_text.push_str(delta);
+                assistant_parts
+                    .entry(*part_index)
+                    .or_insert_with(String::new)
+                    .push_str(delta);
             }
-            ModelCompletionEvent::ReasoningTextDelta { delta } if delta.is_empty() => {
-                failures.push(format!("{model_id}: emitted an empty reasoning delta"));
+            ModelEventSnapshot::ReasoningDelta {
+                delta,
+                provider_state,
+                ..
+            } if delta.is_empty() && provider_state.is_none() => {
+                failures.push(format!("{model_id}: emitted an empty reasoning delta"))
             }
-            ModelCompletionEvent::ReasoningTextDelta { .. } => {}
-            ModelCompletionEvent::AttemptRestarted => failures.push(format!(
+            ModelEventSnapshot::Fallback { .. } => failures.push(format!(
                 "{model_id}: direct provider probe unexpectedly restarted"
             )),
+            ModelEventSnapshot::Usage { .. } => usage_event_count += 1,
+            ModelEventSnapshot::Finish { .. } => finish_event_count += 1,
             _ => {}
         }
     }
+    let assistant_text = assistant_parts.into_values().collect::<String>();
     if assistant_event_count == 0 {
         failures.push(format!(
-            "{model_id}: synchronous completion emitted no assistant text events"
+            "{model_id}: completion emitted no nonempty text delta"
         ));
     } else if assistant_text != assistant_message {
         failures.push(format!(
             "{model_id}: assistant events did not have terminal parity"
         ));
     }
+    if usage_event_count != 1 {
+        failures.push(format!(
+            "{model_id}: completion did not emit exactly one usage event"
+        ));
+    }
+    if finish_event_count != 1 {
+        failures.push(format!(
+            "{model_id}: completion did not emit exactly one finish event"
+        ));
+    }
     failures
 }
 
-struct EventingProbeModel {
-    inner: MockModel,
-}
-
-#[async_trait]
-impl Model for EventingProbeModel {
-    async fn complete(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
-        self.inner.complete(request).await
-    }
-
-    async fn complete_with_events(
-        &self,
-        request: &ModelRequest,
-        event_sink: &dyn ModelCompletionEventSink,
-    ) -> ModelResult<ModelResponse> {
-        let response = self.inner.complete(request).await?;
-        event_sink
-            .emit(ModelCompletionEvent::AssistantTextDelta {
-                delta: response.assistant_message.clone(),
-            })
-            .await;
-        Ok(response)
-    }
-}
-
-#[tokio::test]
-async fn observing_model_routes_complete_through_the_public_event_boundary() {
-    let (model, events) = observing_model(Arc::new(EventingProbeModel {
-        inner: MockModel::new("eventing-probe"),
-    }));
-    let response = model
-        .complete(&ModelRequest {
-            system_prompt: "system".to_owned(),
-            messages: vec![ConversationMessage::user("probe")],
-            tools: Vec::new(),
-            response_schema: None,
-            controls: Default::default(),
-        })
-        .await
-        .expect("event-observing model should complete");
-
-    assert!(
-        completion_event_failures(
-            "eventing-probe",
-            CompletionEventExpectation::AssistantTextParity,
-            &response.assistant_message,
-            &events.recorded(),
-        )
-        .is_empty()
-    );
-}
-
-#[test]
-fn every_provider_has_synchronous_parity_and_only_xai_has_deferred_silence() {
-    for provider in LiveProvider::ALL {
-        assert_eq!(
-            provider.synchronous_event_expectation(),
-            CompletionEventExpectation::AssistantTextParity,
-            "{provider:?} must exercise synchronous completion events"
-        );
-    }
-
-    let deferred_silence = LiveProvider::ALL
-        .into_iter()
-        .filter(|provider| {
-            provider.preferred_mode_event_expectation() == CompletionEventExpectation::Silent
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(deferred_silence, vec![LiveProvider::Xai]);
-}
-
-#[test]
-fn assistant_event_validation_accepts_reasoning_and_terminal_parity() {
-    let failures = completion_event_failures(
-        "model-id",
-        CompletionEventExpectation::AssistantTextParity,
-        "hello world",
-        &[
-            ModelCompletionEvent::ReasoningTextDelta {
-                delta: "thinking".to_owned(),
-            },
-            ModelCompletionEvent::AssistantTextDelta {
-                delta: "hello ".to_owned(),
-            },
-            ModelCompletionEvent::AssistantTextDelta {
-                delta: "world".to_owned(),
-            },
-        ],
-    );
-
-    assert!(failures.is_empty());
-}
-
-#[test]
-fn assistant_event_validation_rejects_missing_or_mismatched_text() {
-    let missing = completion_event_failures(
-        "missing",
-        CompletionEventExpectation::AssistantTextParity,
-        "terminal",
-        &[],
-    );
-    let mismatched = completion_event_failures(
-        "mismatched",
-        CompletionEventExpectation::AssistantTextParity,
-        "terminal",
-        &[ModelCompletionEvent::AssistantTextDelta {
-            delta: "different".to_owned(),
-        }],
-    );
-
-    assert_eq!(
-        missing,
-        vec!["missing: synchronous completion emitted no assistant text events"]
-    );
-    assert_eq!(
-        mismatched,
-        vec!["mismatched: assistant events did not have terminal parity"]
-    );
-}
-
-#[test]
-fn assistant_event_validation_rejects_empty_deltas_and_restarts() {
-    let failures = completion_event_failures(
-        "invalid-events",
-        CompletionEventExpectation::AssistantTextParity,
-        "",
-        &[
-            ModelCompletionEvent::AssistantTextDelta {
-                delta: String::new(),
-            },
-            ModelCompletionEvent::ReasoningTextDelta {
-                delta: String::new(),
-            },
-            ModelCompletionEvent::AttemptRestarted,
-        ],
-    );
-
-    assert_eq!(
-        failures,
-        vec![
-            "invalid-events: emitted an empty assistant delta",
-            "invalid-events: emitted an empty reasoning delta",
-            "invalid-events: direct provider probe unexpectedly restarted",
-        ]
-    );
-}
-
-#[test]
-fn silent_event_validation_rejects_deferred_emission() {
-    let failures = completion_event_failures(
-        "xai-deferred",
-        CompletionEventExpectation::Silent,
-        "terminal",
-        &[ModelCompletionEvent::AssistantTextDelta {
-            delta: "unexpected".to_owned(),
-        }],
-    );
-
-    assert_eq!(
-        failures,
-        vec!["xai-deferred: deferred completion must not emit completion events"]
-    );
-}
+#[cfg(test)]
+#[path = "event_guard_tests.rs"]
+mod event_guard_tests;

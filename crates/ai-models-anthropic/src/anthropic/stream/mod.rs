@@ -3,6 +3,6 @@
 mod accumulator;
 mod block;
 mod client;
-mod types;
+pub(super) mod types;
 
-pub(super) use client::complete;
+pub(super) use client::open;
