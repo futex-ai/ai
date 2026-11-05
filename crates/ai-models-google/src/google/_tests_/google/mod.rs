@@ -11,8 +11,10 @@ use super::GoogleModel;
 mod controls_tests;
 mod event_tests;
 mod finish_reason_tests;
+mod flash_lite_effort_tests;
 mod multimodal_tests;
 mod operation_id_tests;
+mod provider_default_tests;
 mod replay_tests;
 mod request_tests;
 #[cfg(test)]
@@ -23,6 +25,10 @@ mod stream_support;
 mod streaming_tests;
 mod structured_finish_tests;
 mod thinking_tests;
+
+#[cfg(test)]
+#[path = "request_effort_tests.rs"]
+mod request_effort_tests;
 
 fn recording_http_client(
     response: JsonHttpResponse<serde_json::Value>,

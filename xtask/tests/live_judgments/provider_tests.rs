@@ -2,8 +2,7 @@
 
 use std::{collections::BTreeSet, sync::Arc};
 
-use ai_interface::{DynJudgmentModel, ProviderKind};
-use ai_models_core::{KnownModelSpec, ModelFeature};
+use ai_interface::{DynJudgmentModel, ModelFeature, ModelSpec, ProviderId};
 use ai_models_typesafe::TypeSafeJudgmentModel;
 use json_http::{
     DynJsonHttpAuth, DynJsonHttpClient, JsonHttpClient, ReqwestJsonHttpClient, StaticHeaderAuth,
@@ -17,24 +16,15 @@ pub(super) enum LiveJudgmentProvider {
 impl LiveJudgmentProvider {
     pub(super) const ALL: [Self; 1] = [Self::TypeSafe];
 
-    pub(super) fn from_kind(provider: ProviderKind) -> Option<Self> {
-        match provider {
-            ProviderKind::TypeSafe => Some(Self::TypeSafe),
-            ProviderKind::Mock
-            | ProviderKind::OpenAi
-            | ProviderKind::Anthropic
-            | ProviderKind::DeepSeek
-            | ProviderKind::Google
-            | ProviderKind::Kimi
-            | ProviderKind::MiniMax
-            | ProviderKind::Qwen
-            | ProviderKind::Xai => None,
-        }
+    pub(super) fn from_id(provider: ProviderId) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|candidate| candidate.provider_id() == provider)
     }
 
-    pub(super) fn kind(self) -> ProviderKind {
+    pub(super) fn provider_id(self) -> ProviderId {
         match self {
-            Self::TypeSafe => ProviderKind::TypeSafe,
+            Self::TypeSafe => ai_models_typesafe::PROVIDER_ID,
         }
     }
 
@@ -50,13 +40,13 @@ impl LiveJudgmentProvider {
         }
     }
 
-    pub(super) fn catalog(self) -> Vec<KnownModelSpec> {
+    pub(super) fn catalog(self) -> Vec<ModelSpec> {
         match self {
-            Self::TypeSafe => ai_models_typesafe::known_models(),
+            Self::TypeSafe => ai_models_typesafe::CATALOG.to_vec(),
         }
     }
 
-    pub(super) fn judgment_catalog(self) -> Vec<KnownModelSpec> {
+    pub(super) fn judgment_catalog(self) -> Vec<ModelSpec> {
         filter_judgment_catalog(self.catalog())
     }
 
@@ -70,19 +60,19 @@ impl LiveJudgmentProvider {
         self,
         client: DynJsonHttpClient,
         auth: DynJsonHttpAuth,
-        spec: &KnownModelSpec,
+        spec: &ModelSpec,
     ) -> DynJudgmentModel {
         match self {
             Self::TypeSafe => Arc::new(TypeSafeJudgmentModel::with_auth(
                 client,
-                spec.provider_model_id,
+                spec.provider_model_id.as_ref(),
                 auth,
             )),
         }
     }
 }
 
-fn filter_judgment_catalog(catalog: Vec<KnownModelSpec>) -> Vec<KnownModelSpec> {
+fn filter_judgment_catalog(catalog: Vec<ModelSpec>) -> Vec<ModelSpec> {
     catalog
         .into_iter()
         .filter(|model| model.has_feature(ModelFeature::Judgment))
@@ -98,7 +88,7 @@ fn registry_covers_every_judgment_capable_provider() {
         .collect::<BTreeSet<_>>();
     let actual = LiveJudgmentProvider::ALL
         .iter()
-        .map(|provider| provider.kind())
+        .map(|provider| provider.provider_id())
         .collect::<BTreeSet<_>>();
 
     assert_eq!(actual, expected);
@@ -116,7 +106,8 @@ fn every_registered_provider_has_only_judgment_entries() {
         );
         assert_eq!(judgment_catalog, catalog);
         assert!(catalog.iter().all(|model| {
-            model.provider == provider.kind() && model.features == [ModelFeature::Judgment]
+            model.provider == provider.provider_id()
+                && model.features.as_ref() == [ModelFeature::Judgment]
         }));
     }
 }
@@ -141,7 +132,7 @@ fn registry_constructs_every_dynamic_judgment_adapter_without_network_access() {
 
     for provider in LiveJudgmentProvider::ALL {
         assert_eq!(
-            LiveJudgmentProvider::from_kind(provider.kind()),
+            LiveJudgmentProvider::from_id(provider.provider_id()),
             Some(provider)
         );
         let auth = provider.auth("credential-free-construction-key".to_owned());
@@ -154,37 +145,37 @@ fn registry_constructs_every_dynamic_judgment_adapter_without_network_access() {
 #[test]
 fn every_non_judgment_provider_kind_maps_to_none() {
     for provider in non_judgment_provider_kinds() {
-        assert_eq!(LiveJudgmentProvider::from_kind(provider), None);
+        assert_eq!(LiveJudgmentProvider::from_id(provider), None);
     }
 }
 
-fn all_known_models() -> Vec<KnownModelSpec> {
+fn all_known_models() -> Vec<ModelSpec> {
     [
-        ai_models_anthropic::known_models(),
-        ai_models_deepseek::known_models(),
-        ai_models_google::known_models(),
-        ai_models_kimi::known_models(),
-        ai_models_minimax::known_models(),
-        ai_models_openai::known_models(),
-        ai_models_qwen::known_models(),
-        ai_models_typesafe::known_models(),
-        ai_models_xai::known_models(),
+        ai_models_anthropic::CATALOG.to_vec(),
+        ai_models_compat::deepseek::CATALOG.to_vec(),
+        ai_models_google::CATALOG.to_vec(),
+        ai_models_compat::kimi::CATALOG.to_vec(),
+        ai_models_compat::minimax::CATALOG.to_vec(),
+        ai_models_openai::CATALOG.to_vec(),
+        ai_models_compat::qwen::CATALOG.to_vec(),
+        ai_models_typesafe::CATALOG.to_vec(),
+        ai_models_compat::xai::CATALOG.to_vec(),
     ]
     .into_iter()
     .flatten()
     .collect()
 }
 
-fn non_judgment_provider_kinds() -> [ProviderKind; 9] {
+fn non_judgment_provider_kinds() -> [ProviderId; 9] {
     [
-        ProviderKind::Mock,
-        ProviderKind::OpenAi,
-        ProviderKind::Anthropic,
-        ProviderKind::DeepSeek,
-        ProviderKind::Google,
-        ProviderKind::Kimi,
-        ProviderKind::MiniMax,
-        ProviderKind::Qwen,
-        ProviderKind::Xai,
+        ai_interface::MOCK_PROVIDER,
+        ai_models_openai::PROVIDER_ID,
+        ai_models_anthropic::PROVIDER_ID,
+        ai_models_compat::deepseek::PROVIDER_ID,
+        ai_models_google::PROVIDER_ID,
+        ai_models_compat::kimi::PROVIDER_ID,
+        ai_models_compat::minimax::PROVIDER_ID,
+        ai_models_compat::qwen::PROVIDER_ID,
+        ai_models_compat::xai::PROVIDER_ID,
     ]
 }

@@ -8,7 +8,8 @@ JSON state with explicit credentials.
 ## Responsibilities
 
 - Implement TypeSafe judgment calls behind the shared `JudgmentModel` trait.
-- Own Jev catalog ids and judgment-only routing metadata.
+- Own the `typesafe` provider id, the Jev model specs, and judgment-only
+  routing metadata.
 - Map shared judgment requests and responses to the System One wire contract.
 - Apply shared request validation before transport and shared response
   postconditions after normalization.
@@ -18,7 +19,12 @@ JSON state with explicit credentials.
 ## What This Crate Does
 
 `TypeSafeJudgmentModel` accepts an injected `json-http` client, a provider
-model id, and either an explicit API key or auth hook. It sends one request to
+model id, and either an explicit API key or auth hook. The crate exports
+`PROVIDER_ID`, the Jev specs `JEV_LATEST` and `JEV_1_13_0`, the `CATALOG`
+slice, and `CUSTOM_DEFAULTS`. A spec gives its provider model id through
+`provider_model_id`. Each spec advertises only `ModelFeature::Judgment`. It
+lists no effort and has no default effort, because the adapter has no
+reasoning control. The adapter sends one request to
 `https://api.typesafe.ai/v1/systemone` for all supplied questions, using a
 60-second timeout by default. Endpoint and timeout overrides support alternate
 deployments and deterministic tests.
@@ -55,7 +61,7 @@ use json_http::ReqwestJsonHttpClient;
 fn build_model(api_key: String) -> DynJudgmentModel {
     Arc::new(TypeSafeJudgmentModel::new(
         Arc::new(ReqwestJsonHttpClient::new()),
-        JEV_LATEST,
+        JEV_LATEST.provider_model_id,
         api_key,
     ))
 }
@@ -73,7 +79,8 @@ fn urgent_request() -> JudgmentRequest {
 
 Callers retrieve the API key and inject it at the composition root. Use
 `TypeSafeJudgmentModel::with_auth` when credentials come from a reusable auth
-hook, and use `known_models()` to discover the supported Jev catalog entries.
+hook, and use `CATALOG` or `known_models()` to discover the supported Jev
+specs.
 
 ## Development
 
@@ -87,7 +94,8 @@ credentials or network access are required.
 
 ### Key Code
 
-- `src/catalog.rs` - known Jev ids and judgment-only routing metadata.
+- `src/catalog.rs` - the TypeSafe provider id, the Jev specs, `CATALOG`, and
+  custom defaults.
 - `src/typesafe/client.rs` - construction, local validation, and HTTP dispatch.
 - `src/typesafe/request.rs` - shared-to-TypeSafe request mapping.
 - `src/typesafe/response.rs` - answer, score-key, and usage normalization.
@@ -99,7 +107,9 @@ credentials or network access are required.
 ### Related Docs
 
 - [`../../docs/protocol/typesafe-judgment-provider.md`](../../docs/protocol/typesafe-judgment-provider.md)
+- [`../../docs/protocol/judgment-boundary.md`](../../docs/protocol/judgment-boundary.md)
 - [`../../docs/protocol/live-judgment-api-tests.md`](../../docs/protocol/live-judgment-api-tests.md)
+- [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
 - [`../json-http/README.md`](../json-http/README.md)

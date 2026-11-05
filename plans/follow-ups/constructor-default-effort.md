@@ -1,0 +1,34 @@
+# Model constructors silently enable reasoning
+
+- **Severity:** Medium. **Likelihood:** Common. **Effort:** Small. **Confidence:** High. **Harder later:** Yes.
+- **Kind:** Needs decision.
+- **Added:** 2026-11-02, from branch `calummoore/redesign-3-engine-specs`, item 24 (review finding 24).
+- **Location:** `crates/ai-models-openai/src/openai/mod.rs:60`, `crates/ai-models-google/src/google/mod.rs:64`, `crates/ai-models-compat/src/xai/client.rs:44`, `docs/protocol/model-capabilities.md` (section "Effort")
+- **Reason:** The recommended option adds a behaviour change to the list of changes that the user approved for the AI library redesign, so the user decides.
+
+- **Terms:**
+  - **Model spec:** a `ModelSpec` constant that holds the facts of one model, including its supported efforts and its default effort.
+  - **Effort:** the portable reasoning level of a request: disabled, low, medium, high, extra high, or max.
+  - **Default effort:** the effort that a request without an effort uses. Each model spec names one.
+- **Background:**
+  - Before the redesign, the OpenAI, Google, and xAI constructors that took a provider model id, such as `XaiModel::new(http, GROK_4_5, key)` or the OpenAI and Google examples, used the disabled thinking level. For these reasoning models, disabled sent no reasoning field, so the provider used its own default reasoning.
+  - The redesign gave each model one spec with a default effort. `docs/protocol/model-capabilities.md` says that a request without an effort uses the default effort of the spec. The same constructors now take a spec, so the same calls send the spec default.
+  - Probes on 2026-11-02 showed the changes: OpenAI now sends `reasoning.effort: "medium"` and drops a supplied `temperature` and `top_p`. Google now sends `generationConfig.thinkingConfig.thinkingLevel: "medium"`. xAI now sends `reasoning_effort: "high"` for Grok 4.5. The xAI README of the old code said that Grok 4.5 uses the provider default high effort when no field is sent.
+  - The redesign replaces the per-provider constructors with one registry that builds every adapter from a spec.
+  - On 2026-11-02, the models GPT-5.6 Sol, Terra, Luna, GPT-5.5, Gemini 3.6 Flash, and Grok 4.5 did not list the disabled effort, because leaving out the reasoning field does not turn their reasoning off.
+- **Problem:** Callers that never chose an effort now send an explicit reasoning effort, and OpenAI callers lose their sampling controls. The list of approved behaviour changes of the redesign does not name this change.
+- **Impact if no action:** Migrated calls can use a different reasoning budget and cost, and OpenAI calls change their sampling without a request from the caller.
+- **Root question:** How do callers that never chose an effort keep their old requests, or knowingly accept the spec default?
+- **Options:**
+  - **A.** Set the disabled effort explicitly in each migrated direct-model call and example, and keep the catalog defaults. This works only for models that list disabled, so it fails for the six models above. Effort: Small.
+  - **B.** Keep separate constructor paths: a provider model id keeps the old disabled default, and a spec uses its default effort. Add request regressions and migration notes. The registry later replaces these constructors, so the same question returns there. Effort: Medium.
+  - **C.** Require an explicit default effort when a caller builds a model. Update every caller and the protocol rule. It adds a required argument. Effort: Medium.
+  - **D.** Keep one spec default for every construction path, and name the change. Add an entry to the approved list of behaviour changes: OpenAI, Google, and xAI models built from a known spec send the spec's default effort. Add a migration note to the OpenAI, Google, and `ai-models-compat` READMEs: `ModelSpec::custom(PROVIDER_ID, id, &CUSTOM_DEFAULTS)` keeps the old request, and a disabled effort works where the spec lists it. Add one final-request regression for each of the three adapters. A custom spec drops catalog facts, such as the output ceiling. Effort: Small.
+- **Left out:**
+  - A disabled default in each affected catalog spec. It changes the catalog route of the test kit, the live tests, and routing, and the routing tiers describe each model at its default effort.
+  - A required effort on every request. It breaks the approved rule that a request without an effort uses the spec default.
+- **Wider fix:** None. The redesign plan already requires each milestone to name its behaviour changes. This review applied that rule.
+- **Previous examples:** Commit `1ff2886` moved the Anthropic `new` and `with_auth` constructors to the catalog thinking level for known ids.
+- **Related:** `docs/protocol/provider-call-controls.md` must not bring back the sentence "Empty controls always preserve the adapter's prior behavior" unless the answer keeps the old default.
+- **Recommendation:** D. It follows the approved spec-default rule, settles the question once for the constructors and the registry, and costs the least. B is the fallback, but it protects the constructors only until the registry replaces them.
+- **Action:** ask the user, because D extends the list of behaviour changes that the user approved.

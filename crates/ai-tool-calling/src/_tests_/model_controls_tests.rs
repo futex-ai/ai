@@ -17,6 +17,7 @@ use super::support::runtime;
 async fn active_turn_forwards_controls_to_every_model_step() {
     let controls = ModelCallControls {
         generation: ModelGenerationControls {
+            effort: None,
             temperature: Some(0.25),
             top_p: Some(0.8),
             max_output_tokens: Some(321),

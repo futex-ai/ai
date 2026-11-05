@@ -48,20 +48,21 @@ scope.
 
 ## Routing Feature
 
-`ModelFeature::VideoInput` (config id `video_input`) advertises that a catalog
-model accepts video content parts. Callers that attach video parts should
+`ModelFeature::VideoInput` (config id `video_input`) advertises that a model
+spec accepts video content parts. Callers that attach video parts should
 route with `ModelRequirement::Feature(ModelFeature::VideoInput)` so fallback
 chains only contain video-capable models.
 
-Catalog models advertising `video_input`:
+Model specs advertising `video_input`:
 
-| Provider | Catalog ids |
+| Provider | Text ids |
 | --- | --- |
-| Google | `gemini-3.6-flash`, `gemini-3.6-flash-thinking-high`, `gemini-3.5-flash-lite` |
-| MiniMax | `MiniMax-M3`, `MiniMax-M3-thinking-disabled` |
+| Google | `google/gemini-3.6-flash`, `google/gemini-3.5-flash-lite` |
+| MiniMax | `minimax/MiniMax-M3` |
 
-`gemini-3.1-flash-image` is an image-generation model and does not accept
-video. MiniMax M2.7 models are text/tool models without vision or video.
+`google/gemini-3.1-flash-image` is an image-generation model and does not
+accept video. MiniMax M2.7 models are text/tool models without vision or
+video.
 
 ## Provider Mappings
 
@@ -90,7 +91,7 @@ MiniMax-M3 supports video input. Video parts map to the OpenAI-compatible
 { "type": "video_url", "video_url": { "url": "data:video/mp4;base64,<data>" } }
 ```
 
-Only the M3 catalog entries advertise `video_input`. M2.7 requests that carry
+Only the M3 spec advertises `video_input`. M2.7 requests that carry
 video parts still serialize the `video_url` part; MiniMax rejects them
 upstream because those models are not vision models. Deterministic wire tests
 cover the serialization; the implementation environment for this change had no
@@ -133,7 +134,7 @@ Unit tests are credential-free and cover:
 - typed rejection in Anthropic, OpenAI, xAI, Kimi, and Qwen mappers
 - DeepSeek's existing all-parts rejection covering video parts
 - identity-hash sensitivity to video parts in `ai-models-core`
-- catalog feature assertions for Google and MiniMax video models
+- spec feature assertions for Google and MiniMax video models
 
 Live credentialed coverage for video prompts is not part of this change; the
 chat live suite continues to send text-only probes. Extending the live suite

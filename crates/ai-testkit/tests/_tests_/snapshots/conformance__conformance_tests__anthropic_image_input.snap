@@ -1,6 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
-description: "Today's anthropic adapter result for image_input using claude-sonnet-5 synthetic recordings."
+description: "Today's anthropic adapter result for image_input using anthropic/claude-sonnet-5 synthetic recordings."
 expression: outcome
 ---
 {
@@ -10,8 +10,8 @@ expression: outcome
       "response": {
         "provider": "anthropic",
         "model_id": "claude-sonnet-5",
-        "catalog_model_id": "claude-sonnet-5",
-        "thinking_level": "high",
+        "catalog_model_id": "anthropic/claude-sonnet-5",
+        "effort": "high",
         "assistant_message": "Done",
         "tool_calls": [],
         "finish_reason": "Stop",

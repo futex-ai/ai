@@ -5,7 +5,8 @@
 ## Responsibilities
 
 - Implement the Anthropic model client behind `ai_interface::Model`
-- Export strongly typed known Anthropic model metadata for model routing
+- Export the Anthropic `PROVIDER_ID`, one `ModelSpec` constant for each known
+  model, the `CATALOG` slice, and the `CUSTOM_DEFAULTS` of unlisted models
 - Map shared model/tool DTOs to the Anthropic messages API
 - Consume Anthropic Messages SSE events and reconstruct complete responses
 - Emit public assistant text and thinking deltas in provider order
@@ -13,7 +14,9 @@
 
 ## What This Crate Does
 
-`AnthropicModel` accepts a `json-http` client plus explicit auth input and handles:
+`AnthropicModel` accepts a `json-http` client, a `ModelSpec`, and explicit
+auth input. Each call runs the shared capability check of `ai-models-core`
+against the spec before transport. The adapter handles:
 
 - Anthropic messages request serialization with internal SSE accumulation
 - opt-in `complete_with_events` delivery for text and thinking deltas, with
@@ -26,21 +29,24 @@
 - with thinking enabled, `Required` and `Function` tool choice return
   `ModelError::UnsupportedControl` for `ModelControl::ToolChoice` before
   transport. `RequiredOrAuto` sends `auto` and retains tool definitions.
-  Without thinking, `RequiredOrAuto` sends `any`, as `Required` does.
-- output limits from `KnownModelSpec::max_output_tokens`: use the caller's
-  limit capped at the provider model's catalog maximum, or that maximum when
-  no limit is given. Claude Sonnet 5, Opus 5, Fable 5, Sonnet 4.6, and
-  Opus 4.7 use 128,000 tokens. Haiku 4.5 uses 64,000 tokens. Unknown provider
-  model ids use 64,000 tokens as both the default and the ceiling.
+  Without thinking, `RequiredOrAuto` sends `any`, as `Required` does. Every
+  Anthropic spec holds this rule as `ForcedToolChoice::OnlyWithoutThinking`.
+- output limits from `ModelSpec::max_output_tokens`: Anthropic specs require
+  an output limit, so every request sends the caller's limit capped at the
+  spec's maximum, or that maximum when no limit is given. Claude Sonnet 5,
+  Opus 5, Fable 5, Sonnet 4.6, and Opus 4.7 use 128,000 tokens. Haiku 4.5
+  uses 64,000 tokens. A custom spec from `CUSTOM_DEFAULTS` uses 64,000 tokens
+  as both the default and the ceiling.
 - Anthropic tool-use and tool-result content blocks
 - shared text and image parts as Anthropic text and base64 image blocks, with
   typed rejection of shared video parts before transport
 - Anthropic `stop_reason` normalization into `ai_interface::FinishReason`
 - terminal Anthropic stop reasons suppress parsed tool calls unless the
   normalized finish reason is `ToolCalls`
-- Anthropic adaptive thinking mapping from catalog `ThinkingLevel`
-- catalog-aware downgrade to the highest configured effort not above an
-  unsupported request, with the effective effort retained in responses
+- Anthropic adaptive thinking and explicit off mapping from the resolved
+  request effort
+- effort lowering to the highest effort that the spec lists at or below the
+  request, with the resolved effort and the text id retained in responses
 - validated structured-output requests via JSON-only final responses
 - provider response usage extraction into normalized input, output, cached
   input, and cache-creation token counts; cache creation is folded into regular
@@ -51,18 +57,32 @@
   failure mapping onto `ai_interface::ModelError`
 
 This crate does not load config, read environment variables, or resolve
-credentials on its own. It exports `known_models()` and typed catalog id
-constants for Claude Sonnet 5, Opus 5, and Fable 5. `CLAUDE_SONNET_5` is the
-first catalog entry and the balanced default used by workspace examples.
-The `new` and `with_auth` constructors resolve known catalog ids to their
-provider model id and thinking level, so adaptive-thinking models omit caller
-sampling controls as required by Anthropic. Unknown ids remain available as
-direct provider ids with thinking disabled; callers that need an explicit
-custom mapping can use `with_catalog_auth`.
-`CLAUDE_OPUS_5_THINKING_MAX` sends provider model id `claude-opus-5`, enables
-adaptive thinking, sets `output_config.effort` to `max`, and requests omitted
-thinking display. All existing Sonnet 4.6, Opus 4.7, and Haiku 4.5 entries
-remain available for pinned deployments.
+credentials on its own. It exports one `ModelSpec` constant for each catalog
+model: `CLAUDE_SONNET_5`, `CLAUDE_OPUS_5`, `CLAUDE_FABLE_5`,
+`CLAUDE_SONNET_4_6`, `CLAUDE_OPUS_4_7`, and `CLAUDE_HAIKU_4_5`. `CATALOG`
+lists them in that order, and `known_models()` returns a copy of it.
+`CLAUDE_SONNET_5` is the first catalog spec and the balanced default used by
+workspace examples. The Claude 5 specs list low, medium, and high efforts.
+Opus 5 also lists max. Sonnet 5 and Opus 5 also list disabled. Fable 5
+cannot turn thinking off, so it does not list disabled. The Claude 5 specs
+default to the high effort. The Sonnet 4.6, Opus 4.7, and Haiku 4.5 specs
+default to disabled thinking and remain available for pinned deployments. A
+disabled request sends `thinking: {"type": "disabled"}` and no
+`output_config`. The
+[control matrix](../../docs/protocol/model-capabilities.md#control-matrix)
+lists the efforts and limits of each spec.
+`new`, `with_auth`, and `with_catalog_auth` all take a spec. Every Anthropic
+spec fixes sampling while thinking is on, so adaptive-thinking requests omit
+caller sampling controls as Anthropic requires. Build a model that the
+catalog does not list from
+`ModelSpec::custom(PROVIDER_ID, model_id, &CUSTOM_DEFAULTS)`. Its default
+leaves the reasoning to the provider. A request without an effort then sends
+no `thinking` field and reports no effort. That request counts as thinking
+on, so it omits caller sampling controls and cannot force a tool. The custom
+defaults list every effort, but an unlisted model can reject one of them.
+A request with the max effort on `CLAUDE_OPUS_5` sends provider model id
+`claude-opus-5`, enables adaptive thinking, sets `output_config.effort` to
+`max`, and requests omitted thinking display.
 When a response has `thinking` or `redacted_thinking` blocks, the adapter keeps
 its full ordered content in `ProviderConversationItem::AnthropicAssistantMessage`.
 This includes text, tool uses, empty thinking text with its signature, and
@@ -78,13 +98,35 @@ replay context from logger copies while retaining it in conversation history.
 ```rust
 use std::sync::Arc;
 
-use ai_models_anthropic::{AnthropicModel, CLAUDE_SONNET_5, known_models};
+use ai_interface::{Effort, ModelCallControls, ModelSpec};
+use ai_models_anthropic::{
+    AnthropicModel, CLAUDE_OPUS_5, CLAUDE_SONNET_5, CUSTOM_DEFAULTS, PROVIDER_ID, known_models,
+};
 use json_http::ReqwestJsonHttpClient;
 
 fn build_model() -> AnthropicModel {
     AnthropicModel::new(
         Arc::new(ReqwestJsonHttpClient::new()),
         CLAUDE_SONNET_5,
+        "anthropic-demo",
+    )
+}
+
+fn build_max_effort_model() -> (AnthropicModel, ModelCallControls) {
+    let model = AnthropicModel::new(
+        Arc::new(ReqwestJsonHttpClient::new()),
+        CLAUDE_OPUS_5,
+        "anthropic-demo",
+    );
+    let mut controls = ModelCallControls::default();
+    controls.generation.effort = Some(Effort::Max);
+    (model, controls)
+}
+
+fn build_unlisted_model() -> AnthropicModel {
+    AnthropicModel::new(
+        Arc::new(ReqwestJsonHttpClient::new()),
+        ModelSpec::custom(PROVIDER_ID, "claude-preview", &CUSTOM_DEFAULTS),
         "anthropic-demo",
     )
 }
@@ -104,8 +146,10 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 ### Key Code
 
 - `src/anthropic/mod.rs` - `Model` implementation and request dispatch
-- `src/catalog.rs` - known Anthropic model ids and routing metadata
-- `src/anthropic/request.rs` - Anthropic request and control mapping
+- `src/catalog.rs` - Anthropic provider id, model spec constants, `CATALOG`,
+  and custom defaults
+- `src/anthropic/request.rs` - maps the resolved controls and the effort to
+  the Messages request
 - `src/anthropic/request_types.rs` - typed Messages request bodies
 - `src/anthropic/response.rs` - Anthropic response parsing
 - `src/anthropic/stream/` - public delta emission, terminal accumulation, and
@@ -113,6 +157,7 @@ cargo clippy -p ai-models-anthropic --all-targets --all-features -- -D warnings
 
 ### Related Docs
 
+- [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)

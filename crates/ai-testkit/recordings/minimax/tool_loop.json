@@ -1,6 +1,7 @@
 {
   "source": "synthetic",
-  "catalog_model_id": "MiniMax-M3",
+  "catalog_model_id": "minimax/MiniMax-M3",
+  "effort": "medium",
   "exchanges": [
     {
       "request": {

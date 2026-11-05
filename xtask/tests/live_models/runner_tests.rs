@@ -3,11 +3,11 @@
 use std::{env, sync::Arc, time::Duration};
 
 use ai_interface::{
-    ConversationMessage, DynModel, FinishReason, ModelCallControls, ModelCompletionEvent,
-    ModelCompletionMode, ModelExecutionControls, ModelGenerationControls, ModelResponse,
+    ConversationMessage, DynModel, Effort, ModelCallControls, ModelCompletionEvent,
+    ModelCompletionMode, ModelExecutionControls, ModelGenerationControls, ModelResponse, ModelSpec,
     ModelToolChoice, NoopLogger,
 };
-use ai_models_core::{KnownModelSpec, RetryingModel};
+use ai_models_core::RetryingModel;
 use ai_tool_calling::{
     InMemoryToolOutputStore, ModelResponseCheckpoint, NoopTurnCheckpoint, StepOutcome,
     ToolCallingRuntime, ToolOutputPolicy,
@@ -17,11 +17,12 @@ use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use super::{
     event_tests::{completion_event_failures, observing_model},
     provider_tests::{CompletionEventExpectation, LiveProvider},
+    validation_tests::validate_response,
 };
 
 const API_KEY_ENV: &str = "LIVE_MODEL_API_KEY";
-const EXPECTED_TEXT: &str = "LIVE_MODEL_API_OK";
-const MARKER_MISS_FAILURE: &str = "assistant response did not contain the probe marker";
+pub(super) const EXPECTED_TEXT: &str = "LIVE_MODEL_API_OK";
+pub(super) const MARKER_MISS_FAILURE: &str = "assistant response did not contain the probe marker";
 const EVENT_PARITY_FAILURE: &str = "assistant events did not have terminal parity";
 pub(super) const MODEL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
@@ -35,15 +36,20 @@ async fn run_catalog(provider: LiveProvider) {
 
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
     let auth = provider.auth(api_key);
-    let catalog = provider.chat_catalog();
+    let catalog = provider.chat_probes();
     assert!(
         !catalog.is_empty(),
         "{provider:?} catalog must not be empty"
     );
 
     let mut failures = Vec::new();
-    for spec in &catalog {
-        println!("checking {}/{}", provider.kind(), spec.id);
+    for probe in &catalog {
+        let spec = &probe.spec;
+        println!(
+            "checking {} at {}",
+            spec.text_id(),
+            probe.effort.map_or("provider default", Effort::as_str)
+        );
         let model: DynModel = Arc::new(RetryingModel::with_standard_transient_retry(
             provider.build(client.clone(), auth.clone(), spec),
         ));
@@ -51,6 +57,7 @@ async fn run_catalog(provider: LiveProvider) {
             run_probe_with_marker_retry(
                 provider,
                 spec,
+                probe.effort,
                 model,
                 ModelCompletionMode::PreferDeferred,
                 provider.preferred_mode_event_expectation(),
@@ -69,18 +76,20 @@ async fn run_catalog(provider: LiveProvider) {
 
 async fn run_synchronous_stream_probe(provider: LiveProvider) {
     let api_key = live_api_key();
-    let spec = provider
-        .chat_catalog()
+    let probe = provider
+        .chat_probes()
         .into_iter()
         .next()
         .expect("live provider chat catalog must not be empty");
+    let spec = &probe.spec;
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
     let model: DynModel = Arc::new(RetryingModel::with_standard_transient_retry(
-        provider.build(client, provider.auth(api_key), &spec),
+        provider.build(client, provider.auth(api_key), spec),
     ));
     let failures = run_probe_with_marker_retry(
         provider,
-        &spec,
+        spec,
+        probe.effort,
         model,
         ModelCompletionMode::Synchronous,
         provider.synchronous_event_expectation(),
@@ -95,31 +104,35 @@ async fn run_synchronous_stream_probe(provider: LiveProvider) {
 
 pub(super) async fn run_probe_with_marker_retry(
     provider: LiveProvider,
-    spec: &KnownModelSpec,
+    spec: &ModelSpec,
+    effort: Option<Effort>,
     model: DynModel,
     completion_mode: ModelCompletionMode,
     event_expectation: CompletionEventExpectation,
 ) -> Vec<String> {
     let mut retry_available = true;
     loop {
-        let completion = match complete_through_runtime(model.clone(), completion_mode).await {
-            Ok(completion) => completion,
-            Err(error) => return vec![format!("{}: request failed: {error}", spec.id)],
-        };
+        let completion =
+            match complete_through_runtime(model.clone(), completion_mode, effort).await {
+                Ok(completion) => completion,
+                Err(error) => return vec![format!("{}: request failed: {error}", spec.text_id())],
+            };
         let mut response_failures = Vec::new();
-        validate_response(provider, spec, &completion.response, &mut response_failures);
+        validate_response(
+            provider,
+            spec,
+            effort,
+            &completion.response,
+            &mut response_failures,
+        );
         let event_failures = completion_event_failures(
-            spec.id,
+            &spec.text_id(),
             event_expectation,
             &completion.response.assistant_message,
             &completion.events,
         );
         if retry_available && should_retry_marker_miss(&response_failures, &event_failures) {
-            println!(
-                "retrying {}/{} after a probe-marker miss",
-                provider.kind(),
-                spec.id
-            );
+            println!("retrying {} after a probe-marker miss", spec.text_id());
             retry_available = false;
             continue;
         }
@@ -150,6 +163,7 @@ fn has_failure_message(failure: &str, expected: &str) -> bool {
 pub(super) async fn complete_through_runtime(
     model: DynModel,
     completion_mode: ModelCompletionMode,
+    effort: Option<Effort>,
 ) -> Result<ObservedCompletion, String> {
     let (model, event_log) = observing_model(model);
     let runtime = ToolCallingRuntime::new(
@@ -168,7 +182,7 @@ pub(super) async fn complete_through_runtime(
             ConversationMessage::user(format!("Reply with {EXPECTED_TEXT}.")),
             Some(1),
         )
-        .with_controls(probe_controls(completion_mode));
+        .with_controls(probe_controls(completion_mode, effort));
     let mut turn_checkpoint = NoopTurnCheckpoint;
     let mut response_checkpoint = ResponseCapture::default();
     let outcome = turn
@@ -192,9 +206,13 @@ pub(super) struct ObservedCompletion {
     pub(super) events: Vec<ModelCompletionEvent>,
 }
 
-pub(super) fn probe_controls(completion_mode: ModelCompletionMode) -> ModelCallControls {
+pub(super) fn probe_controls(
+    completion_mode: ModelCompletionMode,
+    effort: Option<Effort>,
+) -> ModelCallControls {
     ModelCallControls {
         generation: ModelGenerationControls {
+            effort,
             tool_choice: Some(ModelToolChoice::None),
             ..Default::default()
         },
@@ -225,57 +243,4 @@ fn live_api_key() -> String {
         "{API_KEY_ENV} must not be empty"
     );
     api_key
-}
-
-fn validate_response(
-    provider: LiveProvider,
-    spec: &KnownModelSpec,
-    response: &ModelResponse,
-    failures: &mut Vec<String>,
-) {
-    let expected_provider = provider.kind().as_str();
-    if response.provider != expected_provider {
-        failures.push(format!(
-            "{}: provider was `{}`, expected `{expected_provider}`",
-            spec.id, response.provider
-        ));
-    }
-    if response.model_id != spec.provider_model_id {
-        failures.push(format!(
-            "{}: provider model was `{}`, expected `{}`",
-            spec.id, response.model_id, spec.provider_model_id
-        ));
-    }
-    if response.catalog_model_id.as_deref() != Some(spec.id) {
-        failures.push(format!(
-            "{}: catalog model was {:?}",
-            spec.id, response.catalog_model_id
-        ));
-    }
-    if response.thinking_level.as_deref() != Some(spec.thinking_level.as_str()) {
-        failures.push(format!(
-            "{}: thinking level was {:?}, expected `{}`",
-            spec.id,
-            response.thinking_level,
-            spec.thinking_level.as_str()
-        ));
-    }
-    if !matches!(response.finish_reason, FinishReason::Stop) {
-        failures.push(format!(
-            "{}: finish reason was {:?}",
-            spec.id, response.finish_reason
-        ));
-    }
-    if !response.assistant_message.contains(EXPECTED_TEXT) {
-        failures.push(format!("{}: {MARKER_MISS_FAILURE}", spec.id));
-    }
-    if !response.tool_calls.is_empty() {
-        failures.push(format!(
-            "{}: response unexpectedly requested tools",
-            spec.id
-        ));
-    }
-    if response.usage.total_tokens == 0 {
-        failures.push(format!("{}: provider reported zero total tokens", spec.id));
-    }
 }

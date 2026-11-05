@@ -8,7 +8,8 @@ use serde_json::Value;
 pub(super) struct AnthropicRequest {
     pub(super) stream: bool,
     pub(super) model: String,
-    pub(super) max_tokens: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) system: Option<String>,
     pub(super) messages: Vec<AnthropicMessage>,
@@ -78,7 +79,8 @@ pub(super) struct AnthropicTool {
 pub(super) struct AnthropicThinking {
     #[serde(rename = "type")]
     pub(super) kind: String,
-    pub(super) display: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) display: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

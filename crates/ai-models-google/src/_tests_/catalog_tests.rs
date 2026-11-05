@@ -1,17 +1,25 @@
 //! Google catalog tests.
 
-use ai_models_core::{ModelFeature, ProviderKind, ThinkingLevel};
+use ai_interface::{Effort, ModelFeature, ProviderId};
+use serde_json::json;
 
 use super::{
-    GEMINI_3_1_FLASH_IMAGE, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH,
-    GEMINI_3_6_FLASH_THINKING_HIGH, known_models,
+    GEMINI_3_1_FLASH_IMAGE, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH, PROVIDER_ID, known_models,
 };
 
 #[test]
 fn gemini_3_6_flash_is_the_first_catalog_model() {
+    assert_eq!(PROVIDER_ID.as_str(), "google");
+    assert_eq!(PROVIDER_ID.to_string(), "google");
+    assert_eq!(serde_json::to_value(PROVIDER_ID).unwrap(), json!("google"));
+    assert_eq!(
+        serde_json::from_value::<ProviderId>(json!("google")).unwrap(),
+        PROVIDER_ID
+    );
+
     let models = known_models();
 
-    assert_eq!(models.first().map(|model| model.id), Some(GEMINI_3_6_FLASH));
+    assert_eq!(models.first(), Some(&GEMINI_3_6_FLASH));
 }
 
 #[test]
@@ -37,11 +45,11 @@ fn gemini_3_1_flash_image_is_routable_for_image_generation() {
     let models = known_models();
     let model = models
         .iter()
-        .find(|model| model.id == GEMINI_3_1_FLASH_IMAGE)
+        .find(|model| model.provider_model_id == GEMINI_3_1_FLASH_IMAGE.provider_model_id)
         .expect("Gemini image model should exist");
 
-    assert_eq!(model.provider, ProviderKind::Google);
-    assert_eq!(model.provider_model_id, GEMINI_3_1_FLASH_IMAGE);
+    assert_eq!(model.provider, PROVIDER_ID);
+    assert_eq!(model.provider_model_id, "gemini-3.1-flash-image");
     assert_eq!(model.context_window_tokens, 131_072);
     assert!(model.has_feature(ModelFeature::ImageGeneration));
     assert!(model.has_feature(ModelFeature::Vision));
@@ -53,22 +61,22 @@ fn gemini_3_1_flash_image_is_routable_for_image_generation() {
 fn latest_gemini_models_have_current_metadata() {
     let models = known_models();
 
-    for model_id in [GEMINI_3_6_FLASH, GEMINI_3_5_FLASH_LITE] {
+    for spec in [GEMINI_3_6_FLASH, GEMINI_3_5_FLASH_LITE] {
         let model = models
             .iter()
-            .find(|model| model.id == model_id)
+            .find(|model| model.provider_model_id == spec.provider_model_id)
             .expect("latest Gemini model should exist");
-        assert_eq!(model.provider, ProviderKind::Google);
+        assert_eq!(model.provider, PROVIDER_ID);
         assert_eq!(model.context_window_tokens, 1_048_576);
         assert!(model.has_feature(ModelFeature::Reasoning));
         assert!(model.has_feature(ModelFeature::Vision));
         assert!(model.has_feature(ModelFeature::VideoInput));
     }
 
-    let high = models
+    let flash = models
         .iter()
-        .find(|model| model.id == GEMINI_3_6_FLASH_THINKING_HIGH)
-        .expect("Gemini 3.6 high-thinking model should exist");
-    assert_eq!(high.provider_model_id, GEMINI_3_6_FLASH);
-    assert_eq!(high.thinking_level, ThinkingLevel::High);
+        .find(|model| model.provider_model_id == GEMINI_3_6_FLASH.provider_model_id)
+        .expect("Gemini 3.6 model should exist");
+    assert_eq!(flash.provider_model_id, "gemini-3.6-flash");
+    assert!(flash.efforts.contains(Effort::High));
 }

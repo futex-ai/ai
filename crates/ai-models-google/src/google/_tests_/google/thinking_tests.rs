@@ -2,100 +2,114 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use ai_interface::Model;
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, Model};
 use json_http::{JsonHttpResponse, StaticHeaderAuth};
 use serde_json::json;
 
-use crate::{GEMINI_3_6_FLASH, GEMINI_3_6_FLASH_THINKING_HIGH};
+use crate::{GEMINI_2_5_PRO, GEMINI_3_6_FLASH};
 
-use super::{GoogleModel, recording_http_client, simple_request};
+use super::{GoogleModel, recording_http_client, simple_request, stream_support::custom_spec};
 
 #[tokio::test]
 async fn maps_gemini_2_5_thinking_to_token_budget() {
-    let (http_client, requests) = recording_http_client(google_thinking_response());
-    let model = GoogleModel::with_catalog_auth(
-        http_client,
-        "gemini-2.5-pro-thinking-max",
-        "gemini-2.5-pro",
-        ThinkingLevel::Max,
-        google_auth(),
-    );
+    for (effort, budget) in [
+        (Effort::Low, 1024),
+        (Effort::Medium, 4096),
+        (Effort::High, 8192),
+        (Effort::ExtraHigh, 16_384),
+        (Effort::Max, 32_768),
+    ] {
+        let (http_client, requests) = recording_http_client(google_thinking_response());
+        let model =
+            GoogleModel::with_catalog_auth(http_client, custom_spec(GEMINI_2_5_PRO), google_auth());
 
-    let response = model
-        .complete(&simple_request())
-        .await
-        .expect("Google thinking response should parse");
+        let mut request = simple_request();
+        request.controls.generation.effort = Some(effort);
+        let response = model
+            .complete(&request)
+            .await
+            .expect("Google thinking response should parse");
 
-    let requests = requests
-        .lock()
-        .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
-    assert_eq!(
-        body["generationConfig"]["thinkingConfig"]["thinkingBudget"],
-        32768
-    );
-    assert!(
-        body["generationConfig"]["thinkingConfig"]
-            .get("thinkingLevel")
-            .is_none()
-    );
-    assert_eq!(
-        response.catalog_model_id.as_deref(),
-        Some("gemini-2.5-pro-thinking-max")
-    );
-    assert_thinking_response(&response, "max", "gemini-2.5-pro");
+        let requests = requests
+            .lock()
+            .expect("requests lock should not be poisoned");
+        let body = requests[0].body.as_ref().expect("body present");
+        assert_eq!(
+            body["generationConfig"]["thinkingConfig"]["thinkingBudget"],
+            budget
+        );
+        assert!(
+            body["generationConfig"]["thinkingConfig"]
+                .get("thinkingLevel")
+                .is_none()
+        );
+        assert_eq!(
+            response.catalog_model_id.as_deref(),
+            Some("google/gemini-2.5-pro")
+        );
+        assert_thinking_response(&response, effort.as_str(), "gemini-2.5-pro");
+    }
 }
 
 #[tokio::test]
 async fn maps_gemini_3_thinking_to_named_level() {
-    let (http_client, requests) = recording_http_client(google_thinking_response());
-    let model = GoogleModel::with_catalog_auth(
-        http_client,
-        GEMINI_3_6_FLASH_THINKING_HIGH,
-        GEMINI_3_6_FLASH,
-        ThinkingLevel::High,
-        google_auth(),
-    );
+    for (spec, effort, native) in [
+        (GEMINI_3_6_FLASH, Effort::High, "high"),
+        (custom_spec("gemini-3-custom"), Effort::Low, "low"),
+        (custom_spec("gemini-3-custom"), Effort::Medium, "medium"),
+        (custom_spec("gemini-3-custom"), Effort::High, "high"),
+        (custom_spec("gemini-3-custom"), Effort::ExtraHigh, "high"),
+        (custom_spec("gemini-3-custom"), Effort::Max, "high"),
+        (custom_spec("gemini-3.6-flash"), Effort::ExtraHigh, "high"),
+        (custom_spec("gemini-3.6-flash"), Effort::Max, "high"),
+        (
+            custom_spec("gemini-3.5-flash-lite"),
+            Effort::ExtraHigh,
+            "high",
+        ),
+        (custom_spec("gemini-3.5-flash-lite"), Effort::Max, "high"),
+    ] {
+        let (http_client, requests) = recording_http_client(google_thinking_response());
+        let model_id = spec.provider_model_id.to_string();
+        let model = GoogleModel::with_catalog_auth(http_client, spec, google_auth());
 
-    let response = model
-        .complete(&simple_request())
-        .await
-        .expect("Gemini 3 thinking response should parse");
+        let mut request = simple_request();
+        request.controls.generation.effort = Some(effort);
+        let response = model
+            .complete(&request)
+            .await
+            .expect("Gemini 3 thinking response should parse");
 
-    let requests = requests
-        .lock()
-        .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
-    assert_eq!(
-        body["generationConfig"]["thinkingConfig"]["thinkingLevel"],
-        "high"
-    );
-    assert!(
-        body["generationConfig"]["thinkingConfig"]
-            .get("thinkingBudget")
-            .is_none()
-    );
-    assert_eq!(
-        response.catalog_model_id.as_deref(),
-        Some(GEMINI_3_6_FLASH_THINKING_HIGH)
-    );
-    assert_thinking_response(&response, "high", GEMINI_3_6_FLASH);
+        let requests = requests
+            .lock()
+            .expect("requests lock should not be poisoned");
+        let body = requests[0].body.as_ref().expect("body present");
+        assert_eq!(
+            body["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            native
+        );
+        assert!(
+            body["generationConfig"]["thinkingConfig"]
+                .get("thinkingBudget")
+                .is_none()
+        );
+        assert_eq!(
+            response.catalog_model_id.as_deref(),
+            Some(format!("google/{model_id}").as_str())
+        );
+        assert_thinking_response(&response, effort.as_str(), &model_id);
+    }
 }
 
 #[tokio::test]
 async fn downgrades_gemini_3_max_to_high() {
     let (http_client, requests) = recording_http_client(google_thinking_response());
-    let model = GoogleModel::with_catalog_auth(
-        http_client,
-        "custom-gemini-3.6-max",
-        GEMINI_3_6_FLASH,
-        ThinkingLevel::Max,
-        google_auth(),
-    );
+    let model = GoogleModel::with_catalog_auth(http_client, GEMINI_3_6_FLASH, google_auth());
 
+    let mut request = simple_request();
+    request.controls.generation.effort = Some(Effort::Max);
     let response = model
-        .complete(&simple_request())
+        .complete(&request)
         .await
         .expect("Gemini 3 downgraded response should parse");
 
@@ -107,7 +121,11 @@ async fn downgrades_gemini_3_max_to_high() {
         body["generationConfig"]["thinkingConfig"]["thinkingLevel"],
         "high"
     );
-    assert_thinking_response(&response, "high", GEMINI_3_6_FLASH);
+    assert_thinking_response(
+        &response,
+        "high",
+        GEMINI_3_6_FLASH.provider_model_id.as_ref(),
+    );
 }
 
 fn google_thinking_response() -> JsonHttpResponse<serde_json::Value> {
@@ -146,7 +164,7 @@ fn assert_thinking_response(
     thinking_level: &str,
     model_id: &str,
 ) {
-    assert_eq!(response.thinking_level.as_deref(), Some(thinking_level));
+    assert_eq!(response.effort().map(Effort::as_str), Some(thinking_level));
     assert_eq!(response.model_id, model_id);
     assert_eq!(response.assistant_message, "Done");
     assert!(

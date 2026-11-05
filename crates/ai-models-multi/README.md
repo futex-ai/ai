@@ -13,6 +13,14 @@
 
 `MultiModel` accepts a `Vec<Arc<dyn Model>>` and calls them in order. It falls through to the next model for any `ModelError`, including provider rejections, rate limits, context-window failures, transient failures after retry exhaustion, interrupted streams, and internal adapter errors. If every model fails, it returns the last model error.
 
+`MultiModel` passes each request to every lane unchanged, including its
+effort and other controls. A provider adapter resolves the controls against
+its own model spec, so lanes can resolve the same request to different
+efforts. The response of the lane that succeeds records its own resolved
+effort and text id. A lane whose spec cannot honor a control fails with
+`ModelError::UnsupportedControl` before transport, and `MultiModel` then
+falls through to the next lane, as it does for any other error.
+
 An interrupted stream means the first provider had already begun generating.
 Falling through can therefore bill both that partial generation and the next
 model attempt. Composition roots that cannot accept that cost should avoid a
@@ -60,5 +68,6 @@ cargo clippy -p ai-models-multi --all-targets --all-features -- -D warnings
 
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)
+- [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)

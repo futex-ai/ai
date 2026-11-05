@@ -9,13 +9,15 @@ use json_http::{JsonHttpClient, TransportBackedJsonHttpClient};
 use serde_json::json;
 use unimock::Unimock;
 
-use super::OpenAiModel;
 use crate::openai::stream_support::client_for_buffered_bodies;
+use crate::openai::stream_support::custom_spec;
+
+use super::OpenAiModel;
 
 #[tokio::test]
 async fn serializes_multimodal_messages_and_tool_history() {
     let (http_client, requests) = client_for_buffered_bodies(vec![openai_text_response("Done")]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "sk-openai");
 
     model
         .complete(&ModelRequest {
@@ -78,7 +80,7 @@ async fn rejects_video_content_parts_before_transport() {
     let http_client: Arc<dyn JsonHttpClient> = Arc::new(TransportBackedJsonHttpClient::new(
         Arc::new(Unimock::new(())),
     ));
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "sk-openai");
 
     let error = model
         .complete(&ModelRequest {

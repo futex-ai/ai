@@ -2,21 +2,20 @@
 
 use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
-use ai_interface::DynModel;
+use ai_interface::{DynModel, Effort, ModelCatalog, ModelFeature, ModelSpec};
 use ai_models_anthropic::AnthropicModel;
-use ai_models_core::{KnownModelSpec, ModelFeature};
-use ai_models_deepseek::DeepSeekModel;
+use ai_models_compat::deepseek::DeepSeekModel;
+use ai_models_compat::kimi::KimiModel;
+use ai_models_compat::minimax::MiniMaxModel;
+use ai_models_compat::qwen::QwenModel;
+use ai_models_compat::xai::XaiModel;
 use ai_models_google::GoogleModel;
-use ai_models_kimi::KimiModel;
-use ai_models_minimax::MiniMaxModel;
 use ai_models_openai::OpenAiModel;
-use ai_models_qwen::QwenModel;
-use ai_models_xai::XaiModel;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::{Error, ErrorResultExt, Result},
+    error::{Error, Result},
     scenario::Scenario,
 };
 
@@ -70,16 +69,16 @@ impl Provider {
     }
 
     /// Chat-only catalog. Image, video, and judgment adapters are excluded.
-    pub fn catalog(self) -> Vec<KnownModelSpec> {
+    pub fn catalog(self) -> Vec<ModelSpec> {
         let catalog = match self {
-            Self::Anthropic => ai_models_anthropic::known_models(),
-            Self::Openai => ai_models_openai::known_models(),
-            Self::Google => ai_models_google::known_models(),
-            Self::Deepseek => ai_models_deepseek::known_models(),
-            Self::Kimi => ai_models_kimi::known_models(),
-            Self::Qwen => ai_models_qwen::known_models(),
-            Self::Minimax => ai_models_minimax::known_models(),
-            Self::Xai => ai_models_xai::known_models(),
+            Self::Anthropic => ai_models_anthropic::CATALOG.to_vec(),
+            Self::Openai => ai_models_openai::CATALOG.to_vec(),
+            Self::Google => ai_models_google::CATALOG.to_vec(),
+            Self::Deepseek => ai_models_compat::deepseek::CATALOG.to_vec(),
+            Self::Kimi => ai_models_compat::kimi::CATALOG.to_vec(),
+            Self::Qwen => ai_models_compat::qwen::CATALOG.to_vec(),
+            Self::Minimax => ai_models_compat::minimax::CATALOG.to_vec(),
+            Self::Xai => ai_models_compat::xai::CATALOG.to_vec(),
         };
         catalog
             .into_iter()
@@ -96,12 +95,12 @@ impl Provider {
     }
 
     /// Selects the first chat entry, preferring enabled thinking for a tool loop.
-    pub fn model(self, scenario: Scenario) -> Result<KnownModelSpec> {
+    pub fn model(self, scenario: Scenario) -> Result<ModelSpec> {
         let catalog = self.catalog();
         let model = if scenario == Scenario::ToolLoop {
             catalog
                 .iter()
-                .find(|model| model.thinking_level.is_enabled())
+                .find(|model| model.default_effort.is_none_or(Effort::is_enabled))
                 .or_else(|| catalog.first())
         } else {
             catalog.first()
@@ -144,7 +143,7 @@ impl FromStr for Provider {
 
 /// Injectable adapter factory for replay and live recording.
 pub trait ModelFactory: Send + Sync {
-    /// Builds an adapter from a stored catalog id and an injected client.
+    /// Builds an adapter from a stored provider/model text id and an injected client.
     fn build(
         &self,
         provider: Provider,
@@ -165,75 +164,19 @@ impl ModelFactory for ProviderModelFactory {
         client: DynJsonHttpClient,
         auth: DynJsonHttpAuth,
     ) -> Result<DynModel> {
-        let Some(spec) = provider.catalog().into_iter().find(|model| model.id == id) else {
+        let catalog = ModelCatalog::new().with_models(provider.catalog());
+        let Some(spec) = catalog.find(id).cloned() else {
             return Err(Error::UnknownModel { id: id.to_owned() });
         };
         let model: DynModel = match provider {
-            Provider::Anthropic => Arc::new(AnthropicModel::with_catalog_auth(
-                client,
-                spec.id,
-                spec.provider_model_id,
-                spec.thinking_level,
-                auth,
-            )),
-            Provider::Openai => Arc::new(OpenAiModel::with_catalog_auth(
-                client,
-                spec.id,
-                spec.provider_model_id,
-                spec.thinking_level,
-                auth,
-            )),
-            Provider::Google => Arc::new(GoogleModel::with_catalog_auth(
-                client,
-                spec.id,
-                spec.provider_model_id,
-                spec.thinking_level,
-                auth,
-            )),
-            Provider::Deepseek => Arc::new(
-                DeepSeekModel::with_catalog_auth(
-                    client,
-                    spec.id,
-                    spec.provider_model_id,
-                    spec.thinking_level,
-                    auth,
-                )
-                .context("construct DeepSeek adapter")?,
-            ),
-            Provider::Kimi => Arc::new(
-                KimiModel::with_catalog_auth(
-                    client,
-                    spec.id,
-                    spec.provider_model_id,
-                    spec.thinking_level,
-                    auth,
-                )
-                .context("construct Kimi adapter")?,
-            ),
-            Provider::Qwen => Arc::new(
-                QwenModel::with_catalog_auth(
-                    client,
-                    spec.id,
-                    spec.provider_model_id,
-                    spec.thinking_level,
-                    auth,
-                )
-                .context("construct Qwen adapter")?,
-            ),
-            Provider::Minimax => Arc::new(MiniMaxModel::with_catalog_auth(
-                client,
-                spec.id,
-                spec.provider_model_id,
-                spec.thinking_level,
-                auth,
-            )),
-            Provider::Xai => Arc::new(XaiModel::with_catalog_auth(
-                client,
-                spec.id,
-                spec.provider_model_id,
-                spec.thinking_level,
-                auth,
-            )),
+            Provider::Anthropic => Arc::new(AnthropicModel::with_catalog_auth(client, spec, auth)),
+            Provider::Openai => Arc::new(OpenAiModel::with_catalog_auth(client, spec, auth)),
+            Provider::Google => Arc::new(GoogleModel::with_catalog_auth(client, spec, auth)),
+            Provider::Deepseek => Arc::new(DeepSeekModel::with_catalog_auth(client, spec, auth)),
+            Provider::Kimi => Arc::new(KimiModel::with_catalog_auth(client, spec, auth)),
+            Provider::Qwen => Arc::new(QwenModel::with_catalog_auth(client, spec, auth)),
+            Provider::Minimax => Arc::new(MiniMaxModel::with_catalog_auth(client, spec, auth)),
+            Provider::Xai => Arc::new(XaiModel::with_catalog_auth(client, spec, auth)),
         };
         Ok(model)
     }

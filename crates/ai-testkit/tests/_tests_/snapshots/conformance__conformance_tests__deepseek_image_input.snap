@@ -1,6 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
-description: "Today's deepseek adapter result for image_input using deepseek-v4-pro synthetic recordings."
+description: "Today's deepseek adapter result for image_input using deepseek/deepseek-v4-pro synthetic recordings."
 expression: outcome
 ---
 {

@@ -11,16 +11,12 @@ mod transcription;
 use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
-    Model, ModelCompletionEventSink, ModelControl, ModelError, ModelRequest, ModelResponse,
-    NoopModelCompletionEventSink, ProviderKind,
+    Model, ModelCompletionEventSink, ModelError, ModelRequest, ModelResponse, ModelSpec,
+    NoopModelCompletionEventSink,
 };
-use ai_models_core::{
-    ThinkingLevel, classify_json_http_stream_error, resolve_catalog_thinking_level,
-};
+use ai_models_core::{classify_json_http_stream_error, resolve_controls};
 use async_trait::async_trait;
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
-
-use crate::catalog::known_models;
 
 pub use image_generation::OpenAiImageGenerator;
 pub use transcription::OpenAiAudioTranscriber;
@@ -34,9 +30,7 @@ const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 /// OpenAI-backed `ai_interface::Model` implementation.
 pub struct OpenAiModel {
     http_client: DynJsonHttpClient,
-    catalog_model_id: String,
-    provider_model_id: String,
-    thinking_level: ThinkingLevel,
+    spec: ModelSpec,
     auth: DynJsonHttpAuth,
     endpoint: String,
 }
@@ -45,12 +39,12 @@ impl OpenAiModel {
     /// Builds an OpenAI model from an explicit API key.
     pub fn new(
         http_client: DynJsonHttpClient,
-        model_id: impl Into<String>,
+        spec: ModelSpec,
         api_key: impl Into<String>,
     ) -> Self {
         Self::with_auth(
             http_client,
-            model_id,
+            spec,
             Arc::new(StaticHeaderAuth::bearer_token(api_key)),
         )
     }
@@ -58,41 +52,21 @@ impl OpenAiModel {
     /// Builds an OpenAI model from an explicit auth hook.
     pub fn with_auth(
         http_client: DynJsonHttpClient,
-        model_id: impl Into<String>,
+        spec: ModelSpec,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        let model_id = model_id.into();
-        Self::with_catalog_auth(
-            http_client,
-            model_id.clone(),
-            model_id,
-            ThinkingLevel::Disabled,
-            auth,
-        )
+        Self::with_catalog_auth(http_client, spec, auth)
     }
 
     /// Builds an OpenAI model from catalog metadata and an explicit auth hook.
     pub fn with_catalog_auth(
         http_client: DynJsonHttpClient,
-        catalog_model_id: impl Into<String>,
-        provider_model_id: impl Into<String>,
-        thinking_level: ThinkingLevel,
+        spec: ModelSpec,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        let provider_model_id = provider_model_id.into();
-        let models = known_models();
-        let thinking_level = resolve_catalog_thinking_level(
-            &models,
-            ProviderKind::OpenAi,
-            &provider_model_id,
-            thinking_level,
-        )
-        .unwrap_or(thinking_level);
         Self {
             http_client,
-            catalog_model_id: catalog_model_id.into(),
-            provider_model_id,
-            thinking_level,
+            spec,
             auth,
             endpoint: OPENAI_RESPONSES_URL.to_owned(),
         }
@@ -105,37 +79,18 @@ impl OpenAiModel {
         request: &ModelRequest,
         event_sink: &dyn ModelCompletionEventSink,
     ) -> std::result::Result<ModelResponse, ModelError> {
-        if let Err(control) = request.controls.execution.resolve_deferred(false) {
-            return Err(ModelError::unsupported_control(
-                PROVIDER,
-                &self.provider_model_id,
-                control,
-            ));
-        }
-        if !request.controls.generation.stop_sequences.is_empty() {
-            return Err(ModelError::unsupported_control(
-                PROVIDER,
-                &self.provider_model_id,
-                ModelControl::StopSequences,
-            ));
-        }
+        let controls = resolve_controls(request, &self.spec)?;
         let response_schema = request.response_schema.as_ref();
         let builder = self
             .http_client
             .post(&self.endpoint)
             .auth(self.auth.clone())
-            .timeout(
-                request
-                    .controls
-                    .execution
-                    .total_timeout
-                    .unwrap_or(COMPLETION_TIMEOUT),
-            )
+            .timeout(controls.total_timeout.unwrap_or(COMPLETION_TIMEOUT))
             .idle_timeout(STREAM_IDLE_TIMEOUT);
         let builder = match builder.json(request::build_request(
-            &self.provider_model_id,
-            self.thinking_level,
+            &self.spec.provider_model_id,
             request,
+            &controls,
         )?) {
             Ok(builder) => builder,
             Err(source) => return Err(ModelError::internal(source)),
@@ -145,7 +100,7 @@ impl OpenAiModel {
             Err(source) => {
                 return Err(classify_json_http_stream_error(
                     PROVIDER,
-                    &self.provider_model_id,
+                    &self.spec.provider_model_id,
                     0,
                     source,
                 ));
@@ -153,9 +108,9 @@ impl OpenAiModel {
         };
         stream::complete(
             stream,
-            &self.catalog_model_id,
-            &self.provider_model_id,
-            self.thinking_level,
+            &self.spec.text_id(),
+            &self.spec.provider_model_id,
+            controls.effort,
             response_schema,
             event_sink,
         )
@@ -230,3 +185,11 @@ mod openai_event_tests;
 #[cfg(test)]
 #[path = "_tests_/stream_support.rs"]
 mod stream_support;
+
+#[cfg(test)]
+#[path = "_tests_/request_effort_tests.rs"]
+mod request_effort_tests;
+
+#[cfg(test)]
+#[path = "_tests_/provider_default_tests.rs"]
+mod provider_default_tests;

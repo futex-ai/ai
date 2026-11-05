@@ -1,7 +1,7 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
 assertion_line: 31
-description: "Today's google adapter result for tool_loop using gemini-3.6-flash synthetic recordings."
+description: "Today's google adapter result for tool_loop using google/gemini-3.6-flash synthetic recordings."
 expression: outcome
 ---
 {
@@ -11,8 +11,8 @@ expression: outcome
       "response": {
         "provider": "google",
         "model_id": "gemini-3.6-flash",
-        "catalog_model_id": "gemini-3.6-flash",
-        "thinking_level": "medium",
+        "catalog_model_id": "google/gemini-3.6-flash",
+        "effort": "medium",
         "assistant_message": "",
         "tool_calls": [
           {
@@ -56,8 +56,8 @@ expression: outcome
       "response": {
         "provider": "google",
         "model_id": "gemini-3.6-flash",
-        "catalog_model_id": "gemini-3.6-flash",
-        "thinking_level": "medium",
+        "catalog_model_id": "google/gemini-3.6-flash",
+        "effort": "medium",
         "assistant_message": "Done",
         "tool_calls": [],
         "finish_reason": "Stop",

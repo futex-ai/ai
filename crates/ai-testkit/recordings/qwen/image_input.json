@@ -1,5 +1,6 @@
 {
   "source": "synthetic",
-  "catalog_model_id": "qwen3.7-max",
+  "catalog_model_id": "qwen/qwen3.7-max",
+  "effort": "high",
   "exchanges": []
 }

@@ -1,5 +1,6 @@
 //! Workspace automation binary.
 
+mod capability_matrix;
 mod check;
 mod cli;
 mod command;
@@ -12,6 +13,7 @@ mod workspace;
 
 use clap::Parser;
 
+use crate::capability_matrix::{CapabilityMatrixGenerator, FileCapabilityMatrixGenerator};
 use crate::cli::{Cli, Command};
 use crate::error::Result;
 use crate::workspace::workspace_root;
@@ -30,6 +32,10 @@ fn run() -> Result<()> {
     match cli.command {
         Command::Check => check::run(&root),
         Command::Review => review::run(&root),
+        Command::CapabilityMatrix => {
+            let generator: &dyn CapabilityMatrixGenerator = &FileCapabilityMatrixGenerator;
+            generator.generate(&root)
+        }
         Command::RustFileLengthLint { all } => file_length::run(&root, all),
         Command::SmokeTest => smoke::runner::run(),
         Command::RecordStreams { provider } => record_streams::command::run(&root, provider),

@@ -5,13 +5,15 @@ use ai_interface::{
 };
 use serde_json::json;
 
-use super::OpenAiModel;
 use crate::openai::stream_support::client_for_buffered_bodies;
+use crate::openai::stream_support::custom_spec;
+
+use super::OpenAiModel;
 
 #[tokio::test]
 async fn builds_openai_tool_requests_and_parses_response() {
     let (http_client, requests) = client_for_buffered_bodies(vec![openai_tool_response()]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "sk-openai");
 
     let response = model
         .complete(&ModelRequest {
@@ -60,7 +62,7 @@ async fn builds_structured_output_requests_and_parses_response() {
     let (http_client, requests) = client_for_buffered_bodies(vec![openai_text_response(
         "{\"summary\":\"Done\",\"done\":true}",
     )]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "sk-openai");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "sk-openai");
 
     let response = model
         .complete(&ModelRequest {

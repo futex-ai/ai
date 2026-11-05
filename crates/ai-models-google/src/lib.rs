@@ -3,11 +3,11 @@
 #![warn(unreachable_pub)]
 
 mod catalog;
+mod effort_mapping;
 mod google;
 
 pub use catalog::{
-    GEMINI_2_5_FLASH, GEMINI_2_5_FLASH_LITE, GEMINI_2_5_PRO, GEMINI_2_5_PRO_THINKING_HIGH,
-    GEMINI_2_5_PRO_THINKING_MAX, GEMINI_3_1_FLASH_IMAGE, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH,
-    GEMINI_3_6_FLASH_THINKING_HIGH, known_models,
+    CATALOG, CUSTOM_DEFAULTS, GEMINI_2_5_FLASH, GEMINI_2_5_FLASH_LITE, GEMINI_2_5_PRO,
+    GEMINI_3_1_FLASH_IMAGE, GEMINI_3_5_FLASH_LITE, GEMINI_3_6_FLASH, PROVIDER_ID, known_models,
 };
 pub use google::{GoogleImageGenerator, GoogleModel, GoogleVideoGenerator};

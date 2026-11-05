@@ -2,14 +2,14 @@
 
 use serde_json::json;
 
-use super::{ThinkingLevel, parse_response};
+use super::{Effort, parse_response};
 
 #[test]
 fn parses_usage_token_details() {
     let response = parse_response(
         "gpt-5.5-thinking-medium",
         "gpt-5.5",
-        ThinkingLevel::Medium,
+        Some(Effort::Medium),
         json!({
             "status": "completed",
             "output": [{
@@ -41,7 +41,7 @@ fn missing_total_tokens_falls_back_to_normalized_usage_sum() {
     let response = parse_response(
         "gpt-5.5-thinking-medium",
         "gpt-5.5",
-        ThinkingLevel::Medium,
+        Some(Effort::Medium),
         json!({
             "status": "completed",
             "output": [{

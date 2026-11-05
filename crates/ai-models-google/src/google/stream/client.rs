@@ -1,19 +1,20 @@
 //! Google generate-content SSE loop and model-error classification.
 
 use ai_interface::{
-    ModelCompletionEvent, ModelCompletionEventSink, ModelError, ModelResponse, ModelResult,
+    Effort, ModelCompletionEvent, ModelCompletionEventSink, ModelError, ModelResponse, ModelResult,
     StructuredOutputSchema,
 };
 use ai_models_core::{
-    ThinkingLevel, classify_json_http_error, classify_json_http_stream_error, classify_stream_error,
+    classify_json_http_error, classify_json_http_stream_error, classify_stream_error,
 };
 use json_http::DynJsonHttpSseStream;
+
+use crate::google::response;
 
 use super::{
     accumulator::GoogleStreamAccumulator,
     types::{GoogleProviderError, GoogleStreamDelta, GoogleStreamError, GoogleStreamUpdate},
 };
-use crate::google::response;
 
 const PROVIDER: &str = "google";
 
@@ -21,7 +22,7 @@ pub(in crate::google) async fn complete(
     mut stream: DynJsonHttpSseStream,
     catalog_model_id: &str,
     provider_model_id: &str,
-    thinking_level: ThinkingLevel,
+    thinking_level: Option<Effort>,
     synthetic_tool_call_scope: &str,
     response_schema: Option<&StructuredOutputSchema>,
     event_sink: &dyn ModelCompletionEventSink,

@@ -1,7 +1,6 @@
 //! Tests for structured-output terminal finish handling.
 
-use ai_interface::{FinishReason, StructuredOutputSchema};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, FinishReason, StructuredOutputSchema};
 use serde_json::json;
 
 use super::response::parse_response;
@@ -11,7 +10,7 @@ fn structured_output_refusal_preserves_filtered_finish_reason() {
     let response = parse_response(
         "claude-sonnet-4-6",
         "claude-sonnet-4-6",
-        ThinkingLevel::Disabled,
+        Some(Effort::Disabled),
         json!({
             "stop_reason": "refusal",
             "content": [
@@ -32,7 +31,7 @@ fn structured_output_truncation_preserves_truncated_finish_reason() {
     let response = parse_response(
         "claude-sonnet-4-6",
         "claude-sonnet-4-6",
-        ThinkingLevel::Disabled,
+        Some(Effort::Disabled),
         json!({
             "stop_reason": "max_tokens",
             "content": [
@@ -53,7 +52,7 @@ fn terminal_response_with_tool_use_suppresses_tool_calls() {
     let response = parse_response(
         "claude-sonnet-4-6",
         "claude-sonnet-4-6",
-        ThinkingLevel::Disabled,
+        Some(Effort::Disabled),
         json!({
             "stop_reason": "max_tokens",
             "content": [{

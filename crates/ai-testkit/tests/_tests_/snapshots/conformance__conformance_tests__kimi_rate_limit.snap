@@ -1,6 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
-description: "Today's kimi adapter result for rate_limit using kimi-k3 synthetic recordings."
+description: "Today's kimi adapter result for rate_limit using kimi/kimi-k3 synthetic recordings."
 expression: outcome
 ---
 {

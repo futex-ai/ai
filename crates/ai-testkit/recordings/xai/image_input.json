@@ -1,6 +1,7 @@
 {
   "source": "synthetic",
-  "catalog_model_id": "grok-4.5",
+  "catalog_model_id": "xai/grok-4.5",
+  "effort": "high",
   "exchanges": [
     {
       "request": {

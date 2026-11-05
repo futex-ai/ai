@@ -5,6 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use ai_interface::ModelSpec;
 use json_http::{
     DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpSseEvent, JsonHttpSseStreamMock,
     JsonHttpTransportMock, TransportBackedJsonHttpClient,
@@ -12,8 +13,14 @@ use json_http::{
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
+use crate::{CUSTOM_DEFAULTS, PROVIDER_ID};
+
 pub(super) type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 pub(super) type StreamItem = json_http::Result<Option<JsonHttpSseEvent>>;
+
+pub(super) fn custom_spec(model_id: &'static str) -> ModelSpec {
+    ModelSpec::custom(PROVIDER_ID, model_id, &CUSTOM_DEFAULTS)
+}
 
 pub(super) fn recording_streaming_client(
     streams: Vec<Vec<StreamItem>>,

@@ -1,6 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
-description: "Today's anthropic adapter result for stream_cut using claude-sonnet-5 synthetic recordings."
+description: "Today's anthropic adapter result for stream_cut using anthropic/claude-sonnet-5 synthetic recordings."
 expression: outcome
 ---
 {

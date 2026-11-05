@@ -4,9 +4,10 @@ use std::collections::BTreeMap;
 
 use ai_interface::{
     ConversationContentPart, ConversationMessage, ConversationRole, GoogleAssistantPart,
-    GoogleFunctionCallContext, ModelRequest, ProviderConversationItem, ToolCall, ToolDefinition,
+    GoogleFunctionCallContext, ModelRequest, ModelResult, ProviderConversationItem, ToolCall,
+    ToolDefinition,
 };
-use ai_models_core::ThinkingLevel;
+use ai_models_core::ResolvedModelControls;
 
 use super::{
     request_types::{
@@ -21,9 +22,9 @@ use super::{
 pub(super) fn build_request(
     model_id: &str,
     request: &ModelRequest,
-    thinking_level: ThinkingLevel,
-) -> GoogleRequest {
-    GoogleRequest {
+    controls: &ResolvedModelControls,
+) -> ModelResult<GoogleRequest> {
+    Ok(GoogleRequest {
         system_instruction: request
             .nonblank_system_prompt()
             .map(|text| GoogleInstruction {
@@ -37,22 +38,21 @@ pub(super) fn build_request(
                 function_declarations: request.tools.iter().map(tool).collect(),
             }]
         },
-        generation_config: generation_config(model_id, request, thinking_level),
-        tool_config: tool_config(request.controls.generation.tool_choice.as_ref()),
-    }
+        generation_config: generation_config(model_id, request, controls)?,
+        tool_config: tool_config(controls.tool_choice.as_ref()),
+    })
 }
 
 fn generation_config(
     model_id: &str,
     request: &ModelRequest,
-    thinking_level: ThinkingLevel,
-) -> Option<GoogleGenerationConfig> {
+    controls: &ResolvedModelControls,
+) -> ModelResult<Option<GoogleGenerationConfig>> {
     let response_schema = request
         .response_schema
         .as_ref()
         .map(|response_schema| response_schema.schema.clone());
-    let thinking_config = thinking_config(model_id, thinking_level);
-    let controls = &request.controls.generation;
+    let thinking_config = thinking_config(model_id, controls.effort)?;
     if response_schema.is_none()
         && thinking_config.is_none()
         && controls.temperature.is_none()
@@ -60,9 +60,9 @@ fn generation_config(
         && controls.max_output_tokens.is_none()
         && controls.stop_sequences.is_empty()
     {
-        return None;
+        return Ok(None);
     }
-    Some(GoogleGenerationConfig {
+    Ok(Some(GoogleGenerationConfig {
         response_mime_type: response_schema
             .as_ref()
             .map(|_| "application/json".to_owned()),
@@ -72,7 +72,7 @@ fn generation_config(
         top_p: controls.top_p,
         max_output_tokens: controls.max_output_tokens,
         stop_sequences: controls.stop_sequences.clone(),
-    })
+    }))
 }
 
 fn google_contents(messages: &[ConversationMessage]) -> Vec<GoogleContent> {

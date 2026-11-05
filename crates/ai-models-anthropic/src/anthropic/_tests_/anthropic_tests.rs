@@ -9,8 +9,10 @@ use ai_interface::{
 use json_http::{JsonHttpClient, JsonHttpResponse};
 use serde_json::json;
 
-use super::AnthropicModel;
+use crate::CLAUDE_SONNET_4_6;
 use crate::anthropic::stream_support::{RecordedRequests, client_for_buffered_bodies};
+
+use super::AnthropicModel;
 
 #[tokio::test]
 async fn builds_anthropic_tool_requests_and_parses_response() {
@@ -35,7 +37,7 @@ async fn builds_anthropic_tool_requests_and_parses_response() {
             }
         }),
     });
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "anthropic-key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "anthropic-key");
 
     let response = model
         .complete(&ModelRequest {
@@ -113,7 +115,7 @@ async fn builds_anthropic_structured_output_requests_and_parses_response() {
             }
         }),
     });
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "anthropic-key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "anthropic-key");
 
     let response = model
         .complete(&ModelRequest {
@@ -185,7 +187,7 @@ async fn maps_anthropic_stop_reasons() {
             status: 200,
             body: anthropic_response_body(raw_reason, include_tool),
         });
-        let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "anthropic-key");
+        let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "anthropic-key");
 
         let response = model
             .complete(&simple_request())
@@ -210,7 +212,7 @@ async fn maps_missing_anthropic_stop_reason_to_other() {
             }
         }),
     });
-    let model = AnthropicModel::new(http_client, "claude-sonnet-4-6", "anthropic-key");
+    let model = AnthropicModel::new(http_client, CLAUDE_SONNET_4_6, "anthropic-key");
 
     let response = model
         .complete(&simple_request())

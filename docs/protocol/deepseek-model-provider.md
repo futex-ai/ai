@@ -35,13 +35,13 @@ require separate contracts rather than silent partial support.
 
 ## Ownership
 
-- `ai-interface` owns the stable `DeepSeek` provider identifier and typed
-  DeepSeek assistant replay context.
-- `ai-models-deepseek` owns DeepSeek catalog metadata, configuration
-  validation, authentication, request and response mapping, replay behavior,
-  and provider error translation.
-- `ai-models-core` owns shared HTTP classification, tool and structured-output
-  parsing, model metadata, and deterministic tool-call identity.
+- `ai-interface` owns the model spec types and typed DeepSeek assistant
+  replay context.
+- `ai-models-compat` owns the stable `deepseek` provider id, the DeepSeek
+  model specs and custom defaults, authentication, request and response
+  mapping, replay behavior, and provider error translation.
+- `ai-models-core` owns shared HTTP classification, the capability check,
+  tool and structured-output parsing, and deterministic tool-call identity.
 - `json-http` owns the injected HTTP client and authentication boundaries.
 - `ai-tool-calling` owns retention of provider context and removal of private
   replay state from logger copies.
@@ -63,39 +63,31 @@ Content-Type: application/json
 ```
 
 Requests set `stream: true` and `stream_options.include_usage: true`.
-`DeepSeekModel::new` and `with_auth` construct
-the default high-thinking `deepseek-v4-pro`; `with_catalog_auth` accepts the
-injected client and auth, catalog id, provider id, and `ThinkingLevel`, then
-validates the selection before returning a model.
+`DeepSeekModel::new` and `with_auth` construct the `deepseek-v4-pro` spec,
+whose default effort is high. `with_catalog_auth` accepts the injected
+client, a model spec, and auth.
 
 Each completion uses a 3,600-second overall deadline and a 120-second idle
 timeout. An explicit portable total timeout replaces the overall deadline.
 
-## Known Model Catalog
+## Known Model Specs
 
-Both provider models advertise a 1,000,000-token context window. Enabled
-variants advertise tool calling, structured output, long context, and
-reasoning. Disabled variants advertise the same features except reasoning.
-DeepSeek V4 does not advertise vision.
+The catalog lists one spec for each provider model. Both specs advertise
+tool calling, structured output, long context, and reasoning. DeepSeek V4
+does not advertise vision. The
+[control matrix](model-capabilities.md#control-matrix) gives the efforts,
+the default effort, the max output, and the context window of each spec.
 
-| Catalog id | Provider id | Intelligence | Speed | Cost | Thinking |
-| --- | --- | ---: | --- | --- | --- |
-| `deepseek-v4-pro` | `deepseek-v4-pro` | Ten | Medium | Low | High |
-| `deepseek-v4-pro-thinking-max` | `deepseek-v4-pro` | Ten | Slow | Low | Max |
-| `deepseek-v4-pro-thinking-disabled` | `deepseek-v4-pro` | Ten | Fast | Low | Disabled |
-| `deepseek-v4-flash` | `deepseek-v4-flash` | Nine | Fast | Low | High |
-| `deepseek-v4-flash-thinking-max` | `deepseek-v4-flash` | Nine | Medium | Low | Max |
-| `deepseek-v4-flash-thinking-disabled` | `deepseek-v4-flash` | Nine | VeryFast | Low | Disabled |
+| Text id | Constant | Intelligence | Speed | Cost |
+| --- | --- | ---: | --- | --- |
+| `deepseek/deepseek-v4-pro` | `DEEPSEEK_V4_PRO` | Ten | Medium | Low |
+| `deepseek/deepseek-v4-flash` | `DEEPSEEK_V4_FLASH` | Nine | Fast | Low |
 
-The crate exports `DEEPSEEK_V4_PRO`, `DEEPSEEK_V4_PRO_THINKING_MAX`,
-`DEEPSEEK_V4_PRO_THINKING_DISABLED`, `DEEPSEEK_V4_FLASH`,
-`DEEPSEEK_V4_FLASH_THINKING_MAX`,
-`DEEPSEEK_V4_FLASH_THINKING_DISABLED`, and `known_models()`.
-
-The cost tier is coarse routing metadata rather than a hard-coded billing
-schedule. Construction rejects unknown provider model ids. Unsupported
-normalized thinking levels downgrade to the highest catalog level that does
-not exceed the request.
+The routing tiers describe each model at its default high effort. The cost
+tier is coarse routing metadata rather than a hard-coded billing schedule.
+A model that the catalog does not list uses a
+[custom spec](model-capabilities.md#custom-specs) with the DeepSeek custom
+defaults.
 
 ## Request Mapping
 
@@ -114,30 +106,32 @@ provider error before authentication or transport is invoked. The adapter must
 not drop an image or video, use only its text fallback, or claim vision
 support.
 
-Portable output limits map to `max_tokens` and ordered stops map to `stop` in
-every thinking mode. With thinking disabled, temperature, top-p, and all
+Portable output limits map to `max_tokens` and ordered stops map to `stop` at
+every effort. With thinking disabled, temperature, top-p, and all
 portable tool choices map to native fields. With thinking enabled, sampling
 keeps provider defaults, `auto` uses omission plus `tools`, `none` omits tools,
 and strict required or named-function choice returns typed
 `UnsupportedControl`. `RequiredOrAuto` maps to native automatic semantics by
-retaining `tools` and omitting `tool_choice`.
+retaining `tools` and omitting `tool_choice`. The DeepSeek specs carry these
+rules as spec data, and the shared capability check applies them.
 A total timeout controls the overall SSE deadline, `PreferDeferred` falls back
 to synchronous, and `RequireDeferred` is unsupported.
 
 ## Thinking Controls
 
-Catalog thinking maps exactly:
+The resolved effort maps exactly:
 
-| `ThinkingLevel` | `thinking.type` | `reasoning_effort` |
+| Effort | `thinking.type` | `reasoning_effort` |
 | --- | --- | --- |
-| `Disabled` | `disabled` | omitted |
-| `High` | `enabled` | `high` |
-| `Max` | `enabled` | `max` |
+| Disabled | `disabled` | omitted |
+| High | `enabled` | `high` |
+| Max | `enabled` | `max` |
 
-`Low` and `Medium` downgrade to `Disabled`; `ExtraHigh` downgrades to `High`.
-The adapter performs this resolution locally rather than depending on provider
-coercion. Every response records the effective normalized thinking level
-separately from its catalog and provider model ids.
+The DeepSeek specs list these three efforts. The capability check lowers
+low and medium to disabled, and extra high to high. The adapter performs this
+resolution locally rather than depending on provider coercion. Every
+response records the resolved effort separately from its text id and
+provider model id.
 
 ## Preserved Assistant Context
 
@@ -229,8 +223,9 @@ Finish reasons map as follows:
 | missing or null | `FinishReason::Other("missing")` |
 
 Nullable visible content becomes an empty string. The response includes
-provider `deepseek`, provider and catalog ids, thinking level, visible content,
-calls, finish, optional structured output, private context, and usage.
+provider `deepseek`, the provider model id and text id, the resolved effort,
+visible content, calls, finish, optional structured output, private context,
+and usage.
 
 ## Usage
 
@@ -274,7 +269,7 @@ rather than a terminal response.
 
 Tests use `JsonHttpTransportMock` through
 `TransportBackedJsonHttpClient`; unit tests never make live provider calls.
-Coverage includes provider identity and catalog metadata; construction,
+Coverage includes provider identity and spec metadata; construction,
 endpoint, and auth; every message role and local multimodal rejection;
 thinking controls; parallel tools and raw replay; reasoning non-disclosure,
 redaction, serde, and hashing; JSON prompting and validation; finish and
@@ -282,10 +277,10 @@ response shapes; cache/reasoning usage; error classification; and
 credential-free smoke construction.
 
 The ignored workspace integration test `xtask/tests/live_models.rs` separately
-calls every DeepSeek catalog entry through the production adapter when an
-explicit `LIVE_MODEL_API_KEY` is supplied. GitHub Actions runs that billable
-suite for eligible pull requests and from the scheduled/manual `Live model
-APIs` workflow.
+calls each listed effort of every DeepSeek spec through the production adapter
+when an explicit `LIVE_MODEL_API_KEY` is supplied. GitHub Actions runs that
+billable suite for eligible pull requests and from the scheduled/manual
+`Live model APIs` workflow.
 
 Full formatting, Rust file-length lint, Clippy, workspace tests, smoke tests,
 and `cargo xtask check` must pass before commit and push. `cargo xtask review`

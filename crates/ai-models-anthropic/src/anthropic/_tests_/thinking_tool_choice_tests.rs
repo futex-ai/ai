@@ -3,14 +3,14 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, Model, ModelControl, ModelError, ModelRequest, ModelToolChoice,
+    ConversationMessage, Effort, Model, ModelControl, ModelError, ModelRequest, ModelToolChoice,
     ToolDefinition,
 };
 use json_http::TransportBackedJsonHttpClient;
 use serde_json::json;
 use unimock::Unimock;
 
-use crate::{AnthropicModel, CLAUDE_OPUS_5_THINKING_MAX};
+use crate::{AnthropicModel, CLAUDE_OPUS_5};
 
 use super::stream_support::client_for_buffered_bodies;
 
@@ -23,7 +23,7 @@ async fn thinking_tool_choice_rejects_strict_modes_before_transport() {
         let transport = Unimock::new(());
         let model = AnthropicModel::new(
             Arc::new(TransportBackedJsonHttpClient::new(Arc::new(transport))),
-            CLAUDE_OPUS_5_THINKING_MAX,
+            CLAUDE_OPUS_5,
             "key",
         );
         let result = model.complete(&request(choice)).await;
@@ -45,7 +45,7 @@ async fn thinking_tool_choice_required_or_auto_keeps_tools_and_sends_auto() {
     let (client, requests) = client_for_buffered_bodies(vec![json!({
         "content": [{"type": "text", "text": "Done"}], "stop_reason": "end_turn"
     })]);
-    let model = AnthropicModel::new(client, CLAUDE_OPUS_5_THINKING_MAX, "key");
+    let model = AnthropicModel::new(client, CLAUDE_OPUS_5, "key");
     model
         .complete(&request(ModelToolChoice::RequiredOrAuto))
         .await
@@ -71,5 +71,6 @@ fn request(choice: ModelToolChoice) -> ModelRequest {
         controls: Default::default(),
     };
     request.controls.generation.tool_choice = Some(choice);
+    request.controls.generation.effort = Some(Effort::Max);
     request
 }

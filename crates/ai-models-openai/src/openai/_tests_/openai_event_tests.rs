@@ -9,8 +9,10 @@ use ai_interface::{
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
-use super::OpenAiModel;
+use crate::openai::stream_support::custom_spec;
 use crate::openai::stream_support::{event, recording_streaming_client, terminal_event};
+
+use super::OpenAiModel;
 
 #[tokio::test]
 async fn emits_output_and_reasoning_deltas_in_provider_order_with_parity() {
@@ -40,7 +42,7 @@ async fn emits_output_and_reasoning_deltas_in_provider_order_with_parity() {
         terminal_event("response.completed", text_body("Hello")),
     ];
     let (http_client, _) = recording_streaming_client(vec![events]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "key");
     let recorded = Arc::new(Mutex::new(Vec::new()));
     let sink = recording_sink(recorded.clone());
 
@@ -75,7 +77,7 @@ async fn structured_completion_suppresses_output_deltas() {
         terminal_event("response.completed", text_body("{\"summary\":\"Done\"}")),
     ];
     let (http_client, _) = recording_streaming_client(vec![events]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "key");
     let sink = Unimock::new(());
     let mut request = simple_request();
     request.response_schema = Some(summary_schema());
@@ -98,7 +100,7 @@ async fn emits_partial_output_before_an_interruption() {
         Err(json_http::Error::transport("reset")),
     ];
     let (http_client, _) = recording_streaming_client(vec![events]);
-    let model = OpenAiModel::new(http_client, "gpt-5.5", "key");
+    let model = OpenAiModel::new(http_client, custom_spec("gpt-5.5"), "key");
     let recorded = Arc::new(Mutex::new(Vec::new()));
     let sink = recording_sink(recorded.clone());
 

@@ -4,10 +4,7 @@ use ai_interface::ModelError;
 use json_http::JsonHttpSseDecoder;
 use serde_json::json;
 
-use crate::{
-    ChatCompletionsStreamError, classify_json_http_error, classify_json_http_stream_error,
-    classify_stream_error,
-};
+use crate::{classify_json_http_error, classify_json_http_stream_error};
 
 #[test]
 fn classifies_structured_context_limit_errors() {
@@ -144,15 +141,4 @@ fn classifies_unsupported_streaming_as_internal() {
         classify_json_http_stream_error("kimi", "kimi-k2", 0, json_http::Error::SseUnsupported);
 
     assert!(matches!(error, ModelError::Internal { .. }));
-}
-
-#[test]
-fn classifies_eof_and_native_errors_by_provider_event_progress() {
-    let eof = ChatCompletionsStreamError::MissingDone;
-    let before = classify_stream_error("qwen", "qwen-plus", 0, &eof);
-    let native = std::io::Error::other("provider error event");
-    let after = classify_stream_error("qwen", "qwen-plus", 2, &native);
-
-    assert!(matches!(before, ModelError::TransientProvider { .. }));
-    assert!(matches!(after, ModelError::Interrupted { .. }));
 }

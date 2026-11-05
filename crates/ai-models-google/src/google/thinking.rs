@@ -1,7 +1,10 @@
-//! Gemini thinking-control mapping.
+//! Serialization of the native control selected by the shared Google mapping.
 
-use ai_models_core::ThinkingLevel;
+use ai_interface::{Effort, ModelControl, ModelError, ModelResult};
 use serde::Serialize;
+
+use crate::PROVIDER_ID;
+use crate::effort_mapping::{ThinkingControl, thinking_control};
 
 #[derive(Debug, Serialize)]
 pub(super) struct GoogleThinkingConfig {
@@ -13,38 +16,22 @@ pub(super) struct GoogleThinkingConfig {
 
 pub(super) fn thinking_config(
     model_id: &str,
-    thinking_level: ThinkingLevel,
-) -> Option<GoogleThinkingConfig> {
-    if model_id.starts_with("gemini-3") {
-        return thinking_level_for_gemini_3(thinking_level).map(|thinking_level| {
-            GoogleThinkingConfig {
-                thinking_budget: None,
-                thinking_level: Some(thinking_level),
-            }
-        });
-    }
-    thinking_budget(thinking_level).map(|thinking_budget| GoogleThinkingConfig {
-        thinking_budget: Some(thinking_budget),
-        thinking_level: None,
-    })
-}
-
-fn thinking_level_for_gemini_3(thinking_level: ThinkingLevel) -> Option<&'static str> {
-    match thinking_level {
-        ThinkingLevel::Disabled => None,
-        ThinkingLevel::Low => Some("low"),
-        ThinkingLevel::Medium => Some("medium"),
-        ThinkingLevel::High | ThinkingLevel::ExtraHigh | ThinkingLevel::Max => Some("high"),
-    }
-}
-
-fn thinking_budget(thinking_level: ThinkingLevel) -> Option<i32> {
-    match thinking_level {
-        ThinkingLevel::Disabled => None,
-        ThinkingLevel::Low => Some(1024),
-        ThinkingLevel::Medium => Some(4096),
-        ThinkingLevel::High => Some(8192),
-        ThinkingLevel::ExtraHigh => Some(16_384),
-        ThinkingLevel::Max => Some(32_768),
-    }
+    effort: Option<Effort>,
+) -> ModelResult<Option<GoogleThinkingConfig>> {
+    let Some(effort) = effort else {
+        return Ok(None);
+    };
+    let control = thinking_control(model_id, effort).ok_or_else(|| {
+        ModelError::unsupported_control(PROVIDER_ID.as_str(), model_id, ModelControl::Effort)
+    })?;
+    Ok(Some(match control {
+        ThinkingControl::Budget(budget) => GoogleThinkingConfig {
+            thinking_budget: Some(budget),
+            thinking_level: None,
+        },
+        ThinkingControl::Level(level) => GoogleThinkingConfig {
+            thinking_budget: None,
+            thinking_level: Some(level),
+        },
+    }))
 }

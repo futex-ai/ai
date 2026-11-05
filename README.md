@@ -11,23 +11,28 @@ in-memory tool-calling runtime behavior.
   transcription, one-image generation and editing, one-video generation, tool
   calls, routing, logging, usage metering, and bounded model-visible tool output
   envelopes
-- Typed provider-neutral generation controls, including explicit
-  required-with-automatic-fallback tool selection, per-call deadlines, and
-  completion preferences, with every provider adapter owning its native wire
-  mapping and XAI owning deferred submission and polling
+- One `ModelSpec` constant for each provider model, with stable provider ids,
+  `provider/model` text ids, a combined catalog lookup, and custom specs for
+  unlisted models
+- Typed provider-neutral generation controls, including a per-request effort,
+  explicit required-with-automatic-fallback tool selection, per-call
+  deadlines, and completion preferences. One shared capability check resolves
+  every control against the model spec before transport, while every provider
+  adapter owns its native wire mapping and XAI owns deferred submission and
+  polling
 - Provider adapters for Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
   OpenAI, QwenCloud, and xAI models, including provider-specific tools,
   reasoning replay, vision where supported, Google and MiniMax inline video
   input, OpenAI and Gemini image generation, a Google Veo video adapter for
   caller-named models, internally streamed completions and public incremental events for
   every synchronous provider path (with xAI's deferred path remaining buffered
-  and event-silent), structured output, usage normalization, catalog-aware
-  thinking-level downgrades, and typed errors
+  and event-silent), structured output, usage normalization, effort lowering
+  to the efforts of each model spec, and typed errors
 - TypeSafe Jev judgment evaluation through a provider-neutral typed boundary
   for condition, choice, and score questions over shared text or JSON state
 - Provider-agnostic wrappers for retry, concurrency, structured output
-  validation, known-model catalogs, usage pricing, streaming failure
-  classification, and chat-completions delta accumulation
+  validation, usage pricing, streaming failure classification, and
+  chat-completions delta accumulation
 - Ordered fallback model composition through `ai-models-multi`
 - Trait-backed buffered and incremental SSE HTTP client support through
   `json-http`, with connect, idle, and overall timeout controls
@@ -49,9 +54,9 @@ in-memory tool-calling runtime behavior.
 - [Conversation parts](docs/protocol/conversation-parts.md) (approved, not
   implemented) defines roles, parts, opaque provider state, replay rules, the
   stored format and its converter, and log copies.
-- [Model capabilities](docs/protocol/model-capabilities.md) (approved, not
-  implemented) defines model specs, text ids, custom specs, effort, the
-  capability check, and the generated control matrix.
+- [Model capabilities](docs/protocol/model-capabilities.md) defines model
+  specs, provider ids, text ids, custom specs, effort, the capability check,
+  and the generated control matrix.
 - [Chat Completions dialects](docs/protocol/chat-completions-dialects.md)
   (approved, not implemented) defines the shared Chat Completions engine and
   the settings of its DeepSeek, Kimi, Qwen, MiniMax, and xAI dialects.
@@ -73,8 +78,9 @@ in-memory tool-calling runtime behavior.
   retry policy, provider mappings, response parity, and the Firna revision-bump
   contract.
 - [Provider call controls](docs/protocol/provider-call-controls.md) defines
-  portable generation and execution intent, provider compatibility, blank
-  system handling, full Google schemas, and XAI deferred completion.
+  portable generation and execution intent, the error and fixed-value
+  contract, blank system handling, full Google schemas, and XAI deferred
+  completion.
 - [Image generation](docs/protocol/image-generation.md) defines the shared
   one-image generation/editing boundary and the OpenAI and Google mappings.
 - [Video generation](docs/protocol/video-generation.md) defines the shared
@@ -84,8 +90,9 @@ in-memory tool-calling runtime behavior.
   implemented credentialed catalog coverage, low-cost probe, response
   validation, and CI secret boundary for image providers.
 - [TypeSafe judgment provider](docs/protocol/typesafe-judgment-provider.md)
-  defines the implemented provider-agnostic condition/choice/score judgment
-  boundary and the TypeSafe Jev wire, validation, usage, and error mapping.
+  and its [judgment boundary](docs/protocol/judgment-boundary.md) define the
+  implemented provider-agnostic condition/choice/score judgment boundary and
+  the TypeSafe Jev wire, validation, usage, and error mapping.
 - [Live judgment API tests](docs/protocol/live-judgment-api-tests.md) defines
   the implemented credentialed judgment catalog coverage, probe, validation,
   and CI secret boundary.
@@ -97,8 +104,9 @@ in-memory tool-calling runtime behavior.
 - [Kimi model provider](docs/protocol/kimi-model-provider.md) defines the
   implemented Kimi K3 catalog, request, replay, tool-calling,
   structured-output, usage, and error contract.
-- [MiniMax model provider](docs/protocol/minimax-model-provider.md) defines the
-  provider identity, catalog, request/replay, response, usage, and
+- [MiniMax model provider](docs/protocol/minimax-model-provider.md) and its
+  [response page](docs/protocol/minimax-responses.md) define the provider
+  identity, model specs, request/replay, response, usage, and
   error-normalization contract.
 - [Qwen model provider](docs/protocol/qwen-model-provider.md) defines the stable
   Qwen 3.7 Max/Plus/Flash catalog, thinking, vision, replay, tool-calling,
@@ -119,22 +127,18 @@ in-memory tool-calling runtime behavior.
 The workspace is library-first. Consumers depend on the crate matching the
 boundary they need:
 
-- `ai-interface`: shared DTOs, traits, mocks, error contracts, and
-  model-visible tool output envelopes
-- `ai-models-core`: reusable model wrappers and provider helper logic
+- `ai-interface`: shared DTOs, traits, mocks, error contracts, model specs,
+  provider ids, efforts, the combined model catalog, and model-visible tool
+  output envelopes
+- `ai-models-core`: reusable model wrappers, the shared capability check, and
+  provider helper logic
 - `ai-models-anthropic`: Anthropic model adapter
-- `ai-models-deepseek`: DeepSeek V4 Pro/Flash model adapter and known-model
-  catalog
+- `ai-models-compat`: one Chat Completions engine with public `deepseek`,
+  `kimi`, `qwen`, `minimax`, and `xai` dialect modules and their model specs
 - `ai-models-google`: Google Gemini chat/image adapters and a Veo video
   adapter with no catalog model
-- `ai-models-kimi`: Kimi K3 model adapter
-- `ai-models-minimax`: MiniMax Chat Completions model adapter and known-model
-  catalog
 - `ai-models-openai`: OpenAI model, transcription, and image adapters
-- `ai-models-qwen`: Qwen 3.7 Max/Plus/Flash Chat Completions adapter and
-  known-model catalog
-- `ai-models-typesafe`: TypeSafe Jev judgment adapter and known-model catalog
-- `ai-models-xai`: xAI model adapter
+- `ai-models-typesafe`: TypeSafe Jev judgment adapter and its model specs
 - `ai-models-multi`: ordered fallback model adapter
 - `ai-tool-calling`: in-memory tool-calling runtime with output policy, output
   store integration, and the intrinsic `tool_output_read` reader
@@ -144,6 +148,52 @@ boundary they need:
   storage, issuer-selection, clock, randomness, and transport boundaries
 - `json-http`: typed JSON and multipart HTTP client boundary
 - `xtask`: repository automation invoked with `cargo xtask ...`
+
+### Model specs and effort
+
+Each provider crate exports one `ModelSpec` constant for each model, a
+`CATALOG` slice, its `PROVIDER_ID`, and the `CUSTOM_DEFAULTS` of models that
+its catalog does not list. `ModelSpec::custom` builds the spec of such a
+model from those defaults. A host combines catalogs into a `ModelCatalog`,
+resolves `provider/model` text ids when it loads its configuration, and
+builds each adapter from a spec. A request sets its effort in
+`controls.generation.effort`. The shared capability check lowers an effort
+that the spec does not list to the highest listed effort below it, and never
+raises an effort. A request without an effort uses the default effort of the
+spec. A spec without a default effort leaves the reasoning to the provider.
+Such a call sends no thinking field and reports no effort. A disabled
+request sends the explicit off value of the provider. It fails before
+transport when the provider has none.
+
+```rust
+use std::sync::Arc;
+
+use ai_interface::{Effort, ModelCallControls, ModelCatalog};
+use ai_models_anthropic::AnthropicModel;
+use json_http::ReqwestJsonHttpClient;
+
+fn catalog() -> ModelCatalog {
+    ModelCatalog::new()
+        .with_models(ai_models_anthropic::CATALOG.iter().cloned())
+        .with_models(ai_models_openai::CATALOG.iter().cloned())
+}
+
+fn build(catalog: &ModelCatalog, api_key: &str) -> Option<AnthropicModel> {
+    let spec = catalog.find("anthropic/claude-opus-5")?.clone();
+    Some(AnthropicModel::new(Arc::new(ReqwestJsonHttpClient::new()), spec, api_key))
+}
+
+fn max_effort() -> ModelCallControls {
+    let mut controls = ModelCallControls::default();
+    controls.generation.effort = Some(Effort::Max);
+    controls
+}
+```
+
+The [control matrix](docs/protocol/model-capabilities.md#control-matrix)
+lists the efforts, limits, and control rules of every spec. After a change
+to a spec or to custom defaults, regenerate it with
+`cargo xtask capability-matrix`.
 
 ## Developer Get Started
 
@@ -166,76 +216,18 @@ The smoke test constructs every provider adapter with placeholder credentials
 and exercises the in-memory tool runtime. It performs no provider requests and
 does not require credentials or network access.
 
-Credentialed model checks live in `xtask/tests/live_models.rs`. They construct
-provider adapters only at the composition boundary, then call every
-chat-capable catalog variant through the same `DynModel` and
-`ToolCallingRuntime` path with portable controls. A test-only model wrapper
-opts those calls into `complete_with_events`: each provider first proves
-synchronous assistant-delta parity, every synchronous catalog call retains
-terminal parity, and xAI's deferred catalog calls prove event silence. Run the
-credential-free catalog, event-policy, bridge, validation, and workflow guards
-with:
+Credentialed live checks for models, images, judgments, and videos make
+billable calls. Those tests stay ignored, so `cargo xtask check` never runs
+them. Run their credential-free guards with:
 
 ```sh
 cargo test --locked -p xtask --test live_models
-```
-
-To test one provider against the real API, set `LIVE_MODEL_API_KEY` and run the
-corresponding ignored test, for example:
-
-```sh
-LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_models \
-  openai_catalog -- --ignored --exact --nocapture
-```
-
-These calls are billable. The dedicated `Live model APIs` workflow runs all
-eight provider catalogs for same-repository pull requests, every day, and on
-manual dispatch. It requires the repository Actions secrets
-`ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`,
-`GOOGLE_API_KEY`, `KIMI_API_KEY`, `MINIMAX_API_KEY`, `OPENAI_API_KEY`,
-`QWEN_API_KEY`, and `XAI_API_KEY`. On an eligible run, a missing secret fails
-its provider job.
-
-Credentialed image checks live in `xtask/tests/live_images/mod.rs`. They select
-every Google and OpenAI catalog entry advertising `ImageGeneration`, construct
-the production adapter behind `DynImageGenerator`, and request one square image
-per attempt. Run the credential-free guards or one billable provider catalog
-with:
-
-```sh
 cargo test --locked -p xtask --test live_images
-LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
-  --test live_images catalog_tests::openai_image_catalog \
-  -- --ignored --exact --nocapture
-```
-
-The `Live image APIs` workflow runs both provider catalogs for trusted
-same-repository pull requests, daily, and on manual dispatch. It uses
-`GOOGLE_API_KEY` and `OPENAI_API_KEY`, runs providers sequentially, and may make
-up to three billable attempts per catalog model after transient failures.
-
-Credentialed judgment checks live in `xtask/tests/live_judgments/mod.rs`. They
-select every TypeSafe catalog entry advertising `Judgment`, construct the
-production adapter behind `DynJudgmentModel`, and evaluate one short support
-message against condition, choice, and a fully described score rubric. Run the
-credential-free guards or the billable TypeSafe catalog with:
-
-```sh
 cargo test --locked -p xtask --test live_judgments
-LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
-  --test live_judgments catalog_tests::typesafe_judgment_catalog \
-  -- --ignored --exact --nocapture
 ```
 
-The `Live judgment APIs` workflow runs the TypeSafe catalog sequentially for
-trusted same-repository pull requests, daily, and on manual dispatch after the
-repository variable `LIVE_JUDGMENT_API_TESTS_ENABLED` is set to `true`. Enable
-it only after provisioning `TYPESAFE_API_KEY`; once enabled, a missing secret
-fails the job. The workflow may make up to three billable attempts per catalog
-model after transient failures.
-
-No live suite covers video generation, because no catalog lists a video
-model.
+[`docs/development.md`](docs/development.md) gives the billable commands, the
+live workflows, their secrets, and the CI details.
 
 Run local AI review after checks pass and the branch has been pushed:
 
@@ -247,19 +239,17 @@ cargo xtask review
 
 - `Cargo.toml`: workspace membership and shared internal crate dependencies
 - `crates/ai-interface`: shared AI contracts, including call controls,
+  `src/model_spec.rs`, `src/effort.rs`, `src/model_catalog.rs`,
   `src/model_completion_events.rs`, and `src/output/` envelope DTOs
-- `crates/ai-models-core`: provider-agnostic model wrappers and helpers
-- `crates/ai-models-deepseek`: DeepSeek V4 catalog, typed client, thinking,
-  request/replay, structured-output, response, usage, and error mapping
-- `crates/ai-models-kimi`: Kimi K3 catalog, client, request, replay, response,
-  and usage mapping
-- `crates/ai-models-minimax`: MiniMax catalog plus request, replay, response,
-  usage, and provider-error mapping
-- `crates/ai-models-qwen`: Qwen 3.7 catalog, typed client, thinking, vision,
-  request/replay, structured output, usage, and error mapping
+- `crates/ai-models-core`: provider-agnostic model wrappers and helpers,
+  including the shared capability check in `src/capabilities.rs`
+- `crates/ai-models-compat`: shared request mapping, streaming, response,
+  usage, and errors, with DeepSeek, Kimi, Qwen, MiniMax, and xAI dialects
 - `crates/ai-models-typesafe`: TypeSafe Jev catalog, judgment request/response
   mapping, validation, usage, authentication, and provider-error translation
-- `crates/ai-models-*`: concrete provider and fallback adapters
+- `crates/ai-models-*`: concrete provider and fallback adapters. Each
+  provider crate keeps its provider id, model specs, and custom defaults in
+  a `catalog.rs`
 - `crates/ai-tool-calling`: in-memory tool-calling runtime, including
   `src/policy.rs`, `src/output_store/`, and the intrinsic output reader
 - `crates/ai-mcp`: streamable HTTP MCP protocol client, authorization
@@ -267,8 +257,8 @@ cargo xtask review
 - `crates/ai-mcp-oauth`: protected-resource discovery, public-client
   registration, PKCE authorization, token lifecycle, and MCP auth hook
 - `crates/json-http`: HTTP client abstraction used by provider crates
-- `xtask/`: local automation for checks, smoke tests, file-length lint, and
-  review
+- `xtask/`: local automation for checks, smoke tests, file-length lint, the
+  capability matrix, stream recording, and review
 - `docs/protocol/tool-output-management.md`: normative universal tool output
   management contract
 - `docs/protocol/image-generation.md`: normative shared image generation and
@@ -281,6 +271,8 @@ cargo xtask review
   boundary and TypeSafe Jev provider contract
 - `docs/protocol/live-judgment-api-tests.md`: implemented credentialed judgment
   catalog and CI verification contract
+- `docs/protocol/model-capabilities.md`: implemented model spec, effort,
+  capability check, and generated control matrix contract
 - `docs/protocol/provider-call-controls.md`: normative model-call control and
   provider wire-compatibility contract
 - `docs/protocol/model-completion-streaming.md`: approved internal SSE,
@@ -298,19 +290,7 @@ cargo xtask review
 
 GitHub Actions runs the same Rust verification expected locally on pull requests
 and pushes to `main`: formatting, Clippy, tests, Rust file-length lint,
-credential-free smoke tests, and `cargo xtask check`. Limiting push-triggered CI
-to `main` prevents an open pull request from running the same commit once for
-the branch push and again for the pull-request event. The separate `Live model
-APIs` workflow makes billable calls through the production adapters for every
-chat-capable catalog entry through the generic tool-calling runtime on eligible
-pull requests as well as its daily schedule and manual dispatch. The separate
-`Live image APIs` workflow exercises every Google and OpenAI image-capable
-catalog entry through `DynImageGenerator` with image-specific validation and
-sequential provider jobs. The `Live judgment APIs`
-workflow exercises every TypeSafe Jev catalog entry through `DynJudgmentModel`
-with `TYPESAFE_API_KEY`, shared answer validation, and sequential retries once
-`LIVE_JUDGMENT_API_TESTS_ENABLED` opts the repository into those billable
-checks. Forked and Dependabot pull requests skip all credentialed workflows
-because GitHub does not provide them repository Actions secrets. The ordinary
-credential-free suite still enforces the live model registry and
-completion-event coverage policy without making provider calls.
+credential-free smoke tests, and `cargo xtask check`. Separate workflows run
+the billable live model, image, and judgment suites. The
+[CI section of the development guide](docs/development.md#ci) describes each
+workflow, its triggers, and its secrets.

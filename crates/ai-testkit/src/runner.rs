@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use ai_interface::{DynModel, ModelResponse};
+use ai_interface::{DynModel, Effort, ModelResponse};
 use async_trait::async_trait;
 use json_http::{
     TransportBackedJsonHttpClient,
@@ -35,6 +35,7 @@ pub trait ConformanceRunner: Send + Sync {
         &self,
         model: DynModel,
         scenario: Scenario,
+        effort: Option<Effort>,
         redactor: &Redactor,
     ) -> Result<ScenarioOutcome>;
 }
@@ -71,7 +72,9 @@ impl ConformanceRunner for ScenarioRunner {
             client,
             provider.auth("conformance-placeholder-key".to_owned()),
         )?;
-        let mut outcome = self.execute(model, scenario, &Redactor::default()).await?;
+        let mut outcome = self
+            .execute(model, scenario, recording.effort, &Redactor::default())
+            .await?;
         compare_requests(provider, scenario, &recording.exchanges, &log.snapshot())?;
         outcome.remaining_exchanges = cursor.remaining();
         Ok(outcome)
@@ -81,9 +84,11 @@ impl ConformanceRunner for ScenarioRunner {
         &self,
         model: DynModel,
         scenario: Scenario,
+        effort: Option<Effort>,
         redactor: &Redactor,
     ) -> Result<ScenarioOutcome> {
         let mut request = scenario.request();
+        request.controls.generation.effort = effort;
         let mut steps = Vec::new();
         let step_count = if scenario == Scenario::ToolLoop { 2 } else { 1 };
         for step in 0..step_count {
@@ -91,7 +96,10 @@ impl ConformanceRunner for ScenarioRunner {
                 Ok(response) => {
                     if scenario == Scenario::ToolLoop && step == 0 {
                         match scenario.follow_up(&response) {
-                            Ok(follow_up) => request = follow_up,
+                            Ok(mut follow_up) => {
+                                follow_up.controls.generation.effort = effort;
+                                request = follow_up;
+                            }
                             Err(_) => {
                                 steps.push(StepOutcome::Response {
                                     response: Box::new(sanitized_response(response, redactor)?),
@@ -154,3 +162,7 @@ fn compare_requests(
 #[cfg(test)]
 #[path = "_tests_/runner_tests.rs"]
 mod runner_tests;
+
+#[cfg(test)]
+#[path = "_tests_/effort_tests.rs"]
+mod effort_tests;

@@ -1,10 +1,10 @@
 //! Anthropic messages response parsing.
 
 use ai_interface::{
-    AnthropicAssistantBlock, FinishReason, ModelError, ModelResponse, ModelUsage,
+    AnthropicAssistantBlock, Effort, FinishReason, ModelError, ModelResponse, ModelUsage,
     ProviderConversationItem, StructuredOutputSchema, ToolCall,
 };
-use ai_models_core::{ThinkingLevel, parse_structured_output};
+use ai_models_core::parse_structured_output;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -13,7 +13,7 @@ const PROVIDER: &str = "anthropic";
 pub(super) fn parse_response(
     catalog_model_id: &str,
     provider_model_id: &str,
-    thinking_level: ThinkingLevel,
+    thinking_level: Option<Effort>,
     body: Value,
     response_schema: Option<&StructuredOutputSchema>,
 ) -> std::result::Result<ModelResponse, ModelError> {
@@ -106,7 +106,7 @@ pub(super) fn parse_response(
         provider: PROVIDER.to_owned(),
         model_id: provider_model_id.to_owned(),
         catalog_model_id: Some(catalog_model_id.to_owned()),
-        thinking_level: Some(thinking_level.as_str().to_owned()),
+        thinking_level,
         assistant_message,
         tool_calls,
         finish_reason,

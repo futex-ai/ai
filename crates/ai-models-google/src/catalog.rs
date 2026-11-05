@@ -1,38 +1,41 @@
-//! Known Google model metadata.
+//! Google model specs and provider-owned custom defaults.
 
-use ai_models_core::{
-    CostTier, IntelligenceScore, KnownModelSpec, ModelFeature, ProviderKind, SpeedTier,
-    ThinkingLevel,
+use std::borrow::Cow;
+
+use ai_interface::{
+    CostTier, CustomModelDefaults, Effort, ForcedToolChoice, IntelligenceScore, ModelFeature,
+    ModelSpec, ProviderId, RoutingTiers, Sampling, SpeedTier,
 };
 
-/// Google balanced model id used by default workspace deployments.
-pub const GEMINI_3_6_FLASH: &str = "gemini-3.6-flash";
+use crate::effort_mapping::{EffortProfile, FLASH_ID, FLASH_LITE_ID, IMAGE_ID, supported_efforts};
 
-/// Google Gemini 3.6 Flash model id with high thinking.
-pub const GEMINI_3_6_FLASH_THINKING_HIGH: &str = "gemini-3.6-flash-thinking-high";
+/// Stable identity of the Google provider.
+pub const PROVIDER_ID: ProviderId = ProviderId::new("google");
 
-/// Google low-latency Gemini 3.5 model id.
-pub const GEMINI_3_5_FLASH_LITE: &str = "gemini-3.5-flash-lite";
+/// Controls used by an unlisted Google model unless the caller replaces them.
+pub const CUSTOM_DEFAULTS: CustomModelDefaults = CustomModelDefaults {
+    context_window_tokens: 0,
+    max_output_tokens: u32::MAX,
+    efforts: supported_efforts(EffortProfile::Budget),
+    default_effort: None,
+    forced_tool_choice: ForcedToolChoice::Always,
+    sampling: Sampling::Adjustable,
+    supports_stop_sequences: true,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: &Effort::ALL,
+};
 
-/// Google balanced image generation model id.
-pub const GEMINI_3_1_FLASH_IMAGE: &str = "gemini-3.1-flash-image";
-
-/// Previous-generation Google flagship model id for existing-account access.
+/// Previous-generation flagship provider id for existing-account access.
 pub const GEMINI_2_5_PRO: &str = "gemini-2.5-pro";
 
-/// Previous-generation Google balanced model id for existing-account access.
+/// Previous-generation balanced provider id for existing-account access.
 pub const GEMINI_2_5_FLASH: &str = "gemini-2.5-flash";
 
-/// Previous-generation Google low-latency model id for existing-account access.
+/// Previous-generation low-latency provider id for existing-account access.
 pub const GEMINI_2_5_FLASH_LITE: &str = "gemini-2.5-flash-lite";
 
-/// Logical Gemini 2.5 Pro id with a high thinking budget.
-pub const GEMINI_2_5_PRO_THINKING_HIGH: &str = "gemini-2.5-pro-thinking-high";
-
-/// Logical Gemini 2.5 Pro id with the maximum supported thinking budget.
-pub const GEMINI_2_5_PRO_THINKING_MAX: &str = "gemini-2.5-pro-thinking-max";
-
-const GEMINI_3_FEATURES: &[ModelFeature] = &[
+const GEMINI_FEATURES: &[ModelFeature] = &[
     ModelFeature::ToolCalling,
     ModelFeature::StructuredOutput,
     ModelFeature::Vision,
@@ -40,70 +43,84 @@ const GEMINI_3_FEATURES: &[ModelFeature] = &[
     ModelFeature::LongContext,
     ModelFeature::Reasoning,
 ];
+const IMAGE_FEATURES: &[ModelFeature] = &[ModelFeature::ImageGeneration, ModelFeature::Vision];
 
-const GEMINI_3_1_FLASH_IMAGE_FEATURES: &[ModelFeature] =
-    &[ModelFeature::ImageGeneration, ModelFeature::Vision];
+/// Balanced Gemini model with low, medium, and high thinking.
+pub const GEMINI_3_6_FLASH: ModelSpec = ModelSpec {
+    provider: PROVIDER_ID,
+    provider_model_id: Cow::Borrowed(FLASH_ID),
+    context_window_tokens: 1_048_576,
+    max_output_tokens: 65_536,
+    efforts: supported_efforts(EffortProfile::Flash),
+    default_effort: Some(Effort::Medium),
+    forced_tool_choice: ForcedToolChoice::Always,
+    sampling: Sampling::Adjustable,
+    supports_stop_sequences: true,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: Cow::Borrowed(&Effort::ALL),
+    features: Cow::Borrowed(GEMINI_FEATURES),
+    routing: Some(RoutingTiers {
+        intelligence: IntelligenceScore::Nine,
+        speed: SpeedTier::Fast,
+        cost: CostTier::Medium,
+    }),
+};
+
+/// Low-latency Gemini model whose default low effort uses native minimal thinking.
+pub const GEMINI_3_5_FLASH_LITE: ModelSpec = ModelSpec {
+    provider: PROVIDER_ID,
+    provider_model_id: Cow::Borrowed(FLASH_LITE_ID),
+    context_window_tokens: 1_048_576,
+    max_output_tokens: 65_536,
+    efforts: supported_efforts(EffortProfile::FlashLite),
+    default_effort: Some(Effort::Low),
+    forced_tool_choice: ForcedToolChoice::Always,
+    sampling: Sampling::Adjustable,
+    supports_stop_sequences: true,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: Cow::Borrowed(&Effort::ALL),
+    features: Cow::Borrowed(GEMINI_FEATURES),
+    routing: Some(RoutingTiers {
+        intelligence: IntelligenceScore::Seven,
+        speed: SpeedTier::VeryFast,
+        cost: CostTier::Low,
+    }),
+};
+
+/// Gemini image generation model.
+pub const GEMINI_3_1_FLASH_IMAGE: ModelSpec = ModelSpec {
+    provider: PROVIDER_ID,
+    provider_model_id: Cow::Borrowed(IMAGE_ID),
+    context_window_tokens: 131_072,
+    max_output_tokens: 0,
+    efforts: supported_efforts(EffortProfile::Image),
+    default_effort: None,
+    forced_tool_choice: ForcedToolChoice::Always,
+    sampling: Sampling::Adjustable,
+    supports_stop_sequences: true,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: Cow::Borrowed(&[]),
+    features: Cow::Borrowed(IMAGE_FEATURES),
+    routing: Some(RoutingTiers {
+        intelligence: IntelligenceScore::Nine,
+        speed: SpeedTier::Fast,
+        cost: CostTier::Medium,
+    }),
+};
+
+/// One spec for each known Google provider model.
+pub const CATALOG: &[ModelSpec] = &[
+    GEMINI_3_6_FLASH,
+    GEMINI_3_5_FLASH_LITE,
+    GEMINI_3_1_FLASH_IMAGE,
+];
 
 /// Returns Google models known to this provider crate.
-pub fn known_models() -> Vec<KnownModelSpec> {
-    vec![
-        gemini_3_6_flash_variant(
-            GEMINI_3_6_FLASH,
-            SpeedTier::Fast,
-            CostTier::Medium,
-            ThinkingLevel::Medium,
-        ),
-        gemini_3_6_flash_variant(
-            GEMINI_3_6_FLASH_THINKING_HIGH,
-            SpeedTier::Medium,
-            CostTier::High,
-            ThinkingLevel::High,
-        ),
-        KnownModelSpec {
-            provider: ProviderKind::Google,
-            id: GEMINI_3_5_FLASH_LITE,
-            provider_model_id: GEMINI_3_5_FLASH_LITE,
-            context_window_tokens: 1_048_576,
-            max_output_tokens: 65_536,
-            intelligence_score: IntelligenceScore::Seven,
-            speed: SpeedTier::VeryFast,
-            cost: CostTier::Low,
-            thinking_level: ThinkingLevel::Disabled,
-            features: GEMINI_3_FEATURES,
-        },
-        KnownModelSpec {
-            provider: ProviderKind::Google,
-            id: GEMINI_3_1_FLASH_IMAGE,
-            provider_model_id: GEMINI_3_1_FLASH_IMAGE,
-            context_window_tokens: 131_072,
-            max_output_tokens: 0,
-            intelligence_score: IntelligenceScore::Nine,
-            speed: SpeedTier::Fast,
-            cost: CostTier::Medium,
-            thinking_level: ThinkingLevel::Disabled,
-            features: GEMINI_3_1_FLASH_IMAGE_FEATURES,
-        },
-    ]
-}
-
-fn gemini_3_6_flash_variant(
-    id: &'static str,
-    speed: SpeedTier,
-    cost: CostTier,
-    thinking_level: ThinkingLevel,
-) -> KnownModelSpec {
-    KnownModelSpec {
-        provider: ProviderKind::Google,
-        id,
-        provider_model_id: GEMINI_3_6_FLASH,
-        context_window_tokens: 1_048_576,
-        max_output_tokens: 65_536,
-        intelligence_score: IntelligenceScore::Nine,
-        speed,
-        cost,
-        thinking_level,
-        features: GEMINI_3_FEATURES,
-    }
+pub fn known_models() -> Vec<ModelSpec> {
+    CATALOG.to_vec()
 }
 
 #[cfg(test)]

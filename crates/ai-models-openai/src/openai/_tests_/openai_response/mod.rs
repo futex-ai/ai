@@ -1,6 +1,6 @@
 //! OpenAI Responses response parser edge case tests.
 
-use ai_models_core::ThinkingLevel;
+use ai_interface::Effort;
 use serde_json::json;
 
 use super::response::parse_response;

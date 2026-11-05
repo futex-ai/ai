@@ -8,6 +8,8 @@ file-length audits, or AI review.
 
 - Run the standard local verification sequence
 - Enforce the Rust file-length cap for `crates/` and `xtask/`
+- Regenerate the control matrix of the model capabilities protocol from the
+  model specs
 - Run a credential-free smoke test for chat, transcription, image-provider,
   video-provider, and TypeSafe judgment-provider construction, tool-calling
   registration, MCP tools, and the resource-bound MCP OAuth hook
@@ -19,8 +21,15 @@ file-length audits, or AI review.
 ## What This Crate Does
 
 The crate exposes the `check`, `rust-file-length-lint`, `smoke-test`,
-`record-streams`, and `review` commands. `check` runs formatting, Clippy, tests, the file-length lint,
-and the smoke test in the same order expected by CI.
+`record-streams`, `capability-matrix`, and `review` commands. `check` runs
+formatting, Clippy, tests, the file-length lint, and the smoke test in the same
+order expected by CI.
+
+`capability-matrix` regenerates the "Control matrix" section of
+`docs/protocol/model-capabilities.md` from the provider catalogs and their
+custom defaults, and writes the doc in place. Run it after a change to a
+model spec or to custom defaults, and commit the result. No CI step or
+`check` step compares the committed matrix with the generator output.
 
 `smoke-test` constructs the Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
 OpenAI, QwenCloud, and xAI model adapters, the OpenAI transcriber, and the
@@ -30,23 +39,27 @@ pagination flow. Provider construction does not send network requests or
 require real credentials.
 
 `tests/live_models.rs` owns the chat live suite and its credential-free guards.
-Each ignored provider test reads one explicit `LIVE_MODEL_API_KEY`, constructs
-every chat-capable entry returned by that provider's `known_models()`, erases it
-behind `DynModel`, and sends real one-step turns through `ToolCallingRuntime`.
+Each ignored provider test reads one explicit `LIVE_MODEL_API_KEY` and takes
+every chat-capable spec returned by that provider's `known_models()`. It runs
+one probe at the default of the spec, then one probe for each other listed
+effort. The default probe of a spec without a default effort sets no effort.
+Each probe builds the adapter from the spec, erases it behind `DynModel`,
+sets the probe effort in the request controls, and sends real one-step turns
+through `ToolCallingRuntime`.
 A test-only model wrapper routes those runtime calls through
 `complete_with_events`, records ordered deltas, and retains the ordinary
 terminal checkpoint. Every provider first gets a synchronous assistant-parity
 probe. The catalog then uses portable no-tools, ten-minute, `PreferDeferred`
 controls: seven providers retain event parity on their synchronous fallback,
 while xAI's deferred lifecycle must remain silent. The suite also validates
-normalized provider, catalog, model, thinking, finish, text, tool, and usage
-fields. A successfully completed synchronous probe or catalog entry gets one
+normalized provider, text id, model, effort, finish, text, tool, and usage
+fields. A successfully completed synchronous probe or catalog probe gets one
 bounded retry only when the response misses the requested marker and has no
 other response failure; event validation must also be clean apart from possible
 terminal-parity failure against that response. This absorbs non-deterministic
 wording but does not retry request, identity, finish, tool, usage, or other
-event failures, and costs at most one extra billable call per probe or catalog
-entry. Image-, video-, and judgment-capable entries are excluded because they
+event failures, and costs at most one extra billable call per probe.
+Image-, video-, and judgment-capable specs are excluded because they
 use separate specialized interfaces. Credentialed tests never run as part of
 `check` or `smoke-test`; credential-free event policy, bridge, validation,
 catalog, and workflow guards do. The dedicated GitHub Actions workflow invokes
@@ -58,7 +71,7 @@ The judgment workflow additionally requires the repository Actions variable
 the TypeSafe credential is provisioned and that opt-in is enabled.
 
 `tests/live_images/mod.rs` is the corresponding ignored image suite. It selects
-every Google and OpenAI catalog entry advertising `ImageGeneration`, constructs
+every Google and OpenAI catalog spec advertising `ImageGeneration`, constructs
 the production adapter behind `DynImageGenerator`, and runs the same safe
 square, low-quality request through each entry sequentially. Transient and
 rate-limit failures use the shared 100ms/250ms retry schedule, for no more than
@@ -70,7 +83,7 @@ validation, and workflow secret/event boundaries.
 No live suite covers video generation, because no catalog lists a video model.
 
 `tests/live_judgments/mod.rs` is the corresponding ignored judgment suite. It
-selects every TypeSafe catalog entry advertising `Judgment`, constructs the
+selects every TypeSafe catalog spec advertising `Judgment`, constructs the
 production adapter behind `DynJudgmentModel`, and evaluates a short support
 message against condition, choice, and score questions. Transient and
 rate-limit failures use the shared retry schedule for no more than three
@@ -82,8 +95,11 @@ None of the four live suites makes provider calls during `check` or
 `record-streams --provider <name>` reads `RECORD_API_KEY` and records the
 text, two-turn tool, schema, and image scenarios from `ai-testkit`.
 Provider names are `anthropic`, `openai`, `google`, `deepseek`, `kimi`,
-`qwen`, `minimax`, and `xai`. The command uses the first chat catalog model
-and prefers thinking for the tool scenario. xAI stays synchronous.
+`qwen`, `minimax`, and `xai`. The command uses the first chat spec at its
+default. For the tool scenario it uses the first spec whose default can
+think: an effort above disabled, or the provider default. Each file stores
+the text id of the spec and its default effort, or no effort for the
+provider default. xAI stays synchronous.
 It writes four files under `crates/ai-testkit/recordings/<provider>/`
 with `source: "recorded"`. It preserves errors and reports their count.
 It never retries model calls. Rate-limit and stream-cut files stay synthetic.
@@ -102,6 +118,7 @@ It does not run during ordinary CI or `cargo xtask check`.
 cargo xtask check
 cargo xtask rust-file-length-lint --all
 cargo xtask smoke-test
+cargo xtask capability-matrix
 cargo xtask review
 
 # Billable. Set RECORD_API_KEY in your shell first.
@@ -116,15 +133,15 @@ cargo test --locked -p xtask --test live_judgments
 # Credential-free: runs chat catalog, event, runner, and workflow guards.
 cargo test --locked -p xtask --test live_models
 
-# Billable: tests every chat-capable OpenAI catalog entry against the real API.
+# Billable: tests every effort of every chat-capable OpenAI spec against the real API.
 LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_models \
   openai_catalog -- --ignored --exact --nocapture
 
-# Billable: tests every image-capable OpenAI catalog entry against the real API.
+# Billable: tests every image-capable OpenAI catalog spec against the real API.
 LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_images \
   catalog_tests::openai_image_catalog -- --ignored --exact --nocapture
 
-# Billable: tests every TypeSafe judgment catalog entry against the real API.
+# Billable: tests every TypeSafe judgment catalog spec against the real API.
 LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
   --test live_judgments catalog_tests::typesafe_judgment_catalog \
   -- --ignored --exact --nocapture
@@ -141,6 +158,8 @@ cargo clippy -p xtask --all-targets --all-features
 
 - `src/cli.rs` - command-line parser
 - `src/check.rs` - local verification command plan
+- `src/capability_matrix/` - spec composition, table generation, and bounded
+  updates to the model capability reference
 - `src/file_length.rs` - Rust line-count audit
 - `src/smoke/` - credential-free provider, MCP, OAuth, and pagination smoke tests
 - `tests/live_models.rs` and `tests/live_models/` - ignored credentialed tests
@@ -157,6 +176,8 @@ cargo clippy -p xtask --all-targets --all-features
 
 - [`../README.md`](../README.md)
 - [`../crates/ai-testkit/README.md`](../crates/ai-testkit/README.md)
+- [`../docs/development.md`](../docs/development.md)
+- [`../docs/protocol/model-capabilities.md`](../docs/protocol/model-capabilities.md)
 - [`../docs/protocol/live-model-api-tests.md`](../docs/protocol/live-model-api-tests.md)
 - [`../docs/protocol/live-image-api-tests.md`](../docs/protocol/live-image-api-tests.md)
 - [`../docs/protocol/live-judgment-api-tests.md`](../docs/protocol/live-judgment-api-tests.md)

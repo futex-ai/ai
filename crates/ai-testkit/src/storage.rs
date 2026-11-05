@@ -2,6 +2,7 @@
 
 use std::{fs, io::ErrorKind, path::PathBuf};
 
+use ai_interface::Effort;
 use json_http::test_support::Recording;
 use serde::{Deserialize, Serialize};
 
@@ -26,8 +27,11 @@ pub enum RecordingSource {
 pub struct ScenarioRecording {
     /// Provenance of the exchanges.
     pub source: RecordingSource,
-    /// Catalog id used to construct the adapter.
+    /// Provider/model text id used to construct the adapter.
     pub catalog_model_id: String,
+    /// Request effort, or the selected spec's default when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<Effort>,
     /// HTTP exchanges in call order.
     pub exchanges: Vec<Recording>,
 }

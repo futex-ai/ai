@@ -1,6 +1,6 @@
 ---
 source: crates/ai-testkit/tests/_tests_/conformance_tests.rs
-description: "Today's kimi adapter result for text_turn using kimi-k3 synthetic recordings."
+description: "Today's kimi adapter result for text_turn using kimi/kimi-k3 synthetic recordings."
 expression: outcome
 ---
 {
@@ -10,8 +10,8 @@ expression: outcome
       "response": {
         "provider": "kimi",
         "model_id": "kimi-k3",
-        "catalog_model_id": "kimi-k3",
-        "thinking_level": "max",
+        "catalog_model_id": "kimi/kimi-k3",
+        "effort": "max",
         "assistant_message": "Done",
         "tool_calls": [],
         "finish_reason": "Stop",

@@ -1,9 +1,9 @@
 //! Signed assistant content survives streamed parsing and stored-message replay.
 
-use ai_interface::{ConversationMessage, Model, ModelRequest};
+use ai_interface::{ConversationMessage, Effort, Model, ModelRequest};
 use serde_json::json;
 
-use crate::{AnthropicModel, CLAUDE_OPUS_5_THINKING_MAX};
+use crate::{AnthropicModel, CLAUDE_OPUS_5};
 
 use super::stream_support::client_for_buffered_bodies;
 
@@ -27,7 +27,7 @@ async fn signed_anthropic_blocks_replay_in_full_original_order() {
             json!({"content": blocks, "stop_reason": "tool_use"}),
             json!({"content": [{"type": "text", "text": "Done"}], "stop_reason": "end_turn"}),
         ]);
-        let model = AnthropicModel::new(client, CLAUDE_OPUS_5_THINKING_MAX, "key");
+        let model = AnthropicModel::new(client, CLAUDE_OPUS_5, "key");
         let mut request = ModelRequest {
             system_prompt: String::new(),
             messages: vec![ConversationMessage::user("look up 7")],
@@ -35,6 +35,7 @@ async fn signed_anthropic_blocks_replay_in_full_original_order() {
             response_schema: None,
             controls: Default::default(),
         };
+        request.controls.generation.effort = Some(Effort::Max);
         let response = model.complete(&request).await.unwrap();
         assert_eq!(
             serde_json::to_value(&response.provider_context).unwrap(),

@@ -8,6 +8,7 @@ use ai_interface::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use super::stream_support::custom_spec;
 use super::{GoogleModel, simple_request, stream_support};
 
 #[tokio::test]
@@ -30,7 +31,7 @@ async fn emits_thought_and_assistant_fragments_with_part_boundary_parity() {
     ];
     let stream = chunks.into_iter().map(stream_support::event).collect();
     let (http_client, _) = stream_support::recording_streaming_client(vec![stream]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
     let recorded = Arc::new(Mutex::new(Vec::new()));
     let sink = recording_sink(recorded.clone());
 
@@ -68,7 +69,7 @@ async fn structured_completion_suppresses_candidate_text() {
     ];
     let stream = chunks.into_iter().map(stream_support::event).collect();
     let (http_client, _) = stream_support::recording_streaming_client(vec![stream]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
     let sink = Unimock::new(());
     let mut request = simple_request();
     request.response_schema = Some(summary_schema());
@@ -90,7 +91,7 @@ async fn emits_partial_candidate_text_before_an_interruption() {
         Err(json_http::Error::transport("reset")),
     ];
     let (http_client, _) = stream_support::recording_streaming_client(vec![stream]);
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
     let recorded = Arc::new(Mutex::new(Vec::new()));
     let sink = recording_sink(recorded.clone());
 

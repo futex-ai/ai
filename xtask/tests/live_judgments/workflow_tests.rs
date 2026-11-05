@@ -11,12 +11,12 @@ fn workflow_covers_every_registered_provider() {
         assert!(
             WORKFLOW.contains(&format!("test: {}", provider.workflow_test())),
             "workflow omitted the {} test",
-            provider.kind()
+            provider.provider_id()
         );
         assert!(
             WORKFLOW.contains(&format!("api_key: {}", provider.workflow_secret())),
             "workflow omitted the {} credential",
-            provider.kind()
+            provider.provider_id()
         );
     }
 }

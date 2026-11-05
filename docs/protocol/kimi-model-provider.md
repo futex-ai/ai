@@ -8,7 +8,7 @@ output, routing, usage, and error contracts.
 
 ## Status
 
-This contract is implemented by `ai-models-kimi`, with shared routing and
+This contract is implemented by `ai-models-compat`, with shared routing and
 replay types in `ai-interface`. The
 [Add Kimi Model Provider plan](../../plans/add-kimi-model-provider.md) records
 the completed implementation milestones.
@@ -22,7 +22,7 @@ shared engine that serves this provider.
 The provider supports Kimi K3 through Moonshot AI's Chat Completions API,
 accumulated internally over SSE. It includes text and image input, custom
 function tools, parallel tool calls, structured JSON output, automatic cache
-usage reporting, and K3 reasoning-effort variants. Its opt-in public path emits
+usage reporting, and K3 reasoning efforts. Its opt-in public path emits
 primary-choice assistant and reasoning fragments as defined by the
 [completion-events protocol](model-completion-events.md).
 
@@ -35,20 +35,21 @@ a typed provider error before transport.
 
 ## Ownership
 
-- `ai-interface` owns the `Kimi` provider identifier and typed Kimi assistant
-  replay context.
-- `ai-models-kimi` owns Kimi catalog entries, authentication, request and
-  response mapping, replay behavior, and provider error translation.
-- `ai-models-core` owns shared HTTP error classification, tool-argument
-  parsing, structured-output parsing and validation, and model metadata types.
+- `ai-interface` owns the model spec types and typed Kimi assistant replay
+  context.
+- `ai-models-compat` owns the `kimi` provider id, the Kimi model spec and
+  custom defaults, authentication, request and response mapping, replay
+  behavior, and provider error translation.
+- `ai-models-core` owns shared HTTP error classification, the capability
+  check, tool-argument parsing, and structured-output parsing and
+  validation.
 - `json-http` owns the injected HTTP and authentication boundaries.
 - Composition roots own API-key retrieval, wrapper policy, deployment
   priority, and conversion of `KimiModel` into `DynModel`.
 
 ## Provider Identity And Endpoint
 
-`ProviderKind::Kimi` serializes and parses as `kimi`. Successful responses use
-`provider: "kimi"`.
+The Kimi provider id is `kimi`. Successful responses use `provider: "kimi"`.
 
 Requests use:
 
@@ -59,27 +60,30 @@ Content-Type: application/json
 ```
 
 The model accepts an injected `DynJsonHttpClient` and explicit API key or
-`DynJsonHttpAuth`. It must not read environment variables, load config, or
-resolve secrets.
+`DynJsonHttpAuth`. `new` and `with_auth` construct the `kimi-k3` spec, and
+`with_catalog_auth` accepts a model spec. The model must not read
+environment variables, load config, or resolve secrets.
 
-## Initial Model Catalog
+## Initial Model Spec
 
-All initial catalog entries send provider model id `kimi-k3`, advertise a
-1,000,000-token context window, and expose tool calling, structured output,
-vision, long-context, and reasoning features.
+The catalog lists one spec. It sends provider model id `kimi-k3` and exposes
+tool calling, structured output, vision, long-context, and reasoning
+features. The [control matrix](model-capabilities.md#control-matrix) gives
+its efforts, max output, and context window.
 
-| Catalog id | Constant | Effort | Intelligence | Speed | Cost |
-| --- | --- | --- | ---: | --- | --- |
-| `kimi-k3` | `KIMI_K3` | `max` | 10 | Slow | Premium |
-| `kimi-k3-thinking-high` | `KIMI_K3_THINKING_HIGH` | `high` | 10 | Medium | Premium |
-| `kimi-k3-thinking-low` | `KIMI_K3_THINKING_LOW` | `low` | 10 | Fast | High |
+| Text id | Constant | Intelligence | Speed | Cost |
+| --- | --- | ---: | --- | --- |
+| `kimi/kimi-k3` | `KIMI_K3` | 10 | Slow | Premium |
 
-`KIMI_K3` is the default max-effort catalog entry because K3 always reasons
-and its provider default is `max`. `Medium` downgrades to `Low`, and
-`ExtraHigh` downgrades to `High`. `Disabled` remains unsupported because no K3
-catalog level exists at or below it. Construction must reject that case and
-unsupported provider model ids instead of sending K2-specific or invented
-parameter mappings.
+The spec lists the low, high, and max efforts. Its default effort is max
+because K3 always reasons and its provider default is `max`. The routing
+tiers describe K3 at that default effort. The capability check lowers medium
+to low and extra high to high. A request with the disabled effort fails with
+`UnsupportedControl` for effort before transport, because no K3 effort is at
+or below it. The adapter never sends K2-specific or invented parameter
+mappings. A model that the catalog does not list uses a
+[custom spec](model-capabilities.md#custom-specs) with the Kimi custom
+defaults.
 
 ## Request Contract
 
@@ -89,7 +93,7 @@ messages in order. A nonempty `ModelRequest::system_prompt` is one leading
 
 K3 request mapping must:
 
-- map `ThinkingLevel::Low`, `High`, and `Max` to top-level
+- map the resolved low, high, and max efforts to top-level
   `reasoning_effort: "low"`, `"high"`, and `"max"`;
 - omit fixed K3 parameters such as `temperature`, `top_p`, `n`, presence
   penalty, and frequency penalty, including when portable sampling is supplied;
@@ -215,8 +219,8 @@ Finish reasons map as follows:
 
 Nullable assistant content normalizes to an empty string unless valid
 structured output supplies its compact JSON representation. The response
-reports the selected catalog id and normalized thinking level separately from
-the provider model id.
+reports the text id and the resolved effort separately from the provider
+model id.
 
 ## Usage
 
@@ -253,7 +257,7 @@ their retryable/provider class. The same failures after progress become
 
 ## Required Verification
 
-Tests must cover provider serde/config parsing, catalog metadata, bearer auth,
+Tests must cover provider identity, spec metadata, bearer auth,
 endpoint selection, all message roles, image input, reasoning-effort mapping,
 foreign provider-context isolation, raw Kimi assistant replay, parallel tool
 calls and paired results, terminal tool suppression, structured-output request
@@ -263,12 +267,12 @@ responses.
 
 The credential-free workspace smoke test must construct the default Kimi
 model. The ignored workspace integration test `xtask/tests/live_models.rs`
-separately calls every Kimi catalog entry through the production adapter when
-an explicit `LIVE_MODEL_API_KEY` is supplied; GitHub Actions runs it for
-eligible pull requests and from the scheduled/manual `Live model APIs`
-workflow. Full formatting, file-length
-lint, Clippy, workspace tests, `cargo xtask check`, commit and push, and
-post-push `cargo xtask review` are required before implementation handoff.
+separately calls each listed effort of the Kimi spec through the production
+adapter when an explicit `LIVE_MODEL_API_KEY` is supplied; GitHub Actions runs
+it for eligible pull requests and from the scheduled/manual `Live model APIs`
+workflow. Full formatting, file-length lint, Clippy, workspace tests,
+`cargo xtask check`, commit and push, and post-push `cargo xtask review` are
+required before implementation handoff.
 
 ## References
 

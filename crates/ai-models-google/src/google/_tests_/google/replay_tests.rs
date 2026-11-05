@@ -2,13 +2,13 @@
 
 use std::sync::Arc;
 
-use ai_interface::{ConversationMessage, Model, ToolCall};
-use ai_models_core::ThinkingLevel;
+use ai_interface::{ConversationMessage, Effort, Model, ToolCall};
 use json_http::{DynJsonHttpClient, StaticHeaderAuth};
 use serde_json::{Value, json};
 
-use crate::{GEMINI_3_6_FLASH, GEMINI_3_6_FLASH_THINKING_HIGH, GoogleModel};
+use crate::{GEMINI_3_6_FLASH, GoogleModel};
 
+use super::stream_support::custom_spec;
 use super::{
     simple_request,
     stream_support::{event, recording_streaming_client},
@@ -35,6 +35,7 @@ async fn signed_google_parts_replay_without_merging_or_synthetic_ids() {
     ]);
     let model = thinking_model(client);
     let mut request = simple_request();
+    request.controls.generation.effort = Some(Effort::High);
     let response = model.complete(&request).await.unwrap();
     assert_eq!(
         serde_json::to_value(&response.provider_context).unwrap(),
@@ -86,6 +87,7 @@ async fn streamed_google_signature_chunks_keep_their_own_parts() {
     ]);
     let model = thinking_model(client);
     let mut request = simple_request();
+    request.controls.generation.effort = Some(Effort::High);
     let response = model.complete(&request).await.unwrap();
     let parts = json!([
         {"text": "Done"}, {"text": "", "thoughtSignature": "tail"},
@@ -181,7 +183,7 @@ async fn tool_follow_up(parts: Value) -> (Value, Vec<ToolCall>) {
             json!({"candidates": [{"content": {"parts": [{"text": "Done"}]}, "finishReason": "STOP"}]}),
         )],
     ]);
-    let model = GoogleModel::new(client, "gemini-2.5-pro", "key");
+    let model = GoogleModel::new(client, custom_spec("gemini-2.5-pro"), "key");
     let mut request = simple_request();
     let response = model.complete(&request).await.unwrap();
     let calls = response.tool_calls.clone();
@@ -208,9 +210,7 @@ async fn tool_follow_up(parts: Value) -> (Value, Vec<ToolCall>) {
 fn thinking_model(client: DynJsonHttpClient) -> GoogleModel {
     GoogleModel::with_catalog_auth(
         client,
-        GEMINI_3_6_FLASH_THINKING_HIGH,
         GEMINI_3_6_FLASH,
-        ThinkingLevel::High,
         Arc::new(StaticHeaderAuth::new(Default::default())),
     )
 }

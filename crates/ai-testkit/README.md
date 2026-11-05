@@ -7,7 +7,8 @@ Product libraries do not depend on this crate.
 ## Responsibilities
 
 - Build the same six scenarios for each chat provider.
-- Store sanitized HTTP exchanges with their source and catalog model id.
+- Store sanitized HTTP exchanges with their source, the text id of the model
+  spec, and the request effort.
 - Run production adapters against ordered replay transports.
 - Compare every sanitized outbound request with its recorded exchange.
 - Snapshot complete responses and typed errors without provider credentials.
@@ -18,8 +19,11 @@ The providers are Anthropic, OpenAI, Google, DeepSeek, Kimi, Qwen,
 MiniMax, and xAI. The runner uses today's `Model::complete` contract.
 xAI uses its synchronous path. No scenario uses a video adapter.
 
-Each provider starts with its first chat catalog model. The tool loop uses
-the first model with thinking enabled when the catalog has one.
+Each provider starts with its first chat spec. The tool loop uses the first
+spec whose default can think, when the catalog has one. That default is an
+effort above disabled, or the provider default. Each request of a scenario
+carries the effort of its recording. A recording without an effort runs at
+the default of the spec.
 The scenarios are:
 
 | Filename stem | Request and expected exercise |
@@ -42,19 +46,22 @@ A mismatch names the provider, scenario, and zero-based exchange index.
 It shows both requests as pretty JSON.
 
 Recordings live at `recordings/<provider>/<scenario>.json`.
-Each JSON file has `source`, `catalog_model_id`, and `exchanges` fields.
+Each JSON file has `source`, `catalog_model_id`, an optional `effort`, and
+`exchanges` fields. `catalog_model_id` holds the `provider/model` text id of
+the spec, such as `anthropic/claude-sonnet-5`. The replay runner finds that
+text id in a combined catalog of the provider's chat specs.
 `source` is `synthetic` for hand-built fixtures and `recorded` for live runs.
 The initial set contains 48 synthetic files.
 Each synthetic success payload follows the provider's documented response
 to the adapter's real request.
-DeepSeek and the first Qwen model reject image input before transport.
+DeepSeek and the first Qwen spec reject image input before transport.
 Their image recordings therefore contain no HTTP exchanges.
 
 File snapshots live under `tests/_tests_/snapshots/`.
 They preserve successful responses and remaining defects.
 The Anthropic and Google tool snapshots retain complete ordered replay context.
 Their second recorded requests replay Anthropic thinking blocks and Gemini
-thought signatures. Anthropic requests use the catalog output limit.
+thought signatures. Anthropic requests use the max output of the spec.
 MiniMax and xAI currently lose their HTTP 429 message details.
 Synthetic fixtures can be refreshed offline by wrapping their replay transport
 with the recording transport and running the production adapter. This keeps
@@ -117,8 +124,10 @@ See `json-http` for the transport boundary's status and failure limits.
 ### Key Code
 
 - `src/scenario.rs` builds the first request and the tool follow-up request.
-- `src/provider.rs` selects catalogs and constructs adapters through `ModelFactory`.
-- `src/storage.rs` defines `RecordingStorage` and its JSON filesystem implementation.
+- `src/provider.rs` selects chat specs, resolves stored text ids, and constructs
+  adapters from specs through `ModelFactory`.
+- `src/storage.rs` defines `ScenarioRecording`, `RecordingStorage`, and its JSON
+  filesystem implementation.
 - `src/runner.rs` implements `ConformanceRunner` with injected adapters and replay.
 - `src/outcome.rs` defines the serializable response and error results.
 - `tests/_tests_/conformance_tests.rs` snapshots every available provider scenario.
@@ -127,6 +136,7 @@ See `json-http` for the transport boundary's status and failure limits.
 ### Related Docs
 
 - [Architecture](../../docs/architecture.md)
+- [Model capabilities](../../docs/protocol/model-capabilities.md)
 - [json-http](../json-http/README.md)
 - [xtask recorder](../../xtask/README.md)
 - [Model completion streaming](../../docs/protocol/model-completion-streaming.md)

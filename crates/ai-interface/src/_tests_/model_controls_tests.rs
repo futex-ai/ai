@@ -3,7 +3,7 @@ use std::time::Duration;
 use serde_json::json;
 
 use crate::{
-    ModelCallControls, ModelCompletionMode, ModelControl, ModelExecutionControls,
+    Effort, ModelCallControls, ModelCompletionMode, ModelControl, ModelExecutionControls,
     ModelGenerationControls, ModelRequest, ModelToolChoice,
 };
 
@@ -51,6 +51,7 @@ fn system_prompt_blankness_uses_trim_semantics() {
 fn explicit_controls_round_trip_without_losing_order_or_types() {
     let controls = ModelCallControls {
         generation: ModelGenerationControls {
+            effort: Some(Effort::ExtraHigh),
             temperature: Some(0.2),
             top_p: Some(0.9),
             max_output_tokens: Some(8000),

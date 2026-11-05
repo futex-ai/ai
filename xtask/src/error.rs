@@ -24,6 +24,16 @@ pub(crate) enum Error {
     ReadFile { path: PathBuf, source: io::Error },
     #[error("[xtask/rust_file_length_lint] found {count} violation(s):\n{details}")]
     FileLengthViolations { count: usize, details: String },
+    #[error("[xtask/capability_matrix] failed to read `{path}`: {source}")]
+    MatrixRead { path: PathBuf, source: io::Error },
+    #[error("[xtask/capability_matrix] failed to write `{path}`: {source}")]
+    MatrixWrite { path: PathBuf, source: io::Error },
+    #[error("[xtask/capability_matrix] model capabilities document has no Control matrix section")]
+    MatrixSectionMissing,
+    #[error(
+        "[xtask/capability_matrix] generated markers in Control matrix are incomplete, reversed, or repeated"
+    )]
+    MatrixMarkersInvalid,
     #[error("[xtask/smoke] failed to build tool-calling runtime: {source}")]
     SmokeRuntime { source: ai_tool_calling::Error },
     #[error("[xtask/smoke] failed to build MCP tool adapter: {source}")]

@@ -14,18 +14,18 @@ normalized response still work together.
 ## Scope
 
 The initial provider set is TypeSafe because it is the only provider that
-implements `JudgmentModel`. Each provider test obtains entries from its crate's
-`known_models()` and selects every entry advertising `ModelFeature::Judgment`.
+implements `JudgmentModel`. Each provider test obtains the specs of its crate's
+`CATALOG` and selects every spec advertising `ModelFeature::Judgment`.
 Adding a judgment model to a catalog therefore adds live coverage
 automatically. A credential-free guard fails when a judgment-capable catalog
 provider has no registered live adapter or CI matrix entry.
 
-The chat live suite must treat `ProviderKind::TypeSafe` as judgment-only: its
-provider registry maps that kind to no chat adapter, its all-provider guard
+The chat live suite must treat the `typesafe` provider id as judgment-only:
+its provider registry maps that id to no chat adapter, its all-provider guard
 expects it to be absent from the chat registry, and its chat catalog filter
-also excludes entries advertising `ModelFeature::Judgment`. The image suite
-already selects by its own feature and only needs the new provider kind in
-its non-matching list.
+also excludes specs advertising `ModelFeature::Judgment`. The image suite
+already selects by its own feature and only needs the provider id in its
+non-matching list.
 
 ## Execution
 

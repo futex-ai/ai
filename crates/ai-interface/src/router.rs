@@ -4,78 +4,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DynModel, ModelRouterResult};
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
-#[serde(rename_all = "snake_case")]
-/// Model provider identifiers understood by workspace model routing.
-pub enum ProviderKind {
-    /// Development and test mock provider.
-    Mock,
-    /// OpenAI model provider.
-    #[serde(rename = "openai")]
-    OpenAi,
-    /// Anthropic model provider.
-    Anthropic,
-    /// DeepSeek model provider.
-    #[serde(rename = "deepseek")]
-    DeepSeek,
-    /// Google Gemini model provider.
-    Google,
-    /// Moonshot AI Kimi model provider.
-    Kimi,
-    /// MiniMax model provider.
-    #[serde(rename = "minimax")]
-    MiniMax,
-    /// Alibaba Qwen model provider.
-    Qwen,
-    /// TypeSafe System One judgment provider.
-    #[serde(rename = "typesafe")]
-    TypeSafe,
-    /// xAI/Grok model provider.
-    Xai,
-}
-
-impl ProviderKind {
-    /// Parses a deployment-config provider identifier.
-    pub fn from_config_str(value: &str) -> Option<Self> {
-        match value {
-            "mock" => Some(Self::Mock),
-            "openai" => Some(Self::OpenAi),
-            "anthropic" => Some(Self::Anthropic),
-            "deepseek" => Some(Self::DeepSeek),
-            "google" => Some(Self::Google),
-            "kimi" => Some(Self::Kimi),
-            "minimax" => Some(Self::MiniMax),
-            "qwen" => Some(Self::Qwen),
-            "typesafe" => Some(Self::TypeSafe),
-            "xai" => Some(Self::Xai),
-            _ => None,
-        }
-    }
-
-    /// Returns the stable deployment-config provider identifier.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Mock => "mock",
-            Self::OpenAi => "openai",
-            Self::Anthropic => "anthropic",
-            Self::DeepSeek => "deepseek",
-            Self::Google => "google",
-            Self::Kimi => "kimi",
-            Self::MiniMax => "minimax",
-            Self::Qwen => "qwen",
-            Self::TypeSafe => "typesafe",
-            Self::Xai => "xai",
-        }
-    }
-}
-
-impl std::fmt::Display for ProviderKind {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str(self.as_str())
-    }
-}
+use crate::{DynModel, ModelRouterResult, ProviderId};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -128,10 +57,10 @@ impl std::fmt::Display for ModelFeature {
 #[serde(rename_all = "snake_case")]
 /// Hard model route requirement.
 pub enum ModelRequirement {
-    /// Require a configured catalog model id.
+    /// Require a provider/model text id from the configured catalog.
     ModelId(String),
-    /// Require a provider family.
-    Provider(ProviderKind),
+    /// Require a stable provider id.
+    Provider(ProviderId),
     /// Require a model capability.
     Feature(ModelFeature),
     /// Require at least this advertised total context window.

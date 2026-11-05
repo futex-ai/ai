@@ -29,9 +29,10 @@ output, and exposes explicit mutation APIs for embedding services.
   or requesting a continuation. Turn logs use `TurnOutcome` for these states.
 - Calls an injected model with the active system prompt, conversation, and tool
   definitions.
-- Lets callers apply `ModelCallControls` to a turn with
-  `ActiveTurn::with_controls(...)`; every model step receives the controls
-  unchanged.
+- Lets callers apply `ModelCallControls`, including the request effort, to a
+  turn with `ActiveTurn::with_controls(...)`; every model step receives the
+  controls unchanged. The model resolves the effort against its own spec on
+  each step.
 - Always advertises the reserved intrinsic `tool_output_read` tool. Injecting a
   normal tool with that name fails during runtime construction or
   `replace_tools(...)`.
@@ -188,6 +189,7 @@ cargo clippy -p ai-tool-calling --all-targets --all-features -- -D warnings
 ### Related Docs
 
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
 - [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)

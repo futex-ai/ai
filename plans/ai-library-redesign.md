@@ -1,8 +1,9 @@
 # AI library redesign
 
 Status: Active. [PR #24](https://github.com/futex-ai/ai/pull/24) is open for
-the first pull request, and [PR #25](https://github.com/futex-ai/ai/pull/25)
-for the second. The work spans eight stacked pull requests. Each earlier pull request keeps
+the first pull request, [PR #25](https://github.com/futex-ai/ai/pull/25)
+for the second, and [PR #26](https://github.com/futex-ai/ai/pull/26) for the
+third. The work spans eight stacked pull requests. Each earlier pull request keeps
 this plan. The last one deletes it, as the final milestone says.
 
 The workspace puts nine AI providers behind one interface, with a
@@ -141,6 +142,13 @@ milestone keeps all behavior that this list does not name.
   outcome, as item 4 says.
 - The fall-through-on-any-error default of fallback: replaced by a required
   policy, as decision 5 says.
+- The disabled effort as "send no thinking field": replaced by the provider
+  default and an explicit off value, as item 27 says. A spec with no listed
+  effort rejects a requested effort instead of lowering it to disabled. The
+  user approved this change with the answer of 2026-11-04.
+- The Gemini 3.5 Flash-Lite default without a thinking field: replaced by
+  the low effort, sent as `thinkingLevel: "minimal"`, as item 26 says. The
+  user approved this change with the answer of 2026-11-04.
 
 The MCP crates change only after the MCP decision of Milestone 11.
 
@@ -204,6 +212,20 @@ answers that differ from the recommendation.
   filters, a pull-request label, schedules only, a small pull-request set,
   one run for each merged change, or a run set from the Cargo dependency
   graph. The recommendation was path filters.
+- Item 27, disabled effort mixes "no control" and "off", answered on
+  2026-11-04: option B. A spec and the custom defaults can leave the
+  reasoning to the provider. Such a call sends no thinking field and
+  reports no effort. Disabled goes to the wire only as an explicit off
+  value. Claude Sonnet 5 and Opus 5 gain disabled, and Fable 5 does not.
+  The alternative was to fix each false off claim by hand. B was the
+  recommendation.
+- Item 26, Flash-Lite falsely advertises disabled reasoning, answered on
+  2026-11-04: option C. One Google effort table gives both the efforts of a
+  model and their wire values, and no entry leaves the field out. Gemini
+  3.5 Flash-Lite maps low to `minimal`, medium to `medium`, and high to
+  `high`. Its default is low, and it rejects disabled. The alternatives
+  were native `low` as the default, a portable minimal effort, the provider
+  default, and a direct Flash-Lite branch. C was the recommendation.
 
 ## Design calls
 
@@ -301,6 +323,19 @@ All calls are mine, made on 2026-11-01.
   - Milestone 9 marks `chat-completions-dialects.md` implemented. The doc
     describes the engine on the specs, events, parts, error kinds, and
     base URLs of Milestones 5 to 9.
+- 2026-11-04, applying item 27:
+  - The default effort of `ModelSpec` and `CustomModelDefaults` and the
+    resolved effort are `Option<Effort>`. `None` is the provider default. A
+    request cannot ask for it on a spec with a default effort. An
+    `EffortSet` can be empty.
+  - A catalog spec lists only the efforts of its exact model. Custom
+    defaults list the generic wire mapping of the provider, and the caller
+    owns each custom spec.
+  - Gemini 3.5 Flash-Lite used the provider default until item 26 was
+    applied.
+- 2026-11-04, applying item 26: a custom spec that reuses a known Gemini
+  model id still sends a thinking value for each enabled effort. It rejects
+  disabled when the effort table gives that model no off value.
 
 ## Pull requests
 
@@ -414,16 +449,16 @@ Depends on: 3
 
 Replace five copies of one protocol with one engine and five dialects.
 
-- [ ] Add `ai-models-compat` with the engine: request mapping, streaming,
+- [x] Add `ai-models-compat` with the engine: request mapping, streaming,
       accumulation, response mapping, usage, and errors.
-- [ ] Port DeepSeek, Kimi, and Qwen as dialects. Move their tests into
+- [x] Port DeepSeek, Kimi, and Qwen as dialects. Move their tests into
       dialect test modules, and keep every assertion.
-- [ ] Port MiniMax with its stream normalizer and reasoning details.
-- [ ] Port xAI with deferred completion and legacy function calls.
-- [ ] Prove parity with the recordings and the moved tests.
-- [ ] Delete the five crates. Update the workspace members, the READMEs,
+- [x] Port MiniMax with its stream normalizer and reasoning details.
+- [x] Port xAI with deferred completion and legacy function calls.
+- [x] Prove parity with the recordings and the moved tests.
+- [x] Delete the five crates. Update the workspace members, the READMEs,
       the docs, `xtask`, and CI.
-- [ ] Run `cargo xtask check`, then commit and push.
+- [x] Run `cargo xtask check`, then commit and push.
 
 ## Milestone 5: Model specs and capabilities
 
@@ -431,19 +466,19 @@ Depends on: 4
 
 Put the facts of each model in one constant, and check requests against it.
 
-- [ ] Add `ModelSpec`, `ProviderId`, `Effort`, and the capability types to
+- [x] Add `ModelSpec`, `ProviderId`, `Effort`, and the capability types to
       `ai-interface`.
-- [ ] Convert every catalog to `ModelSpec` constants and a `CATALOG`
+- [x] Convert every catalog to `ModelSpec` constants and a `CATALOG`
       slice. Remove the thinking-variant entries.
-- [ ] Add the `provider/model` lookup and `ModelSpec::custom`.
-- [ ] Add the request effort, lowered to the spec.
-- [ ] Add the capability check for the output limit, tool choice with
+- [x] Add the `provider/model` lookup and `ModelSpec::custom`.
+- [x] Add the request effort, lowered to the spec.
+- [x] Add the capability check for the output limit, tool choice with
       thinking on, and the other controls. Carry the max output of item 2
       into each spec. Move the Anthropic rule of item 3 into spec data.
-- [ ] Add `cargo xtask capability-matrix`, and regenerate the matrix in
+- [x] Add `cargo xtask capability-matrix`, and regenerate the matrix in
       `model-capabilities.md`. Mark that doc implemented.
-- [ ] Run `cargo xtask check`, then commit and push.
-- [ ] Run the ship steps for pull request 3.
+- [x] Run `cargo xtask check`, then commit and push.
+- [x] Run the ship steps for pull request 3.
 
 ## Milestone 6: One stream method
 
@@ -509,6 +544,9 @@ fallback explicit.
 - [ ] Keep the provider message of every rate-limit error in the error
       core. The MiniMax and xAI adapters lose it today, as their
       `rate_limit` snapshots show.
+- [ ] Apply `plans/follow-ups/xai-deferred-poll-transport-error.md`, so
+      that deferred polling continues after a network failure of the
+      production transport.
 - [ ] Mark `model-policies.md` implemented.
 - [ ] Run `cargo xtask check`, then commit and push.
 
@@ -594,6 +632,8 @@ Finish the safety net. `AGENTS.md` already follows the shared skills since
 pull request #23.
 
 - [ ] Run every adapter through every conformance scenario.
+- [ ] Check replay for each spec that has the replay need, as
+      `model-capabilities.md` requires.
 - [ ] Update the workspace `README.md`.
 - [ ] Run `cargo xtask check`, then commit and push.
 

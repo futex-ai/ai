@@ -8,7 +8,7 @@ use serde_json::Value;
 use thiserror::Error;
 
 use crate::{
-    ConversationMessage, ModelCallControls, ModelCompletionEventSink, ModelControl,
+    ConversationMessage, Effort, ModelCallControls, ModelCompletionEventSink, ModelControl,
     ProviderConversationItem, ToolCall, ToolDefinition, usage::ModelUsage,
 };
 
@@ -67,12 +67,12 @@ pub struct ModelResponse {
     pub provider: String,
     /// Concrete provider model identifier used for the call.
     pub model_id: String,
-    /// Catalog model id that selected this provider call, when available.
+    /// Provider/model text id that selected this call, when available.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub catalog_model_id: Option<String>,
-    /// Normalized thinking level selected for this call, when available.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub thinking_level: Option<String>,
+    /// Resolved portable effort selected for this call, when available.
+    #[serde(rename = "effort", skip_serializing_if = "Option::is_none")]
+    pub thinking_level: Option<Effort>,
     /// Assistant text returned by the model.
     pub assistant_message: String,
     /// Tool calls requested by the model.
@@ -87,6 +87,13 @@ pub struct ModelResponse {
     pub provider_context: Vec<ProviderConversationItem>,
     /// Usage and estimated cost information for the call.
     pub usage: ModelUsage,
+}
+
+impl ModelResponse {
+    /// Returns the portable effort resolved for this response.
+    pub fn effort(&self) -> Option<Effort> {
+        self.thinking_level
+    }
 }
 
 #[derive(Debug, Error)]

@@ -2,6 +2,7 @@ use ai_interface::{ConversationContentPart, ConversationMessage, Model, ModelReq
 use json_http::JsonHttpResponse;
 use serde_json::json;
 
+use super::stream_support::custom_spec;
 use super::{GoogleModel, recording_http_client};
 
 #[tokio::test]
@@ -15,7 +16,7 @@ async fn serializes_image_context_message() {
             }]
         }),
     });
-    let model = GoogleModel::new(http_client, "gemini-2.5-pro", "google-key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-2.5-pro"), "google-key");
 
     model
         .complete(&ModelRequest {
@@ -85,7 +86,7 @@ async fn serializes_video_context_message_as_inline_data() {
             }]
         }),
     });
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "google-key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "google-key");
 
     model
         .complete(&ModelRequest {

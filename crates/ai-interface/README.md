@@ -2,17 +2,22 @@
 
 `ai-interface` is the shared contract crate for AI-facing runtime boundaries in
 this workspace. Depend on it when you need the common conversation, model,
-tool, audio transcription, image generation, video generation, judgment,
-routing, logging, usage, or model-visible tool output DTOs without taking a
-dependency on a stateful runtime implementation.
+model spec, effort, tool, audio transcription, image generation, video
+generation, judgment, routing, logging, usage, or model-visible tool output
+DTOs without taking a dependency on a stateful runtime implementation.
 
 ## Responsibilities
 
 - Own shared DTOs for conversations, model calls, tool calls, audio
   transcription, image generation/editing, video generation, typed judgment,
   routing, logging, and usage metering.
-- Represent provider identity and provider-owned replay state, including
-  Anthropic, Google, DeepSeek, Kimi, MiniMax, and Qwen reasoning context that remains separate
+- Own the model spec contract: `ModelSpec`, `ProviderId`, `Effort`,
+  `EffortSet`, the capability data types, `RoutingTiers`, `ModelCatalog`,
+  and the spec of the built-in mock model. This crate defines only the
+  `mock` provider id. Provider crates define their own provider ids and
+  specs.
+- Represent provider-owned replay state, including Anthropic, Google,
+  DeepSeek, Kimi, MiniMax, and Qwen reasoning context that remains separate
   from visible assistant text.
 - Own the model-visible tool output DTOs used by universal output management:
   opaque output ids, inline envelopes, window envelopes, read requests, and
@@ -46,27 +51,61 @@ dependency on a stateful runtime implementation.
   thought signature, including thought flags and optional raw function-call ids.
   Their serde tags are `anthropic_assistant_message` and
   `google_assistant_message`. Each adapter replays only its own context.
-- Defines `ProviderKind::DeepSeek` with the stable deployment and serde value
-  `deepseek`.
-- Defines `ProviderKind::MiniMax` with the stable deployment and serde value
-  `minimax`, plus typed MiniMax reasoning details for lossless continuation
-  replay.
-- Defines `ProviderKind::Qwen` with the stable deployment and serde value
-  `qwen`, plus typed Qwen raw tool-call replay state.
+- Defines typed MiniMax reasoning details for lossless continuation replay
+  and typed Qwen raw tool-call replay state.
+- Defines `ProviderId`, the stable lowercase name of a provider, such as
+  `deepseek`, `minimax`, or `qwen`. It serializes as that plain string. Each
+  provider crate exports the constant of its provider. This crate defines
+  only `MOCK_PROVIDER` (`mock`).
+- Defines `ModelSpec`, the facts of one provider model: the provider id, the
+  provider model id, the context window, the max output, whether every
+  request needs an output limit, the supported efforts as an `EffortSet`
+  that can be empty, the optional default effort, the `ForcedToolChoice`
+  and `Sampling` rules, stop-sequence and deferred-lifecycle support, the
+  efforts whose tool continuations need replay state, the routing features,
+  and optional `RoutingTiers` (intelligence, speed, and cost). Every field
+  is public. `text_id()` returns the `provider/model` text id. A
+  `default_effort` of `None` means that the provider chooses the reasoning.
+- Defines `CustomModelDefaults` and
+  `ModelSpec::custom(provider, model_id, &defaults)` for a model that no
+  catalog lists. Each provider crate exports the defaults of its provider. A
+  custom spec starts with no features and no routing tiers.
+- Defines `ModelCatalog`. `ModelCatalog::new().with_models(...)` combines the
+  `CATALOG` slices of several providers in insertion order. `find(text_id)`
+  splits the text id at its first slash and matches the provider id and the
+  provider model id exactly, with case.
+- Defines `Effort`, ordered from `Disabled` through `Low`, `Medium`, `High`,
+  `ExtraHigh`, and `Max`. `Disabled` turns thinking off with an explicit
+  provider off value. A request sets it in
+  `ModelGenerationControls::effort`. A request without one uses the default
+  effort of the spec. A spec without a default effort leaves the reasoning
+  to the provider. The shared capability check in `ai-models-core`
+  resolves it against the spec.
+- Defines `MOCK_MODEL`, `MOCK_CATALOG`, and `MOCK_CUSTOM_DEFAULTS` for local
+  development and tests.
 - Defines `ModelRequest`, `ModelResponse`, `FinishReason`,
   `StructuredOutputSchema`, model usage DTOs, and typed model/router errors.
+  `ModelResponse::effort()` returns the resolved effort, or `None` when the
+  provider chose the reasoning. The typed `thinking_level` field holds it
+  and serializes as `effort`.
+  `catalog_model_id` records the text id of the spec.
   `ModelError::Interrupted` identifies a streaming completion that failed only
   after provider events had arrived, keeping it distinct from a safe-to-retry
   `TransientProvider` failure before any progress.
+- Defines `ModelRouteRequest`, `ModelRequirement`, `ModelPreference`, and the
+  `ModelRouter` trait. `ModelRequirement::ModelId` holds a text id, and
+  `ModelRequirement::Provider` holds a `ProviderId`.
 - Defines `ModelCompletionEvent` and `ModelCompletionEventSink` for callers
   that opt into `Model::complete_with_events`. The default method delegates to
   `complete` without events, while `NoopModelCompletionEventSink` lets concrete
   adapters share the observing path with buffered callers.
-- Defines defaulted `ModelCallControls` for portable sampling, output limits,
-  ordered stops, strict or explicit required-with-automatic-fallback tool
-  choice, total call timeout, and provider-neutral
-  synchronous/prefer-deferred/require-deferred lifecycle intent. Explicit
-  intent that cannot be honored returns a typed `UnsupportedControl` error.
+- Defines defaulted `ModelCallControls` for the request effort, portable
+  sampling, output limits, ordered stops, strict or explicit
+  required-with-automatic-fallback tool choice, total call timeout, and
+  provider-neutral synchronous/prefer-deferred/require-deferred lifecycle
+  intent. Explicit intent that cannot be honored returns a typed
+  `UnsupportedControl` error that names the `ModelControl`, including
+  `ModelControl::Effort`.
 - Defines the one-image `ImageGenerator` boundary, normalized aspect/quality
   controls, edit input images, decoded output bytes, and typed policy/retry
   errors. Internal failures use the shared tracked `InternalError` contract.
@@ -86,8 +125,8 @@ dependency on a stateful runtime implementation.
   numeric values, distribution sums, and internal consistency (the selected
   option is the most probable one and the expected score matches its
   distribution within documented tolerances) before callers consume them.
-  `ProviderKind::TypeSafe` and `ModelFeature::Judgment` are the stable routing
-  identities.
+  The `typesafe` provider id and `ModelFeature::Judgment` are the stable
+  routing identities.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
   tool idempotency key alongside the model-visible tool name and JSON input.
 - Defines `ToolOutputEnvelope` as the model-visible success payload for tools.
@@ -119,118 +158,45 @@ not own.
 ## Quick Start
 
 ```rust
-use std::collections::BTreeMap;
-
 use ai_interface::{
-    ConversationMessage, DeepSeekToolCallContext, ImageGenerationRequest, ImageGenerator,
-    JudgmentModel, JudgmentQuestion, JudgmentRequest, JudgmentResponse, MiniMaxReasoningDetail,
-    MockImageGenerator, MockJudgmentModel, MockVideoGenerator, Model, ModelRequest, MockModel,
-    NoopModelCompletionEventSink, ProviderKind, ProviderConversationItem, ToolOutputEnvelope,
-    ToolOutputId, ToolOutputReadRequest, VideoGenerationRequest, VideoGenerator,
+    ConversationMessage, Effort, MOCK_CATALOG, MOCK_CUSTOM_DEFAULTS, MOCK_PROVIDER, MockModel,
+    Model, ModelCatalog, ModelRequest, ModelSpec,
 };
-use serde_json::json;
 
-async fn call_model() -> ai_interface::ModelResult<String> {
-    let model = MockModel::new("done");
-    let response = model
-        .complete(&ModelRequest {
-            system_prompt: "You are concise.".to_owned(),
-            messages: vec![ConversationMessage::user("Summarize the status")],
-            tools: Vec::new(),
-            response_schema: None,
-            controls: Default::default(),
-        })
-        .await?;
+fn find_mock_spec() -> Option<ModelSpec> {
+    ModelCatalog::new()
+        .with_models(MOCK_CATALOG.iter().cloned())
+        .find("mock/mock")
+        .cloned()
+}
 
+fn unlisted_mock_spec() -> ModelSpec {
+    let mut spec = ModelSpec::custom(MOCK_PROVIDER, "mock-large", &MOCK_CUSTOM_DEFAULTS);
+    spec.context_window_tokens = 1_000_000;
+    spec
+}
+
+fn high_effort_request() -> ModelRequest {
+    let mut request = ModelRequest {
+        system_prompt: "You are concise.".to_owned(),
+        messages: vec![ConversationMessage::user("Plan the release")],
+        tools: Vec::new(),
+        response_schema: None,
+        controls: Default::default(),
+    };
+    request.controls.generation.effort = Some(Effort::High);
+    request
+}
+
+async fn call_mock_model() -> ai_interface::ModelResult<String> {
+    let response = MockModel::new("done").complete(&high_effort_request()).await?;
     Ok(response.assistant_message)
-}
-
-async fn call_model_through_event_boundary(
-    request: &ModelRequest,
-) -> ai_interface::ModelResult<String> {
-    let response = MockModel::new("done")
-        .complete_with_events(request, &NoopModelCompletionEventSink)
-        .await?;
-    Ok(response.assistant_message)
-}
-
-async fn generate_image() -> ai_interface::ImageGenerationResult<Vec<u8>> {
-    let generator = MockImageGenerator::default();
-    let response = generator
-        .generate(&ImageGenerationRequest {
-            prompt: "A geometric blue bird".to_owned(),
-            ..ImageGenerationRequest::default()
-        })
-        .await?;
-
-    Ok(response.image.data)
-}
-
-async fn generate_video() -> ai_interface::VideoGenerationResult<Vec<u8>> {
-    let generator = MockVideoGenerator::default();
-    let response = generator
-        .generate(&VideoGenerationRequest {
-            prompt: "A geometric blue bird takes flight".to_owned(),
-            ..VideoGenerationRequest::default()
-        })
-        .await?;
-
-    Ok(response.video.data)
-}
-
-async fn judge_state() -> ai_interface::JudgmentResult<JudgmentResponse> {
-    MockJudgmentModel
-        .judge(&JudgmentRequest {
-            state: "The payout has failed for three days.".into(),
-            questions: BTreeMap::from([(
-                "urgent".to_owned(),
-                JudgmentQuestion::condition("Is this urgent?", None),
-            )]),
-        })
-        .await
-}
-
-fn serialize_inline_tool_output() -> serde_json::Result<String> {
-    let raw_output = json!({ "matches": ["alpha"] });
-    let total_bytes = serde_json::to_string(&raw_output)?.len();
-    let envelope = ToolOutputEnvelope::inline("search", raw_output, total_bytes);
-
-    serde_json::to_string(&envelope)
-}
-
-fn read_next_window(output_id: &str) -> ToolOutputReadRequest {
-    ToolOutputReadRequest {
-        output_id: ToolOutputId::from_opaque(output_id),
-        offset: Some(20_000),
-        length: None,
-    }
-}
-
-fn minimax_replay_detail(text: &str) -> (ProviderKind, MiniMaxReasoningDetail) {
-    (
-        ProviderKind::MiniMax,
-        MiniMaxReasoningDetail {
-            kind: Some("reasoning.text".to_owned()),
-            id: None,
-            format: None,
-            index: Some(0),
-            text: Some(text.to_owned()),
-        },
-    )
-}
-
-fn deepseek_replay_item() -> ProviderConversationItem {
-    ProviderConversationItem::DeepSeekAssistantMessage {
-        content: String::new(),
-        reasoning_content: Some("private provider state".to_owned()),
-        tool_calls: vec![DeepSeekToolCallContext {
-            id: "call_1".to_owned(),
-            name: "memory_read".to_owned(),
-            arguments: "{\"path\":\"root\"}".to_owned(),
-        }],
-    }
 }
 ```
+
+[`docs/examples.md`](docs/examples.md) has more examples: model calls with
+completion events, image and video generation, judgment, tool output
+envelopes, and provider replay context.
 
 ## Development
 
@@ -252,7 +218,18 @@ tool dispatch live in `ai-tool-calling`.
   typed model errors.
 - `src/model_completion_events.rs` - public incremental events, sink trait,
   dynamic alias, and no-op sink.
-- `src/model_controls.rs` - portable generation and execution controls.
+- `src/model_controls.rs` - portable generation and execution controls,
+  including the request effort.
+- `src/model_spec.rs` - `ModelSpec`, its text id, and `ModelSpec::custom`.
+- `src/model_capabilities.rs` - `ForcedToolChoice`, `Sampling`, and
+  `CustomModelDefaults`.
+- `src/effort.rs` - `Effort` and `EffortSet`, which can be empty.
+- `src/provider_id.rs` - `ProviderId` and `MOCK_PROVIDER`.
+- `src/model_catalog.rs` - `ModelCatalog` and its case-sensitive text-id
+  lookup.
+- `src/routing_tiers.rs` - intelligence, speed, and cost tiers.
+- `src/mock_catalog.rs` - the mock model spec, catalog, and custom
+  defaults.
 - `src/router.rs` - model route request DTOs and router trait.
 - `src/audio_transcriber.rs` - speech-to-text trait, request/response DTOs,
   and typed transcription errors.
@@ -274,6 +251,9 @@ tool dispatch live in `ai-tool-calling`.
 
 ### Related Docs
 
+- [`docs/examples.md`](docs/examples.md)
+- [`../../docs/architecture.md`](../../docs/architecture.md)
+- [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
 - [`../../docs/protocol/model-completion-streaming.md`](../../docs/protocol/model-completion-streaming.md)
 - [`../../docs/protocol/model-completion-events.md`](../../docs/protocol/model-completion-events.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
@@ -283,6 +263,7 @@ tool dispatch live in `ai-tool-calling`.
 - [`../../docs/protocol/minimax-model-provider.md`](../../docs/protocol/minimax-model-provider.md)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
+- [`../../docs/protocol/judgment-boundary.md`](../../docs/protocol/judgment-boundary.md)
 - [`../../docs/protocol/typesafe-judgment-provider.md`](../../docs/protocol/typesafe-judgment-provider.md)
 - [`../../docs/protocol/live-judgment-api-tests.md`](../../docs/protocol/live-judgment-api-tests.md)
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)

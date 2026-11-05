@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, ConversationRole, FinishReason, Logger, LoggerMock, Model,
+    ConversationMessage, ConversationRole, Effort, FinishReason, Logger, LoggerMock, Model,
     ModelCallLogEntry, ModelCallLogResult, ModelError, ModelMock, ModelRequest, ModelResponse,
     ModelUsage, ProviderConversationItem, QwenToolCallContext, ToolCall,
 };
@@ -134,7 +134,7 @@ fn tool_response(provider_context: Vec<ProviderConversationItem>) -> ModelRespon
         provider: "qwen".to_owned(),
         model_id: "qwen3.7-plus".to_owned(),
         catalog_model_id: Some("qwen3.7-plus".to_owned()),
-        thinking_level: Some("high".to_owned()),
+        thinking_level: Some(Effort::High),
         assistant_message: "calling tool".to_owned(),
         tool_calls: vec![ToolCall {
             id: "call-1".to_owned(),
@@ -154,7 +154,7 @@ fn stop_response() -> ModelResponse {
         provider: "qwen".to_owned(),
         model_id: "qwen3.7-plus".to_owned(),
         catalog_model_id: Some("qwen3.7-plus".to_owned()),
-        thinking_level: Some("high".to_owned()),
+        thinking_level: Some(Effort::High),
         assistant_message: "done".to_owned(),
         tool_calls: Vec::new(),
         finish_reason: FinishReason::Stop,

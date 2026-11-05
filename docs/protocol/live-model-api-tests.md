@@ -2,18 +2,21 @@
 
 ## Purpose
 
-Continuously verify that every real chat-provider adapter and every
-chat-capable exported catalog variant can complete a request through the
-generic tool-calling runtime and its upstream production API.
+Continuously verify that every real chat-provider adapter, and the default
+and every listed effort of every chat-capable exported model spec, can
+complete a request through the generic tool-calling runtime and its
+upstream production API.
 
 ## Scope
 
 The credentialed suite covers Anthropic, DeepSeek, Google Gemini, Kimi,
-MiniMax, OpenAI, QwenCloud, and xAI. Each provider test obtains its models from
-that crate's `known_models()` function, so new chat-capable catalog variants
-enter the live test automatically. Logical variants that share an upstream
-model id still run separately because they exercise different thinking
-controls. Entries advertising `ModelFeature::ImageGeneration`,
+MiniMax, OpenAI, QwenCloud, and xAI. Each provider test obtains its specs from
+that crate's `known_models()` function. It runs one probe at the default of
+each chat-capable spec, then one probe for each other listed effort, so new
+specs and efforts enter the live test automatically. The default probe of a
+spec without a default effort sets no effort. Probes that share a spec
+still run separately because each effort exercises different thinking
+controls. Specs advertising `ModelFeature::ImageGeneration`,
 `ModelFeature::VideoGeneration`, or `ModelFeature::Judgment` are routed through
 their specialized provider-neutral traits, not `Model`, and are therefore
 outside this chat connectivity suite.
@@ -55,10 +58,12 @@ and `none`.
 test:
 
 1. Requires a non-empty `LIVE_MODEL_API_KEY`.
-2. Selects every catalog entry that advertises neither image generation, video
-   generation, nor judgment, then
-   constructs it with `ReqwestJsonHttpClient`, the production chat adapter,
-   explicit provider authentication, and catalog thinking metadata.
+2. Selects every spec that advertises neither image generation, video
+   generation, nor judgment, and expands it into one probe at its default,
+   then one probe for each other listed effort. It constructs the production
+   chat adapter from the spec with `ReqwestJsonHttpClient` and explicit
+   provider authentication, and it sets the effort of the probe in the
+   request controls.
    Providers migrated to internal SSE accumulation therefore use their real
    streaming endpoint without a live-test-only branch.
 3. Erases the concrete adapter behind `DynModel` and applies the standard
@@ -68,22 +73,23 @@ test:
    `complete_with_events` entrypoint. The wrapper records ordered events while
    `ToolCallingRuntime` still captures the normalized terminal response through
    its provider-neutral response-checkpoint boundary.
-5. Runs one synchronous probe against the provider's first chat model and
-   requires assistant-event parity with its terminal response.
-6. Runs every chat catalog entry with no tool calls, a ten-minute adapter-call
+5. Runs one synchronous probe against the provider's first chat spec at its
+   default effort and requires assistant-event parity with its terminal
+   response.
+6. Runs every probe with no tool calls, a ten-minute adapter-call
    deadline, and `PreferDeferred`. XAI resolves that preference to its native
    deferred lifecycle and must emit no events; every other adapter falls back
    to its ordinary synchronous lifecycle and must retain assistant-event
    parity.
-7. Retries the synchronous probe or a catalog entry exactly once when a
+7. Retries the synchronous probe or a catalog probe exactly once when a
    successful response fails only because it omitted the probe marker and its
    event validation is otherwise clean, apart from a possible terminal-parity
    failure against that same response. Natural-language replies can be
    non-deterministic even under an exact prompt, so the second result replaces
    the first. Request errors and identity, finish, tool, usage, or other event
    failures are not retried by this rule. It can add at most one billable call
-   per probe or catalog entry.
-8. Continues after a catalog-model failure and reports all failures for that
+   per probe.
+8. Continues after a probe failure and reports all failures for that
    provider together.
 
 The MiniMax provider test first runs its strict required-tool probe. A failure
@@ -104,8 +110,8 @@ Each live completion must:
 
 - complete one generic runtime step;
 - return the expected normalized provider id;
-- retain the catalog id, upstream model id, and thinking level selected by the
-  catalog entry;
+- record the text id of the spec, the provider model id, and the effort of
+  the probe, or no effort for a probe that sets none;
 - finish naturally with non-empty text containing the probe marker;
 - return no tool calls when none were offered; and
 - report a non-zero total token count.
@@ -120,8 +126,8 @@ A marker-only miss receives one bounded retry because model replies can vary;
 the second result must satisfy the complete contract. The retry does not mask
 identity, finish-reason, tool, usage, request, or non-parity event failures and
 does not alter the separate transient transport retry policy. Its maximum cost
-is one additional billable call for each synchronous probe or catalog entry. A
-provider job fails if any final catalog result violates this contract. For an
+is one additional billable call for each synchronous probe or catalog probe.
+A provider job fails if any final probe result violates this contract. For an
 eligible event, missing credentials also fail explicitly and must never be
 treated as skipped or successful coverage.
 

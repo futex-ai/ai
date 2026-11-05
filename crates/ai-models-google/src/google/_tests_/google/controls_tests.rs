@@ -13,11 +13,12 @@ use unimock::Unimock;
 
 use super::super::GoogleModel;
 use super::stream_support;
+use super::stream_support::custom_spec;
 
 #[tokio::test]
 async fn maps_controls_and_preserves_full_function_json_schema() {
     let (http_client, requests) = recording_client();
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
 
     model
         .complete(&controlled_request())
@@ -54,7 +55,7 @@ async fn maps_controls_and_preserves_full_function_json_schema() {
 
 #[tokio::test]
 async fn rejects_required_deferred_mode_before_transport() {
-    let model = GoogleModel::new(no_call_client(), "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(no_call_client(), custom_spec("gemini-3.6-flash"), "key");
     let mut request = base_request();
     request.controls.execution.completion_mode = ModelCompletionMode::RequireDeferred;
 
@@ -75,7 +76,7 @@ async fn rejects_required_deferred_mode_before_transport() {
 #[tokio::test]
 async fn required_or_auto_uses_forced_required_semantics() {
     let (http_client, requests) = recording_client();
-    let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+    let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
     let mut request = base_request();
     request.controls.generation.tool_choice = Some(ModelToolChoice::RequiredOrAuto);
 
@@ -95,7 +96,7 @@ async fn required_or_auto_uses_forced_required_semantics() {
 async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
     for (system_prompt, expected) in [("", None), ("   ", None), ("normal", Some("normal"))] {
         let (http_client, requests) = recording_client();
-        let model = GoogleModel::new(http_client, "gemini-3.6-flash", "key");
+        let model = GoogleModel::new(http_client, custom_spec("gemini-3.6-flash"), "key");
         let mut request = base_request();
         request.system_prompt = system_prompt.to_owned();
 
@@ -129,6 +130,7 @@ fn controlled_request() -> ModelRequest {
     }];
     request.controls = ModelCallControls {
         generation: ModelGenerationControls {
+            effort: None,
             temperature: Some(0.4),
             top_p: Some(0.9),
             max_output_tokens: Some(600),

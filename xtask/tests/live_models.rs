@@ -10,12 +10,13 @@ mod provider_tests;
 mod runner_tests;
 #[path = "live_models/tool_choice_tests.rs"]
 mod tool_choice_tests;
+#[path = "live_models/validation_tests.rs"]
+mod validation_tests;
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use ai_interface::ProviderKind;
-use ai_models_core::ModelFeature;
+use ai_interface::ModelFeature;
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 
 use self::provider_tests::LiveProvider;
@@ -23,27 +24,30 @@ use self::runner_tests::run_live_provider;
 
 #[test]
 fn covers_every_real_provider() {
-    assert_eq!(LiveProvider::from_kind(ProviderKind::Mock), None);
-    assert_eq!(LiveProvider::from_kind(ProviderKind::TypeSafe), None);
+    assert_eq!(LiveProvider::from_id(ai_interface::MOCK_PROVIDER), None);
+    assert_eq!(LiveProvider::from_id(ai_models_typesafe::PROVIDER_ID), None);
     let expected = BTreeSet::from([
-        ProviderKind::Anthropic,
-        ProviderKind::DeepSeek,
-        ProviderKind::Google,
-        ProviderKind::Kimi,
-        ProviderKind::MiniMax,
-        ProviderKind::OpenAi,
-        ProviderKind::Qwen,
-        ProviderKind::Xai,
+        ai_models_anthropic::PROVIDER_ID,
+        ai_models_compat::deepseek::PROVIDER_ID,
+        ai_models_google::PROVIDER_ID,
+        ai_models_compat::kimi::PROVIDER_ID,
+        ai_models_compat::minimax::PROVIDER_ID,
+        ai_models_openai::PROVIDER_ID,
+        ai_models_compat::qwen::PROVIDER_ID,
+        ai_models_compat::xai::PROVIDER_ID,
     ]);
     let actual = LiveProvider::ALL
         .iter()
-        .map(|provider| provider.kind())
+        .map(|provider| provider.provider_id())
         .collect::<BTreeSet<_>>();
     assert_eq!(actual, expected);
 
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
     for provider in LiveProvider::ALL {
-        assert_eq!(LiveProvider::from_kind(provider.kind()), Some(provider));
+        assert_eq!(
+            LiveProvider::from_id(provider.provider_id()),
+            Some(provider)
+        );
         let catalog = provider.catalog();
         assert!(
             !catalog.is_empty(),
@@ -52,7 +56,7 @@ fn covers_every_real_provider() {
         assert!(
             catalog
                 .iter()
-                .all(|model| model.provider == provider.kind()),
+                .all(|model| model.provider == provider.provider_id()),
             "{provider:?} catalog contained another provider"
         );
         let chat_catalog = provider.chat_catalog();
@@ -97,7 +101,7 @@ fn chat_catalog_excludes_specialized_models() {
 
 #[test]
 fn typesafe_judgment_models_never_reach_other_live_runners() {
-    let catalog = ai_models_typesafe::known_models();
+    let catalog = ai_models_typesafe::CATALOG.to_vec();
 
     assert!(!catalog.is_empty(), "TypeSafe catalog must not be empty");
     assert!(catalog.iter().all(|model| {
@@ -116,12 +120,12 @@ fn workflow_covers_every_live_provider() {
         assert!(
             workflow.contains(&format!("test: {}", provider.workflow_test())),
             "workflow omitted the {} test",
-            provider.kind()
+            provider.provider_id()
         );
         assert!(
             workflow.contains(&format!("api_key: {}", provider.workflow_secret())),
             "workflow omitted the {} credential",
-            provider.kind()
+            provider.provider_id()
         );
     }
 }

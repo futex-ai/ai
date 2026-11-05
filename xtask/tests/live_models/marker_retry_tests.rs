@@ -9,10 +9,11 @@ use std::{
 };
 
 use ai_interface::{
-    DynModel, FinishReason, MockModel, Model, ModelCompletionEvent, ModelCompletionEventSink,
-    ModelCompletionMode, ModelRequest, ModelResponse, ModelResult, ModelToolChoice, ModelUsage,
+    DynModel, Effort, FinishReason, MockModel, Model, ModelCompletionEvent,
+    ModelCompletionEventSink, ModelCompletionMode, ModelRequest, ModelResponse, ModelResult,
+    ModelSpec, ModelToolChoice, ModelUsage,
 };
-use ai_models_core::KnownModelSpec;
+
 use async_trait::async_trait;
 
 use super::{
@@ -49,7 +50,7 @@ fn response_contract_failures_are_not_retryable() {
         "model: provider was `wrong`, expected `minimax`",
         "model: provider model was `wrong`, expected `MiniMax-M3`",
         "model: catalog model was None",
-        "model: thinking level was None, expected `medium`",
+        "model: effort was None, expected `medium`",
         "model: finish reason was Truncated",
         "model: response unexpectedly requested tools",
         "model: provider reported zero total tokens",
@@ -100,6 +101,7 @@ async fn runner_retries_one_marker_miss_and_uses_the_second_reply() {
     let failures = run_probe_with_marker_retry(
         provider,
         &spec,
+        spec.default_effort,
         model,
         ModelCompletionMode::Synchronous,
         provider.synchronous_event_expectation(),
@@ -126,6 +128,7 @@ async fn runner_reports_the_second_marker_miss_after_one_retry() {
     let failures = run_probe_with_marker_retry(
         provider,
         &spec,
+        spec.default_effort,
         model,
         ModelCompletionMode::Synchronous,
         provider.synchronous_event_expectation(),
@@ -136,7 +139,7 @@ async fn runner_reports_the_second_marker_miss_after_one_retry() {
         failures,
         vec![format!(
             "{}: assistant response did not contain the probe marker",
-            spec.id
+            spec.text_id()
         )]
     );
     assert_eq!(calls.load(Ordering::SeqCst), 2);
@@ -144,7 +147,7 @@ async fn runner_reports_the_second_marker_miss_after_one_retry() {
 
 #[test]
 fn probe_controls_are_provider_neutral() {
-    let controls = probe_controls(ModelCompletionMode::PreferDeferred);
+    let controls = probe_controls(ModelCompletionMode::PreferDeferred, Some(Effort::Medium));
 
     assert_eq!(controls.generation.tool_choice, Some(ModelToolChoice::None));
     assert_eq!(controls.execution.total_timeout, Some(MODEL_TIMEOUT));
@@ -159,6 +162,7 @@ async fn generic_runtime_executes_a_dynamic_model() {
     let response = complete_through_runtime(
         Arc::new(MockModel::new("live-probe")),
         ModelCompletionMode::Synchronous,
+        Some(Effort::Disabled),
     )
     .await
     .expect("generic runtime should complete through the model trait");
@@ -212,7 +216,7 @@ fn scripted_model(responses: Vec<ModelResponse>, calls: Arc<AtomicUsize>) -> Dyn
     })
 }
 
-fn first_spec(provider: LiveProvider) -> KnownModelSpec {
+fn first_spec(provider: LiveProvider) -> ModelSpec {
     provider
         .chat_catalog()
         .into_iter()
@@ -220,12 +224,12 @@ fn first_spec(provider: LiveProvider) -> KnownModelSpec {
         .expect("MiniMax chat catalog should not be empty")
 }
 
-fn valid_response(spec: &KnownModelSpec, assistant_message: &str) -> ModelResponse {
+fn valid_response(spec: &ModelSpec, assistant_message: &str) -> ModelResponse {
     ModelResponse {
         provider: spec.provider.as_str().to_owned(),
-        model_id: spec.provider_model_id.to_owned(),
-        catalog_model_id: Some(spec.id.to_owned()),
-        thinking_level: Some(spec.thinking_level.as_str().to_owned()),
+        model_id: spec.provider_model_id.to_string(),
+        catalog_model_id: Some(spec.text_id().to_owned()),
+        thinking_level: spec.default_effort,
         assistant_message: assistant_message.to_owned(),
         tool_calls: Vec::new(),
         finish_reason: FinishReason::Stop,

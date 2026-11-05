@@ -8,7 +8,7 @@ structured-output, usage, and error contracts.
 
 ## Status
 
-Implemented by `ai-models-qwen`, with shared routing and replay types in
+Implemented by `ai-models-compat`, with shared routing and replay types in
 `ai-interface`.
 
 Once implemented, the
@@ -35,13 +35,13 @@ partial support.
 
 ## Ownership
 
-- `ai-interface` owns the stable `Qwen` provider identifier and typed Qwen
-  assistant replay context.
-- `ai-models-qwen` owns catalog metadata, configuration validation,
-  authentication, request and response mapping, replay, and Qwen-specific
-  error translation.
-- `ai-models-core` owns shared HTTP classification, tool-argument parsing,
-  structured-output validation, and model metadata types.
+- `ai-interface` owns the model spec types and typed Qwen assistant replay
+  context.
+- `ai-models-compat` owns the stable `qwen` provider id, the Qwen model specs
+  and custom defaults, authentication, request and response mapping, replay,
+  and Qwen-specific error translation.
+- `ai-models-core` owns shared HTTP classification, the capability check,
+  tool-argument parsing, and structured-output validation.
 - `json-http` owns the injected HTTP client and authentication boundaries.
 - `ai-tool-calling` owns retention of provider context and removal of private
   reasoning from model-call logger copies.
@@ -62,34 +62,31 @@ Content-Type: application/json
 ```
 
 Requests set `stream: true` and `stream_options.include_usage: true`. The
-default constructor selects `qwen3.7-plus` with thinking enabled. Token Plan
-and Coding Plan keys require different endpoints and are not interchangeable
+default constructor selects the `qwen3.7-plus` spec, whose default effort
+enables thinking. `with_catalog_auth` accepts a model spec. Token Plan and
+Coding Plan keys require different endpoints and are not interchangeable
 with this boundary.
 
-## Known Model Catalog
+## Known Model Specs
 
-The provider exposes the three current stable general-purpose Qwen3.7 aliases,
-plus explicit non-thinking variants. All have a 1,000,000-token context
-window. Qwen3.7 Max is text-only; Plus and Flash accept text and images.
+The provider exposes the three current stable general-purpose Qwen3.7
+aliases, with one spec for each. Qwen3.7 Max is text-only; Plus and Flash
+accept text and images. The
+[control matrix](model-capabilities.md#control-matrix) gives the efforts,
+the default effort, the max output, and the context window of each spec.
 
-| Catalog id | Provider id | Intelligence | Speed | Cost | Thinking | Vision |
-| --- | --- | ---: | --- | --- | --- | --- |
-| `qwen3.7-max` | `qwen3.7-max` | Ten | Slow | Premium | High | No |
-| `qwen3.7-max-thinking-disabled` | `qwen3.7-max` | Ten | Medium | Premium | Disabled | No |
-| `qwen3.7-plus` | `qwen3.7-plus` | Nine | Medium | Medium | High | Yes |
-| `qwen3.7-plus-thinking-disabled` | `qwen3.7-plus` | Nine | Fast | Medium | Disabled | Yes |
-| `qwen3.7-flash` | `qwen3.7-flash` | Eight | Fast | Low | High | Yes |
-| `qwen3.7-flash-thinking-disabled` | `qwen3.7-flash` | Eight | VeryFast | Low | Disabled | Yes |
+| Text id | Constant | Intelligence | Speed | Cost | Vision |
+| --- | --- | ---: | --- | --- | --- |
+| `qwen/qwen3.7-max` | `QWEN_3_7_MAX` | Ten | Slow | Premium | No |
+| `qwen/qwen3.7-plus` | `QWEN_3_7_PLUS` | Nine | Medium | Medium | Yes |
+| `qwen/qwen3.7-flash` | `QWEN_3_7_FLASH` | Eight | Fast | Low | Yes |
 
-Enabled variants advertise reasoning; disabled variants do not. Every variant
-advertises tool calling, structured output, and long context. Plus and Flash
-also advertise vision. Cost is coarse routing metadata rather than a billing
-schedule.
-
-The crate exports typed constants for all six catalog ids and a
-`known_models()` function. Construction rejects unknown provider ids.
-Unsupported normalized thinking levels downgrade to the highest catalog level
-that does not exceed the request.
+Every spec advertises tool calling, structured output, long context, and
+reasoning. Plus and Flash also advertise vision. The routing tiers describe
+each model at its default high effort. Cost is coarse routing metadata
+rather than a billing schedule. A model that the catalog does not list uses
+a [custom spec](model-capabilities.md#custom-specs) with the Qwen custom
+defaults.
 
 ## Request Mapping
 
@@ -127,16 +124,17 @@ Without Qwen context, assistant calls are reconstructed from normalized calls.
 
 ## Thinking And Replay
 
-Thinking maps exactly:
+The resolved effort maps exactly:
 
-| `ThinkingLevel` | `enable_thinking` | `preserve_thinking` |
+| Effort | `enable_thinking` | `preserve_thinking` |
 | --- | --- | --- |
-| `High` | `true` | `true` |
-| `Disabled` | `false` | `false` |
+| High | `true` | `true` |
+| Disabled | `false` | `false` |
 
-`Low` and `Medium` downgrade to `Disabled`; `ExtraHigh` and `Max` downgrade to
-`High`. The adapter does not invent provider-specific budgets for those
-levels. Responses record the effective level. Enabled responses may include
+The Qwen specs list these two efforts. The capability check lowers low and
+medium to disabled, and extra high and max to high. The adapter does not
+invent provider-specific budgets for those efforts. Responses record the
+resolved effort. Enabled responses may include
 private `reasoning_content`. Qwen
 requires the complete assistant message, including reasoning and raw tool
 calls, when a thinking-mode tool flow continues.
@@ -236,7 +234,7 @@ before progress remain retryable, while failures after progress become
 ## Required Verification
 
 Unit tests use `JsonHttpTransportMock` through `TransportBackedJsonHttpClient`
-and never call QwenCloud. Coverage includes provider serde, catalog metadata,
+and never call QwenCloud. Coverage includes provider identity, spec metadata,
 construction, bearer auth and endpoint, every message role, image mapping and
 Max rejection, thinking controls, private replay and foreign-context
 isolation, parallel tools, terminal-call suppression, structured-output
@@ -245,10 +243,10 @@ transport errors, logger redaction, deterministic hashing, and credential-free
 smoke construction.
 
 The ignored workspace integration test `xtask/tests/live_models.rs` separately
-calls every Qwen catalog entry through the production adapter when an explicit
-`LIVE_MODEL_API_KEY` is supplied. GitHub Actions runs that billable suite for
-eligible pull requests and from the scheduled/manual `Live model APIs`
-workflow.
+calls each listed effort of every Qwen spec through the production adapter
+when an explicit `LIVE_MODEL_API_KEY` is supplied. GitHub Actions runs that
+billable suite for eligible pull requests and from the scheduled/manual
+`Live model APIs` workflow.
 
 Full formatting, file-length lint, Clippy, workspace tests, smoke tests,
 `cargo xtask check`, commit and push, and post-push `cargo xtask review` are

@@ -1,14 +1,13 @@
 //! Normalized live-image response validation tests.
 
-use ai_interface::{GeneratedImage, ImageGenerationResponse, ModelUsage, ProviderKind};
-use ai_models_core::{
-    CostTier, IntelligenceScore, KnownModelSpec, ModelFeature, SpeedTier, ThinkingLevel,
-};
+use std::borrow::Cow;
+
+use ai_interface::{GeneratedImage, ImageGenerationResponse, ModelFeature, ModelSpec, ModelUsage};
 
 const IMAGE_FEATURES: &[ModelFeature] = &[ModelFeature::ImageGeneration];
 
 pub(super) fn validation_failures(
-    spec: &KnownModelSpec,
+    spec: &ModelSpec,
     response: &ImageGenerationResponse,
 ) -> Vec<String> {
     let mut failures = Vec::new();
@@ -17,17 +16,20 @@ pub(super) fn validation_failures(
     if response.provider != expected_provider {
         failures.push(format!(
             "{}: provider was `{}`, expected `{expected_provider}`",
-            spec.id, response.provider
+            spec.text_id(),
+            response.provider
         ));
     }
     if response.model_id != spec.provider_model_id {
         failures.push(format!(
             "{}: provider model was `{}`, expected `{}`",
-            spec.id, response.model_id, spec.provider_model_id
+            spec.text_id(),
+            response.model_id,
+            spec.provider_model_id
         ));
     }
     if response.image.data.is_empty() {
-        failures.push(format!("{}: image bytes were empty", spec.id));
+        failures.push(format!("{}: image bytes were empty", spec.text_id()));
         return failures;
     }
 
@@ -42,7 +44,7 @@ pub(super) fn validation_failures(
         unsupported => {
             failures.push(format!(
                 "{}: unsupported MIME type `{unsupported}`",
-                spec.id
+                spec.text_id()
             ));
             return failures;
         }
@@ -50,7 +52,8 @@ pub(super) fn validation_failures(
     if !signature_matches {
         failures.push(format!(
             "{}: image signature did not match MIME type `{}`",
-            spec.id, response.image.mime_type
+            spec.text_id(),
+            response.image.mime_type
         ));
     }
 
@@ -125,18 +128,10 @@ fn rejects_mime_and_file_signature_disagreement() {
     assert!(failures.iter().any(|failure| failure.contains("signature")));
 }
 
-fn image_spec() -> KnownModelSpec {
-    KnownModelSpec {
-        provider: ProviderKind::OpenAi,
-        id: "image-catalog-id",
-        provider_model_id: "gpt-image-2",
-        context_window_tokens: 0,
-        max_output_tokens: 0,
-        intelligence_score: IntelligenceScore::Ten,
-        speed: SpeedTier::Medium,
-        cost: CostTier::Premium,
-        thinking_level: ThinkingLevel::Disabled,
-        features: IMAGE_FEATURES,
+fn image_spec() -> ModelSpec {
+    ModelSpec {
+        features: Cow::Borrowed(IMAGE_FEATURES),
+        ..ai_models_openai::GPT_IMAGE_2
     }
 }
 

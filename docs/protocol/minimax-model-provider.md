@@ -19,15 +19,15 @@ shared engine that serves this provider.
 
 ## Ownership
 
-- `ai-interface` owns the stable `minimax` provider identifier and typed
+- `ai-interface` owns the model spec and routing metadata types and typed
   MiniMax conversation context required for stateless replay.
-- `ai-models-minimax` owns MiniMax catalog metadata, request and response DTOs,
-  authentication, transport dispatch, provider error handling, and response
-  normalization.
+- `ai-models-compat` owns the stable `minimax` provider id, the MiniMax model
+  specs and custom defaults, request and response DTOs, authentication,
+  transport dispatch, provider error handling, and response normalization.
 - `ai-models-core` continues to own provider-agnostic HTTP classification,
-  structured-output validation, routing metadata types, and pricing wrappers.
+  the capability check, structured-output validation, and pricing wrappers.
 - Composition roots own credential lookup, retry/concurrency/pricing wrappers,
-  route ordering, and selection of a catalog model.
+  route ordering, and selection of a model spec.
 
 The provider crate must not read environment variables, load configuration, or
 resolve secrets.
@@ -43,34 +43,39 @@ The V1 adapter uses:
   events defined by the [completion-events protocol](model-completion-events.md)
 - Provider identifier: `minimax`
 
-`MiniMaxModel::new` accepts an injected `DynJsonHttpClient`, model id, and API
-key. `MiniMaxModel::with_auth` accepts an injected `DynJsonHttpAuth`.
-`MiniMaxModel::with_catalog_auth` additionally separates the catalog id from
-the upstream model id and accepts `ThinkingLevel`.
+`MiniMaxModel::new` accepts an injected `DynJsonHttpClient`, a model spec,
+and an API key. `MiniMaxModel::with_auth` and `with_catalog_auth` accept the
+client, a model spec, and an injected `DynJsonHttpAuth`. The request carries
+the effort.
 
 The international endpoint is the V1 boundary. The China-region endpoint,
 custom endpoint overrides, server-side tools, and the MiniMax Responses and
 Anthropic-compatible APIs are out of scope.
 
-## Known Model Catalog
+## Known Model Specs
 
-The initial catalog contains current, non-legacy agent models:
+The initial catalog contains one spec for each current, non-legacy agent
+model. The [control matrix](model-capabilities.md#control-matrix) gives the
+efforts, the default effort, the max output, and the context window of each
+spec.
 
-| Catalog id | Provider model id | Context | Intelligence | Speed | Cost | Thinking | Features |
-| --- | --- | ---: | --- | --- | --- | --- | --- |
-| `MiniMax-M3` | `MiniMax-M3` | 1,000,000 | Nine | Medium | Low | Medium/adaptive | tools, structured output, vision, video input, long context, reasoning |
-| `MiniMax-M3-thinking-disabled` | `MiniMax-M3` | 1,000,000 | Nine | Fast | Low | Disabled | tools, structured output, vision, video input, long context |
-| `MiniMax-M2.7` | `MiniMax-M2.7` | 204,800 | Eight | Medium | Low | Medium/always enabled | tools, structured output, long context, reasoning |
-| `MiniMax-M2.7-highspeed` | `MiniMax-M2.7-highspeed` | 204,800 | Eight | Fast | Medium | Medium/always enabled | tools, structured output, long context, reasoning |
+| Text id | Constant | Intelligence | Speed | Cost | Features |
+| --- | --- | --- | --- | --- | --- |
+| `minimax/MiniMax-M3` | `MINIMAX_M3` | Nine | Medium | Low | tools, structured output, vision, video input, long context, reasoning |
+| `minimax/MiniMax-M2.7` | `MINIMAX_M2_7` | Eight | Medium | Low | tools, structured output, long context, reasoning |
+| `minimax/MiniMax-M2.7-highspeed` | `MINIMAX_M2_7_HIGHSPEED` | Eight | Fast | Medium | tools, structured output, long context, reasoning |
 
-The provider crate exports typed constants for every catalog id and a
-`known_models()` function. Legacy M2.5, M2.1, and M2 models and the dialogue-
-specific M2-her model are not included.
+Legacy M2.5, M2.1, and M2 models and the dialogue-specific M2-her model are
+not included. A model that the catalog does not list uses a
+[custom spec](model-capabilities.md#custom-specs) with the MiniMax custom
+defaults.
 
-The M3 disabled-thinking entry is a catalog variant: it sends the same
-`MiniMax-M3` provider id with a different thinking control. The tiers above
-must be covered by tests; cost is coarse routing metadata, not a hard-coded
-billing schedule.
+The MiniMax-M3 spec lists the disabled and medium efforts, and its default
+effort is medium. A request with the disabled effort sends the same
+`MiniMax-M3` provider model id with a different thinking control. The
+routing tiers describe each model at its default medium effort. The tiers
+above must be covered by tests; cost is coarse routing metadata, not a
+hard-coded billing schedule.
 
 ## Request Mapping
 
@@ -95,7 +100,7 @@ Conversation roles map as follows:
 Plain content is sent as a string. Shared text, image, and video content parts
 are sent as OpenAI-compatible `text`, `image_url`, and `video_url` parts.
 Base64 images and videos use a `data:<mime-type>;base64,<data>` URL. MiniMax-M3
-supports video input, and only its catalog entries advertise the shared
+supports video input, and only its spec advertises the shared
 `video_input` feature; the
 [video input protocol](video-input.md) defines the shared contract.
 
@@ -110,13 +115,14 @@ MiniMax does not support legacy `function_call`; the adapter sends and accepts
 modern `tools` and `tool_calls` only.
 
 Portable temperature and top-p map to their native fields, and an output limit
-maps to `max_completion_tokens`. All catalog models support portable `none`
+maps to `max_completion_tokens`. All MiniMax specs support portable `none`
 and `auto`. MiniMax-M3 additionally maps strict `Required` and
-`RequiredOrAuto` to `tool_choice: "required"`. Other catalog models retain
+`RequiredOrAuto` to `tool_choice: "required"`. The other specs retain
 strict rejection for `Required`, while `RequiredOrAuto` preserves tools and
 maps to `auto`. Named-function choices and nonempty stop sequences return typed
-`UnsupportedControl` before transport. A total timeout replaces the default
-3,600-second overall SSE deadline; the idle timeout is 120 seconds.
+`UnsupportedControl` before transport. The specs carry these rules as spec
+data, and the shared capability check applies them. A total timeout replaces
+the default 3,600-second overall SSE deadline; the idle timeout is 120 seconds.
 `PreferDeferred` falls back to synchronous,
 and `RequireDeferred` is unsupported.
 
@@ -147,16 +153,18 @@ the returned `live_probe` call whenever `LIVE_MODEL_API_KEY` is available.
 
 ## Thinking And Replay
 
-MiniMax-M3 thinking maps from `ThinkingLevel`:
+MiniMax-M3 thinking maps from the resolved effort:
 
-- `Disabled` -> `{ "thinking": { "type": "disabled" } }`
-- `Medium` -> `{ "thinking": { "type": "adaptive" } }`
-- `Low` downgrades to `Disabled`
-- `High`, `ExtraHigh`, and `Max` downgrade to `Medium`
+- Disabled -> `{ "thinking": { "type": "disabled" } }`
+- Medium -> `{ "thinking": { "type": "adaptive" } }`
+- The capability check lowers low to disabled
+- The capability check lowers high, extra high, and max to medium
 
-M2.x reasoning cannot be disabled. The known M2.7 catalog entries therefore
-use an enabled thinking level and never advertise a disabled variant.
-Responses record the effective catalog level after downgrade resolution.
+M2.x reasoning cannot be disabled. The M2.7 specs therefore list only the
+medium effort. The capability check lowers high, extra high, and max to
+medium. A request with the disabled or low effort fails with
+`UnsupportedControl` for effort before transport. Responses record the
+resolved effort.
 
 With `reasoning_split: true`, the provider may return both
 `reasoning_content` and `reasoning_details`. A reasoning detail preserves all
@@ -181,95 +189,11 @@ MiniMax replay item from request and response copies passed to model-call
 loggers while preserving it in the actual model request and retained
 conversation.
 
-## Structured Output
+## Responses And Errors
 
-MiniMax Chat Completions does not document native JSON Schema response-format
-enforcement. When `ModelRequest.response_schema` is present, the adapter:
-
-1. Appends plain instructions and the schema to the system prompt.
-2. Requests raw JSON without Markdown fences or additional prose.
-3. Parses and locally validates the final stopped assistant text through
-   `ai-models-core`.
-4. Populates `structured_output` only for a natural stop with no tool calls.
-
-Invalid JSON, an invalid requested schema, or a schema mismatch returns a
-typed model-boundary error. Structured-output parsing must never run on a
-filtered, truncated, tool-calling, missing, or unknown finish.
-
-## Response Mapping
-
-The adapter consumes the first response choice. A successfully decoded
-response with no choices is a provider failure. Wire fields that cannot be
-decoded into the typed response DTO are internal deserialization failures, as
-defined under Error Handling.
-
-Finish reasons normalize as follows:
-
-| MiniMax value | Shared value |
-| --- | --- |
-| `stop` | `FinishReason::Stop` |
-| `tool_calls` | `FinishReason::ToolCalls` |
-| `length` | `FinishReason::Truncated` |
-| `content_filter` | `FinishReason::Filtered` |
-| unknown value | `FinishReason::Other(raw)` |
-| missing value | `FinishReason::Other("missing")` |
-
-Tool calls are exposed only when the normalized finish reason is `ToolCalls`.
-Terminal, filtered, truncated, missing, and unknown responses must not dispatch
-tool-call payloads. Function arguments are parsed as JSON; malformed arguments
-return a provider error instead of reaching the tool runtime.
-
-The normalized response records:
-
-- provider `minimax`
-- provider model id
-- catalog model id
-- selected thinking level
-- visible assistant content
-- normalized tool calls and finish reason
-- locally validated structured output when requested
-- typed MiniMax replay context
-- normalized usage
-
-## Usage
-
-Usage parsing accepts absent fields and the documented OpenAI-compatible
-details:
-
-- `prompt_tokens`
-- `completion_tokens`
-- `total_tokens`
-- `prompt_tokens_details.cached_tokens`
-- `completion_tokens_details.reasoning_tokens`
-
-Normalized buckets must not overlap. Cached tokens are subtracted from prompt
-tokens, and reasoning tokens are subtracted from completion tokens using
-saturating arithmetic. When `total_tokens` is absent, it is reconstructed from
-the four normalized buckets. Provider parsing leaves estimated cost at zero;
-composition roots may apply `UsagePricingModel`.
-
-## Error Handling
-
-HTTP failures use the shared status classifier: rate limits are retryable,
-timeouts and conflict/early-data/server statuses are transient, recognized
-context overflows are context-limit errors, and other statuses are provider
-errors. Transport and authentication-hook failures are transient; local
-request serialization and response deserialization failures are internal.
-
-MiniMax may also report failure through a non-zero `base_resp.status_code`,
-including on an HTTP-success response. The adapter must check this before
-accepting choices:
-
-- `1002`, `1041`, `2045`, and `2056` -> rate-limited
-- `1000`, `1001`, `1013`, `1024`, and `1033` -> transient provider failure
-- `1039` -> context-limit exceeded
-- Every other non-zero code, including `1004`, `1008`, `1026`, `1027`, `2013`,
-  and `2049` -> non-retryable provider failure
-
-The provider's numeric code and `status_msg` must be retained in the error
-message. Missing `base_resp` or status code zero means no provider-level error.
-Before stream progress those numeric codes retain the classifications above;
-after progress they become `ModelError::Interrupted`.
+The [MiniMax response protocol](minimax-responses.md) defines structured
+output, response mapping, usage, and error handling, including the
+`base_resp` status codes.
 
 ## Verification Contract
 
@@ -277,8 +201,8 @@ Unit tests use `JsonHttpTransportMock` through
 `TransportBackedJsonHttpClient` and must not perform live network calls.
 Coverage includes:
 
-- catalog ids, provider ids, context windows, features, and thinking variants
-- provider config parsing and serde round trips
+- text ids, provider model ids, context windows, features, and efforts
+- provider identity and serde round trips
 - endpoint and bearer/custom authentication
 - text, image, video, assistant, tool-call, and tool-result request
   serialization
@@ -293,10 +217,10 @@ Coverage includes:
 - credential-free provider construction in `cargo xtask smoke-test`
 
 The ignored workspace integration test `xtask/tests/live_models.rs` separately
-calls every MiniMax catalog entry through the production adapter when an
-explicit `LIVE_MODEL_API_KEY` is supplied. GitHub Actions runs that billable
-suite for eligible pull requests and from the scheduled/manual `Live model
-APIs` workflow. Before the catalog probe, it verifies MiniMax-M3 with a real
+calls each listed effort of every MiniMax spec through the production
+adapter when an explicit `LIVE_MODEL_API_KEY` is supplied. GitHub Actions
+runs that billable suite for eligible pull requests and from the
+scheduled/manual `Live model APIs` workflow. Before the catalog probe, it verifies MiniMax-M3 with a real
 tool and strict required selection. The implementation environment for this
 change had no MiniMax credential, so that billable assertion could not be
 re-run locally; deterministic wire coverage and the credentialed workflow

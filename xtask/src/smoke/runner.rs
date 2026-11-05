@@ -6,19 +6,19 @@ use std::task::{Context, Poll, Waker};
 
 use ai_interface::{ConversationMessage, DynModel, NoopLogger, Tool};
 use ai_models_anthropic::{AnthropicModel, CLAUDE_SONNET_5};
-use ai_models_deepseek::DeepSeekModel;
+use ai_models_compat::deepseek::DeepSeekModel;
+use ai_models_compat::kimi::KimiModel;
+use ai_models_compat::minimax::{MINIMAX_M3, MiniMaxModel};
+use ai_models_compat::qwen::QwenModel;
+use ai_models_compat::xai::{GROK_4_5, XaiModel};
 use ai_models_google::{
     GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, GoogleImageGenerator, GoogleModel,
     GoogleVideoGenerator,
 };
-use ai_models_kimi::KimiModel;
-use ai_models_minimax::{MINIMAX_M3, MiniMaxModel};
 use ai_models_openai::{
     GPT_5_6_SOL, GPT_IMAGE_2, OpenAiAudioTranscriber, OpenAiImageGenerator, OpenAiModel,
 };
-use ai_models_qwen::QwenModel;
 use ai_models_typesafe::{JEV_LATEST, TypeSafeJudgmentModel};
-use ai_models_xai::{GROK_4_5, XaiModel};
 use ai_tool_calling::{
     InMemoryToolOutputStore, RunOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn,
 };
@@ -35,15 +35,26 @@ pub(crate) fn run() -> Result<()> {
     let _anthropic = AnthropicModel::new(client.clone(), CLAUDE_SONNET_5, "anthropic-key");
     let _deepseek = DeepSeekModel::new(client.clone(), "deepseek-key");
     let _google = GoogleModel::new(client.clone(), GEMINI_3_6_FLASH, "google-key");
-    let _google_image =
-        GoogleImageGenerator::new(client.clone(), GEMINI_3_1_FLASH_IMAGE, "google-key");
+    let _google_image = GoogleImageGenerator::new(
+        client.clone(),
+        GEMINI_3_1_FLASH_IMAGE.provider_model_id.as_ref(),
+        "google-key",
+    );
     let _google_video = GoogleVideoGenerator::new(client.clone(), "smoke-veo-model", "google-key");
     let _kimi = KimiModel::new(client.clone(), "kimi-key");
     let _minimax = MiniMaxModel::new(client.clone(), MINIMAX_M3, "minimax-key");
     let _openai = OpenAiModel::new(client.clone(), GPT_5_6_SOL, "openai-key");
-    let _openai_image = OpenAiImageGenerator::new(client.clone(), GPT_IMAGE_2, "openai-key");
+    let _openai_image = OpenAiImageGenerator::new(
+        client.clone(),
+        GPT_IMAGE_2.provider_model_id.as_ref(),
+        "openai-key",
+    );
     let _qwen = QwenModel::new(client.clone(), "qwen-key");
-    let _typesafe = TypeSafeJudgmentModel::new(client.clone(), JEV_LATEST, "typesafe-key");
+    let _typesafe = TypeSafeJudgmentModel::new(
+        client.clone(),
+        JEV_LATEST.provider_model_id.as_ref(),
+        "typesafe-key",
+    );
     let _xai = XaiModel::new(client, GROK_4_5, "xai-key");
     let _transcriber = OpenAiAudioTranscriber::new("gpt-4o-mini-transcribe", "openai-key");
 

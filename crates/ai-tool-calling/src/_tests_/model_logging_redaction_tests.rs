@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, ConversationRole, FinishReason, Logger, LoggerMock,
+    ConversationMessage, ConversationRole, Effort, FinishReason, Logger, LoggerMock,
     MiniMaxReasoningDetail, Model, ModelCallLogEntry, ModelCallLogResult, ModelError, ModelMock,
     ModelRequest, ModelResponse, ModelToolChoice, ModelUsage, ProviderConversationItem, ToolCall,
 };
@@ -147,7 +147,7 @@ fn tool_response(provider_context: Vec<ProviderConversationItem>) -> ModelRespon
         provider: "minimax".to_owned(),
         model_id: "MiniMax-M3".to_owned(),
         catalog_model_id: Some("MiniMax-M3".to_owned()),
-        thinking_level: Some("medium".to_owned()),
+        thinking_level: Some(Effort::Medium),
         assistant_message: "calling tool".to_owned(),
         tool_calls: vec![ToolCall {
             id: "call-1".to_owned(),
@@ -167,7 +167,7 @@ fn stop_response() -> ModelResponse {
         provider: "minimax".to_owned(),
         model_id: "MiniMax-M3".to_owned(),
         catalog_model_id: Some("MiniMax-M3".to_owned()),
-        thinking_level: Some("medium".to_owned()),
+        thinking_level: Some(Effort::Medium),
         assistant_message: "done".to_owned(),
         tool_calls: Vec::new(),
         finish_reason: FinishReason::Stop,
