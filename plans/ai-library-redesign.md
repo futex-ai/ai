@@ -209,6 +209,12 @@ answers that differ from the recommendation.
 - Item 19, [MCP OAuth misses the newer authorization rules](follow-ups/mcp-oauth-newer-rules.md):
   open. The recommendation is option C, a follow-up plan for the newer
   OAuth rules.
+- 2026-11-05: the user moved every open item to post-merge follow-ups with
+  the message "add as follow ups if applicable". The items are 10, 11
+  (options B and D), 16 to 19, 22, 24, 40, 53, and 55. Each keeps its
+  follow-up file and no longer blocks a merge. Milestone 12 moves to
+  `follow-ups/mcp-change.md`, and the constructor deletion of Milestone 9
+  moves to `follow-ups/remove-provider-constructors.md`.
 - Decision 7, how much paid live testing each change pays for: option A.
   The live suites keep their current triggers. The alternatives were path
   filters, a pull-request label, schedules only, a small pull-request set,
@@ -620,7 +626,8 @@ Build any catalog entry from one config shape.
       with the registry.
 - [x] Mark `provider-registry.md` and `chat-completions-dialects.md`
       implemented.
-- [ ] Delete the per-provider constructors after the user answers item 24.
+- [x] Delete the per-provider constructors after the user answers item 24.
+      Moved to `follow-ups/remove-provider-constructors.md` on 2026-11-05.
 - [x] Run `cargo xtask check` and `cargo xtask smoke-test`, then commit
       and push.
 - [x] Run the ship steps for pull request 5.
@@ -672,11 +679,13 @@ Depends on: 8, 11
 
 Apply the MCP decision.
 
-- [ ] Apply the answer to item 16.
-- [ ] Apply the answer to item 17, and the answers to items 18 and 19
-      when they fall inside this plan.
-- [ ] Run `cargo xtask check`, then commit and push.
-- [ ] Run the ship steps for pull request 7.
+- [x] Apply the answer to item 16. Moved to `follow-ups/mcp-change.md` on
+      2026-11-05.
+- [x] Apply the answer to item 17, and the answers to items 18 and 19
+      when they fall inside this plan. Moved to `follow-ups/mcp-change.md`.
+- [x] Run `cargo xtask check`, then commit and push. Moved with the work.
+- [x] Run the ship steps for pull request 7. No pull request 7: the MCP
+      change moved to a follow-up item.
 
 ## Milestone 13: Conformance
 
