@@ -1,11 +1,14 @@
 //! Provided completion fold, model mocks, and built-in mock stream behavior.
 
-use std::io::{Error, ErrorKind};
+use std::io::Error;
 
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
-use crate::{FinishReason, MockModel, Model, ModelError, ModelMock, StructuredOutputSchema};
+use crate::{
+    ErrorKind, FinishReason, MockModel, Model, ModelError, ModelMock, SafeErrorSource,
+    StructuredOutputSchema,
+};
 
 use super::fixtures::{finish, model_for, request, text, usage};
 
@@ -35,8 +38,8 @@ async fn complete_preserves_the_original_open_and_read_errors() {
     let open = model.complete(&request()).await;
     assert!(matches!(
         open,
-        Err(ModelError::RateLimited { provider, model_id, message })
-        if provider == "open" && model_id == "model" && message == "busy"
+        Err(ModelError::Failure { core, .. })
+        if core.kind == ErrorKind::RateLimited && core.provider == "open" && core.model_id == "model" && core.message == "busy"
     ));
 
     let model = model_for(vec![
@@ -46,21 +49,26 @@ async fn complete_preserves_the_original_open_and_read_errors() {
     let read = model.complete(&request()).await;
     assert!(matches!(
         read,
-        Err(ModelError::Interrupted { provider, model_id, message })
-        if provider == "read" && model_id == "model" && message == "closed"
+        Err(ModelError::Failure { core, .. })
+        if core.kind == ErrorKind::Interrupted && core.provider == "read" && core.model_id == "model" && core.message == "closed"
     ));
 
-    let model = model_for(vec![Err(ModelError::internal(Error::new(
-        ErrorKind::ConnectionReset,
-        "original source",
-    )))]);
+    let model = model_for(vec![Err(ModelError::internal(
+        "local",
+        "test",
+        SafeErrorSource::redacted(Error::new(
+            std::io::ErrorKind::ConnectionReset,
+            "original source",
+        )),
+    ))]);
     let internal = model.complete(&request()).await;
-    let Err(ModelError::Internal { source }) = internal else {
+    let Err(ModelError::Internal { core, source, .. }) = internal else {
         panic!("the original internal error must reach the caller");
     };
+    assert_eq!(core.kind, ErrorKind::Internal);
     assert_eq!(
-        source.downcast_ref::<Error>().map(Error::kind),
-        Some(ErrorKind::ConnectionReset)
+        source.raw_cause().downcast_ref::<Error>().map(Error::kind),
+        Some(std::io::ErrorKind::ConnectionReset)
     );
 }
 

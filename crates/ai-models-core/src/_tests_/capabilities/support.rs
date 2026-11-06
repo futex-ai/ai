@@ -3,8 +3,8 @@
 use std::borrow::Cow;
 
 use ai_interface::{
-    Effort, EffortSet, ForcedToolChoice, ModelControl, ModelError, ModelRequest, ModelSpec,
-    ProviderId, Sampling,
+    Effort, EffortSet, ErrorKind, ForcedToolChoice, ModelControl, ModelError, ModelRequest,
+    ModelSpec, ProviderId, Sampling,
 };
 
 use crate::{ResolvedModelControls, resolve_controls};
@@ -43,11 +43,14 @@ pub(super) fn resolve(
     spec: &ModelSpec,
 ) -> Result<ResolvedModelControls, (String, String, ModelControl)> {
     resolve_controls(request, spec).map_err(|error| match error {
-        ModelError::UnsupportedControl {
-            provider,
-            model_id,
-            control,
-        } => (provider, model_id, control),
+        ModelError::Failure { core, .. }
+            if matches!(core.kind, ErrorKind::UnsupportedControl(_)) =>
+        {
+            let ErrorKind::UnsupportedControl(control) = core.kind else {
+                unreachable!()
+            };
+            (core.provider, core.model_id, control)
+        }
         other => panic!("expected an unsupported-control error, received {other:?}"),
     })
 }

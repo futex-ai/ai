@@ -1,6 +1,7 @@
 {
   "source": "synthetic",
   "catalog_model_id": "openai/gpt-5.6-sol",
+  "base_url": "https://api.openai.com",
   "effort": "medium",
   "exchanges": [
     {

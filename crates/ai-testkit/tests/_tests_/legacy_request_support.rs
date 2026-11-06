@@ -2,7 +2,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use ai_interface::{ConversationMessage, ModelRequest};
+use ai_interface::{ConversationMessage, ModelRequest, ProviderId};
+use ai_models_registry::ProviderConfig;
 use ai_testkit::{
     provider::{ModelFactory, Provider, ProviderModelFactory},
     scenario::Scenario,
@@ -24,10 +25,19 @@ pub(super) async fn request_body(provider: Provider, message: ConversationMessag
                     move |_,
                           request: &JsonHttpRequest|
                           -> json_http::Result<DynJsonHttpSseStream> {
-                        requests
-                            .lock()
-                            .unwrap()
-                            .push(request.body.as_ref().unwrap().as_json().unwrap().clone());
+                        requests.lock().unwrap().push(
+                            request
+                                .body
+                                .as_ref()
+                                .unwrap()
+                                .as_json_bytes()
+                                .map(|bytes| {
+                                    serde_json::from_slice::<serde_json::Value>(bytes)
+                                        .expect("valid JSON request body")
+                                })
+                                .unwrap()
+                                .clone(),
+                        );
                         Ok(Box::new(Unimock::new(())))
                     },
                 )
@@ -39,7 +49,10 @@ pub(super) async fn request_body(provider: Provider, message: ConversationMessag
             provider,
             &spec.text_id(),
             Arc::new(TransportBackedJsonHttpClient::new(transport)),
-            provider.auth("test-key".to_owned()),
+            ProviderConfig::with_auth(
+                ProviderId::new(provider.name()),
+                provider.auth("test-key".to_owned()),
+            ),
         )
         .unwrap();
     let _stream = model

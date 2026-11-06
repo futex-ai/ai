@@ -67,7 +67,15 @@ async fn signed_anthropic_blocks_replay_in_full_original_order() {
             .unwrap();
         let requests = requests.lock().unwrap();
         assert_eq!(
-            requests[1].body.as_ref().unwrap()["messages"][1]["content"],
+            serde_json::from_slice::<serde_json::Value>(
+                requests[1]
+                    .body
+                    .as_ref()
+                    .unwrap()
+                    .as_json_bytes()
+                    .expect("JSON request body")
+            )
+            .expect("valid JSON request body")["messages"][1]["content"],
             blocks
         );
     }

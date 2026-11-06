@@ -11,6 +11,7 @@ use super::{MiniMaxModel, support::recording_http_client};
 #[tokio::test]
 async fn serializes_ordered_text_and_image_parts_as_data_urls() {
     let (http_client, requests) = recording_http_client([JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{
@@ -50,7 +51,11 @@ async fn serializes_ordered_text_and_image_parts_as_data_urls() {
     let body = requests[0]
         .body
         .as_ref()
-        .and_then(|body| body.as_json())
+        .and_then(|body| {
+            body.as_json_bytes().map(|bytes| {
+                serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+            })
+        })
         .expect("JSON body should be present");
     assert_eq!(
         body["messages"][1]["content"],
@@ -70,6 +75,7 @@ async fn serializes_ordered_text_and_image_parts_as_data_urls() {
 #[tokio::test]
 async fn serializes_video_parts_as_video_url_data_urls() {
     let (http_client, requests) = recording_http_client([JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{
@@ -105,7 +111,11 @@ async fn serializes_video_parts_as_video_url_data_urls() {
     let body = requests[0]
         .body
         .as_ref()
-        .and_then(|body| body.as_json())
+        .and_then(|body| {
+            body.as_json_bytes().map(|bytes| {
+                serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+            })
+        })
         .expect("JSON body should be present");
     assert_eq!(
         body["messages"][1]["content"],

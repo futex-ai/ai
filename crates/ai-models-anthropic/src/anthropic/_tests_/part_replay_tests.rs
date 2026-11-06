@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, ConversationPart, ConversationRole, Model, ModelError, ModelRequest,
-    ProviderState, ToolCall,
+    ConversationMessage, ConversationPart, ConversationRole, Model, ModelRequest, ProviderState,
+    ToolCall,
 };
 use json_http::{JsonHttpClient, TransportBackedJsonHttpClient};
 use serde_json::json;
@@ -35,7 +35,15 @@ async fn unsigned_multiblock_continuation_keeps_normalized_v1_request() {
         .push(ConversationMessage::tool("7", "lookup", "call"));
     model.complete(&request).await.unwrap();
     assert_eq!(
-        requests.lock().unwrap()[1].body.as_ref().unwrap()["messages"][1]["content"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests.lock().unwrap()[1]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["messages"][1]["content"],
         json!([
             {"type": "text", "text": "First\nSecond"},
             {"type": "tool_use", "id": "call", "name": "lookup", "input": {"id": 7}}
@@ -79,7 +87,15 @@ async fn foreign_state_replays_portable_parts_and_skips_foreign_or_absent_reason
     );
     model.complete(&request(vec![message])).await.unwrap();
     assert_eq!(
-        requests.lock().unwrap()[0].body.as_ref().unwrap()["messages"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests.lock().unwrap()[0]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["messages"],
         json!([{"role": "assistant", "content": [
             {"type": "thinking", "thinking": "own reasoning", "signature": "signed"},
             {"type": "text", "text": "Visible"},
@@ -161,14 +177,11 @@ async fn invalid_own_state_and_roles_fail_before_transport() {
     ];
     for (message, expected_message) in cases {
         let error = model.complete(&request(vec![message])).await.unwrap_err();
-        let ModelError::Provider {
-            provider,
-            model_id,
-            message,
-        } = error
-        else {
-            panic!("expected invalid request provider error, got {error:?}");
-        };
+        let core = error.core();
+        assert_eq!(core.kind, ai_interface::ErrorKind::InvalidRequest);
+        let provider = &core.provider;
+        let model_id = &core.model_id;
+        let message = &core.message;
         assert_eq!(provider, "anthropic");
         assert_eq!(model_id, "claude-sonnet-4-6");
         assert_eq!(message, expected_message);

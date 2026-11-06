@@ -2,6 +2,8 @@
 
 use std::collections::BTreeMap;
 
+use json_http::credential_values;
+
 const REDACTED: &str = "[redacted]";
 
 /// Replaces every non-empty secret occurrence in one diagnostic message.
@@ -27,18 +29,13 @@ pub(super) fn secrets_from_headers(
     explicit: &[String],
     headers: &BTreeMap<String, String>,
 ) -> Vec<String> {
-    let mut secrets = explicit
+    let mut secrets = Vec::new();
+    for value in explicit
         .iter()
-        .filter(|secret| !secret.is_empty())
-        .cloned()
-        .collect::<Vec<_>>();
-    for value in headers.values().filter(|value| !value.is_empty()) {
-        secrets.push(value.clone());
-        if let Some((_, suffix)) = value.rsplit_once(char::is_whitespace)
-            && !suffix.is_empty()
-        {
-            secrets.push(suffix.to_owned());
-        }
+        .chain(headers.values())
+        .filter(|value| !value.is_empty())
+    {
+        secrets.extend(credential_values(value).map(ToOwned::to_owned));
     }
     secrets
 }

@@ -1,122 +1,174 @@
-//! Provider-agnostic error and JSON helper functions.
+//! Safe JSON HTTP and stream failure classification through a call context.
 
-use std::error::Error as StdError;
+use std::error;
 
-use ai_interface::{ModelError, ModelResult, StructuredOutputSchema};
-use json_http::Error as JsonHttpError;
+use ai_interface::{ErrorCore, ErrorKind, ModelError};
+use json_http::{Error, JsonHttpHeaders};
 use serde_json::Value;
 
-use crate::{HttpFailureClass, classify_http_status};
+use crate::{ErrorContext, classify_http_status};
 
 /// Normalizes nullable assistant text content into a string.
 pub fn assistant_text(content: Option<String>) -> String {
     content.unwrap_or_default()
 }
 
-/// Converts a JSON HTTP failure response into a typed model error.
+/// Maps a provider status and response body to precise shared error details.
 pub fn classify_json_http_error(
-    provider: &str,
-    model_id: &str,
+    context: &ErrorContext,
     status: u16,
+    headers: &JsonHttpHeaders,
     body: &Value,
 ) -> ModelError {
-    let message = error_message_from_body(body).unwrap_or_else(|| format!("HTTP {status}"));
-    if status == 400 && context_limit_code_from_body(body).is_some() {
-        return ModelError::context_limit_exceeded(
-            provider,
-            model_id,
-            format!("HTTP {status}: {message}"),
-        );
-    }
-    match classify_http_status(status) {
-        Some(HttpFailureClass::RateLimited) => {
-            ModelError::rate_limited(provider, model_id, format!("HTTP {status}: {message}"))
-        }
-        Some(HttpFailureClass::Transient) => {
-            ModelError::transient_provider(provider, model_id, format!("HTTP {status}: {message}"))
-        }
-        Some(HttpFailureClass::Terminal) | None => {
-            ModelError::provider(provider, model_id, format!("HTTP {status}: {message}"))
-        }
-    }
+    ModelError::new(json_http_error_core(context, status, headers, body))
 }
 
-/// Converts a streaming JSON HTTP failure using observed response progress.
-///
-/// Failures before the first event remain retryable. Once any event has been
-/// observed, replaying the request could duplicate provider work and billing,
-/// so the failure becomes an interruption instead.
-pub fn classify_json_http_stream_error(
-    provider: &str,
-    model_id: &str,
-    events_received: u64,
-    source: JsonHttpError,
-) -> ModelError {
-    let events_received = events_received.max(stream_error_progress(&source));
-    match source {
-        JsonHttpError::HttpStatus { status, body } => {
-            classify_json_http_error(provider, model_id, status, &body)
-        }
-        source @ (JsonHttpError::ClientInitialization { .. }
-        | JsonHttpError::SerializeRequest { .. }
-        | JsonHttpError::DeserializeResponse { .. }
-        | JsonHttpError::SseUnsupported) => ModelError::internal(source),
-        source => classify_stream_error(provider, model_id, events_received, &source),
-    }
-}
-
-/// Classifies a typed provider stream failure using consumed event progress.
-pub fn classify_stream_error(
-    provider: &str,
-    model_id: &str,
-    events_received: u64,
-    source: &(dyn StdError + Send + Sync),
-) -> ModelError {
-    if events_received == 0 {
-        ModelError::transient_provider(provider, model_id, source.to_string())
+/// Maps one failed HTTP response to shared details for every modality.
+pub fn json_http_error_core(
+    context: &ErrorContext,
+    status: u16,
+    headers: &JsonHttpHeaders,
+    body: &Value,
+) -> ErrorCore {
+    let context = context.for_response(headers);
+    let kind = if status == 400 && context_limit_code(body) {
+        ErrorKind::ContextLimitExceeded
     } else {
-        ModelError::interrupted(provider, model_id, source.to_string())
+        classify_http_status(status).unwrap_or(ErrorKind::InvalidOutput)
+    };
+    let message = error_message(body)
+        .map(|message| format!("HTTP {status}: {message}"))
+        .unwrap_or_else(|| format!("HTTP {status}"));
+    context.core(kind, message)
+}
+
+/// Maps an HTTP stream failure while retaining headers and original source progress.
+pub fn classify_json_http_stream_error(
+    context: &ErrorContext,
+    events_received: u64,
+    source: Error,
+) -> ModelError {
+    let context = match source.response_headers() {
+        Some(headers) => context.for_response(headers),
+        None => context.clone(),
+    };
+    let progress = events_received.max(stream_progress(source.cause()));
+    let core = if source.is_transport_failure() {
+        context.core(
+            if progress == 0 {
+                ErrorKind::Transient
+            } else {
+                ErrorKind::Interrupted
+            },
+            http_error_message(&source),
+        )
+    } else {
+        match source.cause() {
+            Error::HttpStatus {
+                status,
+                headers,
+                body,
+            } => json_http_error_core(
+                &context,
+                *status,
+                source.response_headers().unwrap_or(headers),
+                body,
+            ),
+            Error::SerializeRequest { .. }
+            | Error::ClientInitialization { .. }
+            | Error::SseUnsupported => context.core(ErrorKind::Internal, "internal error"),
+            Error::Auth { .. } => context.core(ErrorKind::Transient, "authentication hook failed"),
+            _ => context.core(
+                if progress == 0 {
+                    ErrorKind::Transient
+                } else {
+                    ErrorKind::Interrupted
+                },
+                http_error_message(&source),
+            ),
+        }
+    };
+    ModelError::with_source(core, context.source(source))
+}
+
+/// Maps a typed provider stream failure using provider-event progress.
+pub fn classify_stream_error(
+    context: &ErrorContext,
+    events_received: u64,
+    source: &(dyn error::Error + Send + Sync),
+) -> ModelError {
+    context.model_error(
+        if events_received == 0 {
+            ErrorKind::Transient
+        } else {
+            ErrorKind::Interrupted
+        },
+        source.to_string(),
+    )
+}
+
+pub(crate) fn request_error_core(context: &ErrorContext, source: &Error) -> ErrorCore {
+    if source.is_transport_failure() {
+        return context.core(ErrorKind::Transient, http_error_message(source));
+    }
+    match source.cause() {
+        Error::HttpStatus {
+            status,
+            headers,
+            body,
+        } => json_http_error_core(
+            context,
+            *status,
+            source.response_headers().unwrap_or(headers),
+            body,
+        ),
+        Error::Auth { .. } => context.core(ErrorKind::Transient, "authentication hook failed"),
+        Error::DeserializeResponse { .. } => {
+            context.core(ErrorKind::InvalidOutput, "invalid provider response")
+        }
+        Error::InvalidSseContentType { .. }
+        | Error::SseDecode { .. }
+        | Error::IdleTimeout { .. }
+        | Error::DeadlineExceeded { .. } => {
+            context.core(ErrorKind::Transient, http_error_message(source))
+        }
+        _ => context.core(ErrorKind::Internal, "internal error"),
     }
 }
 
-fn stream_error_progress(source: &JsonHttpError) -> u64 {
-    match source {
-        JsonHttpError::IdleTimeout {
+fn stream_progress(source: &Error) -> u64 {
+    match source.cause() {
+        Error::IdleTimeout {
             events_received, ..
         }
-        | JsonHttpError::DeadlineExceeded {
+        | Error::DeadlineExceeded {
             events_received, ..
         }
-        | JsonHttpError::SseTransport {
+        | Error::SseTransport {
             events_received, ..
         }
-        | JsonHttpError::SseDecode {
+        | Error::SseDecode {
             events_received, ..
         } => *events_received,
-        JsonHttpError::ClientInitialization { .. }
-        | JsonHttpError::SerializeRequest { .. }
-        | JsonHttpError::DeserializeResponse { .. }
-        | JsonHttpError::Transport { .. }
-        | JsonHttpError::ReqwestTransport { .. }
-        | JsonHttpError::Auth { .. }
-        | JsonHttpError::SseUnsupported
-        | JsonHttpError::HttpStatus { .. }
-        | JsonHttpError::InvalidSseContentType { .. } => 0,
+        _ => 0,
     }
 }
 
-fn context_limit_code_from_body(body: &Value) -> Option<&str> {
+fn context_limit_code(body: &Value) -> bool {
     let error = body.get("error").unwrap_or(body);
-    let candidates = [
-        error.get("code").and_then(Value::as_str),
-        error.get("type").and_then(Value::as_str),
-        error.get("status").and_then(Value::as_str),
-        body.get("code").and_then(Value::as_str),
-        body.get("status").and_then(Value::as_str),
-    ];
-    candidates.into_iter().flatten().find(|value| {
+    [
+        error.get("code"),
+        error.get("type"),
+        error.get("status"),
+        body.get("code"),
+        body.get("status"),
+    ]
+    .into_iter()
+    .flatten()
+    .filter_map(Value::as_str)
+    .any(|value| {
         matches!(
-            *value,
+            value,
             "context_length_exceeded"
                 | "model_context_window_exceeded"
                 | "input_too_long"
@@ -125,77 +177,24 @@ fn context_limit_code_from_body(body: &Value) -> Option<&str> {
     })
 }
 
-/// Parses raw tool-call arguments into structured JSON.
-pub fn parse_tool_call_arguments(provider: &str, model_id: &str, raw: &str) -> ModelResult<Value> {
-    serde_json::from_str(raw).map_err(|source| {
-        ModelError::provider(
-            provider,
-            model_id,
-            format!("invalid tool call JSON arguments `{raw}`: {source}"),
-        )
-    })
-}
-
-/// Parses assistant text into validated structured output.
-pub fn parse_structured_output(
-    provider: &str,
-    model_id: &str,
-    assistant_message: &str,
-    response_schema: &StructuredOutputSchema,
-) -> ModelResult<Value> {
-    let structured_output = serde_json::from_str(assistant_message).map_err(|source| {
-        ModelError::provider(
-            provider,
-            model_id,
-            format!(
-                "structured output for schema `{}` was not valid JSON: {source}",
-                response_schema.name
-            ),
-        )
-    })?;
-    validate_structured_output(provider, model_id, &structured_output, response_schema)?;
-    Ok(structured_output)
-}
-
-/// Validates structured output against the requested schema.
-pub fn validate_structured_output(
-    provider: &str,
-    model_id: &str,
-    structured_output: &Value,
-    response_schema: &StructuredOutputSchema,
-) -> ModelResult<()> {
-    let validator = jsonschema::validator_for(&response_schema.schema).map_err(|source| {
-        ModelError::provider(
-            provider,
-            model_id,
-            format!(
-                "structured output schema `{}` could not be compiled: {source}",
-                response_schema.name
-            ),
-        )
-    })?;
-    validator.validate(structured_output).map_err(|source| {
-        ModelError::provider(
-            provider,
-            model_id,
-            format!(
-                "structured output did not match schema `{}`: {source}",
-                response_schema.name
-            ),
-        )
-    })
-}
-
-fn error_message_from_body(body: &Value) -> Option<String> {
-    if let Some(message) = body
-        .get("error")
+fn error_message(body: &Value) -> Option<String> {
+    body.get("error")
         .and_then(|error| error.get("message"))
         .and_then(Value::as_str)
-    {
-        return Some(message.to_owned());
-    }
-    body.get("message")
-        .and_then(Value::as_str)
+        .or_else(|| body.get("error").and_then(Value::as_str))
+        .or_else(|| body.get("message").and_then(Value::as_str))
+        .or_else(|| body.as_str())
         .map(ToOwned::to_owned)
-        .or_else(|| body.as_str().map(ToOwned::to_owned))
+}
+
+fn http_error_message(source: &Error) -> String {
+    let message = source.to_string();
+    let url = match source.cause() {
+        Error::ReqwestTransport { source } | Error::SseTransport { source, .. } => source.url(),
+        _ => None,
+    };
+    match url {
+        Some(url) => message.replace(url.as_str(), "[redacted URL]"),
+        None => message,
+    }
 }

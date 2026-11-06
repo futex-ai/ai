@@ -1,29 +1,75 @@
 # ai-models-core
 
-`ai-models-core` contains reusable runtime wrappers and provider-agnostic helpers for `ai-interface` model implementations. Depend on it when you are building model providers or composing model execution policy without pulling in application-specific config or credential logic.
+`ai-models-core` contains provider-agnostic helpers for `ai-interface`
+model implementations. Depend on it when you build a provider adapter.
+Composition roots use [`ai-models-policy`](../ai-models-policy/README.md)
+for retry, fallback, concurrency, and usage pricing.
 
 ## Responsibilities
 
-- Provide reusable wrappers around `Arc<dyn ai_interface::Model>`
-- Keep the event order of the model stream through the retry, concurrency,
-  and usage-pricing wrappers
-- Keep retry, sleeping, and concurrency policy out of vendor crates
+- Hold provider-neutral connection settings, credentials, headers, and timeout overrides
 - Provide an injectable monotonic clock and async sleep boundary for provider
   operations that must poll within a total deadline
 - Offer a boundary-neutral HTTP failure classifier and provider-agnostic
   JSON/error helpers shared by model crates
 - Classify stream failures by provider-event progress
+- Build safe error cores with per-call identity, response metadata, and
+  credential redaction
 - Resolve every portable request control against its `ModelSpec` before
   transport, with one capability check that every chat adapter shares
-- Provide provider-agnostic model usage pricing wrappers and integer cost
-  calculation
 
 ## What This Crate Does
 
-`ai-models-core` exposes wrappers such as `RetryingModel` and `ConcurrencyLimitedModel` so composition roots can assemble policy layers around provider clients. It also includes provider-facing helpers for common response/error handling, including the boundary-neutral `classify_http_status`, structured context-window overflow detection, tool-call JSON parsing, and deterministic local ids for provider tool calls that arrive without upstream ids. The classifier returns `None` below 400 and distinguishes rate-limited, transient, and terminal failures without depending on a modality-specific error type. HTTP 408, 409, 425, and 5xx responses are transient so retry wrappers can apply the configured schedule. Streaming helpers classify failures before any provider event as transient and failures after progress as `ModelError::Interrupted`.
+`classify_http_status` returns the precise shared `ErrorKind` for a failed
+HTTP status, and `None` below 400. `json_http_error_core` adds the HTTP 400
+context-limit override and response metadata for every modality.
+`SuccessfulResponse::check` admits only 2xx responses to native buffered
+parsers and binary consumers. It returns every other response intact for
+the adapter's existing status classification.
+Stream helpers distinguish transient failures before provider progress from
+interrupted failures after progress. The original HTTP source remains available.
+
+Error and output helpers require an `ErrorContext`. Each call supplies its
+adapter identity, request-id header names, and an injected `Clock`.
+Production callers use `SystemClock`. Tests can use `ClockMock` through
+`test-support`. Seconds and invalid retry headers do not read the clock.
+`parse_retry_after` also accepts an explicit `SystemTime` for pure parsing.
+
+Keep one response-free context for each logical call. Wrap the actual auth
+hook with `capture_auth` to capture its transmitted credentials once.
+Use `add_secret` for explicit keys outside that hook.
+`for_response` creates a clone for one response and retains its headers.
+The context evaluates absolute retry dates when it applies an error.
+Each new HTTP phase starts from the response-free context.
+Late stream, provider, and output failures use the clone for that stream.
+`request_error` uses only the headers of the actual failed request.
+`apply` and `apply_model_error` keep the kind and source while sanitizing
+messages and request ids. `apply_judgment_error` also sanitizes question ids
+and provider-controlled answer labels.
+Auth-hook failures use a fixed diagnostic. They do not copy unknown hook text.
+`source` builds an `ai_interface::SafeErrorSource` with redacted text for
+each link. It removes diagnostic URLs before capturing that text.
+Normal display, debug output, and source traversal use only those safe links.
+Explicit typed inspection uses the carrier's `raw_cause()` accessor.
 
 The Chat Completions engine and its accumulator live in
 [`ai-models-compat`](../ai-models-compat/README.md).
+
+`ProviderConfig` holds one provider id, an optional base URL, an API key or
+auth hook, extra headers, and optional idle, total, and polling timeouts.
+It names no providers and supplies no provider defaults.
+`endpoint(default_base, fixed_path)` keeps a configured path prefix and
+treats base URLs with and without a trailing slash the same.
+Adapters select `ApiKeyScheme::Bearer` or `ApiKeyScheme::Header(name)`.
+They call `capture_secrets` before validation and wrap `auth(scheme)` with
+the call context's `capture_auth` before dispatch.
+`apply_headers(builder, origin)` binds auth and extra headers to the configured
+scheme, host, and port. Every extra header is a credential for redirects and
+recordings. Adapter headers, auth headers, and body content types take precedence
+without regard to header-name case.
+Credential capture redacts full values and their last word when it has at least
+six bytes. Short common words in longer header values remain readable elsewhere.
+Config and static-auth debug output omit credential and header values.
 
 `resolve_controls(&request, &spec)` is the shared capability check. Every
 chat adapter calls it before transport and sends exactly the returned
@@ -46,7 +92,7 @@ deferred lifecycle. The check does no I/O. Its rules are these:
 - `RequiredOrAuto` becomes `Required` when the `ForcedToolChoice` rule of the
   spec allows it, and `Auto` otherwise. `ResolvedToolChoice` therefore has
   no fallback variant, and the check never removes a tool definition.
-- The check fails with `ModelError::UnsupportedControl` for an effort with no
+- The check fails with `ErrorKind::UnsupportedControl` for an effort with no
   listed effort at or below it, nonempty stop sequences that the spec does
   not support, a forced tool choice that the rule does not allow, and a
   required deferred lifecycle that the spec does not have.
@@ -70,26 +116,6 @@ with its part position and its opaque payload, and every part in order when
 a message does not have the old layout. Retained provider conversations
 therefore remain distinct during deterministic id generation.
 
-Each wrapper is a `Model` whose stream forwards the events of the inner
-stream in order. `UsagePricingModel` wraps any `ai_interface::Model` and
-applies a deployment provided `ModelPricing` snapshot to the normalized usage
-categories of the `Usage` event. It writes `ModelUsageCostLine` values and
-sums known line costs in micro-USD; provider crates keep parsing usage
-quantities but do not own mutable price tables. It forwards every other
-event unchanged, so `complete` returns the priced usage.
-
-The default retry schedule preserved by this crate is `100ms` then `250ms` for
-transient model failures. `RetryingModel` retries only
-`ModelError::TransientProvider`. It opens the inner stream again when the
-open fails with that error, or when the stream fails with it before the
-stream returned its first event. After the first event it passes every
-error on, so a consumer never sees an event of a retried attempt.
-`RetryingModel` never retries `ModelError::Interrupted`, because a repeated
-generation can duplicate provider work and billing.
-
-`ConcurrencyLimitedModel` holds its permit from the call of `stream` until
-its stream returns `None`, returns an error, or is dropped.
-
 Long-running provider adapters can use `PollingRuntime` to couple monotonic
 deadline measurement with async sleeping behind one testable trait. Production
 code uses `TokioPollingRuntime`; deterministic provider tests enable the
@@ -98,22 +124,10 @@ code uses `TokioPollingRuntime`; deterministic provider tests enable the
 ## Quick Start
 
 ```rust
-use std::sync::Arc;
-
 use ai_interface::{
-    ConversationMessage, DynModel, MOCK_MODEL, MockModel, ModelRequest, ModelResult,
+    ConversationMessage, MOCK_MODEL, ModelRequest, ModelResult,
 };
-use ai_models_core::{
-    ConcurrencyLimitedModel, ModelPricing, ResolvedModelControls, RetryingModel,
-    UsagePricingModel, resolve_controls,
-};
-
-fn wrap_model() -> DynModel {
-    let base: DynModel = Arc::new(MockModel::new("mock"));
-    let retried: DynModel = Arc::new(RetryingModel::with_standard_transient_retry(base));
-    let limited: DynModel = Arc::new(ConcurrencyLimitedModel::new(retried, "mock", 1));
-    Arc::new(UsagePricingModel::new(limited, ModelPricing::free("mock")))
-}
+use ai_models_core::{ResolvedModelControls, resolve_controls};
 
 fn resolve_mock_controls() -> ModelResult<ResolvedModelControls> {
     let mut request = ModelRequest {
@@ -142,22 +156,24 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 
 ### Key Code
 
+- `src/provider_config.rs` and `src/provider_auth.rs` - provider settings,
+  endpoint construction, timeout overrides, and adapter-selected key schemes
 - `src/capabilities.rs` - `resolve_controls`, `ResolvedModelControls`, and
   `ResolvedToolChoice`: the shared capability check before transport
 - `src/catalog.rs` - `known_mock_models()`, which copies the mock catalog of
   `ai-interface`
-- `src/retrying.rs` - transient retry wrapper on the stream and its retry
-  schedule
-- `src/concurrency.rs` - per-model concurrency limiter that holds a permit for
-  the life of a stream
-- `src/pricing.rs` - usage-event pricing wrapper and integer cost calculator
 - `src/http_status.rs` - boundary-neutral HTTP failure classification
-- `src/errors.rs` - provider-agnostic JSON error mapping, parsing, and
-  structured-output validation helpers
+- `src/successful_response.rs` - the shared 2xx boundary for native buffered
+  parsers and binary downloads
+- `src/errors.rs` - provider-agnostic HTTP and provider-stream failure mapping
+- `src/error_context.rs` and `src/capturing_auth.rs` - per-call error
+  identity, safe diagnostics, response facts, and actual auth-hook capture
+- `src/error_metadata.rs` and `src/clock.rs` - optional retry and request-id
+  metadata with an injected wall clock
+- `src/structured_output.rs` - caller-schema and generated-output checks
 - `src/tool_call_identity/` - deterministic synthetic tool-call ids, and
   hashing of the portable message projection, ordered parts, and opaque
   provider state
-- `src/sleeper.rs` - abstract sleeper boundary for retry testing
 - `src/test_support.rs` - behind `test-support`: in-memory Chat Completions
   SSE fixtures, and `collect_model_events`, which records the events of a
   model stream as JSON and folds them, keeping the events before a failure
@@ -167,6 +183,7 @@ cargo clippy -p ai-models-core --all-targets --all-features -- -D warnings
 ### Related Docs
 
 - [`../ai-interface/README.md`](../ai-interface/README.md)
+- [`../ai-models-policy/README.md`](../ai-models-policy/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../../docs/architecture.md`](../../docs/architecture.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)

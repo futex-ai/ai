@@ -5,8 +5,8 @@ use std::vec::IntoIter;
 use async_trait::async_trait;
 
 use crate::{
-    ConversationPart, DynModelEventStream, ModelAttemptError, ModelError, ModelEvent,
-    ModelEventStream, ModelResponse, ModelResult,
+    ConversationPart, DynModelEventStream, ModelError, ModelEvent, ModelEventStream, ModelResponse,
+    ModelResult,
 };
 
 /// Boxes literal events in a stream that stays exhausted after its last event.
@@ -22,7 +22,8 @@ pub fn model_response_stream(response: ModelResponse) -> DynModelEventStream {
         .attempts
         .into_iter()
         .map(|attempt| ModelEvent::Fallback {
-            error: restore_error(attempt.error),
+            emitted_events: attempt.emitted_events,
+            error: ModelError::from_attempt(attempt),
         })
         .collect::<Vec<_>>();
     for (part_index, part) in response.parts.into_iter().enumerate() {
@@ -90,43 +91,5 @@ struct FiniteModelEventStream {
 impl ModelEventStream for FiniteModelEventStream {
     async fn next(&mut self) -> ModelResult<Option<ModelEvent>> {
         Ok(self.events.next())
-    }
-}
-
-fn restore_error(error: ModelAttemptError) -> ModelError {
-    match error {
-        ModelAttemptError::RateLimited {
-            provider,
-            model_id,
-            message,
-        } => ModelError::rate_limited(provider, model_id, message),
-        ModelAttemptError::TransientProvider {
-            provider,
-            model_id,
-            message,
-        } => ModelError::transient_provider(provider, model_id, message),
-        ModelAttemptError::Interrupted {
-            provider,
-            model_id,
-            message,
-        } => ModelError::interrupted(provider, model_id, message),
-        ModelAttemptError::Provider {
-            provider,
-            model_id,
-            message,
-        } => ModelError::provider(provider, model_id, message),
-        ModelAttemptError::ContextLimitExceeded {
-            provider,
-            model_id,
-            message,
-        } => ModelError::context_limit_exceeded(provider, model_id, message),
-        ModelAttemptError::UnsupportedControl {
-            provider,
-            model_id,
-            control,
-        } => ModelError::unsupported_control(provider, model_id, control),
-        ModelAttemptError::Internal { message } => {
-            ModelError::internal(std::io::Error::other(message))
-        }
     }
 }

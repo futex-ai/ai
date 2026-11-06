@@ -6,6 +6,7 @@ use ai_interface::{
     ConversationMessage, ConversationRole, DynModel, DynModelEventStream, LegacyMessageConverter,
     Model, ModelRequest, ModelResult,
 };
+use ai_models_registry::{ProviderConfig, Registry};
 use ai_testkit::{
     provider::{ModelFactory, Provider, ProviderModelFactory},
     runner::{ConformanceRunner, ScenarioRunner},
@@ -13,7 +14,8 @@ use ai_testkit::{
     storage::{FileRecordingStorage, RecordingStorage},
 };
 use async_trait::async_trait;
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
+use json_http::{DynJsonHttpClient, TransportBackedJsonHttpClient};
+use unimock::Unimock;
 
 #[tokio::test]
 async fn converted_version_one_tool_loops_send_the_original_recorded_requests() {
@@ -32,16 +34,10 @@ async fn converted_version_one_tool_loops_send_the_original_recorded_requests() 
 }
 
 fn converter() -> LegacyMessageConverter {
-    LegacyMessageConverter::new(vec![
-        Arc::new(ai_models_anthropic::AnthropicLegacyConverter),
-        Arc::new(ai_models_openai::OpenAiLegacyConverter),
-        Arc::new(ai_models_google::GoogleLegacyProviderConverter),
-        Arc::new(ai_models_compat::deepseek::LegacyConverter),
-        Arc::new(ai_models_compat::kimi::LegacyConverter),
-        Arc::new(ai_models_compat::qwen::LegacyConverter),
-        Arc::new(ai_models_compat::minimax::LegacyConverter),
-        Arc::new(ai_models_compat::xai::LegacyConverter),
-    ])
+    Registry::new(Arc::new(TransportBackedJsonHttpClient::new(Arc::new(
+        Unimock::new(()),
+    ))))
+    .converter()
 }
 
 struct ConvertedHistoryFactory;
@@ -52,11 +48,11 @@ impl ModelFactory for ConvertedHistoryFactory {
         provider: Provider,
         id: &str,
         client: DynJsonHttpClient,
-        auth: DynJsonHttpAuth,
+        config: ProviderConfig,
     ) -> ai_testkit::error::Result<DynModel> {
         let value = serde_json::from_str(legacy_fixture(provider)).unwrap();
         Ok(Arc::new(ConvertedHistoryModel {
-            inner: ProviderModelFactory.build(provider, id, client, auth)?,
+            inner: ProviderModelFactory.build(provider, id, client, config)?,
             assistant: converter().read(value).unwrap(),
         }))
     }

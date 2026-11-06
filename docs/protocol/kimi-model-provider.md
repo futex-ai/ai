@@ -13,9 +13,8 @@ types, conversation parts, and provider state in `ai-interface`. The
 [Add Kimi Model Provider plan](../../plans/add-kimi-model-provider.md) records
 the completed implementation milestones.
 
-Once implemented, the
-[Chat Completions dialects protocol](chat-completions-dialects.md) governs the
-shared engine that serves this provider.
+The [Chat Completions dialects protocol](chat-completions-dialects.md) governs
+the shared engine that serves this provider.
 
 ## Scope
 
@@ -32,7 +31,7 @@ video or file upload, dynamic or official Kimi tools, `prompt_cache_key`, or
 `safety_identifier`. Those capabilities require
 separate contracts rather than silent partial support. Shared video content
 parts defined by the [video input protocol](video-input.md) are rejected with
-a typed provider error before transport.
+the unsupported input kind before transport.
 
 ## Ownership
 
@@ -53,7 +52,7 @@ a typed provider error before transport.
 
 The Kimi provider id is `kimi`. Successful responses use `provider: "kimi"`.
 
-Requests use:
+By default, requests use:
 
 ```text
 POST https://api.moonshot.ai/v1/chat/completions
@@ -61,10 +60,15 @@ Authorization: Bearer <api-key>
 Content-Type: application/json
 ```
 
-The model accepts an injected `DynJsonHttpClient` and explicit API key or
-`DynJsonHttpAuth`. `new` and `with_auth` construct the `kimi-k3` spec, and
-`with_catalog_auth` accepts a model spec. The model must not read
-environment variables, load config, or resolve secrets.
+The [provider registry](provider-registry.md) builds the model from a spec
+and the provider config of `kimi`. The registry is the preferred way to
+build the model. Until the user answers the
+[open constructor default-effort decision](../../plans/follow-ups/constructor-default-effort.md),
+the model also keeps its constructors. They accept an injected
+`DynJsonHttpClient` and an explicit API key or `DynJsonHttpAuth`. `new` and
+`with_auth` construct the `kimi-k3` spec, and `with_catalog_auth` accepts a
+model spec. The model must not read environment variables, load deployment
+configuration, or resolve secrets.
 
 ## Initial Model Spec
 
@@ -107,16 +111,19 @@ K3 request mapping must:
   `UnsupportedControl`;
 - serialize a user message with one text part as a string, and other user
   messages as content arrays of text and image parts, using base64 data URLs
-  for images; reject shared video parts with a typed provider error before
-  transport; empty user and tool content remains an empty string, while
+  for images; reject shared video parts with the unsupported input kind
+  before transport; empty user and tool content remains an empty string, while
   unavailable assistant content may be null;
 - serialize user and assistant names only when present and supported;
 - ignore provider state owned by other providers;
 - send `stream: true` and `stream_options.include_usage: true`, while sending
   no partial, file, video, or K2 `thinking` fields.
 
-The default overall deadline is 3,600 seconds and the maximum idle gap is 120
-seconds. Kimi reports usage on the final choice-bearing event; its direct
+The default overall deadline is 3,600 seconds, and the default maximum idle
+gap is 120 seconds. A provider config can replace these defaults, as the
+[provider registry](provider-registry.md#timeouts) says. An explicit portable
+total timeout replaces the overall deadline of that call, also when the
+provider config sets one. Kimi reports usage on the final choice-bearing event; its direct
 `cached_tokens` field is retained before `[DONE]` finalizes accumulation.
 
 ## Preserved Assistant Context

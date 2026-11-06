@@ -7,7 +7,7 @@
 - **Reason:** The fix changes a mapping that `docs/protocol/deepseek-model-provider.md` requires, so the user decides.
 
 - **Terms:**
-  - **Retry layer:** the wrapper that calls a model again after some errors. Today it is `RetryingModel` in `ai-models-core`, and it retries only the transient provider error.
+  - **Retry layer:** `RetryingModel` in `ai-models-policy` calls a model again after rate limited or transient failures.
   - **Progress:** a stream has progress after the adapter read its first provider event. A failure after progress means that the provider already generated tokens.
 - **Background:** DeepSeek can end a stream with the finish reason `insufficient_system_resource`. The adapter maps it to a transient provider error, and `docs/protocol/deepseek-model-provider.md` requires that mapping. The finish reason arrives at the end of the stream, after the provider generated tokens.
 - **Problem:** The retry layer retries transient errors, so it sends the whole request again after DeepSeek already billed a partial generation. The interruption rule of `docs/protocol/model-stream.md` exists to stop such retries: failures after progress are interrupted and never retried.

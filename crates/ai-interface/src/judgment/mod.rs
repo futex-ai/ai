@@ -4,6 +4,7 @@ mod answer;
 mod answer_problem;
 mod content;
 mod error;
+mod error_core;
 mod model;
 mod question;
 mod request;

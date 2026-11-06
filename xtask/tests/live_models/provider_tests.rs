@@ -5,14 +5,7 @@ use std::iter;
 use std::sync::Arc;
 
 use ai_interface::{DynModel, Effort, ModelFeature, ModelSpec, ProviderId};
-use ai_models_anthropic::AnthropicModel;
-use ai_models_compat::deepseek::DeepSeekModel;
-use ai_models_compat::kimi::KimiModel;
-use ai_models_compat::minimax::MiniMaxModel;
-use ai_models_compat::qwen::QwenModel;
-use ai_models_compat::xai::XaiModel;
-use ai_models_google::GoogleModel;
-use ai_models_openai::OpenAiModel;
+use ai_models_registry::{ProviderConfig, Registry, catalog};
 use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -94,16 +87,12 @@ impl LiveProvider {
     }
 
     pub(super) fn catalog(self) -> Vec<ModelSpec> {
-        match self {
-            Self::Anthropic => ai_models_anthropic::CATALOG.to_vec(),
-            Self::DeepSeek => ai_models_compat::deepseek::CATALOG.to_vec(),
-            Self::Google => ai_models_google::CATALOG.to_vec(),
-            Self::Kimi => ai_models_compat::kimi::CATALOG.to_vec(),
-            Self::MiniMax => ai_models_compat::minimax::CATALOG.to_vec(),
-            Self::OpenAi => ai_models_openai::CATALOG.to_vec(),
-            Self::Qwen => ai_models_compat::qwen::CATALOG.to_vec(),
-            Self::Xai => ai_models_compat::xai::CATALOG.to_vec(),
-        }
+        catalog()
+            .all()
+            .iter()
+            .filter(|model| model.provider == self.provider_id())
+            .cloned()
+            .collect()
     }
 
     pub(super) fn chat_catalog(self) -> Vec<ModelSpec> {
@@ -157,22 +146,10 @@ impl LiveProvider {
         auth: DynJsonHttpAuth,
         spec: &ModelSpec,
     ) -> DynModel {
-        match self {
-            Self::Anthropic => Arc::new(AnthropicModel::with_catalog_auth(
-                client,
-                spec.clone(),
-                auth,
-            )),
-            Self::DeepSeek => {
-                Arc::new(DeepSeekModel::with_catalog_auth(client, spec.clone(), auth))
-            }
-            Self::Google => Arc::new(GoogleModel::with_catalog_auth(client, spec.clone(), auth)),
-            Self::Kimi => Arc::new(KimiModel::with_catalog_auth(client, spec.clone(), auth)),
-            Self::MiniMax => Arc::new(MiniMaxModel::with_catalog_auth(client, spec.clone(), auth)),
-            Self::OpenAi => Arc::new(OpenAiModel::with_catalog_auth(client, spec.clone(), auth)),
-            Self::Qwen => Arc::new(QwenModel::with_catalog_auth(client, spec.clone(), auth)),
-            Self::Xai => Arc::new(XaiModel::with_catalog_auth(client, spec.clone(), auth)),
-        }
+        Registry::new(client)
+            .with_provider(ProviderConfig::with_auth(self.provider_id(), auth))
+            .model(spec)
+            .expect("registered model provider and config")
     }
 }
 

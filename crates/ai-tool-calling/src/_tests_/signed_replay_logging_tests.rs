@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use ai_interface::test_support::model_response_stream;
 use ai_interface::{
-    ConversationMessage, ConversationPart, ConversationRole, FinishReason, LoggerMock,
+    ConversationMessage, ConversationPart, ConversationRole, ErrorKind, FinishReason, LoggerMock,
     ModelCallLogEntry, ModelCallLogResult, ModelError, ModelMock, ModelRequest, ModelResponse,
     ModelUsage, ToolCall,
 };
@@ -103,7 +103,7 @@ async fn signed_replay_context_is_removed_from_failed_request_logs() {
             .answers_arc(Arc::new(move |_, request: &ModelRequest| {
                 {
                     assert_eq!(request.messages[0].parts, expected);
-                    Err(ModelError::provider("mock", "mock", "failed"))
+                    Err(ModelError::invalid_output("mock", "mock", "failed"))
                 }
                 .map(model_response_stream)
             })),
@@ -127,7 +127,7 @@ async fn signed_replay_context_is_removed_from_failed_request_logs() {
     )]);
     assert!(matches!(
         runtime.resume(Some(1)).step().await,
-        Err(crate::Error::Model(ModelError::Provider { .. }))
+        Err(crate::Error::Model(error)) if error.core().kind == ErrorKind::InvalidOutput
     ));
 }
 

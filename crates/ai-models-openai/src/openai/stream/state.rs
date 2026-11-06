@@ -1,6 +1,7 @@
 //! Direct Responses events, replay state, and anonymous terminal supplementation.
 
 use ai_interface::{Effort, FinishReason, ModelEvent, ModelResult, StructuredOutputSchema};
+use ai_models_core::ErrorContext;
 
 use crate::openai::response;
 use crate::openai::response::types::{ResponsesOutputItem, ResponsesResponse};
@@ -15,6 +16,7 @@ use super::{
 #[derive(Debug)]
 pub(super) struct OpenAiStreamState {
     model_id: String,
+    context: ErrorContext,
     text: TextParts,
     tools: ToolParts,
     next_part_index: usize,
@@ -22,11 +24,12 @@ pub(super) struct OpenAiStreamState {
 }
 
 impl OpenAiStreamState {
-    pub(super) fn new(model_id: &str) -> Self {
+    pub(super) fn new(model_id: &str, context: ErrorContext) -> Self {
         Self {
             model_id: model_id.to_owned(),
             text: TextParts::default(),
-            tools: ToolParts::new(model_id),
+            tools: ToolParts::new(model_id, context.clone()),
+            context,
             next_part_index: 0,
             anonymous: Vec::new(),
         }
@@ -92,7 +95,7 @@ impl OpenAiStreamState {
         preserve_message: bool,
         events: &mut Vec<ModelEvent>,
     ) -> ModelResult<()> {
-        let state = item_state(item, &self.model_id, preserve_message)?;
+        let state = item_state(&self.context, item, &self.model_id, preserve_message)?;
         self.text
             .supplement_item(output_index, item, state, &mut self.next_part_index, events);
         self.tools
@@ -141,7 +144,7 @@ impl OpenAiStreamState {
         parsed: ResponsesResponse,
         response_schema: Option<&StructuredOutputSchema>,
     ) -> ModelResult<Vec<ModelEvent>> {
-        response::check_error(provider_model_id, &parsed)?;
+        response::check_error(&self.context, &parsed)?;
         let preserve_message = matches!(response::finish_reason(&parsed), FinishReason::ToolCalls);
         let mut events = Vec::new();
         if self.next_part_index == 0
@@ -163,9 +166,10 @@ impl OpenAiStreamState {
         }
         self.tools.end_all(&mut events)?;
         if preserve_message {
-            self.tools.validate(provider_model_id)?;
+            self.tools.validate()?;
         }
         events.extend(response::terminal_events(
+            &self.context,
             catalog_model_id,
             provider_model_id,
             thinking_level,

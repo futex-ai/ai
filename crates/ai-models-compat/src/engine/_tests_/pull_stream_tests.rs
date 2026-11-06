@@ -1,6 +1,8 @@
 //! Pull stream ordering, terminal validation, and closed-stream regressions.
 
-use ai_interface::{ConversationMessage, Model, ModelError, ModelRequest, StructuredOutputSchema};
+use ai_interface::ErrorKind;
+
+use ai_interface::{ConversationMessage, Model, ModelRequest, StructuredOutputSchema};
 use ai_models_core::test_support::{
     SseFixture, StreamItem, done_event, event, recording_streaming_client,
 };
@@ -75,7 +77,7 @@ async fn invalid_tool_arguments_fail_before_usage_and_close_the_stream() {
         }
     };
 
-    assert!(matches!(result, Err(ModelError::Provider { .. })));
+    assert!(matches!(result, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput));
     assert_eq!(content.len(), 3);
     assert!(content.iter().all(|event| event.get("Usage").is_none()));
     assert!(content.iter().all(|event| event.get("Finish").is_none()));
@@ -138,10 +140,9 @@ async fn schema_failure_keeps_text_and_emits_no_terminal_events() {
         serde_json::to_value(first).expect("event serializes"),
         json!({"TextDelta": {"part_index": 0, "delta": "{\"count\":\"bad\"}"}})
     );
-    assert!(matches!(
-        stream.next().await,
-        Err(ModelError::Provider { .. })
-    ));
+    assert!(
+        matches!(stream.next().await, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput)
+    );
     assert!(
         stream
             .next()

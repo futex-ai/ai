@@ -7,8 +7,8 @@ use std::{
 };
 
 use ai_interface::{
-    DynJudgmentModel, JudgmentContent, JudgmentError, JudgmentModel, JudgmentModelMock,
-    JudgmentQuestion, JudgmentRequest, MockJudgmentModel, ModelSpec,
+    DynJudgmentModel, ErrorCore, ErrorKind, JudgmentContent, JudgmentError, JudgmentModel,
+    JudgmentModelMock, JudgmentQuestion, JudgmentRequest, MockJudgmentModel, ModelSpec,
 };
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use serde_json::{Map, Value};
@@ -222,7 +222,12 @@ fn log_messages_contain_identifiers_but_not_sensitive_values() {
     let check = check_message(&spec);
     let failure = request_failure_message(
         &spec,
-        &JudgmentError::provider("typesafe", "jev-latest", "rejected"),
+        &JudgmentError::new(ErrorCore::new(
+            ErrorKind::InvalidRequest,
+            "typesafe",
+            "jev-latest",
+            "rejected",
+        )),
     );
 
     assert_eq!(check, "checking typesafe/jev-latest");
@@ -244,11 +249,12 @@ fn recording_failure_model(
                     .lock()
                     .expect("call lock should not be poisoned")
                     .push(label);
-                Err(JudgmentError::provider(
+                Err(JudgmentError::new(ErrorCore::new(
+                    ErrorKind::InvalidRequest,
                     "typesafe",
                     label,
                     "expected failure",
-                ))
+                )))
             })),
     ))
 }

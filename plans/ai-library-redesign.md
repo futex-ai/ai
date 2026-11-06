@@ -3,7 +3,8 @@
 Status: Active. [PR #24](https://github.com/futex-ai/ai/pull/24) is open for
 the first pull request, [PR #25](https://github.com/futex-ai/ai/pull/25)
 for the second, [PR #26](https://github.com/futex-ai/ai/pull/26) for the
-third, and [PR #27](https://github.com/futex-ai/ai/pull/27) for the fourth. The work spans eight stacked pull requests. Each earlier pull request keeps
+third, [PR #27](https://github.com/futex-ai/ai/pull/27) for the fourth, and
+[PR #28](https://github.com/futex-ai/ai/pull/28) for the fifth. The work spans eight stacked pull requests. Each earlier pull request keeps
 this plan. The last one deletes it, as the final milestone says.
 
 The workspace puts nine AI providers behind one interface, with a
@@ -343,6 +344,27 @@ All calls are mine, made on 2026-11-01.
     `crates/ai-mcp/tests/tool_runtime_smoke.rs`. This follows the trait
     change and changes no MCP production code, so the MCP crates still
     change only after Milestone 11.
+- 2026-11-02, before Milestone 9:
+  - Milestone 9 keeps the per-provider constructors until the user answers
+    item 24 (`plans/follow-ups/constructor-default-effort.md`), because
+    one option of item 24 keeps a constructor path. A later TODO deletes
+    them.
+  - Milestone 9 implements the rule of `provider-registry.md` that an
+    adapter sends its credentials only to the host of its base URL. It
+    drops the auth on cross-origin redirect hops, which adds no new
+    failure. `plans/follow-ups/json-http-redirect-leaks-keys.md` then keeps
+    only the question whether to disable redirects entirely.
+- 2026-11-03:
+  - The user said: "you can merge PRs as they are ready if there are no
+    active findings". Pull requests #22, #24, and #25 merged into `main`
+    under that rule. #26 and #27 wait for their open findings.
+  - A stack sync merged the Sora and Veo removal of #22 (user decision of
+    2026-11-01, item 9, option E) into every stack branch. So the
+    registry builds Google video from custom specs and OpenAI has no
+    video adapter, as `provider-registry.md` says.
+  - When `main` holds the squash of the pull request before a branch, the
+    branch records `main` with an `ours` merge, because `main`'s tree
+    equals an ancestor of the branch.
 - 2026-11-04, applying item 27:
   - The default effort of `ModelSpec` and `CustomModelDefaults` and the
     resolved effort are `Option<Effort>`. `None` is the provider default. A
@@ -553,27 +575,27 @@ Depends on: 7
 Give the policies the response facts that they need, and make retry and
 fallback explicit.
 
-- [ ] Expose response headers on buffered responses, streams, and status
+- [x] Expose response headers on buffered responses, streams, and status
       errors in `json-http`.
-- [ ] Parse `Retry-After` and the provider request id into typed fields.
-- [ ] Serialize typed request bodies straight to bytes.
-- [ ] Add the shared error core, and use it in every modality error.
-- [ ] Split the provider error into the kinds of decision 5. Make each kind
+- [x] Parse `Retry-After` and the provider request id into typed fields.
+- [x] Serialize typed request bodies straight to bytes.
+- [x] Add the shared error core, and use it in every modality error.
+- [x] Split the provider error into the kinds of decision 5. Make each kind
       state whether another model can succeed.
-- [ ] Add `ai-models-policy`. Move the retry, concurrency, and pricing
+- [x] Add `ai-models-policy`. Move the retry, concurrency, and pricing
       wrappers from `ai-models-core`. Merge `ai-models-multi` into it.
-- [ ] Make retry back off with jitter, honor retry-after, and cover rate
+- [x] Make retry back off with jitter, honor retry-after, and cover rate
       limits.
-- [ ] Make fallback require a policy, with the presets "any error" and
+- [x] Make fallback require a policy, with the presets "any error" and
       "only when another model can succeed". Report every attempt.
-- [ ] Keep the provider message of every rate-limit error in the error
+- [x] Keep the provider message of every rate-limit error in the error
       core. The MiniMax and xAI adapters lose it today, as their
       `rate_limit` snapshots show.
-- [ ] Apply `plans/follow-ups/xai-deferred-poll-transport-error.md`, so
+- [x] Apply `plans/follow-ups/xai-deferred-poll-transport-error.md`, so
       that deferred polling continues after a network failure of the
       production transport.
-- [ ] Mark `model-policies.md` implemented.
-- [ ] Run `cargo xtask check`, then commit and push.
+- [x] Mark `model-policies.md` implemented.
+- [x] Run `cargo xtask check`, then commit and push.
 
 ## Milestone 9: Provider registry
 
@@ -581,20 +603,21 @@ Depends on: 8
 
 Build any catalog entry from one config shape.
 
-- [ ] Add `ai-models-registry` with one Cargo feature for each provider.
-- [ ] Add `ProviderConfig`. Make every adapter honor its base URL.
-- [ ] Build chat, image, video, transcription, and judgment adapters from
+- [x] Add `ai-models-registry` with one Cargo feature for each provider.
+- [x] Add `ProviderConfig`. Make every adapter honor its base URL.
+- [x] Build chat, image, video, transcription, and judgment adapters from
       specs.
-- [ ] Compose the provider conversions into the converter that the
+- [x] Compose the provider conversions into the converter that the
       registry exposes.
-- [ ] Replace the provider match in
+- [x] Replace the provider match in
       `xtask/tests/live_models/provider_tests.rs` and in the smoke test
       with the registry.
-- [ ] Mark `provider-registry.md` and `chat-completions-dialects.md`
+- [x] Mark `provider-registry.md` and `chat-completions-dialects.md`
       implemented.
-- [ ] Run `cargo xtask check` and `cargo xtask smoke-test`, then commit
+- [ ] Delete the per-provider constructors after the user answers item 24.
+- [x] Run `cargo xtask check` and `cargo xtask smoke-test`, then commit
       and push.
-- [ ] Run the ship steps for pull request 5.
+- [x] Run the ship steps for pull request 5.
 
 ## Milestone 10: Agent loop
 

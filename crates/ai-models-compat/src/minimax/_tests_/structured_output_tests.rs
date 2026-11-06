@@ -1,5 +1,7 @@
 //! MiniMax locally validated structured-output tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{
     Effort, Model, ModelError, ModelRequest, ModelResponse, StructuredOutputSchema,
 };
@@ -14,6 +16,7 @@ use super::{MiniMaxModel, response, support::recording_http_client};
 async fn prompts_for_and_validates_structured_output_locally() {
     let schema = status_schema();
     let (http_client, requests) = recording_http_client([JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: stopped_response(
             json!({
@@ -34,7 +37,11 @@ async fn prompts_for_and_validates_structured_output_locally() {
     let body = requests[0]
         .body
         .as_ref()
-        .and_then(|body| body.as_json())
+        .and_then(|body| {
+            body.as_json_bytes().map(|bytes| {
+                serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+            })
+        })
         .expect("JSON body should be present");
     let system_prompt = body["messages"][0]["content"]
         .as_str()
@@ -57,7 +64,7 @@ async fn rejects_invalid_json_schema_and_schema_mismatches() {
         complete_with_schema(stopped_response("not json".to_owned()), status_schema())
             .await
             .expect_err("invalid JSON should fail");
-    assert!(matches!(invalid_json, ModelError::Provider { .. }));
+    assert!(matches!(invalid_json.core().kind, ErrorKind::InvalidOutput));
 
     let mismatch = complete_with_schema(
         stopped_response(json!({"summary": 7, "done": true}).to_string()),
@@ -65,7 +72,7 @@ async fn rejects_invalid_json_schema_and_schema_mismatches() {
     )
     .await
     .expect_err("schema mismatch should fail");
-    assert!(matches!(mismatch, ModelError::Provider { .. }));
+    assert!(matches!(mismatch.core().kind, ErrorKind::InvalidOutput));
 
     let invalid_schema = complete_with_schema(
         stopped_response(json!({"summary": "Done"}).to_string()),
@@ -76,7 +83,10 @@ async fn rejects_invalid_json_schema_and_schema_mismatches() {
     )
     .await
     .expect_err("invalid requested schema should fail");
-    assert!(matches!(invalid_schema, ModelError::Provider { .. }));
+    assert!(matches!(
+        invalid_schema.core().kind,
+        ErrorKind::InvalidRequest
+    ));
 
     let mut body = stopped_response("not json".to_owned());
     body["choices"][0]["message"]["tool_calls"] = json!([{
@@ -84,7 +94,9 @@ async fn rejects_invalid_json_schema_and_schema_mismatches() {
         "function": {"name": "lookup", "arguments": "{}"}
     }]);
     let raw_tool_stop = complete_with_schema(body, status_schema()).await;
-    assert!(matches!(raw_tool_stop, Err(ModelError::Provider { .. })));
+    assert!(
+        matches!(raw_tool_stop, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput)
+    );
 }
 
 #[tokio::test]
@@ -129,7 +141,11 @@ async fn complete_with_schema(
     body: Value,
     schema: StructuredOutputSchema,
 ) -> std::result::Result<ModelResponse, ModelError> {
-    let (http_client, _) = recording_http_client([JsonHttpResponse { status: 200, body }]);
+    let (http_client, _) = recording_http_client([JsonHttpResponse {
+        headers: Default::default(),
+        status: 200,
+        body,
+    }]);
     MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
         .complete(&request_with_schema(schema))
         .await

@@ -63,10 +63,15 @@ async fn streams_rich_deltas_with_current_usage_shape() {
     assert_eq!(streamed.usage.cached_input_tokens, 5);
     let requests = requests.lock().expect("request lock should be available");
     let request = &requests[0];
-    let body = request
-        .body
-        .as_ref()
-        .expect("request body should be present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        request
+            .body
+            .as_ref()
+            .expect("request body should be present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["stream"], true);
     assert_eq!(body["stream_options"]["include_usage"], true);
     assert_eq!(request.timeout, Duration::from_secs(3_600));

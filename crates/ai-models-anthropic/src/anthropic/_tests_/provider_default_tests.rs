@@ -1,11 +1,12 @@
 //! Provider-default reasoning and the explicit off switch at transport.
 
 use ai_interface::{
-    ConversationMessage, Effort, Model, ModelControl, ModelError, ModelRequest, ModelSpec,
+    ConversationMessage, Effort, ErrorKind, Model, ModelControl, ModelRequest, ModelSpec,
     ModelToolChoice,
 };
 use ai_models_core::resolve_controls;
-use serde_json::json;
+use json_http::JsonHttpBody;
+use serde_json::{Value, json};
 
 use crate::{
     AnthropicModel, CLAUDE_FABLE_5, CLAUDE_HAIKU_4_5, CLAUDE_OPUS_4_7, CLAUDE_OPUS_5,
@@ -41,7 +42,7 @@ async fn provider_default_omits_reasoning_and_reports_no_effort() {
     let response = model.complete(&request).await.unwrap();
     assert_eq!(response.effort(), None);
     let requests = requests.lock().unwrap();
-    let body = requests[0].body.as_ref().unwrap();
+    let body = request_body(requests[0].body.as_ref().unwrap());
     assert_eq!(body.get("thinking"), None);
     assert_eq!(body.get("output_config"), None);
     assert_eq!(body.get("temperature"), None);
@@ -68,7 +69,7 @@ async fn explicit_off_sends_disabled_for_every_supported_claude() {
         let response = model.complete(&request).await;
         let requests = requests.lock().unwrap();
         assert_eq!(requests.len(), 1, "{id}: {response:?}");
-        let body = requests[0].body.as_ref().unwrap();
+        let body = request_body(requests[0].body.as_ref().unwrap());
         assert_eq!(body["thinking"], json!({"type": "disabled"}), "{id}");
         assert_eq!(body.get("output_config"), None, "{id}");
         assert_eq!(body["temperature"], 0.4, "{id}");
@@ -82,7 +83,13 @@ fn fable_rejects_explicit_off_before_transport() {
     let mut request = request();
     request.controls.generation.effort = Some(Effort::Disabled);
     assert!(matches!(resolve_controls(&request, &CLAUDE_FABLE_5),
-        Err(ModelError::UnsupportedControl { provider, model_id, control: ModelControl::Effort })
-        if provider == "anthropic" && model_id == "claude-fable-5"
+        Err(ref error)
+        if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::Effort)
+            && error.core().provider == "anthropic" && error.core().model_id == "claude-fable-5"
     ));
+}
+
+fn request_body(body: &JsonHttpBody) -> Value {
+    serde_json::from_slice(body.as_json_bytes().expect("JSON request body"))
+        .expect("valid JSON request body")
 }

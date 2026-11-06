@@ -1,6 +1,7 @@
 //! Private typed Gemini parts and versioned continuation payloads.
 
-use ai_interface::{ModelError, ModelResult, ProviderState};
+use ai_interface::{ErrorKind, ModelResult, ProviderState};
+use ai_models_core::ErrorContext;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -74,14 +75,16 @@ impl GooglePartState {
         })
     }
 
-    pub(super) fn decode(state: &ProviderState, model: &str) -> ModelResult<Option<Self>> {
+    pub(super) fn decode(
+        state: &ProviderState,
+        context: &ErrorContext,
+    ) -> ModelResult<Option<Self>> {
         if state.provider != PROVIDER_ID {
             return Ok(None);
         }
         if state.version != 1 {
-            return Err(ModelError::provider(
-                "google",
-                model,
+            return Err(context.model_error(
+                ErrorKind::InvalidRequest,
                 format!(
                     "Google provider state has unsupported version {}",
                     state.version
@@ -90,9 +93,8 @@ impl GooglePartState {
         }
         match serde_json::from_value(Value::Object(state.payload.clone())) {
             Ok(payload) => Ok(Some(payload)),
-            Err(_) => Err(ModelError::provider(
-                "google",
-                model,
+            Err(_) => Err(context.model_error(
+                ErrorKind::InvalidRequest,
                 "Google provider state has an invalid payload",
             )),
         }

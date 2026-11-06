@@ -123,8 +123,8 @@ these steps:
 2. Update its URL matching. A pattern for Google's `:generateContent` does
    not match the `:streamGenerateContent` endpoint that the Google adapter
    calls.
-3. Handle `ModelError::Interrupted`, the error of a stream that failed after
-   progress.
+3. Read `error.core().kind` to handle a stream that failed after progress
+   with the interrupted kind.
 4. Treat its per-call `total_timeout` override as the overall deadline of
    the model stream. The override does not change the idle timeout.
 5. Implement `Model::stream` in each of its own `Model` implementations.

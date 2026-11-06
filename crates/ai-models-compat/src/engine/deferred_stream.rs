@@ -7,17 +7,19 @@ use ai_interface::{
     StructuredOutputSchema,
 };
 use async_trait::async_trait;
+use json_http::JsonHttpResponse;
 use serde_json::Value;
 
 use super::{CompletionContext, response, stream::StreamIdentity, stream_events::terminal_events};
 
 pub(super) fn open(
-    body: Value,
-    identity: StreamIdentity,
+    response: JsonHttpResponse<Value>,
+    mut identity: StreamIdentity,
     schema: Option<StructuredOutputSchema>,
 ) -> DynModelEventStream {
+    identity.error = identity.error.for_response(&response.headers);
     Box::new(DeferredStream {
-        body: Some(body),
+        body: Some(response.body),
         identity,
         schema,
         events: VecDeque::new(),

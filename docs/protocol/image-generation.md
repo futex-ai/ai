@@ -71,25 +71,36 @@ tokens nor cost. Missing usage becomes `ModelUsage::default()`.
 
 ## Error Contract
 
-`ImageGenerationError` has these caller-visible classes:
+Every `ImageGenerationError` carries one error core of the
+[model policies protocol](model-policies.md#error-core). The core kind, not
+the variant, gives the failure category. The kind decides retry and
+fallback, as the [error kinds table](model-policies.md#error-kinds) says.
 
-| Variant | Meaning | Retry/fallback behavior |
-| --- | --- | --- |
-| `EmptyPrompt` | local blank prompt | fix request; do not retry |
-| `UnsupportedMediaType` | local unsupported input MIME | fix request; do not retry |
-| `ContentPolicy` | provider safety, blocklist, moderation, recitation, or prohibited-content refusal | expose as tool failure so an agent may adapt |
-| `NoImage` | successful provider response has no final image | terminal provider result |
-| `RateLimited` | HTTP 429 | retry/fail over |
-| `TransientProvider` | timeout, transport/auth, HTTP 408/409/425, or 5xx | retry/fail over |
-| `Provider` | other provider rejection or malformed provider semantics | terminal/fail according to caller policy |
-| `Internal` | local serialization, decoding, or invariant failure | internal failure |
+| Cause | Kind |
+| --- | --- |
+| `EmptyPrompt`: local blank prompt | invalid request |
+| `UnsupportedMediaType`: local unsupported input MIME | unsupported input |
+| `NoImage`: successful provider response has no final image | invalid output |
+| provider safety, blocklist, moderation, recitation, or prohibited-content refusal | content policy |
+| HTTP 429 | rate limited |
+| timeout, transport/auth, HTTP 408/409/425, or 5xx | transient |
+| HTTP 401, 402, or 403 | rejected key |
+| HTTP 404 | unknown model |
+| HTTP 400 with a recognized context-limit code | context limit exceeded |
+| other provider rejection | invalid request |
+| malformed provider semantics, JSON, base64, or image format | invalid output |
+| local serialization or invariant failure | internal |
 
-All provider variants retain provider, configured model id, and the available
-provider message. `Internal` uses the shared tracked `InternalError` carrier so
-the boundary preserves its definition and failure call sites. Error display
-strings use the `[ai_interface/image_generator]` prefix. Invalid provider
-base64 is `Internal`; a valid response without non-empty final image bytes is
-`NoImage`.
+The typed variants keep their detail fields. `Failure` holds every other
+classified failure. `Internal` holds a failure with its shared tracked
+`InternalError` source, so the boundary preserves its definition and failure
+call sites. Every core holds the provider, the configured model id, and the
+available provider message. A content-policy failure reaches the caller as a
+tool failure, so that an agent may adapt. Error display strings use the
+`[ai_interface/image_generator]` prefix. Invalid provider base64 has the
+invalid output kind and keeps its decoding source; a valid response without
+non-empty final image bytes is `NoImage`. A recognized context-limit code in
+an HTTP 400 body wins over a policy code in the same body.
 
 ## OpenAI Mapping
 
@@ -113,9 +124,9 @@ preserved when supplied. Decoded zero-byte payloads are `NoImage`.
 
 HTTP error bodies are decoded enough to inspect `error.code` and `error.type`.
 The normalized codes `content_policy_violation`, `moderation_blocked`,
-`safety_violation`, and `image_generation_safety_violation` are
-`ContentPolicy`. Status 429 wins as `RateLimited`; transient statuses win next;
-unrecognized failures are `Provider`.
+`safety_violation`, and `image_generation_safety_violation` have the content
+policy kind. Status 429 wins as rate limited; transient statuses win next;
+other failures take their kinds from the shared status classification.
 
 ## Google Mapping
 
@@ -138,11 +149,16 @@ omitted. An absent or zero-byte final image is `NoImage` unless a policy block
 is present.
 
 Prompt `blockReason` values `SAFETY`, `BLOCKLIST`, `PROHIBITED_CONTENT`, and
-`IMAGE_SAFETY` are `ContentPolicy`. Candidate finish reasons `SAFETY`,
-`RECITATION`, `BLOCKLIST`, `PROHIBITED_CONTENT`, `SPII`, `IMAGE_SAFETY`,
-`IMAGE_PROHIBITED_CONTENT`, `IMAGE_RECITATION`, and `ESCALATION` are also
-`ContentPolicy`. `NO_IMAGE` is `NoImage`; other image/provider finish failures
-are `Provider`. `finishMessage` is retained when available.
+`IMAGE_SAFETY` have the content policy kind. Candidate finish reasons
+`SAFETY`, `RECITATION`, `BLOCKLIST`, `PROHIBITED_CONTENT`, `SPII`,
+`IMAGE_SAFETY`, `IMAGE_PROHIBITED_CONTENT`, `IMAGE_RECITATION`, and
+`ESCALATION` also have the content policy kind. `NO_IMAGE` is `NoImage`;
+another prompt block or image/provider finish failure, including
+`IMAGE_OTHER`, has the invalid output kind. `finishMessage` is retained when
+available. A numeric top-level `error` in the body changes the kind only of
+a response that fails to parse: that failure takes the kind of the HTTP
+status that the number names. A response with a valid final image stays a
+success, also when its body holds an extra top-level `error`.
 
 ## Verification
 

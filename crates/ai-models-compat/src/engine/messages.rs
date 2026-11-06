@@ -1,7 +1,8 @@
 //! Conversation content, participant names, and role mapping.
 
 use ai_interface::{
-    ConversationMessage, ConversationPart, ConversationRole, ModelError, ModelRequest, ModelResult,
+    ConversationMessage, ConversationPart, ConversationRole, ErrorKind, ModelError, ModelRequest,
+    ModelResult,
 };
 
 use super::{
@@ -51,7 +52,12 @@ pub(super) fn validate_content_parts(
                 _ => None,
             };
             if let Some(error) = error {
-                return Err(ModelError::provider(dialect.provider, model_id, error));
+                return Err(ModelError::failure(
+                    ErrorKind::UnsupportedInput,
+                    dialect.provider,
+                    model_id,
+                    error,
+                ));
             }
         }
     }

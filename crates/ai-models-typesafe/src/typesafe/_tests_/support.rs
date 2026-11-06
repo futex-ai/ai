@@ -65,6 +65,7 @@ pub(super) fn transport_failure_http_client(message: &'static str) -> DynJsonHtt
 /// Builds a byte response from one JSON fixture.
 pub(super) fn json_response(status: u16, body: Value) -> JsonHttpResponse<Vec<u8>> {
     JsonHttpResponse {
+        headers: Default::default(),
         status,
         body: serde_json::to_vec(&body).expect("JSON fixture should serialize"),
     }
@@ -92,5 +93,32 @@ pub(super) fn successful_response() -> JsonHttpResponse<Vec<u8>> {
             },
             "usage": {"input_tokens": 12, "output_tokens": 3}
         }),
+    )
+}
+
+/// Records the exact request and returns an owned sequence of responses or failures.
+pub(super) fn scripted_http_client(
+    replies: Vec<json_http::Result<JsonHttpResponse<Vec<u8>>>>,
+) -> (DynJsonHttpClient, RecordedRequests) {
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let replies = Arc::new(Mutex::new(VecDeque::from(replies)));
+    let transport = Arc::new(Unimock::new(
+        JsonHttpTransportMock::execute_bytes
+            .each_call(matching!(_))
+            .answers_arc({
+                let requests = requests.clone();
+                Arc::new(move |_, request: &JsonHttpRequest| {
+                    requests.lock().unwrap().push(request.clone());
+                    replies
+                        .lock()
+                        .unwrap()
+                        .pop_front()
+                        .expect("unexpected request")
+                })
+            }),
+    ));
+    (
+        Arc::new(TransportBackedJsonHttpClient::new(transport)),
+        requests,
     )
 }

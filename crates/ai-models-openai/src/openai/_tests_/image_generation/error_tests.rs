@@ -1,30 +1,25 @@
 //! OpenAI image error classification tests.
 
-use ai_interface::ImageGenerationError;
+use crate::openai::stream_support::error_context;
+
 use serde_json::json;
 
 use super::super::error::{classify_request_error, classify_status};
 
 #[test]
 fn retryable_statuses_have_distinct_rate_and_transient_classes() {
-    assert!(matches!(
-        classify_status(429, "gpt-image-2", &json!("limited")),
-        ImageGenerationError::RateLimited { .. }
-    ));
+    assert!(
+        matches!(classify_status(&error_context("gpt-image-2"), 429, &Default::default(), &json!("limited")), ref error if error.core().kind == ai_interface::ErrorKind::RateLimited)
+    );
 
     for status in [408, 409, 425, 500] {
-        assert!(matches!(
-            classify_status(status, "gpt-image-2", &json!("retry")),
-            ImageGenerationError::TransientProvider { .. }
-        ));
+        assert!(
+            matches!(classify_status(&error_context("gpt-image-2"), status, &Default::default(), &json!("retry")), ref error if error.core().kind == ai_interface::ErrorKind::Transient)
+        );
     }
-    assert!(matches!(
-        classify_request_error(
-            json_http::Error::transport("request timed out"),
-            "gpt-image-2"
-        ),
-        ImageGenerationError::TransientProvider { .. }
-    ));
+    assert!(
+        matches!(classify_request_error(&error_context("gpt-image-2"), json_http::Error::transport("request timed out")), ref error if error.core().kind == ai_interface::ErrorKind::Transient)
+    );
 }
 
 #[test]
@@ -36,22 +31,36 @@ fn documented_safety_codes_are_content_policy_refusals() {
         "image_generation_safety_violation",
     ] {
         let body = json!({"error": {"code": code, "message": "blocked prompt"}});
-        assert!(matches!(
-            classify_status(400, "gpt-image-2", &body),
-            ImageGenerationError::ContentPolicy { message, .. }
-                if message == "blocked prompt"
-        ));
+        assert!(
+            matches!(classify_status(&error_context("gpt-image-2"), 400, &Default::default(), &body), ref error if error.core().kind == ai_interface::ErrorKind::ContentPolicy && (error.core().message == "blocked prompt"))
+        );
     }
+    let context_limit = classify_status(
+        &error_context("gpt-image-2"),
+        400,
+        &Default::default(),
+        &json!({"error":{"code":"context_length_exceeded","type":"content_policy_violation","message":"too many tokens"}}),
+    );
+    assert_eq!(
+        context_limit.core().kind,
+        ai_interface::ErrorKind::ContextLimitExceeded
+    );
+    assert_eq!(context_limit.core().message, "too many tokens");
 }
 
 #[test]
 fn unrecognized_client_failure_is_terminal_provider_error() {
-    assert!(matches!(
-        classify_status(
-            400,
-            "gpt-image-2",
-            &json!({"error": {"code": "invalid_parameter", "message": "bad size"}})
-        ),
-        ImageGenerationError::Provider { message, .. } if message == "bad size"
-    ));
+    assert!(
+        matches!(classify_status(&error_context("gpt-image-2"), 400, &Default::default(), &json!({"error": {"code": "invalid_parameter", "message": "bad size"}})), ref error if error.core().kind == ai_interface::ErrorKind::InvalidRequest && (error.core().message == "bad size"))
+    );
+}
+#[test]
+fn redirect_policy_messages_keep_the_invalid_output_kind() {
+    let error = classify_status(
+        &error_context("gpt-image-2"),
+        302,
+        &Default::default(),
+        &json!({"error":{"code":"content_policy_violation","message":"redirect body"}}),
+    );
+    assert_eq!(error.core().kind, ai_interface::ErrorKind::InvalidOutput);
 }

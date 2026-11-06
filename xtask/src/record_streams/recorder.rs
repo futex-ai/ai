@@ -2,6 +2,8 @@
 
 use std::sync::Arc;
 
+use ai_interface::ProviderId;
+use ai_models_registry::ProviderConfig;
 use ai_testkit::{
     error::Result,
     outcome::StepOutcome,
@@ -91,7 +93,7 @@ impl StreamRecorder for ProviderStreamRecorder {
                 provider,
                 &spec.text_id(),
                 client,
-                provider.auth(key.to_owned()),
+                ProviderConfig::new(ProviderId::new(provider.name()), key),
             )?;
             let result = self
                 .runner
@@ -103,6 +105,7 @@ impl StreamRecorder for ProviderStreamRecorder {
                 &ScenarioRecording {
                     source: RecordingSource::Recorded,
                     catalog_model_id: spec.text_id(),
+                    base_url: None,
                     effort: spec.default_effort,
                     exchanges: log.snapshot(),
                 },

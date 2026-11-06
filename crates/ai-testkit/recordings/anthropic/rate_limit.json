@@ -1,6 +1,7 @@
 {
   "source": "synthetic",
   "catalog_model_id": "anthropic/claude-sonnet-5",
+  "base_url": "https://api.anthropic.com",
   "effort": "high",
   "exchanges": [
     {

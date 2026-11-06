@@ -1,6 +1,8 @@
 //! Boundary-neutral HTTP status classification tests.
 
-use super::{HttpFailureClass, classify_http_status};
+use ai_interface::ErrorKind;
+
+use super::classify_http_status;
 
 #[test]
 fn statuses_below_failure_range_are_not_failures() {
@@ -11,10 +13,7 @@ fn statuses_below_failure_range_are_not_failures() {
 
 #[test]
 fn rate_limit_status_has_its_own_class() {
-    assert_eq!(
-        classify_http_status(429),
-        Some(HttpFailureClass::RateLimited)
-    );
+    assert_eq!(classify_http_status(429), Some(ErrorKind::RateLimited));
 }
 
 #[test]
@@ -22,7 +21,7 @@ fn retryable_statuses_are_transient() {
     for status in [408, 409, 425, 500, 502, 503, 529, 599] {
         assert_eq!(
             classify_http_status(status),
-            Some(HttpFailureClass::Transient),
+            Some(ErrorKind::Transient),
             "HTTP {status}"
         );
     }
@@ -30,10 +29,20 @@ fn retryable_statuses_are_transient() {
 
 #[test]
 fn remaining_failure_statuses_are_terminal() {
-    for status in [400, 401, 403, 404, 422, 600] {
+    for (status, expected) in [
+        (400, ErrorKind::InvalidRequest),
+        (401, ErrorKind::RejectedKey),
+        (402, ErrorKind::RejectedKey),
+        (403, ErrorKind::RejectedKey),
+        (404, ErrorKind::UnknownModel),
+        (413, ErrorKind::InvalidRequest),
+        (422, ErrorKind::InvalidRequest),
+        (499, ErrorKind::InvalidRequest),
+        (600, ErrorKind::InvalidRequest),
+    ] {
         assert_eq!(
             classify_http_status(status),
-            Some(HttpFailureClass::Terminal),
+            Some(expected),
             "HTTP {status}"
         );
     }

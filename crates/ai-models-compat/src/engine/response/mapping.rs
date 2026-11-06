@@ -1,7 +1,7 @@
 //! Finish reasons and dispatchable tool-call validation.
 
-use ai_interface::{FinishReason, ModelError, ModelResult, ToolCall};
-use ai_models_core::parse_tool_call_arguments;
+use ai_interface::{ErrorKind, FinishReason, ModelError, ModelResult, ToolCall};
+use ai_models_core::{ErrorContext, parse_tool_call_arguments};
 use serde_json::Value;
 
 use super::{
@@ -10,8 +10,8 @@ use super::{
 };
 
 pub(super) fn finish_reason(
+    context: &ErrorContext,
     dialect: &Dialect,
-    model_id: &str,
     value: Option<&str>,
 ) -> ModelResult<FinishReason> {
     Ok(match value {
@@ -29,11 +29,7 @@ pub(super) fn finish_reason(
                 .transient_finish
                 .map(|(_, message)| message)
                 .unwrap_or_default();
-            return Err(ModelError::transient_provider(
-                dialect.provider,
-                model_id,
-                message,
-            ));
+            return Err(context.model_error(ErrorKind::Transient, message));
         }
         Some(raw) => FinishReason::Other(raw.to_owned()),
         None => FinishReason::Other("missing".to_owned()),
@@ -41,8 +37,8 @@ pub(super) fn finish_reason(
 }
 
 pub(super) fn dispatchable_tool_calls(
+    context: &ErrorContext,
     dialect: &Dialect,
-    model_id: &str,
     raw: Option<Value>,
     dispatchable: bool,
 ) -> ModelResult<Vec<ChatCompletionsToolCall>> {
@@ -50,9 +46,8 @@ pub(super) fn dispatchable_tool_calls(
         return Ok(Vec::new());
     }
     let missing = || {
-        ModelError::provider(
-            dialect.provider,
-            model_id,
+        context.model_error(
+            ErrorKind::InvalidOutput,
             format!("{} tool-call response had no tool calls", dialect.label),
         )
     };
@@ -61,11 +56,13 @@ pub(super) fn dispatchable_tool_calls(
     };
     let calls: Vec<ChatCompletionsToolCall> = match serde_json::from_value(raw) {
         Ok(calls) => calls,
-        Err(_) => {
-            return Err(ModelError::provider(
-                dialect.provider,
-                model_id,
-                format!("invalid {} tool-call payload", dialect.label),
+        Err(source) => {
+            return Err(ModelError::with_source(
+                context.core(
+                    ErrorKind::InvalidOutput,
+                    format!("invalid {} tool-call payload", dialect.label),
+                ),
+                context.source(source),
             ));
         }
     };
@@ -76,22 +73,18 @@ pub(super) fn dispatchable_tool_calls(
 }
 
 pub(super) fn parse_tool_calls(
+    context: &ErrorContext,
     dialect: &Dialect,
-    model_id: &str,
     calls: &[ChatCompletionsToolCall],
 ) -> ModelResult<Vec<ToolCall>> {
     calls
         .iter()
         .map(|call| {
-            validate_identity(dialect, model_id, call)?;
+            validate_identity(context, dialect, call)?;
             Ok(ToolCall {
                 id: call.id.clone(),
                 name: call.function.name.clone(),
-                input: parse_tool_call_arguments(
-                    dialect.provider,
-                    model_id,
-                    &call.function.arguments,
-                )?,
+                input: parse_tool_call_arguments(context, &call.function.arguments)?,
                 operation_id: call.operation_id.clone(),
             })
         })
@@ -99,24 +92,19 @@ pub(super) fn parse_tool_calls(
 }
 
 fn validate_identity(
+    context: &ErrorContext,
     dialect: &Dialect,
-    model_id: &str,
     call: &ChatCompletionsToolCall,
 ) -> ModelResult<()> {
     if dialect.replay != ReplayRule::Qwen {
         return Ok(());
     }
     if call.id.trim().is_empty() {
-        return Err(ModelError::provider(
-            dialect.provider,
-            model_id,
-            "Qwen tool call had no id",
-        ));
+        return Err(context.model_error(ErrorKind::InvalidOutput, "Qwen tool call had no id"));
     }
     if call.function.name.trim().is_empty() {
-        return Err(ModelError::provider(
-            dialect.provider,
-            model_id,
+        return Err(context.model_error(
+            ErrorKind::InvalidOutput,
             "Qwen tool call had no function name",
         ));
     }

@@ -1,53 +1,42 @@
-//! Google image generation error classification.
+//! Google image HTTP error kinds and safe per-response facts.
 
 use ai_interface::ImageGenerationError;
-use ai_models_core::{HttpFailureClass, classify_http_status};
+use ai_models_core::{ErrorContext, json_http_error_core};
+use json_http::JsonHttpHeaders;
 use serde_json::Value;
 
-const PROVIDER: &str = "google";
-
-pub(super) fn classify_status(status: u16, model_id: &str, body: &Value) -> ImageGenerationError {
-    let message = error_message(body).unwrap_or_else(|| format!("HTTP {status}"));
-    match classify_http_status(status) {
-        Some(HttpFailureClass::RateLimited) => {
-            return ImageGenerationError::rate_limited(PROVIDER, model_id, message);
-        }
-        Some(HttpFailureClass::Transient) => {
-            return ImageGenerationError::transient_provider(PROVIDER, model_id, message);
-        }
-        Some(HttpFailureClass::Terminal) | None => {}
-    }
-    ImageGenerationError::provider(PROVIDER, model_id, message)
-}
-
-pub(super) fn classify_request_error(
-    source: json_http::Error,
-    model_id: &str,
+pub(super) fn classify_status(
+    context: &ErrorContext,
+    status: u16,
+    headers: &JsonHttpHeaders,
+    body: &Value,
 ) -> ImageGenerationError {
-    match source {
-        json_http::Error::Transport { .. }
-        | json_http::Error::ReqwestTransport { .. }
-        | json_http::Error::Auth { .. } => {
-            ImageGenerationError::transient_provider(PROVIDER, model_id, source.to_string())
-        }
-        json_http::Error::SerializeRequest { .. }
-        | json_http::Error::DeserializeResponse { .. }
-        | json_http::Error::ClientInitialization { .. }
-        | json_http::Error::SseUnsupported
-        | json_http::Error::HttpStatus { .. }
-        | json_http::Error::InvalidSseContentType { .. }
-        | json_http::Error::IdleTimeout { .. }
-        | json_http::Error::DeadlineExceeded { .. }
-        | json_http::Error::SseTransport { .. }
-        | json_http::Error::SseDecode { .. } => ImageGenerationError::internal(source),
-    }
-}
-
-fn error_message(body: &Value) -> Option<String> {
-    body.get("error")
+    let message = body
+        .get("error")
         .and_then(|error| error.get("message"))
         .and_then(Value::as_str)
         .or_else(|| body.get("message").and_then(Value::as_str))
         .or_else(|| body.as_str())
         .map(ToOwned::to_owned)
+        .unwrap_or_else(|| format!("HTTP {status}"));
+    let mut core = json_http_error_core(context, status, headers, body);
+    core.message = context.redact(&message);
+    if status >= 400 {
+        return ImageGenerationError::new(core);
+    }
+    ImageGenerationError::with_source(
+        core,
+        context.source(json_http::Error::HttpStatus {
+            status,
+            headers: Box::new(headers.clone()),
+            body: body.clone(),
+        }),
+    )
+}
+
+pub(super) fn classify_request_error(
+    context: &ErrorContext,
+    source: json_http::Error,
+) -> ImageGenerationError {
+    ImageGenerationError::with_source(context.request_error(&source), context.source(source))
 }

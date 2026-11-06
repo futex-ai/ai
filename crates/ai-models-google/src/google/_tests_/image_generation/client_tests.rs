@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use ai_interface::{ImageGenerationRequest, ImageGenerator};
+use ai_interface::{ErrorKind, ImageGenerationRequest, ImageGenerator};
 use json_http::{
     JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
     TransportBackedJsonHttpClient,
@@ -51,11 +51,12 @@ async fn client_uses_v1_endpoint_auth_and_supports_override() {
     assert_eq!(generator.timeout, Duration::from_secs(3));
 }
 
-type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
+pub(super) type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 
-fn recording_http_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
+pub(super) fn recording_http_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
     let requests = Arc::new(Mutex::new(Vec::new()));
     let responses = Arc::new(Mutex::new(VecDeque::from([JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({"candidates": [{"content": {"parts": [{
             "inlineData": {"mimeType": "image/png", "data": "AQ=="}
@@ -84,4 +85,29 @@ fn recording_http_client() -> (Arc<dyn JsonHttpClient>, RecordedRequests) {
         Arc::new(TransportBackedJsonHttpClient::new(transport)),
         requests,
     )
+}
+
+#[tokio::test]
+async fn final_redirect_bodies_never_become_google_images() {
+    for status in [300, 302, 307, 308] {
+        let transport = Arc::new(Unimock::new(JsonHttpTransportMock::execute.some_call(matching!(_)).returns(Ok(JsonHttpResponse {
+            status, headers: Default::default(), body: json!({"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"AQ=="}}]}}]})
+        }))));
+        let generator = GoogleImageGenerator::new(
+            Arc::new(TransportBackedJsonHttpClient::new(transport)),
+            "gemini-3.1-flash-image",
+            "placeholder-key",
+        );
+        let result = generator
+            .generate(&ImageGenerationRequest {
+                prompt: "A bird".into(),
+                ..Default::default()
+            })
+            .await;
+        assert_eq!(
+            result.as_ref().err().map(|error| error.core().kind),
+            Some(ErrorKind::InvalidOutput),
+            "status {status}"
+        );
+    }
 }

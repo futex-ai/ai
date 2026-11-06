@@ -8,6 +8,7 @@ use super::{GoogleModel, recording_http_client};
 #[tokio::test]
 async fn serializes_image_context_message() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "candidates": [{
@@ -58,7 +59,15 @@ async fn serializes_image_context_message() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let contents = &requests[0].body.as_ref().expect("body present")["contents"];
+    let contents = &serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body")["contents"];
     assert_eq!(
         contents[1]["parts"][0]["functionResponse"]["id"],
         "call-view"
@@ -77,6 +86,7 @@ async fn serializes_image_context_message() {
 #[tokio::test]
 async fn serializes_video_context_message_as_inline_data() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "candidates": [{
@@ -111,7 +121,15 @@ async fn serializes_video_context_message_as_inline_data() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let contents = &requests[0].body.as_ref().expect("body present")["contents"];
+    let contents = &serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body")["contents"];
     assert_eq!(contents[0]["role"], "user");
     assert_eq!(
         contents[0]["parts"][0]["text"],

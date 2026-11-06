@@ -2,9 +2,10 @@
 
 use std::collections::BTreeMap;
 
+use reqwest::header::HeaderValue;
 use serde_json::Value;
 
-use crate::{JsonHttpBody, JsonHttpRequest};
+use crate::{JsonHttpBody, JsonHttpHeaders, JsonHttpRequest, credential_header, credential_values};
 
 use super::types::{MultipartSummary, RecordedBody, RecordedMethod, RecordedRequest};
 
@@ -31,11 +32,13 @@ impl Redactor {
     pub(super) fn for_request(request: &JsonHttpRequest) -> Self {
         let mut secrets = Vec::new();
         for (name, value) in &request.headers {
-            if sensitive(name) {
-                secrets.push(value.clone());
-                if let Some((_, token)) = value.split_once(' ') {
-                    secrets.push(token.to_owned());
-                }
+            if sensitive(name)
+                || request
+                    .auth_headers
+                    .iter()
+                    .any(|key| key.eq_ignore_ascii_case(name))
+            {
+                secrets.extend(credential_values(value).map(ToOwned::to_owned));
             }
         }
         if let Ok(url) = reqwest::Url::parse(&request.url) {
@@ -48,8 +51,10 @@ impl Redactor {
                 secrets.push(password.to_owned());
             }
         }
-        if let Some(body) = request.body.as_ref().and_then(JsonHttpBody::as_json) {
-            collect_secrets(body, &mut secrets);
+        if let Some(bytes) = request.body.as_ref().and_then(JsonHttpBody::as_json_bytes)
+            && let Ok(body) = serde_json::from_slice::<Value>(bytes)
+        {
+            collect_secrets(&body, &mut secrets);
         }
         Self::new(secrets)
     }
@@ -108,6 +113,21 @@ impl Redactor {
         bytes
     }
 
+    pub(super) fn headers(&self, headers: &JsonHttpHeaders) -> JsonHttpHeaders {
+        let mut sanitized = JsonHttpHeaders::new();
+        for (name, value) in headers.as_raw() {
+            let bytes = if sensitive(name.as_str()) {
+                REDACTED.as_bytes().to_vec()
+            } else {
+                self.bytes(value.as_bytes())
+            };
+            let value = HeaderValue::from_bytes(&bytes)
+                .unwrap_or_else(|_| HeaderValue::from_static(REDACTED));
+            sanitized.as_raw_mut().append(name.clone(), value);
+        }
+        sanitized
+    }
+
     pub(super) fn request(&self, request: &JsonHttpRequest) -> RecordedRequest {
         let headers = request
             .headers
@@ -122,7 +142,11 @@ impl Redactor {
             })
             .collect::<BTreeMap<_, _>>();
         let body = request.body.as_ref().map(|body| match body {
-            JsonHttpBody::Json(value) => RecordedBody::Json(self.value(value)),
+            JsonHttpBody::Json(bytes) => {
+                let value = serde_json::from_slice(bytes)
+                    .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(bytes).into_owned()));
+                RecordedBody::Json(self.value(&value))
+            }
             JsonHttpBody::Multipart(form) => RecordedBody::Multipart(
                 form.fields
                     .iter()
@@ -172,23 +196,19 @@ impl Redactor {
 }
 
 fn sensitive(name: &str) -> bool {
-    matches!(
-        name.to_ascii_lowercase().replace('_', "-").as_str(),
-        "authorization"
-            | "proxy-authorization"
-            | "x-api-key"
-            | "x-goog-api-key"
-            | "api-key"
-            | "key"
-            | "token"
-            | "access-token"
-            | "refresh-token"
-            | "password"
-            | "secret"
-            | "client-secret"
-            | "cookie"
-            | "set-cookie"
-    )
+    let name = name.to_ascii_lowercase().replace('_', "-");
+    credential_header(&name)
+        || matches!(
+            name.as_str(),
+            "key"
+                | "token"
+                | "access-token"
+                | "refresh-token"
+                | "password"
+                | "secret"
+                | "client-secret"
+                | "set-cookie"
+        )
 }
 
 fn collect_secrets(value: &Value, secrets: &mut Vec<String>) {

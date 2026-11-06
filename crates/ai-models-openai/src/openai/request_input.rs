@@ -1,6 +1,7 @@
 //! Ordered conversation-part mapping to the Responses input protocol.
 
 use ai_interface::{ConversationMessage, ConversationPart, ConversationRole, ModelResult};
+use ai_models_core::ErrorContext;
 
 use crate::PROVIDER_ID;
 
@@ -14,17 +15,23 @@ use super::{
 };
 
 pub(super) fn input_items(
+    context: &ErrorContext,
     model_id: &str,
     messages: &[ConversationMessage],
 ) -> ModelResult<Vec<ResponsesInputItem>> {
     let mut items = Vec::new();
     for message in messages {
-        message.validate("openai", model_id)?;
+        if let Err(error) = message.validate("openai", model_id) {
+            return Err(context.apply_model_error(error));
+        }
         let states = message
             .parts
             .iter()
             .map(|part| match part.provider_state() {
-                Some(state) => state.decode::<ReplayState>(&PROVIDER_ID, model_id, 1),
+                Some(state) => match state.decode::<ReplayState>(&PROVIDER_ID, model_id, 1) {
+                    Ok(state) => Ok(state),
+                    Err(error) => Err(context.apply_model_error(error)),
+                },
                 None => Ok(None),
             })
             .collect::<ModelResult<Vec<_>>>()?;
@@ -32,7 +39,7 @@ pub(super) fn input_items(
             ConversationRole::User => items.push(ResponsesInputItem::Message(ResponsesMessage {
                 role: "user".to_owned(),
                 phase: None,
-                content: message_content(model_id, &message.parts)?,
+                content: message_content(context, &message.parts)?,
             })),
             ConversationRole::Assistant => {
                 let mut assistant = Vec::new();

@@ -9,6 +9,10 @@ authors.workspace = true
 name = "sse_transport"
 path = "tests/sse_transport/mod.rs"
 
+[[test]]
+name = "redirect_transport"
+path = "tests/redirect_transport/mod.rs"
+
 [features]
 test-support = ["dep:unimock", "dep:base64"]
 
@@ -17,9 +21,10 @@ async-trait = "0.1.89"
 base64 = { version = "0.23.1", optional = true }
 reqwest = { version = "0.13.2", default-features = false, features = ["json", "multipart", "rustls", "stream"] }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
+serde-transcode = "1.1.1"
+serde_json = { version = "1.0.149", features = ["raw_value"] }
 thiserror = "2.0.18"
-tokio = { version = "1.52.1", features = ["time"] }
+tokio = { version = "1.52.1", features = ["rt", "time"] }
 unimock = { version = "0.6.8", optional = true }
 
 [dev-dependencies]

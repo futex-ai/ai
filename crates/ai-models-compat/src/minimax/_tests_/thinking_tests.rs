@@ -40,7 +40,12 @@ async fn maps_disabled_and_enabled_thinking_controls() {
         let body = requests[0]
             .body
             .as_ref()
-            .and_then(|body| body.as_json())
+            .and_then(|body| {
+                body.as_json_bytes().map(|bytes| {
+                    serde_json::from_slice::<serde_json::Value>(bytes)
+                        .expect("valid JSON request body")
+                })
+            })
             .expect("JSON body should be present");
 
         assert_eq!(body["thinking"]["type"], expected_control);
@@ -76,6 +81,7 @@ fn simple_request() -> ModelRequest {
 
 fn stopped_response() -> JsonHttpResponse<serde_json::Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{

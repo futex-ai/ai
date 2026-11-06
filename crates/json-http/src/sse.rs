@@ -1,11 +1,13 @@
 //! Pure incremental Server-Sent Events framing.
 
-use std::str::Utf8Error;
+use std::{str::Utf8Error, sync::LazyLock};
 
 use async_trait::async_trait;
 use thiserror::Error;
 
-use crate::Result;
+use crate::{JsonHttpHeaders, Result};
+
+static EMPTY_HEADERS: LazyLock<JsonHttpHeaders> = LazyLock::new(JsonHttpHeaders::new);
 
 /// Owned dynamic SSE stream returned by JSON HTTP transports.
 pub type DynJsonHttpSseStream = Box<dyn JsonHttpSseStream>;
@@ -17,6 +19,11 @@ pub type DynJsonHttpSseStream = Box<dyn JsonHttpSseStream>;
 #[async_trait]
 /// Pull-based stream of decoded Server-Sent Events.
 pub trait JsonHttpSseStream: Send {
+    /// Returns response headers received when the stream opened.
+    fn headers(&self) -> &JsonHttpHeaders {
+        &EMPTY_HEADERS
+    }
+
     /// Returns the next event or `None` after a graceful response-body EOF.
     async fn next(&mut self) -> Result<Option<JsonHttpSseEvent>>;
 }

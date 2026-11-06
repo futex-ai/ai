@@ -68,10 +68,15 @@ async fn streams_rich_deltas_with_usage_and_matches_buffered_parser() {
     assert_eq!(streamed, parsed);
     let requests = requests.lock().expect("request lock should be available");
     let request = &requests[0];
-    let body = request
-        .body
-        .as_ref()
-        .expect("request body should be present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        request
+            .body
+            .as_ref()
+            .expect("request body should be present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["stream"], true);
     assert_eq!(body["stream_options"]["include_usage"], true);
     assert!(body.get("deferred").is_none());

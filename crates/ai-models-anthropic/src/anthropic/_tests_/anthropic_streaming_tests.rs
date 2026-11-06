@@ -31,7 +31,18 @@ async fn sends_streaming_request_with_completion_deadlines() {
         .lock()
         .expect("request lock should not be poisoned");
     let request = &requests[0];
-    assert_eq!(request.body.as_ref().expect("request body")["stream"], true);
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(
+            request
+                .body
+                .as_ref()
+                .expect("request body")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["stream"],
+        true
+    );
     assert_eq!(request.timeout, Duration::from_secs(3_600));
     assert_eq!(request.idle_timeout, Some(Duration::from_secs(120)));
 }

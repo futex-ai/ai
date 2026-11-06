@@ -3,11 +3,11 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, Effort, Model, ModelControl, ModelError, ModelRequest, ModelSpec,
+    ConversationMessage, Effort, ErrorKind, Model, ModelControl, ModelRequest, ModelSpec,
 };
 use ai_models_core::test_support::{fixtures_for_buffered_responses, recording_streaming_client};
-use json_http::{JsonHttpResponse, StaticHeaderAuth, TransportBackedJsonHttpClient};
-use serde_json::json;
+use json_http::{JsonHttpBody, JsonHttpResponse, StaticHeaderAuth, TransportBackedJsonHttpClient};
+use serde_json::{Value, json};
 use unimock::Unimock;
 
 use crate::kimi::{KIMI_K3, KimiModel};
@@ -25,6 +25,7 @@ fn request() -> ModelRequest {
 
 fn response() -> JsonHttpResponse<serde_json::Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({"choices": [{"finish_reason": "stop", "message": {"content": "Done"}}]}),
     }
@@ -43,10 +44,13 @@ async fn provider_default_omits_reasoning_and_reports_no_effort() {
         assert_eq!(response.effort(), None);
         let requests = requests.lock().unwrap();
         assert_eq!(
-            requests[0].body.as_ref().unwrap().get("reasoning_effort"),
+            request_body(requests[0].body.as_ref().unwrap()).get("reasoning_effort"),
             None
         );
-        assert_eq!(requests[0].body.as_ref().unwrap().get("thinking"), None);
+        assert_eq!(
+            request_body(requests[0].body.as_ref().unwrap()).get("thinking"),
+            None
+        );
     }
 }
 
@@ -61,7 +65,7 @@ async fn explicit_off_sends_none_for_custom_grok() {
         request.controls.generation.effort = Some(Effort::Disabled);
         let response = model.complete(&request).await.unwrap();
         assert_eq!(
-            requests.lock().unwrap()[0].body.as_ref().unwrap()["reasoning_effort"],
+            request_body(requests.lock().unwrap()[0].body.as_ref().unwrap())["reasoning_effort"],
             "none"
         );
         assert_eq!(response.effort(), Some(Effort::Disabled));
@@ -79,7 +83,13 @@ async fn kimi_rejects_off_even_when_a_custom_spec_advertises_it() {
     let mut request = request();
     request.controls.generation.effort = Some(Effort::Disabled);
     assert!(matches!(model.complete(&request).await,
-        Err(ModelError::UnsupportedControl { provider, model_id, control: ModelControl::Effort })
-        if provider == "kimi" && model_id == "kimi-k3"
+        Err(ref error)
+        if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::Effort)
+            && error.core().provider == "kimi" && error.core().model_id == "kimi-k3"
     ));
+}
+
+fn request_body(body: &JsonHttpBody) -> Value {
+    serde_json::from_slice(body.as_json_bytes().expect("JSON request body"))
+        .expect("valid JSON request body")
 }

@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::{
-    ConversationMessage, ConversationPart, ConversationRole, FinishReason, ModelError,
+    ConversationMessage, ConversationPart, ConversationRole, ErrorKind, FinishReason, ModelError,
     ModelRequest, ModelResponse, ProviderId, ProviderState, StoredMessageError, ToolCall,
     read_stored_message,
 };
@@ -179,7 +179,7 @@ fn message_role_table_rejects_invalid_parts_before_transport() {
     ];
     for message in invalid {
         assert!(
-            matches!(message.validate("sample", "model-one"), Err(ModelError::Provider { provider, model_id, message }) if provider == "sample" && model_id == "model-one" && message == "conversation parts do not match the message role")
+            matches!(message.validate("sample", "model-one"), Err(ModelError::Failure { core, .. }) if core.kind == ErrorKind::InvalidRequest && core.provider == "sample" && core.model_id == "model-one" && core.message == "conversation parts do not match the message role")
         );
     }
     for message in [
@@ -227,7 +227,7 @@ fn own_state_validation_rejects_unknown_versions_and_invalid_payloads() {
             ..state("signed")
         };
         assert!(
-            matches!(own.decode::<Payload>(&ProviderId::new("sample"), "model-two", 1), Err(ModelError::Provider { provider, model_id, .. }) if provider == "sample" && model_id == "model-two")
+            matches!(own.decode::<Payload>(&ProviderId::new("sample"), "model-two", 1), Err(ModelError::Failure { core, .. }) if core.kind == ErrorKind::InvalidRequest && core.provider == "sample" && core.model_id == "model-two")
         );
     }
 }

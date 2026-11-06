@@ -33,7 +33,15 @@ async fn maps_gemini_2_5_thinking_to_token_budget() {
         let requests = requests
             .lock()
             .expect("requests lock should not be poisoned");
-        let body = requests[0].body.as_ref().expect("body present");
+        let body = serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body present")
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body");
         assert_eq!(
             body["generationConfig"]["thinkingConfig"]["thinkingBudget"],
             budget
@@ -83,7 +91,15 @@ async fn maps_gemini_3_thinking_to_named_level() {
         let requests = requests
             .lock()
             .expect("requests lock should not be poisoned");
-        let body = requests[0].body.as_ref().expect("body present");
+        let body = serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body present")
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body");
         assert_eq!(
             body["generationConfig"]["thinkingConfig"]["thinkingLevel"],
             native
@@ -116,7 +132,15 @@ async fn downgrades_gemini_3_max_to_high() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(
         body["generationConfig"]["thinkingConfig"]["thinkingLevel"],
         "high"
@@ -130,6 +154,7 @@ async fn downgrades_gemini_3_max_to_high() {
 
 fn google_thinking_response() -> JsonHttpResponse<serde_json::Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "candidates": [{

@@ -24,12 +24,16 @@ async fn sends_bearer_auth_to_exact_streaming_endpoint() {
         .lock()
         .expect("requests lock should not be poisoned");
     let request = &requests[0];
-    let body = request.body.as_ref().expect("body should be present");
-    let object = body
-        .as_json()
-        .expect("JSON body")
-        .as_object()
-        .expect("object");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        request
+            .body
+            .as_ref()
+            .expect("body should be present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
+    let object = body.as_object().expect("object");
 
     assert_eq!(request.url, "https://api.deepseek.com/chat/completions");
     assert_eq!(request.timeout, Duration::from_secs(3_600));
@@ -86,9 +90,16 @@ async fn applies_custom_auth_and_serializes_plain_roles_in_order() {
         .lock()
         .expect("requests lock should not be poisoned");
     let request = &requests[0];
-    let messages = request.body.as_ref().expect("body")["messages"]
-        .as_array()
-        .expect("messages array");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        request
+            .body
+            .as_ref()
+            .expect("body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
+    let messages = body["messages"].as_array().expect("messages array");
 
     assert_eq!(
         request.headers.get("X-DeepSeek-Test").map(String::as_str),
@@ -132,9 +143,16 @@ async fn preserves_empty_plain_content_as_strings() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let messages = requests[0].body.as_ref().expect("body")["messages"]
-        .as_array()
-        .expect("messages array");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
+    let messages = body["messages"].as_array().expect("messages array");
 
     for message in messages {
         assert_eq!(message["content"], "");

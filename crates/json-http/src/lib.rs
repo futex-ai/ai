@@ -3,9 +3,16 @@
 #![warn(unreachable_pub)]
 
 mod auth;
+mod canonical;
 mod client;
 mod error;
+mod error_debug;
+mod error_url;
+mod headers;
 mod request;
+mod request_headers;
+mod request_types;
+mod reqwest_redirect;
 mod reqwest_sse;
 mod reqwest_transport;
 mod sse;
@@ -30,9 +37,12 @@ pub use client::{
     ReqwestJsonHttpClient, TransportBackedJsonHttpClient,
 };
 pub use error::{Error, Result};
-pub use request::{
+pub use headers::JsonHttpHeaders;
+pub use request::JsonHttpRequestBuilder;
+pub use request_headers::{credential_header, credential_values};
+pub use request_types::{
     JsonHttpBody, JsonHttpMethod, JsonHttpMultipart, JsonHttpMultipartField, JsonHttpRequest,
-    JsonHttpRequestBuilder, JsonHttpResponse,
+    JsonHttpResponse,
 };
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use sse::JsonHttpSseStreamMock;

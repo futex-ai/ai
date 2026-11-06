@@ -7,29 +7,53 @@ mod request_types;
 mod response;
 mod stream;
 
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
-use ai_interface::{DynModelEventStream, Model, ModelError, ModelRequest, ModelResult, ModelSpec};
-use ai_models_core::{classify_json_http_stream_error, resolve_controls};
+use ai_interface::{
+    DynModelEventStream, ErrorKind, Model, ModelError, ModelRequest, ModelResult, ModelSpec,
+};
+use ai_models_core::{
+    ApiKeyScheme, Clock, ErrorContext, ProviderConfig, SystemClock,
+    classify_json_http_stream_error, resolve_controls,
+};
 use async_trait::async_trait;
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
 
-const ANTHROPIC_MESSAGES_URL: &str = "https://api.anthropic.com/v1/messages";
+use crate::PROVIDER_ID;
+
+const ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com";
 const ANTHROPIC_API_VERSION: &str = "2023-06-01";
 const COMPLETION_TIMEOUT: Duration = Duration::from_secs(3_600);
 const PROVIDER: &str = "anthropic";
 const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+const REQUEST_ID_HEADERS: &[&str] = &["request-id", "x-request-id"];
 
 #[derive(Clone)]
 /// Anthropic-backed `ai_interface::Model` implementation.
 pub struct AnthropicModel {
     http_client: DynJsonHttpClient,
     spec: ModelSpec,
-    auth: DynJsonHttpAuth,
+    config: ProviderConfig,
     endpoint: String,
+    clock: Arc<dyn Clock>,
 }
 
 impl AnthropicModel {
+    /// Builds an Anthropic model from shared provider settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self {
+            http_client,
+            spec,
+            endpoint: config.endpoint(ANTHROPIC_BASE_URL, "/v1/messages"),
+            config,
+            clock: Arc::new(SystemClock),
+        }
+    }
+
     /// Builds an Anthropic model from an explicit API key.
     ///
     /// The spec supplies model facts and the default effort for each call.
@@ -38,14 +62,7 @@ impl AnthropicModel {
         spec: ModelSpec,
         api_key: impl Into<String>,
     ) -> Self {
-        Self::with_auth(
-            http_client,
-            spec,
-            Arc::new(StaticHeaderAuth::new(BTreeMap::from([(
-                "x-api-key".to_owned(),
-                api_key.into(),
-            )]))),
-        )
+        Self::from_config(http_client, spec, ProviderConfig::new(PROVIDER_ID, api_key))
     }
 
     /// Builds an Anthropic model from an explicit auth hook.
@@ -65,49 +82,76 @@ impl AnthropicModel {
         spec: ModelSpec,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        Self {
+        Self::from_config(
             http_client,
             spec,
-            auth,
-            endpoint: ANTHROPIC_MESSAGES_URL.to_owned(),
-        }
+            ProviderConfig::with_auth(PROVIDER_ID, auth),
+        )
+    }
+
+    /// Uses an injected wall clock to evaluate response retry dates.
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
+        self
     }
 }
 
 #[async_trait]
 impl Model for AnthropicModel {
     async fn stream(&self, request: &ModelRequest) -> ModelResult<DynModelEventStream> {
-        let controls = resolve_controls(request, &self.spec)?;
+        let context = ErrorContext::new(
+            PROVIDER,
+            self.spec.provider_model_id.as_ref(),
+            REQUEST_ID_HEADERS,
+            self.clock.clone(),
+        );
+        self.config.capture_secrets(&context);
+        let controls = match resolve_controls(request, &self.spec) {
+            Ok(controls) => controls,
+            Err(error) => return Err(context.apply_model_error(error)),
+        };
         let response_schema = request.response_schema.as_ref();
-        let timeout = controls.total_timeout.unwrap_or(COMPLETION_TIMEOUT);
-        let builder = self
-            .http_client
-            .post(&self.endpoint)
-            .auth(self.auth.clone())
-            .header("anthropic-version", ANTHROPIC_API_VERSION)
-            .timeout(timeout)
-            .idle_timeout(STREAM_IDLE_TIMEOUT);
+        let timeout = controls
+            .total_timeout
+            .or(self.config.timeouts.total_timeout)
+            .unwrap_or(COMPLETION_TIMEOUT);
+        let builder = self.config.apply_headers(
+            self.http_client
+                .post(&self.endpoint)
+                .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Header("x-api-key"))))
+                .header("anthropic-version", ANTHROPIC_API_VERSION)
+                .timeout(timeout)
+                .idle_timeout(
+                    self.config
+                        .timeouts
+                        .idle_timeout
+                        .unwrap_or(STREAM_IDLE_TIMEOUT),
+                ),
+            &self.endpoint,
+        );
         let builder = match builder.json(request::build_request(
+            &context,
             &self.spec.provider_model_id,
             request,
             &controls,
         )?) {
             Ok(builder) => builder,
-            Err(source) => return Err(ModelError::internal(source)),
+            Err(source) => {
+                return Err(ModelError::with_source(
+                    context.core(ErrorKind::Internal, "internal error"),
+                    context.source(source),
+                ));
+            }
         };
         let stream = match builder.send_sse().await {
             Ok(stream) => stream,
             Err(source) => {
-                return Err(classify_json_http_stream_error(
-                    PROVIDER,
-                    &self.spec.provider_model_id,
-                    0,
-                    source,
-                ));
+                return Err(classify_json_http_stream_error(&context, 0, source));
             }
         };
         Ok(stream::open(
             stream,
+            context,
             self.spec.text_id(),
             self.spec.provider_model_id.to_string(),
             controls.effort,
@@ -179,6 +223,21 @@ mod legacy_replay_tests;
 #[cfg(test)]
 #[path = "_tests_/anthropic_lifecycle_tests.rs"]
 mod anthropic_lifecycle_tests;
+#[cfg(test)]
+#[path = "_tests_/error_context_tests.rs"]
+mod error_context_tests;
+
+#[cfg(test)]
+#[path = "_tests_/auth_context_tests.rs"]
+mod auth_context_tests;
+
+#[cfg(test)]
+#[path = "_tests_/config_tests.rs"]
+mod config_tests;
+
+#[cfg(test)]
+#[path = "_tests_/config_auth_tests.rs"]
+mod config_auth_tests;
 
 #[cfg(test)]
 #[path = "_tests_/provider_default_tests.rs"]

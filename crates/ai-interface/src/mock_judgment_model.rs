@@ -18,7 +18,9 @@ pub struct MockJudgmentModel;
 #[async_trait]
 impl JudgmentModel for MockJudgmentModel {
     async fn judge(&self, request: &JudgmentRequest) -> JudgmentResult<JudgmentResponse> {
-        request.validate()?;
+        if let Err(error) = request.validate() {
+            return Err(error.with_identity("mock", MOCK_MODEL_ID));
+        }
         let mut answers = BTreeMap::new();
         for (id, question) in &request.questions {
             answers.insert(id.clone(), answer_question(id, question)?);
@@ -41,7 +43,8 @@ fn answer_question(id: &str, question: &JudgmentQuestion) -> JudgmentResult<Judg
                 return Err(JudgmentError::invalid_question(
                     id,
                     JudgmentQuestionProblem::NoOptions,
-                ));
+                )
+                .with_identity("mock", MOCK_MODEL_ID));
             };
             let probabilities = options
                 .keys()

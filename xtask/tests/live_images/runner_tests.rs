@@ -7,8 +7,9 @@ use std::{
 };
 
 use ai_interface::{
-    DynImageGenerator, ImageGenerationAspect, ImageGenerationError, ImageGenerationQuality,
-    ImageGenerationRequest, ImageGeneratorMock, MockImageGenerator, ModelFeature, ModelSpec,
+    DynImageGenerator, ErrorCore, ErrorKind, ImageGenerationAspect, ImageGenerationError,
+    ImageGenerationQuality, ImageGenerationRequest, ImageGeneratorMock, MockImageGenerator,
+    ModelFeature, ModelSpec,
 };
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use thiserror::Error;
@@ -170,7 +171,12 @@ fn log_messages_contain_identifiers_but_not_sensitive_values() {
     let check = check_message(&spec);
     let failure = request_failure_message(
         &spec,
-        &ImageGenerationError::provider("openai", "gpt-image-2", "rejected"),
+        &ImageGenerationError::new(ErrorCore::new(
+            ErrorKind::InvalidRequest,
+            "openai",
+            "gpt-image-2",
+            "rejected",
+        )),
     );
 
     assert_eq!(check, "checking openai/gpt-image-2");
@@ -191,11 +197,12 @@ fn recording_failure_generator(
                     .lock()
                     .expect("call lock should not be poisoned")
                     .push(label);
-                Err(ImageGenerationError::provider(
+                Err(ImageGenerationError::new(ErrorCore::new(
+                    ErrorKind::InvalidRequest,
                     "openai",
                     label,
                     "expected failure",
-                ))
+                )))
             })),
     ))
 }

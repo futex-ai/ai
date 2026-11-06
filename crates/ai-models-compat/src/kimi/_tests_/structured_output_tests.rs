@@ -1,5 +1,7 @@
 //! Kimi structured-output request and response tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{Effort, FinishReason, ModelError, StructuredOutputSchema};
 use serde_json::json;
 
@@ -49,14 +51,18 @@ fn parses_and_locally_validates_structured_output() {
 #[test]
 fn rejects_invalid_json_and_schema_mismatch() {
     let invalid_json = structured_response("stop", Some("{"), &status_schema());
-    assert!(matches!(invalid_json, Err(ModelError::Provider { .. })));
+    assert!(
+        matches!(invalid_json, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput)
+    );
 
     let schema_mismatch = structured_response(
         "stop",
         Some("{\"summary\":3,\"done\":true}"),
         &status_schema(),
     );
-    assert!(matches!(schema_mismatch, Err(ModelError::Provider { .. })));
+    assert!(
+        matches!(schema_mismatch, Err(ref error) if error.core().kind == ErrorKind::InvalidOutput)
+    );
 }
 
 #[test]

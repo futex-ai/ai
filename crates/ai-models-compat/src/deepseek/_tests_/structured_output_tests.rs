@@ -1,5 +1,7 @@
 //! DeepSeek locally validated JSON-object response tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{Model, ModelError, ModelRequest, ModelResponse, StructuredOutputSchema};
 use json_http::JsonHttpResponse;
 use serde_json::{Value, json};
@@ -10,6 +12,7 @@ use super::{DeepSeekModel, test_support::recording_http_client};
 async fn prompts_for_json_object_and_validates_the_requested_schema_locally() {
     let schema = status_schema();
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: stopped_response(
             json!({
@@ -30,7 +33,11 @@ async fn prompts_for_json_object_and_validates_the_requested_schema_locally() {
     let body = requests[0]
         .body
         .as_ref()
-        .and_then(|body| body.as_json())
+        .and_then(|body| {
+            body.as_json_bytes().map(|bytes| {
+                serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+            })
+        })
         .expect("JSON body should be present");
     let system_prompt = body["messages"][0]["content"]
         .as_str()
@@ -67,11 +74,16 @@ async fn rejects_empty_invalid_mismatched_and_invalid_schema_output() {
         ),
     ];
 
-    for (content, schema) in cases {
+    for ((content, schema), expected) in cases.into_iter().zip([
+        ErrorKind::InvalidOutput,
+        ErrorKind::InvalidOutput,
+        ErrorKind::InvalidOutput,
+        ErrorKind::InvalidRequest,
+    ]) {
         let error = complete_with_schema(stopped_response(content), schema)
             .await
             .expect_err("invalid structured output should fail");
-        assert!(matches!(error, ModelError::Provider { .. }));
+        assert!(matches!(error.core().kind, kind if kind == expected));
     }
 }
 
@@ -112,7 +124,11 @@ async fn complete_with_schema(
     body: Value,
     schema: StructuredOutputSchema,
 ) -> std::result::Result<ModelResponse, ModelError> {
-    let (http_client, _) = recording_http_client(JsonHttpResponse { status: 200, body });
+    let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
+        status: 200,
+        body,
+    });
     DeepSeekModel::new(http_client, "deepseek-key")
         .complete(&request_with_schema(schema))
         .await

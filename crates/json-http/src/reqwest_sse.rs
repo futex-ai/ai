@@ -5,7 +5,10 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::time::{Instant, timeout};
 
-use crate::{Error, JsonHttpSseDecoder, JsonHttpSseEvent, JsonHttpSseStream, Result};
+use crate::error_url::sanitize_reqwest;
+use crate::{
+    Error, JsonHttpHeaders, JsonHttpSseDecoder, JsonHttpSseEvent, JsonHttpSseStream, Result,
+};
 
 #[derive(Clone, Copy)]
 pub(crate) enum TimeoutKind {
@@ -66,6 +69,7 @@ impl SseTimer {
 
 pub(crate) struct ReqwestJsonHttpSseStream {
     response: reqwest::Response,
+    headers: JsonHttpHeaders,
     decoder: JsonHttpSseDecoder,
     timer: SseTimer,
     events_received: u64,
@@ -75,6 +79,7 @@ pub(crate) struct ReqwestJsonHttpSseStream {
 impl ReqwestJsonHttpSseStream {
     pub(crate) fn new(response: reqwest::Response, timer: SseTimer) -> Self {
         Self {
+            headers: JsonHttpHeaders::from(response.headers().clone()),
             response,
             decoder: JsonHttpSseDecoder::new(),
             timer,
@@ -86,6 +91,10 @@ impl ReqwestJsonHttpSseStream {
 
 #[async_trait]
 impl JsonHttpSseStream for ReqwestJsonHttpSseStream {
+    fn headers(&self) -> &JsonHttpHeaders {
+        &self.headers
+    }
+
     async fn next(&mut self) -> Result<Option<JsonHttpSseEvent>> {
         loop {
             let event = match self.decoder.next_event(self.eof) {
@@ -116,7 +125,7 @@ impl JsonHttpSseStream for ReqwestJsonHttpSseStream {
                 Ok(Err(source)) => {
                     return Err(Error::SseTransport {
                         events_received: self.events_received,
-                        source,
+                        source: sanitize_reqwest(source),
                     });
                 }
                 Err(_) => return Err(self.timer.error(kind, self.events_received)),

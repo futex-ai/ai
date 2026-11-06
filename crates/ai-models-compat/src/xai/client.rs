@@ -3,12 +3,14 @@
 use std::sync::Arc;
 
 use ai_interface::{DynModelEventStream, Model, ModelRequest, ModelResult, ModelSpec};
+use ai_models_core::{Clock, ProviderConfig};
 use async_trait::async_trait;
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
 
 use crate::engine::CompatModel;
 
 use super::{
+    PROVIDER_ID,
     deferred::{DeferredRuntime, TokioDeferredRuntime, XaiDeferredCompletion},
     dialect::DIALECT,
 };
@@ -20,17 +22,22 @@ pub struct XaiModel {
 }
 
 impl XaiModel {
+    /// Builds a model from a spec and shared provider connection settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self::from_config_with_runtime(http_client, spec, config, Arc::new(TokioDeferredRuntime))
+    }
+
     /// Builds a Xai model from its spec and an API key.
     pub fn new(
         http_client: DynJsonHttpClient,
         spec: ModelSpec,
         api_key: impl Into<String>,
     ) -> Self {
-        Self::with_auth(
-            http_client,
-            spec,
-            Arc::new(StaticHeaderAuth::bearer_token(api_key)),
-        )
+        Self::from_config(http_client, spec, ProviderConfig::new(PROVIDER_ID, api_key))
     }
 
     /// Builds a Xai model from its spec and an auth hook.
@@ -51,22 +58,41 @@ impl XaiModel {
         Self::with_catalog_auth_and_runtime(http_client, spec, auth, Arc::new(TokioDeferredRuntime))
     }
 
+    pub(super) fn from_config_with_runtime(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+        runtime: Arc<dyn DeferredRuntime>,
+    ) -> Self {
+        let deferred_completion = Arc::new(XaiDeferredCompletion::new(
+            http_client.clone(),
+            config.clone(),
+            runtime,
+        ));
+        Self {
+            inner: CompatModel::from_config(&DIALECT, http_client, spec, config)
+                .with_deferred(deferred_completion),
+        }
+    }
+
     pub(super) fn with_catalog_auth_and_runtime(
         http_client: DynJsonHttpClient,
         spec: ModelSpec,
         auth: DynJsonHttpAuth,
         runtime: Arc<dyn DeferredRuntime>,
     ) -> Self {
-        let deferred_completion = Arc::new(XaiDeferredCompletion::new(
-            http_client.clone(),
-            auth.clone(),
-            spec.provider_model_id.to_string(),
+        Self::from_config_with_runtime(
+            http_client,
+            spec,
+            ProviderConfig::with_auth(PROVIDER_ID, auth),
             runtime,
-        ));
-        Self {
-            inner: CompatModel::new(&DIALECT, http_client, spec, auth)
-                .with_deferred(deferred_completion),
-        }
+        )
+    }
+
+    /// Uses an injected wall clock to evaluate response retry dates.
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.inner = self.inner.with_clock(clock);
+        self
     }
 }
 

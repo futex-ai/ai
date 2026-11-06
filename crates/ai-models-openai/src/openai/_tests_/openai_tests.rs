@@ -29,7 +29,15 @@ async fn builds_openai_tool_requests_and_parses_response() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(requests[0].url, "https://api.openai.com/v1/responses");
     assert_eq!(
         requests[0].headers.get("Authorization"),
@@ -88,7 +96,15 @@ async fn builds_structured_output_requests_and_parses_response() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let format = &requests[0].body.as_ref().expect("body present")["text"]["format"];
+    let format = &serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body")["text"]["format"];
     assert_eq!(format["type"], "json_schema");
     assert_eq!(format["name"], "status");
     assert_eq!(format["strict"], false);

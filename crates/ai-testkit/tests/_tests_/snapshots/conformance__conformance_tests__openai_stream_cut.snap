@@ -17,10 +17,11 @@ expression: outcome
         }
       ],
       "error": {
-        "variant": "Interrupted",
+        "kind": "Interrupted",
         "provider": "openai",
         "model_id": "gpt-5.6-sol",
-        "message": "[json_http/error] SSE transport failed after 2 events: builder error"
+        "message": "[json_http/error] SSE transport failed after 2 events: builder error",
+        "attempts": []
       }
     }
   ],

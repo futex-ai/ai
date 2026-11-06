@@ -130,18 +130,12 @@ pub(super) fn assert_problem(
     expected_problem: JudgmentAnswerProblem,
 ) {
     let error = response.validate_against(request).unwrap_err();
-    let JudgmentError::InvalidAnswer {
-        provider,
-        model_id,
-        id,
-        problem,
-    } = error
-    else {
+    let JudgmentError::InvalidAnswer { core, id, problem } = error else {
         panic!("expected invalid answer, got {error}");
     };
 
-    assert_eq!(provider, "fixture-provider");
-    assert_eq!(model_id, "fixture-model");
+    assert_eq!(core.provider, "fixture-provider");
+    assert_eq!(core.model_id, "fixture-model");
     assert_eq!(id, expected_id);
     assert_eq!(problem, expected_problem);
 }

@@ -1,9 +1,11 @@
 //! Kimi portable call-control tests.
 
+use ai_interface::ErrorKind;
+
 use std::time::Duration;
 
 use ai_interface::{
-    ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl, ModelError,
+    ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl,
     ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
 };
 use serde_json::json;
@@ -25,7 +27,15 @@ async fn maps_supported_controls_and_keeps_k3_sampling_fixed() {
 
     let requests = requests.lock().expect("request lock should be available");
     let request = &requests[0];
-    let body = request.body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        request
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(request.timeout, Duration::from_secs(180));
     assert_eq!(body["messages"][0]["role"], "user");
     assert!(body.get("temperature").is_none());
@@ -47,13 +57,9 @@ async fn rejects_required_deferred_mode_before_transport() {
         .await
         .expect_err("required deferred mode should fail");
 
-    assert!(matches!(
-        error,
-        ModelError::UnsupportedControl {
-            control: ModelControl::CompletionMode,
-            ..
-        }
-    ));
+    assert!(
+        matches!(error, ref error if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::CompletionMode))
+    );
 }
 
 #[tokio::test]
@@ -70,7 +76,15 @@ async fn required_or_auto_uses_forced_required_semantics() {
 
     let requests = requests.lock().expect("request lock should be available");
     assert_eq!(
-        requests[0].body.as_ref().expect("request body")["tool_choice"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("request body")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["tool_choice"],
         "required"
     );
 }
@@ -89,7 +103,15 @@ async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
             .expect("response should parse");
 
         let requests = requests.lock().expect("request lock should be available");
-        let messages = &requests[0].body.as_ref().expect("request body")["messages"];
+        let messages = &serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("request body")
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body")["messages"];
         match expected {
             Some(expected) => assert_eq!(messages[0]["content"], expected),
             None => assert_eq!(messages[0]["role"], "user"),

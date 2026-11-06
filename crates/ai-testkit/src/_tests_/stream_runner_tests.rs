@@ -3,12 +3,13 @@
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use ai_interface::{
-    DynModel, DynModelEventStream, Effort, FinishReason, ModelError, ModelEvent,
-    ModelEventStreamMock, ModelMock, ModelUsage, ProviderId, ProviderState,
-    test_support::model_event_stream,
+    DynModel, DynModelEventStream, Effort, ErrorCore, ErrorKind, FinishReason, ModelAttempt,
+    ModelError, ModelEvent, ModelEventStreamMock, ModelMock, ModelUsage, ProviderId, ProviderState,
+    SafeErrorSource, test_support::model_event_stream,
 };
 use json_http::test_support::Redactor;
 use serde_json::json;
@@ -97,13 +98,27 @@ async fn execute_snapshots_interleaved_events_and_the_folded_response() {
 
 #[tokio::test]
 async fn execute_keeps_partial_events_and_sanitizes_the_original_read_failure() {
+    let mut core = ErrorCore::new(
+        ErrorKind::Interrupted,
+        "mock-secret-token",
+        "snapshot-secret-token",
+        "closed secret-token",
+    );
+    core.retry_after = Some(Duration::from_secs(2));
+    core.provider_request_id = Some("request-secret-token".to_owned());
     let items = Mutex::new(VecDeque::from(vec![
         Ok(Some(text(0, "secret-token partial"))),
-        Err(ModelError::interrupted(
-            "mock",
-            "snapshot",
-            "closed secret-token",
-        )),
+        Err(ModelError::with_source(
+            core,
+            SafeErrorSource::redacted(std::io::Error::other("source secret-token")),
+        )
+        .with_attempts(vec![ModelAttempt {
+            provider: "first-secret-token".to_owned(),
+            model_id: "first-model-secret-token".to_owned(),
+            kind: ErrorKind::RejectedKey,
+            message: "rejected secret-token".to_owned(),
+            emitted_events: false,
+        }])),
     ]));
     let stream = Unimock::new(
         ModelEventStreamMock::next
@@ -133,7 +148,13 @@ async fn execute_keeps_partial_events_and_sanitizes_the_original_read_failure() 
             "steps": [{
                 "kind": "error",
                 "events": [{"TextDelta": {"part_index": 0, "delta": "[redacted] partial"}}],
-                "error": {"variant": "Interrupted", "provider": "mock", "model_id": "snapshot", "message": "closed [redacted]"}
+                "error": {
+                    "kind": "Interrupted", "provider": "mock-[redacted]", "model_id": "snapshot-[redacted]",
+                    "message": "closed [redacted]", "retry_after": {"secs": 2, "nanos": 0},
+                    "provider_request_id": "request-[redacted]",
+                    "attempts": [{"provider":"first-[redacted]", "model_id":"first-model-[redacted]",
+                        "kind":"RejectedKey", "message":"rejected [redacted]", "emitted_events":false}]
+                }
             }],
             "remaining_exchanges": 0
         })

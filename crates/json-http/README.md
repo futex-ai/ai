@@ -21,6 +21,47 @@ SSE streams without embedding reqwest boilerplate in each caller.
 or attached as multipart byte fields, and responses can be read as raw bytes,
 `serde_json::Value`, or deserialized into typed response DTOs.
 
+Typed request bodies serialize directly into JSON bytes. Object keys keep
+their sorted wire order. Buffered responses expose `headers`, and successful
+SSE streams expose `headers()`. Both use `JsonHttpHeaders`, a case-insensitive
+header collection that keeps repeated and binary values. Its `Debug` output
+prints header names only. `as_raw()` gives explicit access to values for
+retry-after and request-id parsing. `as_raw_mut()` permits raw header changes.
+SSE status errors carry the same headers with their status and bounded body.
+`Error::is_transport_failure`
+identifies network failures without classifying auth or local errors as network
+failures.
+
+Failures after headers arrive retain them in `Error::ResponseContext`.
+`response_headers()` also reads headers on status errors. `cause()` borrows the
+original typed failure, and `into_cause()` returns it by value. Both retain its
+progress and diagnostic fields. This covers buffered body reads, typed response
+decoding, rejected SSE body reads, and wrong SSE media types. Recordings keep
+sanitized headers for these failures and restore their failure class on replay.
+
+Request headers compare without case. `default_headers` adds values after
+auth and keeps adapter headers, auth headers, and generated body content types.
+Auth hooks run once before dispatch. `credentials_for_origin` limits all
+credential headers to the supplied scheme, host, and port.
+`auth_for_origin` skips a hook when
+the request has a different scheme, host, or port from the supplied origin.
+Every header is a credential unless the adapter supplied it through `header`
+or `headers` and no auth hook changed it. Standard credential headers always
+remain credentials. The builder marks credential names in `auth_headers`.
+Requests follow up to ten redirects. Redirects preserve credentials on the
+original origin and remove credential headers elsewhere.
+A 307 or 308 response with a multipart body is returned without following
+the redirect, because that body cannot be replayed.
+The transport also protects standard authorization, cookie, and API-key headers.
+It restores credentials only when a redirect returns to the original origin.
+Redirect hops share one total timeout budget.
+Request and static-auth debug output omit header values.
+Buffered response debug output reports the status, header names, and
+`[redacted]` for the body.
+Error debug output reports the variant, status, header names, and body size.
+It omits header values and body text. Stored transport URLs omit user info,
+queries, and fragments.
+
 The crate ships with:
 
 - `ReqwestJsonHttpClient` for real transport
@@ -48,8 +89,12 @@ text diagnostics for status-aware provider classification.
 Test support records JSON bodies, base64 response bytes, and decoded SSE
 events with their terminal failure class and event count. Multipart requests
 store field metadata and byte counts. They do not store uploaded bytes.
+Response recordings also keep sanitized headers. Header values use byte arrays
+so that repeated and binary values survive replay. Existing recordings without
+response headers remain readable and replay with an empty header map.
 Credential header names are case-insensitive. The values of `authorization`,
 `x-api-key`, `x-goog-api-key`, and `api-key` become `[redacted]`.
+The recorder also removes every credential header value that the builder tracks.
 The recorder also removes credential URL fields, named JSON credentials,
 and known secret values from responses. It forwards the original requests
 and responses unchanged. Raw transport error text is never persisted.
@@ -137,10 +182,14 @@ server and requires no external network or credentials.
 ### Key Code
 
 - `src/client.rs` - trait-backed client and transport boundaries
-- `src/request.rs` - request builder, request DTOs, and typed response helpers
+- `src/request.rs` - request builder, auth origin scopes, and typed response helpers
+- `src/request_types.rs` - serialized request and response DTOs
+- `src/canonical/` - typed JSON serialization with sorted object fields
+- `src/headers.rs` - common buffered and streaming response header type
 - `src/sse.rs` - pure incremental SSE framing and stream boundary
 - `src/reqwest_sse.rs` - idle/deadline-aware reqwest stream consumption
 - `src/reqwest_transport.rs` - buffered and streaming reqwest execution
+- `src/reqwest_redirect.rs` - origin-scoped credentials and the shared redirect budget
 - `src/auth.rs` - auth hook trait and static header implementation
 - `src/test_support/` - recording types, credential redaction, shared logs,
   transport wrappers, and ordered replay behind `test-support`
@@ -151,3 +200,5 @@ server and requires no external network or credentials.
 - [`../ai-testkit/README.md`](../ai-testkit/README.md)
 - [`../ai-models-openai/README.md`](../ai-models-openai/README.md)
 - [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
+- [`../../docs/protocol/model-stream-adapters.md`](../../docs/protocol/model-stream-adapters.md)
+- [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)

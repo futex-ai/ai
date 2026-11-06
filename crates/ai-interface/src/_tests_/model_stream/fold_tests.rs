@@ -3,8 +3,8 @@
 use serde_json::json;
 
 use crate::{
-    ConversationPart, Effort, FinishReason, ModelAttempt, ModelAttemptError, ModelError,
-    ModelEvent, ModelResponse, ModelUsage, ToolCall,
+    ConversationPart, Effort, ErrorKind, FinishReason, ModelAttempt, ModelError, ModelEvent,
+    ModelResponse, ModelUsage, ToolCall,
 };
 
 use super::fixtures::{arguments, finish, fold, reasoning, text, tool_start, usage};
@@ -113,9 +113,11 @@ fn fallback_discards_partial_parts_and_records_each_failure() {
         tool_start(1, "discarded"),
         ModelEvent::Fallback {
             error: ModelError::interrupted("first", "one", "closed"),
+            emitted_events: true,
         },
         ModelEvent::Fallback {
             error: ModelError::rate_limited("second", "two", "busy"),
+            emitted_events: false,
         },
         text(0, "retained"),
         usage(),
@@ -129,18 +131,18 @@ fn fallback_discards_partial_parts_and_records_each_failure() {
         response.attempts,
         vec![
             ModelAttempt {
-                error: ModelAttemptError::Interrupted {
-                    provider: "first".to_owned(),
-                    model_id: "one".to_owned(),
-                    message: "closed".to_owned(),
-                },
+                provider: "first".to_owned(),
+                model_id: "one".to_owned(),
+                kind: ErrorKind::Interrupted,
+                message: "closed".to_owned(),
+                emitted_events: true,
             },
             ModelAttempt {
-                error: ModelAttemptError::RateLimited {
-                    provider: "second".to_owned(),
-                    model_id: "two".to_owned(),
-                    message: "busy".to_owned(),
-                },
+                provider: "second".to_owned(),
+                model_id: "two".to_owned(),
+                kind: ErrorKind::RateLimited,
+                message: "busy".to_owned(),
+                emitted_events: false,
             },
         ]
     );
@@ -149,4 +151,32 @@ fn fallback_discards_partial_parts_and_records_each_failure() {
         serde_json::from_value::<ModelResponse>(serialized).unwrap(),
         response
     );
+}
+
+#[test]
+fn fallback_records_identical_failures_with_their_explicit_visibility() {
+    let response = fold(vec![
+        ModelEvent::Fallback {
+            error: ModelError::interrupted("provider", "model", "closed"),
+            emitted_events: false,
+        },
+        text(0, "discarded"),
+        ModelEvent::Fallback {
+            error: ModelError::interrupted("provider", "model", "closed"),
+            emitted_events: true,
+        },
+        text(0, "retained"),
+        usage(),
+        finish(FinishReason::Stop),
+    ])
+    .unwrap();
+
+    assert_eq!(response.text(), "retained");
+    assert_eq!(response.attempts.len(), 2);
+    assert_eq!(response.attempts[0].kind, ErrorKind::Interrupted);
+    assert!(!response.attempts[0].emitted_events);
+    assert!(response.attempts[1].emitted_events);
+    let mut first = response.attempts[0].clone();
+    first.emitted_events = true;
+    assert_eq!(first, response.attempts[1]);
 }

@@ -1,10 +1,12 @@
 //! Provider isolation and own-state validation at the model boundary.
 
+use ai_interface::ErrorKind;
+
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, ConversationPart, ConversationRole, DynModel, ModelError, ModelRequest,
-    ProviderId, ProviderState, ToolCall,
+    ConversationMessage, ConversationPart, ConversationRole, DynModel, ModelRequest, ProviderId,
+    ProviderState, ToolCall,
 };
 use ai_models_core::test_support::{fixtures_for_buffered_responses, recording_streaming_client};
 use json_http::{DynJsonHttpClient, JsonHttpResponse, TransportBackedJsonHttpClient};
@@ -87,7 +89,7 @@ async fn rejects_invalid_own_state_on_portable_and_reasoning_parts_before_transp
                     .err()
                     .expect("own state fails before stream opens");
                 assert!(
-                    matches!(&error, ModelError::Provider { provider: actual, message, .. } if actual == provider && message == expected),
+                    matches!(&error, error if error.core().kind == ErrorKind::InvalidRequest && error.core().provider == provider && error.core().message == expected),
                     "{provider} version {version}: {error:?}"
                 );
             }
@@ -99,6 +101,7 @@ async fn rejects_invalid_own_state_on_portable_and_reasoning_parts_before_transp
 async fn sends_foreign_text_and_calls_portably_and_skips_unowned_reasoning() {
     for provider in PROVIDERS {
         let response = JsonHttpResponse {
+            headers: Default::default(),
             status: 200,
             body: json!({"choices": [{"message": {"content": "Done"}, "finish_reason": "stop"}]}),
         };
@@ -131,7 +134,15 @@ async fn sends_foreign_text_and_calls_portably_and_skips_unowned_reasoning() {
             .expect("foreign state is opaque");
         let requests = requests.lock().expect("requests");
         assert_eq!(
-            requests[0].body.as_ref().expect("body")["messages"],
+            serde_json::from_slice::<serde_json::Value>(
+                requests[0]
+                    .body
+                    .as_ref()
+                    .expect("body")
+                    .as_json_bytes()
+                    .expect("JSON request body")
+            )
+            .expect("valid JSON request body")["messages"],
             json!([{
                 "role": "assistant", "content": "portable", "tool_calls": [{ "id": "call_1", "type": "function", "function": { "name": "lookup", "arguments": "{\"id\":7}" } }]
             }]),
@@ -145,6 +156,7 @@ async fn streams_part_state_and_replays_other_model_state_with_original_wire_for
     let raw_arguments = "{\n  \"id\": 7\n}";
     for provider in PROVIDERS {
         let first = JsonHttpResponse {
+            headers: Default::default(),
             status: 200,
             body: json!({ "choices": [{
                 "finish_reason": "tool_calls", "message": {
@@ -155,6 +167,7 @@ async fn streams_part_state_and_replays_other_model_state_with_original_wire_for
             }]}),
         };
         let second = JsonHttpResponse {
+            headers: Default::default(),
             status: 200,
             body: json!({"choices": [{"message": {"content": "Done"}, "finish_reason": "stop"}]}),
         };
@@ -202,7 +215,15 @@ async fn streams_part_state_and_replays_other_model_state_with_original_wire_for
             .await
             .expect("state from another model replays");
         let requests = requests.lock().expect("requests");
-        let assistant = &requests[1].body.as_ref().expect("body")["messages"][0];
+        let assistant = &serde_json::from_slice::<serde_json::Value>(
+            requests[1]
+                .body
+                .as_ref()
+                .expect("body")
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body")["messages"][0];
         assert_eq!(
             assistant["tool_calls"][0]["function"]["arguments"],
             if matches!(provider, "deepseek" | "kimi" | "qwen") {

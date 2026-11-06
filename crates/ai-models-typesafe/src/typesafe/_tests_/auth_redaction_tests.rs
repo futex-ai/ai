@@ -1,5 +1,7 @@
 //! TypeSafe authentication redaction tests.
 
+use ai_interface::ErrorKind;
+
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -32,7 +34,7 @@ async fn bearer_hook_redacts_a_bare_token_from_provider_bodies() {
         .await
         .expect_err("provider rejection should return an error");
 
-    assert!(matches!(error, JudgmentError::Provider { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::InvalidRequest));
     assert_redacted(&error, API_KEY);
 }
 
@@ -52,7 +54,7 @@ async fn custom_header_values_are_redacted_without_a_scheme() {
         .await
         .expect_err("provider rejection should return an error");
 
-    assert!(matches!(error, JudgmentError::Provider { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::InvalidRequest));
     assert_redacted(&error, "custom-secret");
 }
 
@@ -71,14 +73,9 @@ async fn failing_auth_hook_uses_a_fixed_diagnostic_after_one_call() {
         .await
         .expect_err("auth-hook failure should return an error");
 
-    let JudgmentError::TransientProvider {
-        provider,
-        model_id,
-        message,
-    } = &error
-    else {
-        panic!("expected a transient provider error, got {error}");
-    };
+    let core = error.core();
+    let (provider, model_id, message) = (&core.provider, &core.model_id, &core.message);
+    assert_eq!(core.kind, ErrorKind::Transient);
     assert_eq!(provider, "typesafe");
     assert_eq!(model_id, "jev-latest");
     assert_eq!(message, "authentication hook failed");
@@ -108,7 +105,7 @@ async fn rotating_auth_header_is_applied_once_sent_and_redacted() {
         .await
         .expect_err("provider rejection should return an error");
 
-    assert!(matches!(error, JudgmentError::Provider { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::InvalidRequest));
     assert_redacted(&error, "rotating-secret");
     let requests = requests.lock().expect("request lock should be valid");
     assert_eq!(requests.len(), 1);
@@ -119,6 +116,12 @@ async fn rotating_auth_header_is_applied_once_sent_and_redacted() {
 }
 
 fn assert_redacted(error: &JudgmentError, secret: &str) {
+    let mut link: Option<&dyn std::error::Error> = Some(error);
+    while let Some(error) = link {
+        assert!(!error.to_string().contains(secret));
+        assert!(!format!("{error:?}").contains(secret));
+        link = error.source();
+    }
     let display = error.to_string();
     let debug = format!("{error:?}");
 
@@ -158,9 +161,8 @@ async fn overlapping_custom_header_values_leave_no_partial_credential() {
         .await
         .expect_err("provider rejection should return an error");
 
-    let JudgmentError::Provider { message, .. } = &error else {
-        panic!("expected a provider error, got {error}");
-    };
+    let message = &error.core().message;
+    assert_eq!(error.core().kind, ErrorKind::InvalidRequest);
     assert_eq!(message, "rejected [redacted]");
     assert_redacted(&error, "token-secret");
     assert_redacted(&error, "-secret");

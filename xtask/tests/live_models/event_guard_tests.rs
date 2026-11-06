@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, DynModelEventStream, FinishReason, MockModel, Model, ModelAttemptError,
+    ConversationMessage, DynModelEventStream, ErrorCore, ErrorKind, FinishReason, MockModel, Model,
     ModelRequest, ModelResult, ModelUsage, ProviderId, ProviderState, StructuredOutputSchema,
 };
 use ai_testkit::event_snapshot::ModelEventSnapshot;
@@ -128,11 +128,8 @@ fn assistant_event_validation_rejects_empty_deltas_and_restarts() {
                 delta: String::new(),
             },
             ModelEventSnapshot::Fallback {
-                error: ModelAttemptError::Provider {
-                    provider: "mock".to_owned(),
-                    model_id: "model".to_owned(),
-                    message: "failed".to_owned(),
-                },
+                error: ErrorCore::new(ErrorKind::InvalidOutput, "mock", "model", "failed"),
+                emitted_events: true,
             },
         ]),
     );

@@ -23,6 +23,7 @@ fn recording(response: RecordedResponse) -> Recording {
 #[test]
 fn rejects_wrong_method_and_url_without_consuming_the_recording() {
     let transport = ReplayTransport::new(vec![recording(RecordedResponse::Json {
+        headers: Default::default(),
         status: 200,
         body: json!({}),
     })]);
@@ -52,14 +53,17 @@ fn rejects_wrong_method_and_url_without_consuming_the_recording() {
 async fn replays_json_bytes_and_rejected_sse_openings_in_order() {
     let transport = ReplayTransport::new(vec![
         recording(RecordedResponse::Json {
+            headers: Default::default(),
             status: 201,
             body: json!({"ok": true}),
         }),
         recording(RecordedResponse::Bytes {
+            headers: Default::default(),
             status: 206,
             body_base64: "AP8q".to_owned(),
         }),
         recording(RecordedResponse::Json {
+            headers: Default::default(),
             status: 429,
             body: json!({"error": "rate limit"}),
         }),
@@ -101,6 +105,7 @@ async fn replays_each_failure_class_at_the_recorded_event_count() {
         RecordedFailure::Decode,
     ] {
         let transport = ReplayTransport::new(vec![recording(RecordedResponse::Sse {
+            headers: Default::default(),
             status: 200,
             events: vec![
                 RecordedEvent {
@@ -158,6 +163,7 @@ async fn replays_each_failure_class_at_the_recorded_event_count() {
 #[tokio::test]
 async fn replays_graceful_eof_after_every_recorded_event() {
     let transport = ReplayTransport::new(vec![recording(RecordedResponse::Sse {
+        headers: Default::default(),
         status: 200,
         events: vec![RecordedEvent {
             event: None,

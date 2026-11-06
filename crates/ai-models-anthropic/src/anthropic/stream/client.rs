@@ -3,10 +3,10 @@
 use std::collections::VecDeque;
 
 use ai_interface::{
-    DynModelEventStream, Effort, ModelError, ModelEvent, ModelEventStream, ModelResult,
+    DynModelEventStream, Effort, ErrorKind, ModelError, ModelEvent, ModelEventStream, ModelResult,
     StructuredOutputSchema,
 };
-use ai_models_core::{classify_json_http_stream_error, classify_stream_error};
+use ai_models_core::{ErrorContext, classify_json_http_stream_error, classify_stream_error};
 use async_trait::async_trait;
 use json_http::DynJsonHttpSseStream;
 
@@ -17,16 +17,17 @@ use super::{
     types::{AnthropicAccumulation, AnthropicProviderErrorKind, AnthropicStreamError},
 };
 
-const PROVIDER: &str = "anthropic";
-
 pub(in crate::anthropic) fn open(
     stream: DynJsonHttpSseStream,
+    context: ErrorContext,
     catalog_model_id: String,
     provider_model_id: String,
     thinking_level: Option<Effort>,
     response_schema: Option<StructuredOutputSchema>,
 ) -> DynModelEventStream {
+    let context = context.for_response(stream.headers());
     Box::new(AnthropicEventStream {
+        context,
         stream: Some(stream),
         accumulator: AnthropicStreamAccumulator::new(provider_model_id.clone()),
         pending: VecDeque::new(),
@@ -39,6 +40,7 @@ pub(in crate::anthropic) fn open(
 }
 
 struct AnthropicEventStream {
+    context: ErrorContext,
     stream: Option<DynJsonHttpSseStream>,
     accumulator: AnthropicStreamAccumulator,
     pending: VecDeque<ModelEvent>,
@@ -74,16 +76,14 @@ impl AnthropicEventStream {
                 Ok(Some(event)) => event,
                 Ok(None) => {
                     return Err(classify_stream_error(
-                        PROVIDER,
-                        &self.provider_model_id,
+                        &self.context,
                         self.events_received,
                         &AnthropicStreamError::UnexpectedEof,
                     ));
                 }
                 Err(source) => {
                     return Err(classify_json_http_stream_error(
-                        PROVIDER,
-                        &self.provider_model_id,
+                        &self.context,
                         self.events_received,
                         source,
                     ));
@@ -96,6 +96,7 @@ impl AnthropicEventStream {
                 }
                 Ok(AnthropicAccumulation::Complete(completion)) => {
                     let terminal = response::terminal_events(
+                        &self.context,
                         &self.catalog_model_id,
                         &self.provider_model_id,
                         self.thinking_level,
@@ -108,12 +109,24 @@ impl AnthropicEventStream {
                 Err(AnthropicStreamError::ProviderEvent { kind, message })
                     if self.events_received == 0 =>
                 {
-                    return Err(provider_event_error(&self.provider_model_id, kind, message));
+                    return Err(provider_event_error(&self.context, kind, message));
+                }
+                Err(source @ AnthropicStreamError::InvalidToolInput { .. }) => {
+                    return Err(ModelError::with_source(
+                        self.context
+                            .core(ErrorKind::InvalidOutput, source.to_string()),
+                        self.context.source(source),
+                    ));
+                }
+                Err(source @ AnthropicStreamError::SerializeState { .. }) => {
+                    return Err(ModelError::with_source(
+                        self.context.core(ErrorKind::Internal, "internal error"),
+                        self.context.source(source),
+                    ));
                 }
                 Err(source) => {
                     return Err(classify_stream_error(
-                        PROVIDER,
-                        &self.provider_model_id,
+                        &self.context,
                         self.events_received,
                         &source,
                     ));
@@ -124,24 +137,32 @@ impl AnthropicEventStream {
 }
 
 fn provider_event_error(
-    model_id: &str,
+    context: &ErrorContext,
     kind: AnthropicProviderErrorKind,
     message: String,
 ) -> ModelError {
     match kind {
         AnthropicProviderErrorKind::RateLimit => {
-            ModelError::rate_limited(PROVIDER, model_id, message)
+            context.model_error(ErrorKind::RateLimited, message)
         }
-        AnthropicProviderErrorKind::Overloaded | AnthropicProviderErrorKind::Api => {
-            ModelError::transient_provider(PROVIDER, model_id, message)
-        }
+        AnthropicProviderErrorKind::Overloaded
+        | AnthropicProviderErrorKind::Api
+        | AnthropicProviderErrorKind::Timeout => context.model_error(ErrorKind::Transient, message),
         AnthropicProviderErrorKind::RequestTooLarge
         | AnthropicProviderErrorKind::InvalidRequest
-        | AnthropicProviderErrorKind::Authentication
-        | AnthropicProviderErrorKind::Permission
-        | AnthropicProviderErrorKind::NotFound
         | AnthropicProviderErrorKind::Unrecognized => {
-            ModelError::provider(PROVIDER, model_id, message)
+            context.model_error(ErrorKind::InvalidRequest, message)
+        }
+        AnthropicProviderErrorKind::Authentication
+        | AnthropicProviderErrorKind::Permission
+        | AnthropicProviderErrorKind::Billing => {
+            context.model_error(ErrorKind::RejectedKey, message)
+        }
+        AnthropicProviderErrorKind::NotFound => {
+            context.model_error(ErrorKind::UnknownModel, message)
+        }
+        AnthropicProviderErrorKind::ContextLimit => {
+            context.model_error(ErrorKind::ContextLimitExceeded, message)
         }
     }
 }

@@ -8,6 +8,7 @@ use serde_json::json;
 
 use super::GoogleModel;
 
+mod config_tests;
 mod controls_tests;
 mod event_tests;
 mod finish_reason_tests;
@@ -26,7 +27,7 @@ mod request_tests;
 #[path = "signed_text_tests.rs"]
 mod signed_text_tests;
 mod stream_error_tests;
-mod stream_support;
+pub(in crate::google) mod stream_support;
 mod streaming_tests;
 mod structured_finish_tests;
 mod thinking_tests;

@@ -3,8 +3,7 @@
 use std::sync::Arc;
 
 use ai_interface::{
-    ConversationMessage, ConversationPart, ConversationRole, Model, ModelError, ProviderId,
-    ProviderState,
+    ConversationMessage, ConversationPart, ConversationRole, Model, ProviderId, ProviderState,
 };
 use json_http::TransportBackedJsonHttpClient;
 use serde_json::json;
@@ -50,7 +49,15 @@ async fn replays_own_state_from_another_google_model_and_skips_foreign_reasoning
     model.complete(&request).await.unwrap();
 
     assert_eq!(
-        requests.lock().unwrap()[0].body.as_ref().unwrap()["contents"][1]["parts"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests.lock().unwrap()[0]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["contents"][1]["parts"],
         json!([
             {"text": "saved thought", "thought": true},
             {"text": "portable"},
@@ -99,17 +106,19 @@ async fn rejects_unknown_or_invalid_own_state_and_invalid_roles_before_transport
         request
             .messages
             .push(ConversationMessage::new(ConversationRole::Assistant, parts));
-        let actual = match model.complete(&request).await {
-            Err(ModelError::Provider {
-                provider,
-                model_id,
-                message,
-            }) => Some((provider, model_id, message)),
-            _ => None,
-        };
+        let actual = model.complete(&request).await.err().map(|error| {
+            let core = error.core();
+            (
+                core.kind,
+                core.provider.clone(),
+                core.model_id.clone(),
+                core.message.clone(),
+            )
+        });
         assert_eq!(
             actual,
             Some((
+                ai_interface::ErrorKind::InvalidRequest,
                 "google".to_owned(),
                 "gemini-3.6-flash".to_owned(),
                 expected.to_owned()
@@ -122,10 +131,9 @@ async fn rejects_unknown_or_invalid_own_state_and_invalid_roles_before_transport
         ConversationRole::User,
         vec![ConversationPart::reasoning("invalid user thought")],
     )];
-    assert!(matches!(
-        model.complete(&request).await,
-        Err(ModelError::Provider { .. })
-    ));
+    assert!(
+        matches!(model.complete(&request).await, Err(ref error) if error.core().kind == ai_interface::ErrorKind::InvalidRequest)
+    );
 }
 
 fn no_call_model() -> GoogleModel {

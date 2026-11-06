@@ -3,15 +3,18 @@
 use std::sync::Arc;
 
 use ai_interface::{DynModelEventStream, Model, ModelRequest, ModelResult, ModelSpec};
+use ai_models_core::{Clock, ProviderConfig};
 use async_trait::async_trait;
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
 
 #[cfg(test)]
 use ai_interface::ModelError;
+#[cfg(test)]
+use ai_models_core::{ErrorContext, SystemClock};
 
 use crate::engine::CompatModel;
 
-use super::{QWEN_3_7_PLUS, dialect::DIALECT};
+use super::{PROVIDER_ID, QWEN_3_7_PLUS, dialect::DIALECT};
 
 #[cfg(test)]
 const PROVIDER: &str = "qwen";
@@ -23,11 +26,23 @@ pub struct QwenModel {
 }
 
 impl QwenModel {
+    /// Builds a model from a spec and shared provider connection settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self {
+            inner: CompatModel::from_config(&DIALECT, http_client, spec, config),
+        }
+    }
+
     /// Builds the default Qwen model from an API key.
     pub fn new(http_client: DynJsonHttpClient, api_key: impl Into<String>) -> Self {
-        Self::with_auth(
+        Self::from_config(
             http_client,
-            Arc::new(StaticHeaderAuth::bearer_token(api_key)),
+            QWEN_3_7_PLUS,
+            ProviderConfig::new(PROVIDER_ID, api_key),
         )
     }
 
@@ -42,9 +57,17 @@ impl QwenModel {
         spec: ModelSpec,
         auth: DynJsonHttpAuth,
     ) -> Self {
-        Self {
-            inner: CompatModel::new(&DIALECT, http_client, spec, auth),
-        }
+        Self::from_config(
+            http_client,
+            spec,
+            ProviderConfig::with_auth(PROVIDER_ID, auth),
+        )
+    }
+
+    /// Uses an injected wall clock to evaluate response retry dates.
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.inner = self.inner.with_clock(clock);
+        self
     }
 }
 
@@ -57,22 +80,6 @@ impl Model for QwenModel {
 
 #[cfg(test)]
 pub(super) fn request_error(source: json_http::Error, model_id: &str) -> ModelError {
-    match source {
-        json_http::Error::Transport { message } | json_http::Error::Auth { message } => {
-            ModelError::transient_provider(PROVIDER, model_id, message)
-        }
-        json_http::Error::ReqwestTransport { .. } => {
-            ModelError::transient_provider(PROVIDER, model_id, source.to_string())
-        }
-        json_http::Error::SerializeRequest { .. }
-        | json_http::Error::DeserializeResponse { .. }
-        | json_http::Error::ClientInitialization { .. }
-        | json_http::Error::SseUnsupported
-        | json_http::Error::HttpStatus { .. }
-        | json_http::Error::InvalidSseContentType { .. }
-        | json_http::Error::IdleTimeout { .. }
-        | json_http::Error::DeadlineExceeded { .. }
-        | json_http::Error::SseTransport { .. }
-        | json_http::Error::SseDecode { .. } => ModelError::internal(source),
-    }
+    let context = ErrorContext::new(PROVIDER, model_id, &[], Arc::new(SystemClock));
+    ModelError::with_source(context.request_error(&source), context.source(source))
 }

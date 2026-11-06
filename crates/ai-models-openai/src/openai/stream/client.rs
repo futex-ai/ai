@@ -3,30 +3,33 @@
 use std::collections::VecDeque;
 
 use ai_interface::{
-    DynModelEventStream, Effort, ModelError, ModelEvent, ModelEventStream, ModelResult,
+    DynModelEventStream, Effort, ErrorKind, ModelError, ModelEvent, ModelEventStream, ModelResult,
     StructuredOutputSchema,
 };
-use ai_models_core::{classify_json_http_stream_error, classify_stream_error};
+use ai_models_core::{ErrorContext, classify_json_http_stream_error, classify_stream_error};
 use async_trait::async_trait;
 use json_http::DynJsonHttpSseStream;
+
+use crate::openai::error_context::native_kind;
 
 use super::{
     state::OpenAiStreamState,
     types::{OpenAiStreamError, OpenAiStreamEvent},
 };
 
-const PROVIDER: &str = "openai";
-
 pub(in crate::openai) fn open(
     stream: DynJsonHttpSseStream,
+    context: ErrorContext,
     catalog_model_id: String,
     provider_model_id: String,
     thinking_level: Option<Effort>,
     response_schema: Option<StructuredOutputSchema>,
 ) -> DynModelEventStream {
+    let context = context.for_response(stream.headers());
     Box::new(OpenAiEventStream {
         stream: Some(stream),
-        state: OpenAiStreamState::new(&provider_model_id),
+        state: OpenAiStreamState::new(&provider_model_id, context.clone()),
+        context,
         deferred_error: None,
         pending: VecDeque::new(),
         events_received: 0,
@@ -38,6 +41,7 @@ pub(in crate::openai) fn open(
 }
 
 struct OpenAiEventStream {
+    context: ErrorContext,
     stream: Option<DynJsonHttpSseStream>,
     state: OpenAiStreamState,
     pending: VecDeque<ModelEvent>,
@@ -84,16 +88,14 @@ impl OpenAiEventStream {
                 Ok(Some(event)) => event,
                 Ok(None) => {
                     return Err(classify_stream_error(
-                        PROVIDER,
-                        &self.provider_model_id,
+                        &self.context,
                         self.events_received,
                         &OpenAiStreamError::UnexpectedEof,
                     ));
                 }
                 Err(source) => {
                     return Err(classify_json_http_stream_error(
-                        PROVIDER,
-                        &self.provider_model_id,
+                        &self.context,
                         self.events_received,
                         source,
                     ));
@@ -103,8 +105,7 @@ impl OpenAiEventStream {
                 Ok(parsed) => parsed,
                 Err(source) => {
                     return Err(classify_stream_error(
-                        PROVIDER,
-                        &self.provider_model_id,
+                        &self.context,
                         self.events_received,
                         &OpenAiStreamError::DeserializeEvent { source },
                     ));
@@ -125,14 +126,14 @@ impl OpenAiEventStream {
                 }
                 OpenAiStreamEvent::Failed { response } => {
                     return Err(event_failure(
-                        &self.provider_model_id,
+                        &self.context,
                         self.events_received,
                         response.into_failure(),
                     ));
                 }
                 OpenAiStreamEvent::Error(error) => {
                     return Err(event_failure(
-                        &self.provider_model_id,
+                        &self.context,
                         self.events_received,
                         error.into_failure(),
                     ));
@@ -146,21 +147,20 @@ impl OpenAiEventStream {
     }
 }
 
-fn event_failure(model_id: &str, events_received: u64, failure: OpenAiStreamError) -> ModelError {
+fn event_failure(
+    context: &ErrorContext,
+    events_received: u64,
+    failure: OpenAiStreamError,
+) -> ModelError {
     if events_received > 0 {
-        return classify_stream_error(PROVIDER, model_id, events_received, &failure);
+        return classify_stream_error(context, events_received, &failure);
     }
     let code = failure.code().map(str::to_owned);
     let message = failure
         .provider_message()
         .unwrap_or_else(|| "OpenAI stream failed".to_owned());
-    match code.as_deref() {
-        Some("rate_limit_error" | "rate_limit_exceeded") => {
-            ModelError::rate_limited(PROVIDER, model_id, message)
-        }
-        Some("internal_error" | "server_error" | "overloaded" | "temporarily_unavailable") => {
-            ModelError::transient_provider(PROVIDER, model_id, message)
-        }
-        _ => ModelError::provider(PROVIDER, model_id, message),
-    }
+    context.model_error(
+        native_kind(code.as_deref()).unwrap_or(ErrorKind::InvalidRequest),
+        message,
+    )
 }

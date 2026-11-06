@@ -1,7 +1,9 @@
-use ai_interface::StructuredOutputSchema;
+use ai_interface::{ErrorKind, StructuredOutputSchema};
+
+use super::error_context_tests::context;
 use serde_json::json;
 
-use crate::{parse_structured_output, validate_structured_output};
+use crate::{parse_structured_output, parse_tool_call_arguments, validate_structured_output};
 
 #[test]
 fn parses_and_validates_structured_output() {
@@ -18,8 +20,7 @@ fn parses_and_validates_structured_output() {
     };
 
     let structured_output = parse_structured_output(
-        "openai",
-        "gpt-5.5",
+        &context("openai", "gpt-5.5"),
         "{\"message\":\"done\",\"done\":true}",
         &response_schema,
     )
@@ -48,8 +49,7 @@ fn rejects_structured_output_that_fails_schema_validation() {
     };
 
     let error = validate_structured_output(
-        "openai",
-        "gpt-5.5",
+        &context("openai", "gpt-5.5"),
         &json!({ "message": 1 }),
         &response_schema,
     )
@@ -57,6 +57,47 @@ fn rejects_structured_output_that_fails_schema_validation() {
 
     assert_eq!(
         error.to_string(),
-        "[ai_interface/model] provider failure for `openai` model `gpt-5.5`: structured output did not match schema `status`: 1 is not of type \"string\""
+        "[ai_interface/model] InvalidOutput for `openai` model `gpt-5.5`: structured output did not match schema `status`: 1 is not of type \"string\""
+    );
+}
+
+#[test]
+fn caller_schemas_and_generated_output_have_distinct_failure_kinds() {
+    let context = context("provider", "model");
+    let schema = StructuredOutputSchema {
+        name: "invalid".to_owned(),
+        schema: json!({"type":"unknown-type"}),
+    };
+    assert_eq!(
+        validate_structured_output(&context, &json!({}), &schema)
+            .unwrap_err()
+            .core()
+            .kind,
+        ErrorKind::InvalidRequest
+    );
+    assert_eq!(
+        parse_tool_call_arguments(&context, "{")
+            .unwrap_err()
+            .core()
+            .kind,
+        ErrorKind::InvalidOutput
+    );
+    let schema = StructuredOutputSchema {
+        name: "object".to_owned(),
+        schema: json!({"type":"object"}),
+    };
+    assert_eq!(
+        parse_structured_output(&context, "not JSON", &schema)
+            .unwrap_err()
+            .core()
+            .kind,
+        ErrorKind::InvalidOutput
+    );
+    assert_eq!(
+        validate_structured_output(&context, &json!(1), &schema)
+            .unwrap_err()
+            .core()
+            .kind,
+        ErrorKind::InvalidOutput
     );
 }

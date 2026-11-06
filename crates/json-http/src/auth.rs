@@ -1,10 +1,10 @@
 //! Auth hook types for JSON HTTP requests.
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, fmt, sync::Arc};
 
 use async_trait::async_trait;
 
-use crate::Result;
+use crate::{Result, request_headers::insert};
 
 /// Shared dynamic auth hook alias.
 pub type DynJsonHttpAuth = Arc<dyn JsonHttpAuth>;
@@ -20,7 +20,7 @@ pub trait JsonHttpAuth: Send + Sync {
     async fn apply_headers(&self, headers: &mut BTreeMap<String, String>) -> Result<()>;
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Default, Eq, PartialEq)]
 /// Simple auth hook that applies a fixed set of headers.
 pub struct StaticHeaderAuth {
     headers: BTreeMap<String, String>,
@@ -44,7 +44,18 @@ impl StaticHeaderAuth {
 #[async_trait]
 impl JsonHttpAuth for StaticHeaderAuth {
     async fn apply_headers(&self, headers: &mut BTreeMap<String, String>) -> Result<()> {
-        headers.extend(self.headers.clone());
+        for (name, value) in &self.headers {
+            insert(headers, name.clone(), value.clone());
+        }
         Ok(())
+    }
+}
+
+impl fmt::Debug for StaticHeaderAuth {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("StaticHeaderAuth")
+            .field("headers", &self.headers.keys().collect::<Vec<_>>())
+            .finish_non_exhaustive()
     }
 }

@@ -7,7 +7,7 @@ use std::{
 
 use ai_interface::{
     DynModel, DynModelEventStream, Model, ModelError, ModelEvent, ModelEventStream, ModelRequest,
-    ModelResult,
+    ModelResult, SafeErrorSource,
 };
 use ai_testkit::event_snapshot::ModelEventSnapshot;
 use async_trait::async_trait;
@@ -56,7 +56,11 @@ impl ModelEventStream for EventObservingStream {
                     Ok(snapshot) => snapshot,
                     Err(source) => {
                         self.inner = None;
-                        return Err(ModelError::internal(source));
+                        return Err(ModelError::internal(
+                            "local",
+                            "live-event-observer",
+                            SafeErrorSource::redacted(source),
+                        ));
                     }
                 };
                 self.events

@@ -1,5 +1,7 @@
 //! OpenAI image response mapping tests.
 
+use crate::openai::stream_support::error_context;
+
 use ai_interface::{ImageGenerationError, ModelUsage};
 use serde_json::json;
 
@@ -8,6 +10,7 @@ use super::super::response::parse_response;
 #[test]
 fn response_decodes_image_prompt_and_usage() {
     let response = parse_response(
+        &error_context("gpt-image-2"),
         "gpt-image-2",
         json!({
             "data": [{
@@ -39,7 +42,12 @@ fn response_decodes_image_prompt_and_usage() {
 
 #[test]
 fn response_infers_mime_type_when_output_format_is_absent() {
-    let response = parse_response("gpt-image-2", json!({"data": [{"b64_json": "/9j/"}]})).unwrap();
+    let response = parse_response(
+        &error_context("gpt-image-2"),
+        "gpt-image-2",
+        json!({"data": [{"b64_json": "/9j/"}]}),
+    )
+    .unwrap();
 
     assert_eq!(response.image.mime_type, "image/jpeg");
 }
@@ -47,6 +55,7 @@ fn response_infers_mime_type_when_output_format_is_absent() {
 #[test]
 fn missing_usage_defaults_to_zero() {
     let response = parse_response(
+        &error_context("gpt-image-2"),
         "gpt-image-2",
         json!({"data": [{"b64_json": "iVBORw0KGgo="}], "output_format": "png"}),
     )
@@ -64,8 +73,8 @@ fn absent_image_is_a_typed_no_image_error() {
         json!({"data": [{"b64_json": ""}], "output_format": "png"}),
     ] {
         assert!(matches!(
-            parse_response("gpt-image-2", body),
-            Err(ImageGenerationError::NoImage { .. })
+            parse_response(&error_context("gpt-image-2"), "gpt-image-2", body),
+            Err(ImageGenerationError::NoImage { ref core }) if core.kind == ai_interface::ErrorKind::InvalidOutput
         ));
     }
 }
@@ -73,7 +82,7 @@ fn absent_image_is_a_typed_no_image_error() {
 #[test]
 fn malformed_base64_is_an_internal_error() {
     assert!(matches!(
-        parse_response("gpt-image-2", json!({"data": [{"b64_json": "not base64"}]})),
-        Err(ImageGenerationError::Internal(_))
+        parse_response(&error_context("gpt-image-2"), "gpt-image-2", json!({"data": [{"b64_json": "not base64"}]})),
+        Err(ImageGenerationError::Internal { ref core, .. }) if core.kind == ai_interface::ErrorKind::InvalidOutput
     ));
 }

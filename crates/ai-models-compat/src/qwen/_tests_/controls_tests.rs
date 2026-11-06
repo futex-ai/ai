@@ -1,11 +1,12 @@
 //! Qwen portable call-control tests.
 
+use ai_interface::ErrorKind;
+
 use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
     ConversationMessage, Effort, Model, ModelCallControls, ModelCompletionMode, ModelControl,
-    ModelError, ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice,
-    ToolDefinition,
+    ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
 };
 use json_http::StaticHeaderAuth;
 use serde_json::json;
@@ -38,7 +39,15 @@ async fn maps_non_thinking_controls_to_the_final_request() {
 
     let requests = requests.lock().expect("request lock should be available");
     let request = &requests[0];
-    let body = request.body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        request
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(request.timeout, Duration::from_secs(100));
     assert_eq!(body["messages"][0]["role"], "user");
     assert_eq!(body["temperature"], 0.25);
@@ -59,7 +68,15 @@ async fn thinking_keeps_sampling_fixed_and_preserves_auto_tool_choice() {
         .expect("thinking response should parse");
 
     let requests = requests.lock().expect("request lock should be available");
-    let body = requests[0].body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert!(body.get("temperature").is_none());
     assert!(body.get("top_p").is_none());
     assert_eq!(body["max_completion_tokens"], 800);
@@ -80,7 +97,15 @@ async fn thinking_required_or_auto_preserves_tools_and_uses_auto() {
         .expect("fallback tool choice should be supported");
 
     let requests = requests.lock().expect("request lock should be available");
-    let body = requests[0].body.as_ref().expect("request body");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("request body")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["tool_choice"], "auto");
     assert_eq!(body["tools"][0]["function"]["name"], "lookup");
 }
@@ -110,7 +135,15 @@ async fn disabled_thinking_required_choices_force_tool_use() {
     assert_eq!(requests.len(), 2);
     for request in requests.iter() {
         assert_eq!(
-            request.body.as_ref().expect("request body")["tool_choice"],
+            serde_json::from_slice::<serde_json::Value>(
+                request
+                    .body
+                    .as_ref()
+                    .expect("request body")
+                    .as_json_bytes()
+                    .expect("JSON request body")
+            )
+            .expect("valid JSON request body")["tool_choice"],
             "required"
         );
     }
@@ -130,7 +163,15 @@ async fn system_prompt_omits_empty_and_spaces_but_preserves_nonblank() {
             .expect("response should parse");
 
         let requests = requests.lock().expect("request lock should be available");
-        let messages = &requests[0].body.as_ref().expect("request body")["messages"];
+        let messages = &serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("request body")
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body")["messages"];
         match expected {
             Some(expected) => assert_eq!(messages[0]["content"], expected),
             None => assert_eq!(messages[0]["role"], "user"),
@@ -149,13 +190,9 @@ async fn rejects_unsupported_tool_and_completion_choices_before_transport() {
             .complete(&controlled_request(choice))
             .await
             .expect_err("forced thinking choice should fail");
-        assert!(matches!(
-            error,
-            ModelError::UnsupportedControl {
-                control: ModelControl::ToolChoice,
-                ..
-            }
-        ));
+        assert!(
+            matches!(error, ref error if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::ToolChoice))
+        );
     }
 
     let mut request = base_request();
@@ -164,13 +201,9 @@ async fn rejects_unsupported_tool_and_completion_choices_before_transport() {
         .complete(&request)
         .await
         .expect_err("required deferred mode should fail");
-    assert!(matches!(
-        error,
-        ModelError::UnsupportedControl {
-            control: ModelControl::CompletionMode,
-            ..
-        }
-    ));
+    assert!(
+        matches!(error, ref error if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::CompletionMode))
+    );
 }
 
 fn controlled_request(tool_choice: ModelToolChoice) -> ModelRequest {

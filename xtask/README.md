@@ -32,20 +32,25 @@ model spec or to custom defaults, and commit the result. No CI step or
 `check` step compares the committed matrix with the generator output.
 
 `smoke-test` constructs the Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
-OpenAI, QwenCloud, and xAI model adapters, the OpenAI transcriber, and the
-Google and OpenAI image generators, the Google video generator, plus the TypeSafe Jev judgment
-adapter, with placeholder credentials. It also runs an in-memory tool-output
-pagination flow. Provider construction does not send network requests or
-require real credentials.
+OpenAI, QwenCloud, and xAI model adapters, the OpenAI transcriber, the Google
+and OpenAI image generators, the Google video generator, and the TypeSafe Jev
+judgment adapter, with placeholder credentials. It also runs an in-memory
+tool-output pagination flow. Provider construction does not send network
+requests or require real credentials.
+Every provider adapter is built through `ai-models-registry`. The transcriber
+and the video generator use custom specs, because no catalog lists those
+models. Provider crates retain their public constructors.
 
 `tests/live_models.rs` owns the chat live suite and its credential-free guards.
 Each ignored provider test reads one explicit `LIVE_MODEL_API_KEY` and takes
-every chat-capable spec returned by that provider's `known_models()`. It runs
+every chat-capable spec of that provider in the registry's combined catalog. It runs
 one probe at the default of the spec, then one probe for each other listed
 effort. The default probe of a spec without a default effort sets no effort.
-Each probe builds the adapter from the spec, erases it behind `DynModel`,
-sets the probe effort in the request controls, and sends real one-step turns
-through `ToolCallingRuntime`.
+Each probe builds the adapter through the registry from the spec and provider
+config, wraps it in the standard retry
+layer of `ai-models-policy`, erases it behind `DynModel`, sets the probe
+effort in the request controls, and sends real one-step turns through
+`ToolCallingRuntime`.
 A test-only model wrapper forwards the events of the inner model's
 `Model::stream` and records them in order. The runtime folds the same events
 through its ordinary `complete` call and terminal checkpoint. Every provider
@@ -76,11 +81,12 @@ the TypeSafe credential is provisioned and that opt-in is enabled.
 
 `tests/live_images/mod.rs` is the corresponding ignored image suite. It selects
 every Google and OpenAI catalog spec advertising `ImageGeneration`, constructs
-the production adapter behind `DynImageGenerator`, and runs the same safe
-square, low-quality request through each entry sequentially. Transient and
-rate-limit failures use the shared 100ms/250ms retry schedule, for no more than
-three attempts. Successful responses must contain matching PNG, JPEG, or WebP
-bytes and the expected provider/model identity. Credential-free tests enforce
+the registry adapter behind `DynImageGenerator`, and runs the same safe
+square, low-quality request through each entry sequentially. Failures whose
+error core has the transient or rate limited kind use the shared 100ms/250ms
+retry schedule of `ai-models-policy`, for no more than three attempts.
+Successful responses must contain matching PNG, JPEG, or WebP bytes and the
+expected provider/model identity. Credential-free tests enforce
 catalog registration, adapter construction, retry classes, response
 validation, and workflow secret/event boundaries.
 
@@ -88,12 +94,13 @@ No live suite covers video generation, because no catalog lists a video model.
 
 `tests/live_judgments/mod.rs` is the corresponding ignored judgment suite. It
 selects every TypeSafe catalog spec advertising `Judgment`, constructs the
-production adapter behind `DynJudgmentModel`, and evaluates a short support
-message against condition, choice, and score questions. Transient and
-rate-limit failures use the shared retry schedule for no more than three
-attempts. Credential-free guards cover catalog registration, construction,
-probe shape, retry behavior, normalized validation, and workflow boundaries.
-None of the four live suites makes provider calls during `check` or
+registry adapter behind `DynJudgmentModel`, and evaluates a short support
+message against condition, choice, and score questions. Failures whose error
+core has the transient or rate limited kind use the shared retry schedule of
+`ai-models-policy` for no more than three attempts. Credential-free guards
+cover catalog registration, construction, probe shape, retry behavior,
+normalized validation, and workflow boundaries.
+None of the live suites makes provider calls during `check` or
 `smoke-test`.
 
 `record-streams --provider <name>` reads `RECORD_API_KEY` and records the
@@ -166,12 +173,19 @@ cargo clippy -p xtask --all-targets --all-features
   updates to the model capability reference
 - `src/file_length.rs` - Rust line-count audit
 - `src/smoke/` - credential-free provider, MCP, OAuth, and pagination smoke tests
+- `src/smoke/providers.rs` - registry construction for chat, image, video,
+  transcription, and judgment adapters with placeholder credentials
 - `tests/live_models.rs` and `tests/live_models/` - ignored credentialed tests
   plus credential-free event, catalog, runner, tool-choice, and workflow guards
 - `tests/live_images/mod.rs` - ignored credentialed tests and credential-free
   guards over image-provider catalogs
 - `tests/live_judgments/mod.rs` - ignored credentialed tests and
   credential-free guards over judgment-provider catalogs
+- `tests/live_images/retry_tests.rs` and `tests/live_judgments/retry_tests.rs` -
+  `RetryingImageGenerator` and `RetryingJudgmentModel` apply fixed live-test
+  waits after `ErrorKind::RateLimited` or `ErrorKind::Transient`.
+  Both read `ai_models_policy::STANDARD_TRANSIENT_RETRY_DELAYS` from
+  `../crates/ai-models-policy/src/retry_config.rs`.
 - `src/review.rs` - Codex CLI review delegation
 - `src/record_streams/` - explicit recording command with injected transport,
   model, scenario runner, and recording storage boundaries

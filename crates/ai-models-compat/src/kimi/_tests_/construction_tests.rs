@@ -1,8 +1,10 @@
 //! Kimi spec construction and per-request effort tests.
 
+use ai_interface::ErrorKind;
+
 use std::{collections::BTreeMap, sync::Arc};
 
-use ai_interface::{Effort, Model, ModelControl, ModelError, ModelSpec};
+use ai_interface::{Effort, Model, ModelControl, ModelSpec};
 use json_http::StaticHeaderAuth;
 
 use super::{
@@ -24,10 +26,15 @@ async fn custom_provider_model_reaches_transport_without_catalog_validation() {
         .expect("custom response");
     assert_eq!(response.model_id, "kimi-custom");
     assert_eq!(
-        requests.lock().expect("requests lock")[0]
-            .body
-            .as_ref()
-            .expect("body")["model"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests.lock().expect("requests lock")[0]
+                .body
+                .as_ref()
+                .expect("body")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["model"],
         "kimi-custom"
     );
 }
@@ -46,7 +53,7 @@ async fn rejects_request_effort_below_lowest_supported_before_transport() {
         .await
         .expect_err("disabled effort must fail");
     assert!(
-        matches!(error, ModelError::UnsupportedControl { provider, model_id, control: ModelControl::Effort } if provider == "kimi" && model_id == "kimi-k3")
+        matches!(error, ref error if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::Effort) && error.core().provider == "kimi" && error.core().model_id == "kimi-k3")
     );
 }
 

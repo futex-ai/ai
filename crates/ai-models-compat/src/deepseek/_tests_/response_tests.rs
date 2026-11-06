@@ -1,5 +1,7 @@
 //! DeepSeek normalized text-response tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{Effort, FinishReason, ModelError, ModelUsage};
 use serde_json::json;
 
@@ -48,7 +50,7 @@ fn normalizes_nullable_content_and_rejects_missing_choices() {
     assert_eq!(response.text(), "");
 
     let error = complete(json!({"choices": []})).expect_err("missing choices should fail");
-    assert!(matches!(error, ModelError::Provider { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::InvalidOutput));
 }
 
 #[test]
@@ -59,7 +61,9 @@ fn retains_typed_deserialization_sources_as_internal_errors() {
         json!({"choices": [{"finish_reason": 7, "message": {"content": "Done"}}]}),
     ] {
         let error = complete(malformed).expect_err("malformed typed response should fail");
-        assert!(matches!(error, ModelError::Internal { .. }));
+        assert!(
+            matches!(error, ModelError::Internal { ref core, .. } if core.kind == ErrorKind::InvalidOutput)
+        );
     }
 }
 

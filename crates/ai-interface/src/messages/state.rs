@@ -30,7 +30,7 @@ impl ProviderState {
             return Ok(None);
         }
         if self.version != version || self.version == 0 {
-            return Err(ModelError::provider(
+            return Err(ModelError::invalid_request(
                 provider.as_str(),
                 model_id,
                 "unsupported provider state version",
@@ -38,7 +38,7 @@ impl ProviderState {
         }
         match serde_json::from_value(Value::Object(self.payload.clone())) {
             Ok(payload) => Ok(Some(payload)),
-            Err(_) => Err(ModelError::provider(
+            Err(_) => Err(ModelError::invalid_request(
                 provider.as_str(),
                 model_id,
                 "invalid provider state payload",

@@ -1,7 +1,7 @@
 //! Public indexed model-event tests for Anthropic streams.
 
 use ai_interface::{
-    ConversationMessage, Model, ModelError, ModelRequest, ModelResponseFold, StructuredOutputSchema,
+    ConversationMessage, Model, ModelRequest, ModelResponseFold, StructuredOutputSchema,
 };
 use serde_json::{Value, json};
 
@@ -160,7 +160,10 @@ async fn emits_partial_text_before_an_interruption() {
         .await
         .expect_err("interrupted completion should fail");
 
-    assert!(matches!(error, ModelError::Interrupted { .. }));
+    assert!(matches!(
+        error.core().kind,
+        ai_interface::ErrorKind::Interrupted
+    ));
     assert_eq!(
         serde_json::to_value(first).expect("event should serialize"),
         json!({"TextDelta": {"part_index": 0, "delta": "partial"}})

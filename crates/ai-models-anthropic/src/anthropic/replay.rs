@@ -1,6 +1,7 @@
 //! Private versioned Anthropic block state for exact signed continuations.
 
-use ai_interface::{ModelError, ModelResult, ProviderState};
+use ai_interface::{ErrorKind, ModelError, ModelResult, ProviderState};
+use ai_models_core::ErrorContext;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -73,13 +74,16 @@ impl ReplayMode {
 }
 
 impl AnthropicReplay {
-    pub(super) fn decode(state: &ProviderState, model_id: &str) -> ModelResult<Option<Self>> {
+    pub(super) fn decode(
+        state: &ProviderState,
+        context: &ErrorContext,
+    ) -> ModelResult<Option<Self>> {
         if state.provider != PROVIDER_ID {
             return Ok(None);
         }
         if state.version != 1 {
             return Err(invalid_state(
-                model_id,
+                context,
                 ReplayError::UnsupportedVersion {
                     version: state.version,
                 },
@@ -88,7 +92,7 @@ impl AnthropicReplay {
         match serde_json::from_value(Value::Object(state.payload.clone())) {
             Ok(replay) => Ok(Some(replay)),
             Err(source) => Err(invalid_state(
-                model_id,
+                context,
                 ReplayError::InvalidPayload { source },
             )),
         }
@@ -124,8 +128,8 @@ impl AnthropicAssistantBlock {
     }
 }
 
-fn invalid_state(model_id: &str, source: ReplayError) -> ModelError {
-    ModelError::provider(PROVIDER_ID.as_str(), model_id, source.to_string())
+fn invalid_state(context: &ErrorContext, source: ReplayError) -> ModelError {
+    context.model_error(ErrorKind::InvalidRequest, source.to_string())
 }
 
 #[derive(Debug, Error)]

@@ -1,0 +1,175 @@
+//! Tests for transient retry scheduling.
+
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+
+use ai_interface::test_support::model_response_stream;
+use ai_interface::{
+    ErrorKind, FinishReason, Model, ModelError, ModelGenerationControls, ModelMock, ModelRequest,
+    ModelResponse, ModelToolChoice, ModelUsage,
+};
+use unimock::{MockFn, Unimock, matching};
+
+use crate::{RetryingModel, Sleeper, SleeperMock};
+
+use super::retry_fixtures::{config, full_random};
+
+#[tokio::test]
+async fn retries_transient_failures_using_the_configured_schedule() {
+    let sleeps = Arc::new(Mutex::new(Vec::new()));
+    let retrying = RetryingModel::new(
+        scripted_model(vec![
+            Err(ModelError::transient("openai", "gpt-5.5", "retry 1")),
+            Err(ModelError::transient("openai", "gpt-5.5", "retry 2")),
+            Ok(success_response()),
+        ]),
+        recording_sleeper(sleeps.clone()),
+        full_random(),
+        config(vec![Duration::from_millis(100), Duration::from_millis(250)]),
+    );
+
+    let response = retrying
+        .complete(&empty_request())
+        .await
+        .expect("third attempt should succeed");
+
+    assert_eq!(response.text(), "ok");
+    assert_eq!(
+        *sleeps.lock().expect("sleep lock should not be poisoned"),
+        vec![Duration::from_millis(100), Duration::from_millis(250)]
+    );
+}
+
+#[tokio::test]
+async fn returns_the_last_transient_error_after_exhausting_retries() {
+    let retrying = RetryingModel::new(
+        scripted_model(vec![
+            Err(ModelError::transient("openai", "gpt-5.5", "retry 1")),
+            Err(ModelError::transient("openai", "gpt-5.5", "retry 2")),
+            Err(ModelError::transient("openai", "gpt-5.5", "retry 3")),
+        ]),
+        recording_sleeper(Arc::new(Mutex::new(Vec::new()))),
+        full_random(),
+        config(vec![Duration::from_millis(100), Duration::from_millis(250)]),
+    );
+
+    let error = retrying
+        .complete(&empty_request())
+        .await
+        .expect_err("third transient failure should be returned");
+
+    assert_eq!(error.core().kind, ErrorKind::Transient);
+}
+
+#[tokio::test]
+async fn does_not_retry_an_interrupted_generation() {
+    let retrying = RetryingModel::new(
+        scripted_model(vec![Err(ModelError::interrupted(
+            "openai",
+            "gpt-5.5",
+            "stream ended after output",
+        ))]),
+        Arc::new(Unimock::new(())),
+        Arc::new(Unimock::new(())),
+        config(vec![Duration::from_millis(100), Duration::from_millis(250)]),
+    );
+
+    let error = retrying
+        .complete(&empty_request())
+        .await
+        .expect_err("interrupted generation should be returned immediately");
+
+    assert_eq!(error.core().kind, ErrorKind::Interrupted);
+}
+
+#[tokio::test]
+async fn forwards_call_controls_unchanged() {
+    let model = Arc::new(Unimock::new(
+        ModelMock::stream
+            .next_call(matching!(_))
+            .answers(&|_, request: &ModelRequest| {
+                assert_eq!(
+                    request.controls.generation.tool_choice,
+                    Some(ModelToolChoice::RequiredOrAuto)
+                );
+                Ok(model_response_stream(success_response()))
+            }),
+    ));
+    let retrying = RetryingModel::new(
+        model,
+        Arc::new(Unimock::new(())),
+        Arc::new(Unimock::new(())),
+        config(Vec::new()),
+    );
+    let mut request = empty_request();
+    request.controls.generation = ModelGenerationControls {
+        tool_choice: Some(ModelToolChoice::RequiredOrAuto),
+        ..Default::default()
+    };
+
+    retrying
+        .complete(&request)
+        .await
+        .expect("wrapped model should succeed");
+}
+
+fn scripted_model(
+    responses: Vec<std::result::Result<ModelResponse, ModelError>>,
+) -> Arc<dyn Model> {
+    let responses = Arc::new(Mutex::new(VecDeque::from(responses)));
+    Arc::new(Unimock::new(
+        ModelMock::stream.each_call(matching!(_)).answers_arc({
+            let responses = responses.clone();
+            Arc::new(move |_, _request: &ModelRequest| {
+                responses
+                    .lock()
+                    .expect("responses lock should not be poisoned")
+                    .pop_front()
+                    .expect("unexpected model call")
+                    .map(model_response_stream)
+            })
+        }),
+    ))
+}
+
+fn recording_sleeper(sleeps: Arc<Mutex<Vec<Duration>>>) -> Arc<dyn Sleeper> {
+    Arc::new(Unimock::new(
+        SleeperMock::sleep.each_call(matching!(_)).answers_arc({
+            let sleeps = sleeps.clone();
+            Arc::new(move |_, duration: Duration| {
+                sleeps
+                    .lock()
+                    .expect("sleep lock should not be poisoned")
+                    .push(duration);
+            })
+        }),
+    ))
+}
+
+fn empty_request() -> ModelRequest {
+    ModelRequest {
+        system_prompt: "system".to_owned(),
+        messages: Vec::new(),
+        tools: Vec::new(),
+        response_schema: None,
+        controls: Default::default(),
+    }
+}
+
+fn success_response() -> ModelResponse {
+    ModelResponse {
+        provider: "openai".to_owned(),
+        model_id: "gpt-5.5".to_owned(),
+        catalog_model_id: None,
+        thinking_level: None,
+        parts: vec![ai_interface::ConversationPart::text("ok".to_owned())],
+        finish_reason: FinishReason::Stop,
+        structured_output: None,
+
+        usage: ModelUsage::default(),
+        attempts: Vec::new(),
+    }
+}

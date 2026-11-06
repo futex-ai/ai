@@ -1,6 +1,6 @@
 //! Public completion-event tests for OpenAI Responses streams.
 
-use ai_interface::{ConversationMessage, ModelError, ModelRequest, StructuredOutputSchema};
+use ai_interface::{ConversationMessage, ModelRequest, StructuredOutputSchema};
 use ai_models_core::test_support::collect_model_events;
 use serde_json::{Value, json};
 
@@ -100,7 +100,9 @@ async fn emits_partial_output_before_an_interruption() {
     let (result, events) = collect_model_events(&model, &simple_request()).await;
     let error = result.expect_err("interrupted completion should fail");
 
-    assert!(matches!(error, ModelError::Interrupted { .. }));
+    assert!(
+        matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::Interrupted)
+    );
     assert_eq!(events, vec![assistant_delta(0, "partial")]);
 }
 

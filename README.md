@@ -35,12 +35,25 @@ in-memory tool-calling runtime behavior.
   spec, and typed errors
 - TypeSafe Jev judgment evaluation through a provider-neutral typed boundary
   for condition, choice, and score questions over shared text or JSON state
-- Provider-agnostic stream wrappers for retry, concurrency, and usage pricing,
-  plus structured output validation and stream failure classification
-- Ordered fallback model composition through `ai-models-multi`, with a
-  fallback event for each failed model
+- One error core for every model, image, video, transcription, and judgment
+  error: a precise kind that says whether another model can succeed, the
+  provider, the model, a credential-free message, the provider's
+  retry-after, and its request id
+- Provider-agnostic policy layers in `ai-models-policy`: retry with jitter
+  that honours retry-after and covers rate limits, ordered fallback with a
+  required policy and a fallback event for each failed model, concurrency
+  limits, and usage pricing
+- A provider registry in `ai-models-registry` that builds model, image,
+  video, transcription, and judgment adapters from a spec and one provider
+  config for each provider: base URL, API key or auth hook, extra headers,
+  and timeouts. It combines the catalogs and the stored-message converters
+  of the providers that its Cargo features include
+- Shared adapter helpers in `ai-models-core` for structured output
+  validation and HTTP and stream failure classification
 - Trait-backed buffered and incremental SSE HTTP client support through
-  `json-http`, with connect, idle, and overall timeout controls
+  `json-http`, with connect, idle, and overall timeout controls, response
+  headers on responses, streams, and failures, and typed request bodies
+  serialized straight to bytes
 - In-memory tool-calling runtime through `ai-tool-calling`, including
   universal tool output management with inline envelopes, stored output ids,
   UTF-8-safe windows, and degraded-window fallbacks
@@ -65,16 +78,13 @@ in-memory tool-calling runtime behavior.
   specs, provider ids, text ids, custom specs, effort, the capability check,
   and the generated control matrix.
 - [Chat Completions dialects](docs/protocol/chat-completions-dialects.md)
-  (approved, not implemented) defines the shared Chat Completions engine and
-  the settings of its DeepSeek, Kimi, Qwen, MiniMax, and xAI dialects.
-- [Provider registry](docs/protocol/provider-registry.md) (approved, not
-  implemented) defines provider config, base URLs, auth, headers, timeouts,
-  the adapters that a spec builds, and the converter for stored
-  conversations.
-- [Model policies](docs/protocol/model-policies.md) (approved, not
-  implemented) defines the error core and kinds, retry, fallback policies,
-  concurrency, and pricing. It also holds the error, retry, and fallback
-  rules in force until those layers are implemented.
+  defines the shared Chat Completions engine and the settings of its
+  DeepSeek, Kimi, Qwen, MiniMax, and xAI dialects.
+- [Provider registry](docs/protocol/provider-registry.md) defines provider
+  config, base URLs, auth, headers, timeouts, the adapters that a spec
+  builds, and the converter for stored conversations.
+- [Model policies](docs/protocol/model-policies.md) defines the error core
+  and kinds, retry, fallback policies, concurrency, and pricing.
 - [Agent loop](docs/protocol/agent-loop.md) (approved, not implemented)
   defines turns over a caller-owned conversation, agent events, parallel
   tools, outcomes, observers, and the output reader.
@@ -135,8 +145,9 @@ boundary they need:
   event stream and its fold, conversation parts and provider state, the
   stored message reader, model specs, provider ids, efforts, the combined
   model catalog, and model-visible tool output envelopes
-- `ai-models-core`: reusable stream wrappers, the shared capability check,
-  and provider helper logic
+- `ai-models-core`: the shared capability check, the shared
+  `ProviderConfig`, error classification with response metadata, and
+  provider helper logic
 - `ai-models-anthropic`: Anthropic model adapter
 - `ai-models-compat`: one Chat Completions engine with public `deepseek`,
   `kimi`, `qwen`, `minimax`, and `xai` dialect modules and their model specs
@@ -144,7 +155,11 @@ boundary they need:
   adapter with no catalog model
 - `ai-models-openai`: OpenAI model, transcription, and image adapters
 - `ai-models-typesafe`: TypeSafe Jev judgment adapter and its model specs
-- `ai-models-multi`: ordered fallback model adapter
+- `ai-models-policy`: retry, fallback, concurrency, and pricing layers
+- `ai-models-registry`: `Registry`, which holds one `ProviderConfig` for each
+  provider and builds model, image, video, transcription, and judgment
+  adapters from specs, with the combined catalog, the composed
+  stored-message converter, and typed `BuildError` values
 - `ai-tool-calling`: in-memory tool-calling runtime with output policy, output
   store integration, and the intrinsic `tool_output_read` reader
 - `ai-mcp`: MCP 2025-06-18/2025-03-26 streamable HTTP client and
@@ -154,13 +169,57 @@ boundary they need:
 - `json-http`: typed JSON and multipart HTTP client boundary
 - `xtask`: repository automation invoked with `cargo xtask ...`
 
+### Provider registry
+
+`Registry::new` takes the injected HTTP client. `with_provider` and `insert`
+store one `ProviderConfig` for each provider: its id, an optional base URL,
+an API key or auth hook, extra headers, and optional idle, total, and poll
+timeouts. A new config replaces the earlier config of its provider. `model`,
+`image`, `video`, `transcription`, and `judgment` build an adapter from a
+spec, with the client and the config of its provider. A timeout that the
+config does not set keeps the adapter default. Building sends no request and
+reads no environment variable or secret store.
+
+- Every provider except TypeSafe builds models. OpenAI and Google build
+  image adapters, Google builds video adapters, OpenAI builds transcription
+  adapters, and TypeSafe builds judgment adapters.
+- A build fails with a `BuildError` when no Cargo feature includes the
+  provider, when the provider has no config, or when it has no adapter of
+  that kind.
+- Each provider has one Cargo feature with the name of its provider id. The
+  default features include all nine. The catalog, the builders, and the
+  converter cover only the included providers.
+- The registry adds no policy layer. Compose the layers of
+  `ai-models-policy` around the built model.
+- The per-provider constructors stay until the open constructor
+  default-effort decision is answered. Prefer the registry in new code.
+
+No catalog lists a video model or a transcription model. Build these
+adapters from a custom spec that names the provider model:
+
+```rust
+use ai_interface::{DynVideoGenerator, ModelSpec};
+use ai_models_registry::{BuildResult, Registry};
+
+fn veo(registry: &Registry, model_id: String) -> BuildResult<DynVideoGenerator> {
+    let spec = ModelSpec::custom(
+        ai_models_google::PROVIDER_ID,
+        model_id,
+        &ai_models_google::CUSTOM_DEFAULTS,
+    );
+    registry.video(&spec)
+}
+```
+
 ### Model specs and effort
 
 Each provider crate exports one `ModelSpec` constant for each model, a
 `CATALOG` slice, its `PROVIDER_ID`, and the `CUSTOM_DEFAULTS` of models that
 its catalog does not list. `ModelSpec::custom` builds the spec of such a
-model from those defaults. A host combines catalogs into a `ModelCatalog`,
-resolves `provider/model` text ids when it loads its configuration, and
+model from those defaults. `ai_models_registry::catalog()` and
+`Registry::catalog` combine the catalogs of the included providers into one
+`ModelCatalog`, in alphabetical provider order. A host resolves
+`provider/model` text ids when it loads its configuration, and the registry
 builds each adapter from a spec. A request sets its effort in
 `controls.generation.effort`. The shared capability check lowers an effort
 that the spec does not list to the highest listed effort below it, and never
@@ -171,21 +230,22 @@ request sends the explicit off value of the provider. It fails before
 transport when the provider has none.
 
 ```rust
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use ai_interface::{Effort, ModelCallControls, ModelCatalog};
-use ai_models_anthropic::AnthropicModel;
+use ai_interface::{DynModel, Effort, ModelCallControls, ProviderId};
+use ai_models_registry::{BuildResult, ProviderConfig, Registry};
 use json_http::ReqwestJsonHttpClient;
 
-fn catalog() -> ModelCatalog {
-    ModelCatalog::new()
-        .with_models(ai_models_anthropic::CATALOG.iter().cloned())
-        .with_models(ai_models_openai::CATALOG.iter().cloned())
+fn registry(api_key: &str) -> Registry {
+    let anthropic = ProviderConfig::new(ProviderId::new("anthropic"), api_key)
+        .with_base_url("https://gateway.example.com/anthropic")
+        .with_total_timeout(Duration::from_secs(600));
+    Registry::new(Arc::new(ReqwestJsonHttpClient::new())).with_provider(anthropic)
 }
 
-fn build(catalog: &ModelCatalog, api_key: &str) -> Option<AnthropicModel> {
-    let spec = catalog.find("anthropic/claude-opus-5")?.clone();
-    Some(AnthropicModel::new(Arc::new(ReqwestJsonHttpClient::new()), spec, api_key))
+fn build(registry: &Registry) -> Option<BuildResult<DynModel>> {
+    let spec = registry.catalog().find("anthropic/claude-opus-5")?.clone();
+    Some(registry.model(&spec))
 }
 
 fn max_effort() -> ModelCallControls {
@@ -211,31 +271,18 @@ keeps every part, drops every provider state, and empties the reasoning
 text.
 
 `ConversationMessage` writes stored format version 2. Each provider crate
-exports the converter of its own version 1 replay items. Compose them once,
-and read every stored message through the composition:
+exports the converter of its own version 1 replay items.
+`Registry::converter` composes the converters of the included providers.
+Read every stored message through that composition:
 
 ```rust
-use std::sync::Arc;
-
-use ai_interface::{ConversationMessage, LegacyMessageConverter, StoredMessageError};
+use ai_interface::{ConversationMessage, StoredMessageError};
+use ai_models_registry::Registry;
 use serde_json::Value;
 
-fn converter() -> LegacyMessageConverter {
-    LegacyMessageConverter::new(vec![
-        Arc::new(ai_models_anthropic::AnthropicLegacyConverter),
-        Arc::new(ai_models_openai::OpenAiLegacyConverter),
-        Arc::new(ai_models_google::GoogleLegacyProviderConverter),
-        Arc::new(ai_models_compat::deepseek::LegacyConverter),
-        Arc::new(ai_models_compat::kimi::LegacyConverter),
-        Arc::new(ai_models_compat::qwen::LegacyConverter),
-        Arc::new(ai_models_compat::minimax::LegacyConverter),
-        Arc::new(ai_models_compat::xai::LegacyConverter),
-    ])
-}
-
-fn load(stored: Value) -> Result<ConversationMessage, StoredMessageError> {
+fn load(registry: &Registry, stored: Value) -> Result<ConversationMessage, StoredMessageError> {
     // Reads version 2, and converts version 1 with the provider converters.
-    converter().read(stored)
+    registry.converter().read(stored)
 }
 
 fn save(message: &ConversationMessage) -> serde_json::Result<Value> {
@@ -246,7 +293,10 @@ fn save(message: &ConversationMessage) -> serde_json::Result<Value> {
 Plain `serde` deserialization also reads version 1, but it applies no
 provider conversion. It keeps each old item whole as provider state, in the
 generic part order. Use the composition, which supplies the conversion and
-the part order of each provider.
+the part order of each provider. The composition keeps the items of a
+provider that the registry does not include as provider state. A host
+without the registry can compose `LegacyMessageConverter::new` from the
+converters that the provider crates export.
 
 ## Developer Get Started
 
@@ -269,8 +319,8 @@ The smoke test constructs every provider adapter with placeholder credentials
 and exercises the in-memory tool runtime. It performs no provider requests and
 does not require credentials or network access.
 
-Credentialed live checks for models, images, judgments, and videos make
-billable calls. Those tests stay ignored, so `cargo xtask check` never runs
+Credentialed live checks for models, images, and judgments make billable
+calls. Those tests stay ignored, so `cargo xtask check` never runs
 them. Run their credential-free guards with:
 
 ```sh
@@ -297,13 +347,19 @@ cargo xtask review
   `src/model_event.rs`, `src/model_stream.rs`, the
   `src/model_response_fold/` fold, the `src/messages/` conversation parts,
   provider state, and stored format, and `src/output/` envelope DTOs
-- `crates/ai-models-core`: provider-agnostic model wrappers and helpers,
-  including the shared capability check in `src/capabilities.rs`
+- `crates/ai-models-core`: provider-agnostic adapter helpers, including the
+  shared capability check in `src/capabilities.rs`, the per-call error
+  context in `src/error_context.rs`, and the shared `ProviderConfig` in
+  `src/provider_config.rs`
+- `crates/ai-models-policy`: retry, fallback, concurrency, and pricing
+  layers
+- `crates/ai-models-registry`: the `Registry` builders, the feature-selected
+  combined catalog and converter, and `BuildError`
 - `crates/ai-models-compat`: shared request mapping, streaming, response,
   usage, and errors, with DeepSeek, Kimi, Qwen, MiniMax, and xAI dialects
 - `crates/ai-models-typesafe`: TypeSafe Jev catalog, judgment request/response
   mapping, validation, usage, authentication, and provider-error translation
-- `crates/ai-models-*`: concrete provider and fallback adapters. Each
+- `crates/ai-models-*`: concrete provider adapters. Each
   provider crate keeps its provider id, model specs, and custom defaults in
   a `catalog.rs`
 - `crates/ai-tool-calling`: in-memory tool-calling runtime, including
@@ -336,8 +392,8 @@ cargo xtask review
   the policy layers on the stream
 - `docs/protocol/conversation-parts.md`: implemented conversation parts,
   provider state, stored format, version 1 converter, and log copy contract
-- `docs/protocol/model-policies.md`: approved error and policy contract,
-  with the error, retry, and fallback rules in force today
+- `docs/protocol/model-policies.md`: implemented error core, error kinds,
+  retry, fallback, concurrency, and pricing contract
 - `docs/protocol/deepseek-model-provider.md`: normative DeepSeek V4 provider
   contract
 - `docs/protocol/kimi-model-provider.md`: normative Kimi K3 provider contract

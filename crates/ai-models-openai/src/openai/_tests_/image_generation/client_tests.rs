@@ -6,9 +6,7 @@ use std::{
     time::Duration,
 };
 
-use ai_interface::{
-    ImageGenerationError, ImageGenerationInputImage, ImageGenerationRequest, ImageGenerator,
-};
+use ai_interface::{ErrorKind, ImageGenerationInputImage, ImageGenerationRequest, ImageGenerator};
 use json_http::{
     JsonHttpBody, JsonHttpClient, JsonHttpMultipartField, JsonHttpRequest, JsonHttpResponse,
     JsonHttpTransportMock, TransportBackedJsonHttpClient,
@@ -76,7 +74,10 @@ async fn client_uses_injected_transport_auth_timeout_and_endpoints() {
     let generation = requests[0]
         .body
         .as_ref()
-        .and_then(JsonHttpBody::as_json)
+        .and_then(JsonHttpBody::as_json_bytes)
+        .map(|bytes| {
+            serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+        })
         .expect("generation body should be JSON");
     assert_eq!(generation["model"], "gpt-image-2");
     assert_eq!(generation["prompt"], "A blue circle");
@@ -107,6 +108,7 @@ async fn client_uses_injected_transport_auth_timeout_and_endpoints() {
 #[tokio::test]
 async fn client_classifies_injected_status_and_transport_failures() {
     let (http_client, _) = recording_http_client(VecDeque::from([JsonHttpResponse {
+        headers: Default::default(),
         status: 429,
         body: json!({"error": {"message": "slow down"}}),
     }]));
@@ -118,7 +120,7 @@ async fn client_classifies_injected_status_and_transport_failures() {
         .await
         .unwrap_err();
     assert!(
-        matches!(error, ImageGenerationError::RateLimited { message, .. } if message == "slow down")
+        matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::RateLimited && (error.core().message == "slow down"))
     );
 
     let transport = Arc::new(Unimock::new(
@@ -138,7 +140,7 @@ async fn client_classifies_injected_status_and_transport_failures() {
     .await
     .unwrap_err();
     assert!(
-        matches!(error, ImageGenerationError::TransientProvider { message, .. } if message.contains("offline"))
+        matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::Transient && (error.core().message.contains("offline")))
     );
 }
 
@@ -176,6 +178,7 @@ fn recording_http_client(
 
 fn successful_response() -> JsonHttpResponse<serde_json::Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "data": [{"b64_json": "iVBORw0KGgo="}],
@@ -192,4 +195,32 @@ fn assert_text_field(fields: &[JsonHttpMultipartField], name: &str, expected: &[
     assert_eq!(field.bytes, expected);
     assert_eq!(field.filename, None);
     assert_eq!(field.content_type, None);
+}
+
+#[tokio::test]
+async fn final_redirect_bodies_never_become_generated_or_edited_images() {
+    for edit in [false, true] {
+        for status in [300, 302, 307, 308] {
+            let mut response = successful_response();
+            response.status = status;
+            let (http, _) = recording_http_client(VecDeque::from([response]));
+            let generator = OpenAiImageGenerator::new(http, "gpt-image-2", "placeholder-key");
+            let mut request = ImageGenerationRequest {
+                prompt: "A blue circle".to_owned(),
+                ..Default::default()
+            };
+            if edit {
+                request.input_images.push(ImageGenerationInputImage {
+                    data: vec![1],
+                    mime_type: "image/png".to_owned(),
+                });
+            }
+            let result = generator.generate(&request).await;
+            assert_eq!(
+                result.as_ref().err().map(|error| error.core().kind),
+                Some(ErrorKind::InvalidOutput),
+                "status {status}, edit {edit}"
+            );
+        }
+    }
 }

@@ -1,9 +1,10 @@
 //! OpenAI image generation response mapping.
 
 use ai_interface::{
-    GeneratedImage, ImageGenerationError, ImageGenerationResponse, ImageGenerationResult,
-    ModelUsage,
+    ErrorKind, GeneratedImage, ImageGenerationError, ImageGenerationResponse,
+    ImageGenerationResult, ModelUsage,
 };
+use ai_models_core::ErrorContext;
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::Deserialize;
 use serde_json::Value;
@@ -42,29 +43,51 @@ enum ResponseError {
 }
 
 pub(super) fn parse_response(
+    context: &ErrorContext,
     model_id: &str,
     body: Value,
 ) -> ImageGenerationResult<ImageGenerationResponse> {
     let response = match serde_json::from_value::<OpenAiImagesResponse>(body) {
         Ok(response) => response,
-        Err(source) => return Err(ImageGenerationError::internal(source)),
+        Err(source) => {
+            return Err(ImageGenerationError::with_source(
+                context.core(ErrorKind::InvalidOutput, "invalid provider image response"),
+                context.source(source),
+            ));
+        }
     };
     let Some(item) = response.data.and_then(|items| items.into_iter().next()) else {
-        return Err(ImageGenerationError::no_image(PROVIDER, model_id));
+        return Err(ImageGenerationError::NoImage {
+            core: Box::new(context.core(ErrorKind::InvalidOutput, "no image returned")),
+        });
     };
     let Some(encoded) = item.b64_json else {
-        return Err(ImageGenerationError::no_image(PROVIDER, model_id));
+        return Err(ImageGenerationError::NoImage {
+            core: Box::new(context.core(ErrorKind::InvalidOutput, "no image returned")),
+        });
     };
     let data = match STANDARD.decode(encoded) {
         Ok(data) => data,
-        Err(source) => return Err(ImageGenerationError::internal(source)),
+        Err(source) => {
+            return Err(ImageGenerationError::with_source(
+                context.core(ErrorKind::InvalidOutput, "invalid provider image response"),
+                context.source(source),
+            ));
+        }
     };
     if data.is_empty() {
-        return Err(ImageGenerationError::no_image(PROVIDER, model_id));
+        return Err(ImageGenerationError::NoImage {
+            core: Box::new(context.core(ErrorKind::InvalidOutput, "no image returned")),
+        });
     }
     let mime_type = match image_mime_type(response.output_format.as_deref(), &data) {
         Ok(mime_type) => mime_type,
-        Err(source) => return Err(ImageGenerationError::internal(source)),
+        Err(source) => {
+            return Err(ImageGenerationError::with_source(
+                context.core(ErrorKind::InvalidOutput, "invalid provider image response"),
+                context.source(source),
+            ));
+        }
     };
     let usage = normalize_usage(response.usage.unwrap_or_default());
     Ok(ImageGenerationResponse {

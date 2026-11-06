@@ -2,4 +2,5 @@
 
 mod mcp;
 mod pagination;
+mod providers;
 pub(crate) mod runner;

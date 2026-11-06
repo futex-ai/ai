@@ -105,21 +105,18 @@ credentialed workflow.
 ### Rejecting Providers
 
 Anthropic, OpenAI, xAI, Kimi, and Qwen have no documented video-input wire
-contract. Their request mappers return a typed model-boundary error before
-transport when any message contains a video part:
-
-```
-ModelError::Provider { provider, model_id,
-    message: "<Provider> accepts text and image content parts only" }
-```
+contract. Their request mappers fail before transport when any message
+contains a video part. The error has the unsupported input kind, the
+provider and model id of the adapter, and the message
+"<Provider> accepts text and image content parts only".
 
 DeepSeek keeps its existing stricter rule: every image or video part is
 rejected with "DeepSeek accepts plain text messages only". DeepSeek accepts
 text parts.
 
-Rejection is a `ModelError::Provider` value, so `ai-models-multi` fallback
-chains skip past a non-video model to the next candidate, and retry wrappers
-do not retry it. No provider silently drops or transforms a video part.
+Rejection has the unsupported input kind, so both fallback presets move past
+a non-video model to the next candidate, and the retry layer does not retry
+it. No provider silently drops or transforms a video part.
 
 ## Identity Hashing
 

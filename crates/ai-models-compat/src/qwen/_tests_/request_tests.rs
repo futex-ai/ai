@@ -1,5 +1,7 @@
 //! Qwen request, multimodal, tool, replay, and structured-output tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{
     ConversationMessage, ConversationPart, ConversationRole, Effort, ModelError, ModelRequest,
     StructuredOutputSchema, ToolCall, ToolDefinition,
@@ -81,7 +83,7 @@ fn serializes_plus_and_flash_images_as_data_urls() {
 fn rejects_max_images_and_non_user_content_parts() {
     let max_error = build_request(QWEN_3_7_MAX_ID, Effort::High, &request_with_user_parts())
         .expect_err("Max image input should fail");
-    assert!(matches!(max_error, ModelError::Provider { .. }));
+    assert!(matches!(max_error.core().kind, ErrorKind::UnsupportedInput));
 
     let request = ModelRequest {
         system_prompt: "system".to_owned(),
@@ -99,7 +101,7 @@ fn rejects_max_images_and_non_user_content_parts() {
     };
     let role_error = build_request(QWEN_3_7_PLUS_ID, Effort::High, &request)
         .expect_err("assistant content parts should fail");
-    assert!(matches!(role_error, ModelError::Provider { .. }));
+    assert!(matches!(role_error.core().kind, ErrorKind::InvalidRequest));
 }
 
 #[test]
@@ -206,18 +208,13 @@ fn rejects_video_parts_with_typed_provider_error() {
         let error = request_json(tested_model, Effort::Disabled, &request)
             .expect_err("video parts must be rejected");
 
-        match error {
-            ModelError::Provider {
-                provider,
-                model_id,
-                message,
-            } => {
-                assert_eq!(provider, "qwen");
-                assert_eq!(model_id, tested_model);
-                assert_eq!(message, "Qwen accepts text and image content parts only");
-            }
-            other => panic!("unexpected error: {other:?}"),
-        }
+        assert_eq!(error.core().kind, ErrorKind::UnsupportedInput);
+        assert_eq!(error.core().provider, "qwen");
+        assert_eq!(error.core().model_id, tested_model);
+        assert_eq!(
+            error.core().message,
+            "Qwen accepts text and image content parts only"
+        );
     }
 }
 

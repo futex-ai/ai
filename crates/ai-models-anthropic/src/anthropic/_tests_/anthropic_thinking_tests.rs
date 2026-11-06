@@ -14,6 +14,7 @@ use super::AnthropicModel;
 #[tokio::test]
 async fn builds_anthropic_thinking_variant_requests_and_ignores_hidden_blocks() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "stop_reason": "end_turn",
@@ -46,7 +47,15 @@ async fn builds_anthropic_thinking_variant_requests_and_ignores_hidden_blocks() 
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["model"], "claude-opus-4-7");
     assert_eq!(body["thinking"]["type"], "adaptive");
     assert_eq!(body["thinking"]["display"], "omitted");
@@ -64,6 +73,7 @@ async fn builds_anthropic_thinking_variant_requests_and_ignores_hidden_blocks() 
 #[tokio::test]
 async fn downgrades_max_to_sonnet_high() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "stop_reason": "end_turn",
@@ -87,7 +97,15 @@ async fn downgrades_max_to_sonnet_high() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["output_config"]["effort"], "high");
     assert_eq!(response.effort().map(Effort::as_str), Some("high"));
 }

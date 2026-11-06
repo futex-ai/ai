@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use ai_interface::{ConversationMessage, ConversationPart, ConversationRole, ModelResult};
+use ai_models_core::ErrorContext;
 
 use super::{
     request_types::{
@@ -12,8 +13,8 @@ use super::{
 };
 
 pub(super) fn google_contents(
+    context: &ErrorContext,
     messages: &[ConversationMessage],
-    model_id: &str,
 ) -> ModelResult<Vec<GoogleContent>> {
     let mut output = Vec::new();
     let mut sent_ids = BTreeMap::new();
@@ -22,7 +23,7 @@ pub(super) fn google_contents(
             .parts
             .iter()
             .map(|part| match part.provider_state() {
-                Some(state) => GooglePartState::decode(state, model_id),
+                Some(state) => GooglePartState::decode(state, context),
                 None => Ok(None),
             })
             .collect::<ModelResult<Vec<_>>>()?;

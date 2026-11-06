@@ -1,11 +1,6 @@
 # Chat Completions Dialects Protocol
 
-Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
-
-When implemented, this protocol governs the shared Chat Completions engine.
-The "Stream" and "Response rules" sections are in force. Until Milestone 8,
-their kinds stand for the current errors that
-[model policies](model-policies.md#rules-in-force-until-milestone-8) gives.
+Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
 This protocol defines the engine that serves the Chat Completions providers,
 the settings of a dialect, and the xAI dialect. The provider docs of
@@ -90,10 +85,14 @@ the dialect, with the auth of the dialect.
 - An end of stream before the terminal event is a stream failure under the
   progress rule.
 - A chunk with a standard `error` object is a provider error event.
-- Before progress, the error code gives the kind. Rate-limit codes give
-  rate limited, context-limit codes give context limit exceeded, server and
-  overload codes give transient, and other codes give invalid request.
+- Before progress, provider error events follow the
+  [shared error kinds rule](model-policies.md#error-kinds).
 - After progress, a provider error event has the interrupted kind.
+- Exception: DeepSeek's `insufficient_system_resource` finish reason keeps
+  the transient kind after progress, as the
+  [DeepSeek error contract](deepseek-responses.md#error-contract) says.
+- The xAI deferred timeout exception also follows the
+  [shared error kinds rule](model-policies.md#error-kinds).
 - The [model stream protocol](model-stream.md) defines the progress rule,
   the event order, and the checks before the usage event.
 

@@ -58,7 +58,9 @@ async fn auth_endpoint_timeout_and_unlisted_model_are_passed_through() {
         requests[0]
             .body
             .as_ref()
-            .and_then(JsonHttpBody::as_json)
+            .and_then(JsonHttpBody::as_json_bytes)
+            .map(|bytes| serde_json::from_slice::<serde_json::Value>(bytes)
+                .expect("valid JSON request body"))
             .expect("request body should be JSON")["model"],
         "jev-1.14.2"
     );

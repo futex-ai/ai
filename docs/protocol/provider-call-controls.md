@@ -13,8 +13,12 @@ lifecycles inside their owning `ai-models-*` adapters.
 - `ai-interface` owns the typed portable contract, model specs, and errors.
 - `ai-models-core` owns the shared capability check. It validates each
   control against the model spec and applies the fixed values of the spec.
+- `ai-models-policy` owns the retry, fallback, concurrency, and pricing
+  layers.
 - Each provider crate owns the model specs of its provider. Each adapter
   owns native field names, endpoint selection, and request lifecycle.
+- `ai-models-registry` holds one provider config for each provider and
+  builds each chat adapter from a spec.
 - `json-http` carries overall and idle timeouts plus a typed body but never
   inspects provider payloads.
 
@@ -55,8 +59,8 @@ Completion mode is one of:
 - `Synchronous`: use the adapter's ordinary immediate lifecycle;
 - `PreferDeferred`: use a native deferred lifecycle when the adapter supports
   one, otherwise use its ordinary immediate lifecycle;
-- `RequireDeferred`: require a deferred lifecycle or return
-  `ModelError::UnsupportedControl`.
+- `RequireDeferred`: require a deferred lifecycle or fail with the
+  `UnsupportedControl` kind.
 
 All fields default to absence and `Synchronous`. An entirely default controls
 object is omitted when `ModelRequest` is serialized. A request without an
@@ -66,8 +70,9 @@ when the spec has no default effort.
 `total_timeout` is the total duration available to one adapter invocation. A
 streaming immediate adapter uses it as the overall stream deadline without
 changing its idle timeout. A deferred adapter applies it across submission,
-sleeps, and every retrieval attempt. Retry wrappers remain separate calls and
-may apply their own overall policy.
+sleeps, and every retrieval attempt. Each attempt of the retry layer is a
+separate adapter invocation with the full total timeout, as
+[model policies](model-policies.md#retry) says.
 
 An explicit output limit composes with the max output of the model spec by
 using the smaller value. Ordered stop sequences retain caller order.
@@ -80,9 +85,10 @@ resolved effort drives provider serialization.
 
 ## Error And Fixed-Value Contract
 
-If a provider cannot honor explicit caller intent, the adapter returns
-`ModelError::UnsupportedControl` with the provider, model id, and typed
-`ModelControl`. It must fail before transport.
+If a provider cannot honor explicit caller intent, the adapter returns an
+error of the `UnsupportedControl` kind. The kind holds the typed
+`ModelControl`, and the error core holds the provider and the model id. It
+must fail before transport.
 
 A provider-fixed control may be deliberately ignored only where the provider
 defines the value rather than caller intent. The fixed behavior must appear in
@@ -91,7 +97,12 @@ final-request regression test. This exception applies to sampling on
 reasoning models that require native sampling defaults; it does not permit
 silently dropping unsupported stops, limits, or forced tool choices.
 
-Each chat adapter holds one model spec. `new`, `with_auth`, and
+Each chat adapter holds one model spec. The
+[provider registry](provider-registry.md) builds each chat adapter from a
+spec and the provider config of its provider. The registry is the preferred
+way to build a chat adapter. Until the user answers the
+[open constructor default-effort decision](../../plans/follow-ups/constructor-default-effort.md),
+each adapter also keeps its constructors. `new`, `with_auth`, and
 `with_catalog_auth` take the spec, except that the DeepSeek, Kimi, and Qwen
 `new` and `with_auth` build the default spec of their provider. The spec
 carries the sampling rule of its model, so a model with adaptive thinking
@@ -99,7 +110,7 @@ omits a caller temperature unless thinking is off. A model that no catalog
 lists uses a [custom spec](model-capabilities.md#custom-specs).
 
 Malformed provider responses, terminal provider failures, and transport
-failures retain the existing typed `ModelError` classification.
+failures take their kinds from [model policies](model-policies.md#error-kinds).
 
 ## Provider Matrix
 
@@ -152,16 +163,18 @@ When deferred completion is selected, the XAI adapter:
 2. parses and validates the accepted `request_id` before path construction;
 3. polls the deferred-completion endpoint using the same id and fresh
    authenticated request builders;
-4. treats `202`, `429`, transient transport failures, and `5xx` retrieval
-   responses as retryable retrieval states;
+4. treats `202`, `429`, and `5xx` retrieval responses, and every network
+   failure that the HTTP component reports for any transport, as retryable
+   retrieval states;
 5. never converts a retrieval retry into another completion submission;
 6. bounds each poll by the smaller of the remaining total duration and the
    adapter's per-poll timeout;
 7. on `200`, maps the completed Chat Completions body to every event of the
    call, as the [model stream protocol](model-stream.md#deadlines) says;
-8. surfaces other terminal responses through existing typed status
-   classification and reports deadline exhaustion as a transient provider
-   timeout.
+8. maps every other terminal response to its kind, as
+   [model policies](model-policies.md#error-kinds) says, and reports the end
+   of the total timeout after xAI accepted the job with the transient kind,
+   as the xAI exception of that protocol says.
 
 Polling uses injected clock and sleeper traits in tests. Tests cover success,
 pending, rate limiting, transport and server retries, terminal failure,
@@ -169,10 +182,12 @@ malformed ids, total timeout, auth on every request, and one submission.
 
 ## Wrapper Contract
 
-Retry, concurrency, pricing, multi/fallback, structured-output, mocks, and
-tool-calling code pass the complete `ModelRequest` unchanged. Logger copies may
-redact private provider replay context but must retain controls. Wrappers do
-not reinterpret generation or execution controls.
+The retry, fallback, concurrency, and pricing layers follow the
+[composition rules of model policies](model-policies.md#composition).
+Structured-output checks, mocks, and tool-calling code also pass the complete
+`ModelRequest` unchanged. Logger copies may redact private provider replay
+context but must retain controls. Wrappers do not reinterpret generation or
+execution controls.
 
 ## Firna Migration
 

@@ -1,9 +1,10 @@
 //! OpenAI image generation request mapping.
 
 use ai_interface::{
-    ImageGenerationAspect, ImageGenerationError, ImageGenerationInputImage, ImageGenerationQuality,
-    ImageGenerationRequest, ImageGenerationResult,
+    ErrorKind, ImageGenerationAspect, ImageGenerationError, ImageGenerationInputImage,
+    ImageGenerationQuality, ImageGenerationRequest, ImageGenerationResult,
 };
+use ai_models_core::ErrorContext;
 use serde::Serialize;
 
 #[derive(Debug)]
@@ -31,14 +32,17 @@ pub(super) struct OpenAiEditRequest {
 }
 
 pub(super) fn build_request(
+    context: &ErrorContext,
     model_id: &str,
     request: &ImageGenerationRequest,
 ) -> ImageGenerationResult<OpenAiImageApiRequest> {
     if request.prompt.trim().is_empty() {
-        return Err(ImageGenerationError::EmptyPrompt);
+        return Err(ImageGenerationError::EmptyPrompt {
+            core: Box::new(context.core(ErrorKind::InvalidRequest, "prompt must not be empty")),
+        });
     }
     for image in &request.input_images {
-        validate_media_type(&image.mime_type)?;
+        validate_media_type(context, &image.mime_type)?;
     }
     let model = model_id.to_owned();
     let prompt = request.prompt.clone();
@@ -71,10 +75,16 @@ pub(super) fn media_type_extension(content_type: &str) -> &'static str {
     }
 }
 
-fn validate_media_type(content_type: &str) -> ImageGenerationResult<()> {
+fn validate_media_type(context: &ErrorContext, content_type: &str) -> ImageGenerationResult<()> {
     match content_type {
         "image/png" | "image/jpeg" | "image/webp" => Ok(()),
-        _ => Err(ImageGenerationError::unsupported_media_type(content_type)),
+        _ => Err(ImageGenerationError::UnsupportedMediaType {
+            core: Box::new(context.core(
+                ErrorKind::UnsupportedInput,
+                format!("unsupported media type `{content_type}`"),
+            )),
+            content_type: context.redact(content_type),
+        }),
     }
 }
 

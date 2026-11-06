@@ -1,7 +1,9 @@
 //! Credential-free exchange recording and ordered transport replay.
 
 mod failure;
+mod headers;
 mod log;
+mod optional_headers;
 mod recording;
 mod redaction;
 mod replay;
@@ -18,8 +20,14 @@ pub use types::{
 };
 
 #[cfg(test)]
+#[path = "_tests_/headers_tests.rs"]
+mod headers_tests;
+#[cfg(test)]
 #[path = "_tests_/recording_tests.rs"]
 mod recording_tests;
 #[cfg(test)]
 #[path = "_tests_/replay_tests.rs"]
 mod replay_tests;
+#[cfg(test)]
+#[path = "_tests_/response_context_tests.rs"]
+mod response_context_tests;

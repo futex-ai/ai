@@ -1,12 +1,19 @@
 //! Google image generation transport client.
 
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
     ImageGenerationRequest, ImageGenerationResponse, ImageGenerationResult, ImageGenerator,
+    ModelSpec,
 };
+use ai_models_core::{ApiKeyScheme, Clock, ProviderConfig, SuccessfulResponse, SystemClock};
 use async_trait::async_trait;
-use json_http::{DynJsonHttpAuth, DynJsonHttpClient, StaticHeaderAuth};
+use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
+
+use crate::{
+    PROVIDER_ID,
+    google::{GOOGLE_API_BASE_URL, error_context},
+};
 
 use super::{
     error::{classify_request_error, classify_status},
@@ -14,8 +21,6 @@ use super::{
     response::parse_response,
 };
 
-const GOOGLE_GENERATE_CONTENT_URL_PREFIX: &str =
-    "https://generativelanguage.googleapis.com/v1/models";
 const DEFAULT_IMAGE_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Google-backed `ai_interface::ImageGenerator` implementation.
@@ -23,25 +28,32 @@ const DEFAULT_IMAGE_TIMEOUT: Duration = Duration::from_secs(120);
 pub struct GoogleImageGenerator {
     http_client: DynJsonHttpClient,
     model_id: String,
-    auth: DynJsonHttpAuth,
+    config: ProviderConfig,
     endpoint_override: Option<String>,
     pub(super) timeout: Duration,
+    clock: Arc<dyn Clock>,
 }
 
 impl GoogleImageGenerator {
+    /// Builds a Google image generator from shared provider settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self::with_config(http_client, spec.provider_model_id.into_owned(), config)
+    }
+
     /// Builds a Google image generator from an injected client and explicit API key.
     pub fn new(
         http_client: DynJsonHttpClient,
         model_id: impl Into<String>,
         api_key: impl Into<String>,
     ) -> Self {
-        Self::with_auth(
+        Self::with_config(
             http_client,
-            model_id,
-            Arc::new(StaticHeaderAuth::new(BTreeMap::from([(
-                "x-goog-api-key".to_owned(),
-                api_key.into(),
-            )]))),
+            model_id.into(),
+            ProviderConfig::new(PROVIDER_ID, api_key),
         )
     }
 
@@ -51,13 +63,35 @@ impl GoogleImageGenerator {
         model_id: impl Into<String>,
         auth: DynJsonHttpAuth,
     ) -> Self {
+        Self::with_config(
+            http_client,
+            model_id.into(),
+            ProviderConfig::with_auth(PROVIDER_ID, auth),
+        )
+    }
+
+    fn with_config(
+        http_client: DynJsonHttpClient,
+        model_id: String,
+        config: ProviderConfig,
+    ) -> Self {
         Self {
             http_client,
-            model_id: model_id.into(),
-            auth,
+            model_id,
             endpoint_override: None,
-            timeout: DEFAULT_IMAGE_TIMEOUT,
+            timeout: config
+                .timeouts
+                .total_timeout
+                .unwrap_or(DEFAULT_IMAGE_TIMEOUT),
+            clock: Arc::new(SystemClock),
+            config,
         }
+    }
+
+    /// Uses an injected wall clock for response retry dates.
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
+        self
     }
 
     /// Overrides the generated provider endpoint.
@@ -74,9 +108,9 @@ impl GoogleImageGenerator {
 
     pub(super) fn endpoint(&self) -> String {
         self.endpoint_override.clone().unwrap_or_else(|| {
-            format!(
-                "{GOOGLE_GENERATE_CONTENT_URL_PREFIX}/{}:generateContent",
-                self.model_id
+            self.config.endpoint(
+                GOOGLE_API_BASE_URL,
+                &format!("/v1/models/{}:generateContent", self.model_id),
             )
         })
     }
@@ -88,28 +122,42 @@ impl ImageGenerator for GoogleImageGenerator {
         &self,
         request: &ImageGenerationRequest,
     ) -> ImageGenerationResult<ImageGenerationResponse> {
-        let body = build_request(request)?;
+        let context = error_context::new(&self.model_id, self.clock.clone());
+        self.config.capture_secrets(&context);
+        let body = build_request(&context, request)?;
         let request = match self
-            .http_client
-            .post(&self.endpoint())
-            .auth(self.auth.clone())
-            .timeout(self.timeout)
+            .config
+            .apply_headers(
+                self.http_client
+                    .post(&self.endpoint())
+                    .auth(
+                        context
+                            .capture_auth(self.config.auth(ApiKeyScheme::Header("x-goog-api-key"))),
+                    )
+                    .timeout(self.timeout),
+                &self.endpoint(),
+            )
             .json(body)
         {
             Ok(request) => request,
-            Err(source) => return Err(classify_request_error(source, &self.model_id)),
+            Err(source) => return Err(classify_request_error(&context, source)),
         };
         let response = match request.send_value().await {
             Ok(response) => response,
-            Err(source) => return Err(classify_request_error(source, &self.model_id)),
+            Err(source) => return Err(classify_request_error(&context, source)),
         };
-        if response.status >= 400 {
-            return Err(classify_status(
-                response.status,
-                &self.model_id,
-                &response.body,
-            ));
-        }
-        parse_response(&self.model_id, response.body)
+        let response = match SuccessfulResponse::check(response.status, response) {
+            Ok(response) => response.into_inner(),
+            Err(response) => {
+                return Err(classify_status(
+                    &context,
+                    response.status,
+                    &response.headers,
+                    &response.body,
+                ));
+            }
+        };
+        let context = context.for_response(&response.headers);
+        parse_response(&context, &response.headers, &self.model_id, response.body)
     }
 }

@@ -21,10 +21,10 @@ impl JudgmentRequest {
     /// Validates state and question structure without provider access.
     pub fn validate(&self) -> JudgmentResult<()> {
         if state_is_empty(&self.state) {
-            return Err(JudgmentError::EmptyState);
+            return Err(JudgmentError::empty_state());
         }
         if self.questions.is_empty() {
-            return Err(JudgmentError::NoQuestions);
+            return Err(JudgmentError::no_questions());
         }
         for (id, question) in &self.questions {
             if id.trim().is_empty() {

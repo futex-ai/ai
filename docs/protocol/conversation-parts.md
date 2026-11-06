@@ -2,13 +2,8 @@
 
 Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
 
-The registry rules of the converter apply when the
-[provider registry](provider-registry.md) is implemented. Until then, a
-host composes the converter from the conversions that the provider crates
-export. Until Milestone 8, each error kind of this protocol stands for a
-current model error, as
-[model policies](model-policies.md#rules-in-force-until-milestone-8) says.
-Every other rule of this protocol is in force.
+The [provider registry](provider-registry.md) exposes the composed converter.
+[Model policies](model-policies.md#error-kinds) defines the error kinds.
 
 This protocol defines messages, conversation parts, provider state, the
 replay and skip rules of adapters, the stored message format, the converter

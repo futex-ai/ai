@@ -42,7 +42,7 @@ impl ImageGenerator for MockImageGenerator {
         request: &ImageGenerationRequest,
     ) -> ImageGenerationResult<ImageGenerationResponse> {
         if request.prompt.trim().is_empty() {
-            return Err(ImageGenerationError::EmptyPrompt);
+            return Err(ImageGenerationError::empty_prompt("mock", "mock-image"));
         }
         Ok(ImageGenerationResponse {
             provider: "mock".to_owned(),

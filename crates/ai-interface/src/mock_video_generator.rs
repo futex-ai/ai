@@ -44,7 +44,7 @@ impl VideoGenerator for MockVideoGenerator {
         request: &VideoGenerationRequest,
     ) -> VideoGenerationResult<VideoGenerationResponse> {
         if request.prompt.trim().is_empty() {
-            return Err(VideoGenerationError::EmptyPrompt);
+            return Err(VideoGenerationError::empty_prompt("mock", "mock-video"));
         }
         let mut video = self.video.clone();
         video.duration_seconds = request.duration.seconds();

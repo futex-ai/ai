@@ -2,8 +2,10 @@
 
 use std::fmt;
 
-use internal_error::InternalError;
+use internal_error::{DefinedAt, InternalError};
 use thiserror::Error;
+
+use crate::{ErrorCore, ErrorKind, SafeErrorSource};
 
 use super::{JudgmentAnswerProblem, JudgmentJsonType};
 
@@ -40,145 +42,130 @@ impl fmt::Display for JudgmentQuestionProblem {
 }
 
 /// Errors returned by judgment request validation and providers.
-#[derive(Debug, Error, internal_error::ErrorContract)]
+#[derive(Error)]
 pub enum JudgmentError {
     /// Content used a scalar JSON kind outside the judgment contract.
     #[error(
         "[ai_interface/judgment] unsupported {json_type:?} content; use text, an object, or an array"
     )]
     UnsupportedContent {
+        /// Shared failure details.
+        core: Box<ErrorCore>,
         /// Unsupported JSON scalar kind.
         json_type: JudgmentJsonType,
     },
     /// Request state was blank or structurally empty.
     #[error("[ai_interface/judgment] state must not be empty")]
-    EmptyState,
+    EmptyState {
+        /// Shared failure details.
+        core: Box<ErrorCore>,
+    },
     /// A request did not contain any questions.
     #[error("[ai_interface/judgment] at least one question is required")]
-    NoQuestions,
+    NoQuestions {
+        /// Shared failure details.
+        core: Box<ErrorCore>,
+    },
     /// A question failed local validation.
     #[error("[ai_interface/judgment] invalid question `{id}`: {problem}")]
     InvalidQuestion {
+        /// Shared failure details.
+        core: Box<ErrorCore>,
         /// Caller-provided question id.
         id: String,
         /// Specific validation problem.
         problem: JudgmentQuestionProblem,
     },
     /// A provider answer failed shared response postconditions.
-    #[error(
-        "[ai_interface/judgment] invalid answer `{id}` from `{provider}` model `{model_id}`: {problem}"
-    )]
+    #[error("[ai_interface/judgment] invalid answer `{id}` from `{provider}` model `{model_id}`: {problem}", provider = core.provider, model_id = core.model_id)]
     InvalidAnswer {
-        /// Provider that returned the answer.
-        provider: String,
-        /// Configured provider model identifier.
-        model_id: String,
+        /// Shared failure details.
+        core: Box<ErrorCore>,
         /// Caller-provided question id.
         id: String,
         /// Specific answer postcondition failure.
         problem: JudgmentAnswerProblem,
     },
-    /// The provider rejected the request due to a rate limit.
-    #[error(
-        "[ai_interface/judgment] provider rate limit for `{provider}` model `{model_id}`: {message}"
-    )]
-    RateLimited {
-        /// Provider that returned the rate limit.
-        provider: String,
-        /// Configured provider model identifier.
-        model_id: String,
-        /// Provider-supplied failure details.
-        message: String,
+    /// A classified provider or adapter failure.
+    #[error("[ai_interface/judgment] {kind:?} for `{provider}` model `{model_id}`: {message}", kind = core.kind, provider = core.provider, model_id = core.model_id, message = core.message)]
+    Failure {
+        /// Shared failure details.
+        core: Box<ErrorCore>,
     },
-    /// The provider returned a transient failure that may succeed later.
-    #[error(
-        "[ai_interface/judgment] transient provider failure for `{provider}` model `{model_id}`: {message}"
-    )]
-    TransientProvider {
-        /// Provider that returned the transient failure.
-        provider: String,
-        /// Configured provider model identifier.
-        model_id: String,
-        /// Provider-supplied failure details.
-        message: String,
+    /// A classified failure with tracked definition and caller locations.
+    #[error("[ai_interface/judgment] {kind:?} for `{provider}` model `{model_id}`: {message}", kind = core.kind, provider = core.provider, model_id = core.model_id, message = core.message)]
+    Internal {
+        /// Shared failure details.
+        core: Box<ErrorCore>,
+        /// Original source and its tracked locations.
+        source: InternalError,
     },
-    /// The provider returned a non-retryable failure.
-    #[error(
-        "[ai_interface/judgment] provider failure for `{provider}` model `{model_id}`: {message}"
-    )]
-    Provider {
-        /// Provider that returned the failure.
-        provider: String,
-        /// Configured provider model identifier.
-        model_id: String,
-        /// Provider-supplied failure details.
-        message: String,
-    },
-    /// Unhandled judgment-boundary failure.
-    #[error("[ai_interface/judgment] internal error")]
-    Internal(#[from] InternalError),
+}
+
+impl fmt::Debug for JudgmentError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("JudgmentError")
+            .field("core", self.core())
+            .finish()
+    }
 }
 
 impl JudgmentError {
-    /// Builds an invalid-question error.
+    /// Builds a question-validation error before an adapter is selected.
     pub fn invalid_question(id: impl Into<String>, problem: JudgmentQuestionProblem) -> Self {
+        let id = id.into();
         Self::InvalidQuestion {
-            id: id.into(),
+            core: Box::new(ErrorCore::local(
+                ErrorKind::InvalidRequest,
+                "judgment-validation",
+                format!("invalid question `{id}`: {problem}"),
+            )),
+            id,
             problem,
         }
     }
 
-    /// Builds an invalid-answer error.
+    /// Builds an invalid-answer error with its typed problem and adapter identity.
     pub fn invalid_answer(
         provider: impl Into<String>,
         model_id: impl Into<String>,
         id: impl Into<String>,
         problem: JudgmentAnswerProblem,
     ) -> Self {
+        let id = id.into();
         Self::InvalidAnswer {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            id: id.into(),
+            core: Box::new(ErrorCore::new(
+                ErrorKind::InvalidOutput,
+                provider,
+                model_id,
+                format!("invalid answer `{id}`: {problem}"),
+            )),
+            id,
             problem,
         }
     }
 
-    /// Builds a rate-limited provider error.
-    pub fn rate_limited(
+    /// Wraps an internal failure without losing its source or caller location.
+    #[track_caller]
+    pub fn internal(
         provider: impl Into<String>,
         model_id: impl Into<String>,
-        message: impl Into<String>,
+        source: SafeErrorSource,
     ) -> Self {
-        Self::RateLimited {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            message: message.into(),
-        }
+        Self::with_source(
+            ErrorCore::new(ErrorKind::Internal, provider, model_id, "internal error"),
+            source,
+        )
     }
 
-    /// Builds a transient provider error.
-    pub fn transient_provider(
-        provider: impl Into<String>,
-        model_id: impl Into<String>,
-        message: impl Into<String>,
-    ) -> Self {
-        Self::TransientProvider {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            message: message.into(),
-        }
-    }
-
-    /// Builds a non-retryable provider error.
-    pub fn provider(
-        provider: impl Into<String>,
-        model_id: impl Into<String>,
-        message: impl Into<String>,
-    ) -> Self {
-        Self::Provider {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            message: message.into(),
+    /// Retains a source and its tracked locations with an explicit failure category.
+    #[track_caller]
+    pub fn with_source(core: ErrorCore, source: SafeErrorSource) -> Self {
+        const DEFINED_AT: DefinedAt = DefinedAt::new(module_path!(), file!(), line!(), column!());
+        Self::Internal {
+            core: Box::new(core),
+            source: InternalError::from_source(DEFINED_AT, source),
         }
     }
 }

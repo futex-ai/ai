@@ -13,9 +13,8 @@ Implemented. The
 [completed MiniMax model provider plan](../../plans/minimax-model-provider.md)
 records the implementation and verification milestones.
 
-Once implemented, the
-[Chat Completions dialects protocol](chat-completions-dialects.md) governs the
-shared engine that serves this provider.
+The [Chat Completions dialects protocol](chat-completions-dialects.md) governs
+the shared engine that serves this provider.
 
 ## Ownership
 
@@ -26,7 +25,8 @@ shared engine that serves this provider.
   transport dispatch, the private MiniMax replay state and its version 1
   conversion, provider error handling, and response normalization.
 - `ai-models-core` continues to own provider-agnostic HTTP classification,
-  the capability check, structured-output validation, and pricing wrappers.
+  the capability check, and structured-output validation. `ai-models-policy`
+  owns the pricing layer.
 - Composition roots own credential lookup, retry/concurrency/pricing wrappers,
   route ordering, and selection of a model spec.
 
@@ -37,21 +37,26 @@ resolve secrets.
 
 The V1 adapter uses:
 
-- Endpoint: `POST https://api.minimax.io/v1/chat/completions`
+- Default endpoint: `POST https://api.minimax.io/v1/chat/completions`
 - Authentication: `Authorization: Bearer <api-key>`
 - Content type: `application/json`
 - Response mode: SSE, mapped to model events as the
   [model stream protocol](model-stream.md) defines
 - Provider identifier: `minimax`
 
-`MiniMaxModel::new` accepts an injected `DynJsonHttpClient`, a model spec,
-and an API key. `MiniMaxModel::with_auth` and `with_catalog_auth` accept the
-client, a model spec, and an injected `DynJsonHttpAuth`. The request carries
-the effort.
+The [provider registry](provider-registry.md) builds the model from a spec
+and the provider config of `minimax`. The registry is the preferred way to
+build the model. Until the user answers the
+[open constructor default-effort decision](../../plans/follow-ups/constructor-default-effort.md),
+the model also keeps its constructors. `MiniMaxModel::new` accepts an
+injected `DynJsonHttpClient`, a model spec, and an API key.
+`MiniMaxModel::with_auth` and `with_catalog_auth` accept the client, a model
+spec, and an injected `DynJsonHttpAuth`. The request carries the effort.
 
-The international endpoint is the V1 boundary. The China-region endpoint,
-custom endpoint overrides, server-side tools, and the MiniMax Responses and
-Anthropic-compatible APIs are out of scope.
+The international endpoint is the default. A provider config can set
+another base URL, as the [provider registry](provider-registry.md#base-url)
+says. The China-region endpoint, server-side tools, and the MiniMax
+Responses and Anthropic-compatible APIs are out of scope.
 
 ## Known Model Specs
 
@@ -123,8 +128,12 @@ and `auto`. MiniMax-M3 additionally maps strict `Required` and
 strict rejection for `Required`, while `RequiredOrAuto` preserves tools and
 maps to `auto`. Named-function choices and nonempty stop sequences return typed
 `UnsupportedControl` before transport. The specs carry these rules as spec
-data, and the shared capability check applies them. A total timeout replaces
-the default 3,600-second overall SSE deadline; the idle timeout is 120 seconds.
+data, and the shared capability check applies them. The default overall SSE
+deadline is 3,600 seconds, and the default idle timeout is 120 seconds.
+A provider config can replace these defaults, as the
+[provider registry](provider-registry.md#timeouts) says. An explicit portable
+total timeout replaces the overall deadline of that call, also when the
+provider config sets one.
 `PreferDeferred` falls back to synchronous,
 and `RequireDeferred` is unsupported.
 

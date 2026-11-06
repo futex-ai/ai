@@ -87,6 +87,7 @@ async fn writes_all_success_scenarios_and_preserves_errors_without_retries_or_se
                 requests.push(request.clone());
                 if requests.len() == 1 {
                     return Err(Error::HttpStatus {
+                        headers: Default::default(),
                         status: 429,
                         body: json!({"error": {"message": KEY}}),
                     });
@@ -174,6 +175,7 @@ async fn writes_all_success_scenarios_and_preserves_errors_without_retries_or_se
     assert_eq!(
         writes[0].2.exchanges[0].response,
         RecordedResponse::Json {
+            headers: Default::default(),
             status: 429,
             body: json!({"error": {"message": "[redacted]"}})
         }

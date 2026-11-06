@@ -1,6 +1,8 @@
 //! TypeSafe judgment usage normalization tests.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
+
+use ai_models_core::{ErrorContext, SystemClock};
 
 use ai_interface::{
     JudgmentQuestion, JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage,
@@ -99,5 +101,10 @@ fn body_with_usage(usage: Option<Value>) -> Value {
 
 fn parse_value(body: Value) -> JudgmentResult<JudgmentResponse> {
     let body = serde_json::to_vec(&body).expect("response fixture should serialize");
-    parse_response("jev-latest", &request(), &body)
+    parse_response(
+        &ErrorContext::new("typesafe", "jev-latest", &[], Arc::new(SystemClock)),
+        "jev-latest",
+        &request(),
+        &body,
+    )
 }

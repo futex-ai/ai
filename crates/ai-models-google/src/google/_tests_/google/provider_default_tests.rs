@@ -2,9 +2,9 @@
 
 use std::sync::Arc;
 
-use ai_interface::{Effort, Model, ModelControl, ModelError, ModelSpec};
-use json_http::TransportBackedJsonHttpClient;
-use serde_json::json;
+use ai_interface::{Effort, ErrorKind, Model, ModelControl, ModelSpec};
+use json_http::{JsonHttpBody, TransportBackedJsonHttpClient};
+use serde_json::{Value, json};
 use unimock::Unimock;
 
 use crate::{CUSTOM_DEFAULTS, GEMINI_3_5_FLASH_LITE, GoogleModel, PROVIDER_ID};
@@ -30,7 +30,8 @@ async fn provider_default_omits_thinking_and_reports_no_effort() {
         assert_eq!(response.effort(), None);
         let requests = requests.lock().unwrap();
         assert_eq!(
-            requests[0].body.as_ref().unwrap()["generationConfig"].get("thinkingConfig"),
+            request_body(requests[0].body.as_ref().unwrap())["generationConfig"]
+                .get("thinkingConfig"),
             None
         );
     }
@@ -46,8 +47,9 @@ async fn flash_lite_rejects_explicit_off_before_transport() {
     request.controls.generation.effort = Some(Effort::Disabled);
     let result = model.complete(&request).await;
     assert!(matches!(result,
-        Err(ModelError::UnsupportedControl { provider, model_id, control: ModelControl::Effort })
-        if provider == "google" && model_id == "gemini-3.5-flash-lite"
+        Err(ref error)
+        if error.core().kind == ErrorKind::UnsupportedControl(ModelControl::Effort)
+            && error.core().provider == "google" && error.core().model_id == "gemini-3.5-flash-lite"
     ));
 }
 
@@ -62,8 +64,13 @@ async fn explicit_off_sends_zero_budget_for_custom_flash_2_5() {
     request.controls.generation.effort = Some(Effort::Disabled);
     let response = model.complete(&request).await.unwrap();
     assert_eq!(
-        requests.lock().unwrap()[0].body.as_ref().unwrap()["generationConfig"]["thinkingConfig"],
+        request_body(requests.lock().unwrap()[0].body.as_ref().unwrap())["generationConfig"]["thinkingConfig"],
         json!({"thinkingBudget": 0})
     );
     assert_eq!(response.effort(), Some(Effort::Disabled));
+}
+
+fn request_body(body: &JsonHttpBody) -> Value {
+    serde_json::from_slice(body.as_json_bytes().expect("JSON request body"))
+        .expect("valid JSON request body")
 }

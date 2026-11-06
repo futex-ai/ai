@@ -1,6 +1,6 @@
 //! Direct mapping from typed stream state without terminal JSON serialization.
 
-use ai_interface::{ModelError, ModelResponse, ModelResult, StructuredOutputSchema};
+use ai_interface::{ErrorKind, ModelError, ModelResponse, ModelResult, StructuredOutputSchema};
 
 use crate::{ChatCompletionsResponse, ChatCompletionsToolFunction};
 
@@ -19,12 +19,19 @@ pub(crate) fn parse_accumulated(
         Ok(usage) => usage,
         Err(source) => {
             return Err(match context.dialect.replay {
-                ReplayRule::Xai => ModelError::provider(
-                    context.dialect.provider,
-                    context.provider_model_id,
-                    format!("invalid xAI response: {source}"),
+                ReplayRule::Xai => ModelError::with_source(
+                    context.error.core(
+                        ErrorKind::InvalidOutput,
+                        format!("invalid xAI response: {source}"),
+                    ),
+                    context.error.source(source),
                 ),
-                _ => ModelError::internal(source),
+                _ => ModelError::with_source(
+                    context
+                        .error
+                        .core(ErrorKind::InvalidOutput, "invalid provider response"),
+                    context.error.source(source),
+                ),
             });
         }
     };

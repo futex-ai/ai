@@ -1,7 +1,7 @@
 //! Google Gemini request and continuation mapping.
 
 use ai_interface::{ModelRequest, ModelResult, ToolDefinition};
-use ai_models_core::ResolvedModelControls;
+use ai_models_core::{ErrorContext, ResolvedModelControls};
 
 use super::{
     contents::{google_contents, text_part},
@@ -14,18 +14,21 @@ use super::{
 };
 
 pub(super) fn build_request(
+    context: &ErrorContext,
     model_id: &str,
     request: &ModelRequest,
     controls: &ResolvedModelControls,
 ) -> ModelResult<GoogleRequest> {
-    request.validate_messages("google", model_id)?;
+    if let Err(error) = request.validate_messages("google", model_id) {
+        return Err(context.apply_model_error(error));
+    }
     Ok(GoogleRequest {
         system_instruction: request
             .nonblank_system_prompt()
             .map(|text| GoogleInstruction {
                 parts: vec![text_part(text)],
             }),
-        contents: google_contents(&request.messages, model_id)?,
+        contents: google_contents(context, &request.messages)?,
         tools: if request.tools.is_empty() {
             Vec::new()
         } else {

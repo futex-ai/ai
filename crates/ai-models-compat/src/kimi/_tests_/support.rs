@@ -31,6 +31,7 @@ pub(super) fn transport_failure_http_client(message: &'static str) -> Arc<dyn Js
 
 pub(super) fn successful_response(content: Option<&str>) -> JsonHttpResponse<Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{

@@ -17,10 +17,11 @@ expression: outcome
         }
       ],
       "error": {
-        "variant": "Interrupted",
+        "kind": "Interrupted",
         "provider": "deepseek",
         "model_id": "deepseek-v4-pro",
-        "message": "[json_http/error] SSE transport failed after 1 events: builder error"
+        "message": "[json_http/error] SSE transport failed after 1 events: builder error",
+        "attempts": []
       }
     }
   ],

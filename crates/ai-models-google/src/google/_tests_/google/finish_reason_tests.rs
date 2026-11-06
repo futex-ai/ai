@@ -62,6 +62,7 @@ async fn maps_google_finish_reasons() {
 
     for (raw_reason, expected, include_tool) in cases {
         let (http_client, _) = recording_http_client(JsonHttpResponse {
+            headers: Default::default(),
             status: 200,
             body: google_response_body(Some(raw_reason), include_tool),
         });
@@ -81,7 +82,11 @@ async fn maps_missing_google_finish_reason_with_tool_calls() {
     let request = simple_request();
     let mut body = google_response_body(None, true);
     body["promptFeedback"] = json!({"blockReason": "SAFETY"});
-    let (http_client, _) = recording_http_client(JsonHttpResponse { status: 200, body });
+    let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
+        status: 200,
+        body,
+    });
     let model = GoogleModel::new(http_client, custom_spec("gemini-2.5-pro"), "google-key");
     let response = model
         .complete(&request)
@@ -96,7 +101,11 @@ async fn maps_missing_google_finish_reason_without_tool_calls_to_other() {
     let request = simple_request();
     let mut body = google_response_body(None, false);
     body["promptFeedback"] = json!({"blockReason": "SAFETY"});
-    let (http_client, _) = recording_http_client(JsonHttpResponse { status: 200, body });
+    let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
+        status: 200,
+        body,
+    });
     let model = GoogleModel::new(http_client, custom_spec("gemini-2.5-pro"), "google-key");
     let response = model
         .complete(&request)
@@ -112,6 +121,7 @@ async fn maps_missing_google_finish_reason_without_tool_calls_to_other() {
 #[tokio::test]
 async fn google_filtered_candidates_without_content_still_surface_finish_reason() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "candidates": [{
@@ -133,6 +143,7 @@ async fn google_filtered_candidates_without_content_still_surface_finish_reason(
 #[tokio::test]
 async fn google_terminal_finish_with_function_call_suppresses_tool_calls() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "candidates": [{
@@ -163,6 +174,7 @@ async fn google_terminal_finish_with_function_call_suppresses_tool_calls() {
 #[tokio::test]
 async fn google_prompt_block_without_candidates_surfaces_filtered_finish_reason() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "candidates": [],

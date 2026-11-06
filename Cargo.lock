@@ -106,6 +106,7 @@ dependencies = [
  "ai-models-core",
  "async-trait",
  "json-http",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror",
@@ -119,8 +120,10 @@ version = "0.3.0"
 dependencies = [
  "ai-interface",
  "async-trait",
+ "httpdate",
  "json-http",
  "jsonschema",
+ "reqwest",
  "serde_json",
  "thiserror",
  "tokio",
@@ -141,17 +144,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "unimock",
-]
-
-[[package]]
-name = "ai-models-multi"
-version = "0.3.0"
-dependencies = [
- "ai-interface",
- "async-trait",
- "thiserror",
- "tokio",
- "unimock",
+ "url",
 ]
 
 [[package]]
@@ -162,9 +155,41 @@ dependencies = [
  "ai-models-core",
  "async-trait",
  "base64 0.23.1",
+ "http",
  "json-http",
  "reqwest",
  "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "unimock",
+]
+
+[[package]]
+name = "ai-models-policy"
+version = "0.3.0"
+dependencies = [
+ "ai-interface",
+ "async-trait",
+ "rand",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "unimock",
+]
+
+[[package]]
+name = "ai-models-registry"
+version = "0.3.0"
+dependencies = [
+ "ai-interface",
+ "ai-models-anthropic",
+ "ai-models-compat",
+ "ai-models-core",
+ "ai-models-google",
+ "ai-models-openai",
+ "ai-models-typesafe",
+ "json-http",
  "serde_json",
  "thiserror",
  "tokio",
@@ -192,10 +217,9 @@ version = "0.3.0"
 dependencies = [
  "ai-interface",
  "ai-models-anthropic",
- "ai-models-compat",
- "ai-models-core",
  "ai-models-google",
  "ai-models-openai",
+ "ai-models-registry",
  "async-trait",
  "insta",
  "internal-error",
@@ -1191,6 +1215,7 @@ dependencies = [
  "base64 0.23.1",
  "reqwest",
  "serde",
+ "serde-transcode",
  "serde_json",
  "thiserror",
  "tokio",
@@ -1949,6 +1974,15 @@ checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
 dependencies = [
  "serde_core",
  "serde_derive",
+]
+
+[[package]]
+name = "serde-transcode"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "590c0e25c2a5bb6e85bf5c1bce768ceb86b316e7a01bdf07d2cb4ec2271990e2"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -2765,6 +2799,8 @@ dependencies = [
  "ai-models-core",
  "ai-models-google",
  "ai-models-openai",
+ "ai-models-policy",
+ "ai-models-registry",
  "ai-models-typesafe",
  "ai-testkit",
  "ai-tool-calling",

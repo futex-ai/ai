@@ -2,16 +2,18 @@
 
 use std::collections::BTreeMap;
 
-use ai_interface::{ModelError, ModelEvent, ModelResult};
-use ai_models_core::parse_tool_call_arguments;
+use ai_interface::{ErrorKind, ModelEvent, ModelResult};
+use ai_models_core::{ErrorContext, parse_tool_call_arguments};
 
 use crate::openai::replay_state::{FunctionCallState, ReplayState};
 use crate::openai::response::types::ResponsesOutputItem;
 
+use super::replay::encode_state;
 use super::types::{ItemKey, ItemLocation};
 
 #[derive(Debug)]
 struct ToolPart {
+    context: ErrorContext,
     model_id: String,
     call_id: String,
     name: String,
@@ -29,15 +31,17 @@ struct PendingArguments {
 
 #[derive(Debug)]
 pub(super) struct ToolParts {
+    context: ErrorContext,
     model_id: String,
     parts: BTreeMap<usize, ToolPart>,
     pending: BTreeMap<ItemKey, PendingArguments>,
 }
 
 impl ToolParts {
-    pub(super) fn new(model_id: &str) -> Self {
+    pub(super) fn new(model_id: &str, context: ErrorContext) -> Self {
         Self {
             model_id: model_id.to_owned(),
+            context,
             parts: BTreeMap::new(),
             pending: BTreeMap::new(),
         }
@@ -70,6 +74,7 @@ impl ToolParts {
                 operation_id: None,
             });
             ToolPart {
+                context: self.context.clone(),
                 model_id: self.model_id.clone(),
                 call_id: call_id.clone(),
                 name: name.clone(),
@@ -167,16 +172,15 @@ impl ToolParts {
         Ok(())
     }
 
-    pub(super) fn validate(&self, model_id: &str) -> ModelResult<()> {
+    pub(super) fn validate(&self) -> ModelResult<()> {
         if self.parts.is_empty() {
-            return Err(ModelError::provider(
-                "openai",
-                model_id,
+            return Err(self.context.model_error(
+                ErrorKind::InvalidOutput,
                 "tool_calls finish had no complete tool call",
             ));
         }
         for part in self.parts.values() {
-            parse_tool_call_arguments("openai", model_id, &part.arguments)?;
+            parse_tool_call_arguments(&self.context, &part.arguments)?;
         }
         Ok(())
     }
@@ -210,8 +214,8 @@ impl ToolPart {
             self.ended = true;
             events.push(ModelEvent::ToolCallEnd {
                 part_index: self.part_index,
-                provider_state: Some(
-                    ReplayState::FunctionCall(FunctionCallState {
+                provider_state: Some(encode_state(
+                    &ReplayState::FunctionCall(FunctionCallState {
                         id: self.item_id.clone(),
                         call_id: self.call_id.clone(),
                         name: self.name.clone(),
@@ -220,9 +224,10 @@ impl ToolPart {
                         } else {
                             arguments.to_owned()
                         },
-                    })
-                    .encode(&self.model_id)?,
-                ),
+                    }),
+                    &self.context,
+                    &self.model_id,
+                )?),
             });
         }
         Ok(())

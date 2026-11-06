@@ -1,15 +1,14 @@
 //! Anonymous fragments retain their text and the native replay-item order.
 
-use ai_interface::{
-    ConversationPart, Effort, ModelError, ModelResponseFold, StructuredOutputSchema,
-};
+use crate::openai::stream_support::error_context;
+use ai_interface::{ConversationPart, Effort, ModelResponseFold, StructuredOutputSchema};
 use serde_json::json;
 
 use super::{state::OpenAiStreamState, types::OpenAiStreamEvent};
 
 #[test]
 fn anonymous_text_waits_for_terminal_replay_item_order() {
-    let mut state = OpenAiStreamState::new("gpt-5.5");
+    let mut state = OpenAiStreamState::new("gpt-5.5", error_context("gpt-5.5"));
     let first = state
         .push(
             serde_json::from_value::<OpenAiStreamEvent>(
@@ -36,7 +35,7 @@ fn anonymous_text_waits_for_terminal_replay_item_order() {
 
 #[test]
 fn anonymous_fragments_survive_terminal_output_validation_errors() {
-    let mut state = OpenAiStreamState::new("gpt-5.5");
+    let mut state = OpenAiStreamState::new("gpt-5.5", error_context("gpt-5.5"));
     state
         .push(
             serde_json::from_value(json!({"type":"response.output_text.delta","delta":"{"}))
@@ -44,7 +43,9 @@ fn anonymous_fragments_survive_terminal_output_validation_errors() {
         )
         .unwrap();
     let error = state.complete("openai/gpt-5.5","gpt-5.5",Some(Effort::Disabled),serde_json::from_value(json!({"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"{"}]}]})).unwrap(),Some(&StructuredOutputSchema { name:"answer".to_owned(),schema:json!({"type":"object"}) }));
-    assert!(matches!(error, Err(ModelError::Provider { .. })));
+    assert!(
+        matches!(error, Err(ref error) if error.core().kind == ai_interface::ErrorKind::InvalidOutput)
+    );
     let pending = state
         .flush_anonymous()
         .unwrap()

@@ -6,19 +6,21 @@ use std::{
 };
 
 use ai_interface::{ConversationPart, FinishReason, ModelResponse, ModelSpec, ModelUsage};
+use ai_models_core::ErrorContext;
 use json_http::{
-    DynJsonHttpSseStream, JsonHttpClient, JsonHttpRequest, JsonHttpSseEvent, JsonHttpSseStreamMock,
-    JsonHttpTransportMock, TransportBackedJsonHttpClient,
+    DynJsonHttpSseStream, JsonHttpClient, JsonHttpHeaders, JsonHttpRequest, JsonHttpSseEvent,
+    JsonHttpSseStreamMock, JsonHttpTransportMock, TransportBackedJsonHttpClient,
 };
 use serde_json::Value;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::google::error_context::new;
 use crate::{CUSTOM_DEFAULTS, PROVIDER_ID};
 
 pub(super) type RecordedRequests = Arc<Mutex<Vec<JsonHttpRequest>>>;
 pub(super) type StreamItem = json_http::Result<Option<JsonHttpSseEvent>>;
 
-pub(super) fn custom_spec(model_id: &'static str) -> ModelSpec {
+pub(in crate::google) fn custom_spec(model_id: &'static str) -> ModelSpec {
     ModelSpec::custom(PROVIDER_ID, model_id, &CUSTOM_DEFAULTS)
 }
 
@@ -62,7 +64,10 @@ pub(super) fn event(data: Value) -> StreamItem {
 
 fn mock_stream(items: Vec<StreamItem>) -> DynJsonHttpSseStream {
     let items = Arc::new(Mutex::new(VecDeque::from(items)));
-    Box::new(Unimock::new(
+    Box::new(Unimock::new((
+        JsonHttpSseStreamMock::headers
+            .each_call(matching!())
+            .returns(JsonHttpHeaders::new()),
         JsonHttpSseStreamMock::next
             .each_call(matching!())
             .answers_arc(Arc::new(move |_| {
@@ -72,7 +77,7 @@ fn mock_stream(items: Vec<StreamItem>) -> DynJsonHttpSseStream {
                     .pop_front()
                     .unwrap_or(Ok(None))
             })),
-    ))
+    )))
 }
 
 pub(super) fn expected_response(
@@ -95,4 +100,8 @@ pub(super) fn expected_response(
         usage,
         attempts: Vec::new(),
     }
+}
+
+pub(in crate::google) fn error_context(model: &str) -> ErrorContext {
+    new(model, Arc::new(Unimock::new(())))
 }

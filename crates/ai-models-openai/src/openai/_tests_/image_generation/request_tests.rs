@@ -1,5 +1,7 @@
 //! OpenAI image request mapping tests.
 
+use crate::openai::stream_support::error_context;
+
 use ai_interface::{
     ImageGenerationAspect, ImageGenerationError, ImageGenerationInputImage, ImageGenerationQuality,
     ImageGenerationRequest,
@@ -17,7 +19,7 @@ fn text_to_image_maps_to_one_json_generation() {
         ..ImageGenerationRequest::default()
     };
 
-    let mapped = build_request("gpt-image-2", &request).unwrap();
+    let mapped = build_request(&error_context("gpt-image-2"), "gpt-image-2", &request).unwrap();
 
     let OpenAiImageApiRequest::Generation(body) = mapped else {
         panic!("text-to-image should select generation JSON");
@@ -52,7 +54,7 @@ fn input_images_select_multipart_edit_mapping() {
         quality: ImageGenerationQuality::Medium,
     };
 
-    let mapped = build_request("gpt-image-2", &request).unwrap();
+    let mapped = build_request(&error_context("gpt-image-2"), "gpt-image-2", &request).unwrap();
 
     let OpenAiImageApiRequest::Edit(body) = mapped else {
         panic!("input images should select multipart editing");
@@ -95,6 +97,7 @@ fn aspect_and_quality_values_map_exhaustively() {
 
     for (aspect, quality, size, expected_quality) in cases {
         let mapped = build_request(
+            &error_context("gpt-image-2"),
             "gpt-image-2",
             &ImageGenerationRequest {
                 prompt: "test".to_owned(),
@@ -115,11 +118,16 @@ fn aspect_and_quality_values_map_exhaustively() {
 #[test]
 fn invalid_local_inputs_are_rejected_before_transport() {
     assert!(matches!(
-        build_request("gpt-image-2", &ImageGenerationRequest::default()),
-        Err(ImageGenerationError::EmptyPrompt)
+        build_request(
+            &error_context("gpt-image-2"),
+            "gpt-image-2",
+            &ImageGenerationRequest::default()
+        ),
+        Err(ImageGenerationError::EmptyPrompt { ref core }) if core.kind == ai_interface::ErrorKind::InvalidRequest
     ));
 
     let error = build_request(
+        &error_context("gpt-image-2"),
         "gpt-image-2",
         &ImageGenerationRequest {
             prompt: "edit".to_owned(),
@@ -133,8 +141,8 @@ fn invalid_local_inputs_are_rejected_before_transport() {
     .unwrap_err();
     assert!(matches!(
         error,
-        ImageGenerationError::UnsupportedMediaType { content_type }
-            if content_type == "image/tiff"
+        ImageGenerationError::UnsupportedMediaType { content_type, core }
+            if content_type == "image/tiff" && core.kind == ai_interface::ErrorKind::UnsupportedInput
     ));
 }
 
@@ -142,6 +150,7 @@ fn invalid_local_inputs_are_rejected_before_transport() {
 fn common_edit_media_types_are_supported() {
     for mime_type in ["image/png", "image/jpeg", "image/webp"] {
         let mapped = build_request(
+            &error_context("gpt-image-2"),
             "gpt-image-2",
             &ImageGenerationRequest {
                 prompt: "edit".to_owned(),

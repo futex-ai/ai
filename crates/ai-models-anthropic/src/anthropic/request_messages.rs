@@ -1,8 +1,9 @@
 //! Ordered conversation parts and private Anthropic continuation mapping.
 
 use ai_interface::{
-    ConversationMessage, ConversationPart, ConversationRole, ModelError, ModelResult,
+    ConversationMessage, ConversationPart, ConversationRole, ErrorKind, ModelResult,
 };
+use ai_models_core::ErrorContext;
 
 use super::{
     replay::{AnthropicAssistantBlock, AnthropicReplay, ReplayMode, ReplayScope},
@@ -12,17 +13,20 @@ use super::{
 const PROVIDER: &str = "anthropic";
 
 pub(super) fn anthropic_messages(
+    context: &ErrorContext,
     model_id: &str,
     messages: &[ConversationMessage],
 ) -> ModelResult<Vec<AnthropicMessage>> {
     let mut output = Vec::new();
     for message in messages {
-        message.validate(PROVIDER, model_id)?;
+        if let Err(error) = message.validate(PROVIDER, model_id) {
+            return Err(context.apply_model_error(error));
+        }
         let replay = message
             .parts
             .iter()
             .map(|part| match part.provider_state() {
-                Some(state) => AnthropicReplay::decode(state, model_id),
+                Some(state) => AnthropicReplay::decode(state, context),
                 None => Ok(None),
             })
             .collect::<ModelResult<Vec<_>>>()?;
@@ -72,7 +76,7 @@ pub(super) fn anthropic_messages(
         {
             normalized_assistant(message, replay)
         } else {
-            ordered_blocks(model_id, message, replay)?
+            ordered_blocks(context, message, replay)?
         };
         let role = match message.role {
             ConversationRole::Assistant => "assistant",
@@ -126,7 +130,7 @@ fn normalized_assistant(
 }
 
 fn ordered_blocks(
-    model_id: &str,
+    context: &ErrorContext,
     message: &ConversationMessage,
     replay: Vec<Option<AnthropicReplay>>,
 ) -> ModelResult<Vec<AnthropicBlock>> {
@@ -154,9 +158,8 @@ fn ordered_blocks(
                 });
             }
             ConversationPart::Video { .. } => {
-                return Err(ModelError::provider(
-                    PROVIDER,
-                    model_id,
+                return Err(context.model_error(
+                    ErrorKind::UnsupportedInput,
                     "Anthropic accepts text and image content parts only",
                 ));
             }

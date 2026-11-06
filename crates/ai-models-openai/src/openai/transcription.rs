@@ -1,39 +1,111 @@
-//! OpenAI audio transcription client.
+//! OpenAI transcription with injected transport and preserved response parsing.
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use ai_interface::{
-    AudioTranscriber, AudioTranscriptionRequest, AudioTranscriptionResponse, TranscriptionError,
-    TranscriptionResult,
+    AudioTranscriber, AudioTranscriptionRequest, AudioTranscriptionResponse, ErrorKind, ModelSpec,
+    TranscriptionError, TranscriptionResult,
+};
+use ai_models_core::{
+    ApiKeyScheme, Clock, ErrorContext, ProviderConfig, SuccessfulResponse, SystemClock,
+    json_http_error_core,
 };
 use async_trait::async_trait;
-use reqwest::{Client, StatusCode, multipart};
+use json_http::{
+    DynJsonHttpClient, JsonHttpHeaders, JsonHttpMultipartField, ReqwestJsonHttpClient,
+};
+use reqwest::{StatusCode, multipart};
 use serde::Deserialize;
+use serde_json::Value;
 
-const OPENAI_AUDIO_TRANSCRIPTIONS_URL: &str = "https://api.openai.com/v1/audio/transcriptions";
+use crate::{CUSTOM_DEFAULTS, PROVIDER_ID};
+
+use super::error_context;
+
+const OPENAI_BASE_URL: &str = "https://api.openai.com";
 const DEFAULT_TRANSCRIPTION_TIMEOUT: Duration = Duration::from_secs(60);
-const PROVIDER: &str = "openai";
 
 /// OpenAI-backed `ai_interface::AudioTranscriber` implementation.
 #[derive(Clone)]
 pub struct OpenAiAudioTranscriber {
-    client: Client,
+    http_client: DynJsonHttpClient,
+    config: ProviderConfig,
     model_id: String,
-    api_key: String,
     endpoint: String,
     timeout: Duration,
+    clock: Arc<dyn Clock>,
 }
 
 impl OpenAiAudioTranscriber {
+    /// Builds an OpenAI transcriber from shared provider settings.
+    pub fn from_config(
+        http_client: DynJsonHttpClient,
+        spec: ModelSpec,
+        config: ProviderConfig,
+    ) -> Self {
+        Self {
+            http_client,
+            model_id: spec.provider_model_id.into_owned(),
+            endpoint: config.endpoint(OPENAI_BASE_URL, "/v1/audio/transcriptions"),
+            timeout: config
+                .timeouts
+                .total_timeout
+                .unwrap_or(DEFAULT_TRANSCRIPTION_TIMEOUT),
+            config,
+            clock: Arc::new(SystemClock),
+        }
+    }
+
     /// Builds an OpenAI audio transcriber from an explicit API key.
     pub fn new(model_id: impl Into<String>, api_key: impl Into<String>) -> Self {
-        Self {
-            client: Client::new(),
-            model_id: model_id.into(),
-            api_key: api_key.into(),
-            endpoint: OPENAI_AUDIO_TRANSCRIPTIONS_URL.to_owned(),
-            timeout: DEFAULT_TRANSCRIPTION_TIMEOUT,
+        Self::from_config(
+            Arc::new(ReqwestJsonHttpClient::new()),
+            ModelSpec::custom(PROVIDER_ID, model_id.into(), &CUSTOM_DEFAULTS),
+            ProviderConfig::new(PROVIDER_ID, api_key),
+        )
+    }
+
+    /// Uses an injected wall clock for response retry dates.
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
+        self
+    }
+
+    fn context(&self) -> ErrorContext {
+        let context = error_context::new(&self.model_id, self.clock.clone());
+        self.config.capture_secrets(&context);
+        context
+    }
+
+    async fn read_response(
+        &self,
+        context: &ErrorContext,
+        response: reqwest::Response,
+    ) -> TranscriptionResult<AudioTranscriptionResponse> {
+        let headers = JsonHttpHeaders::from(response.headers().clone());
+        let context = context.for_response(&headers);
+        let status = response.status();
+        let response = match SuccessfulResponse::check(status.as_u16(), response) {
+            Ok(response) => response.into_inner(),
+            Err(response) => {
+                let body = match response.text().await {
+                    Ok(body) => body,
+                    Err(source) => return Err(request_failure(&context, source)),
+                };
+                return Err(classify_status(&context, status, &headers, body));
+            }
+        };
+        let response = match response.json::<OpenAiTranscriptionResponse>().await {
+            Ok(response) => response,
+            Err(source) => return Err(request_failure(&context, source)),
+        };
+        let text = response.text.trim().to_owned();
+        if text.is_empty() {
+            return Err(TranscriptionError::EmptyTranscript {
+                core: Box::new(context.core(ErrorKind::InvalidOutput, "transcript text was empty")),
+            });
         }
+        Ok(AudioTranscriptionResponse { text })
     }
 }
 
@@ -43,52 +115,45 @@ impl AudioTranscriber for OpenAiAudioTranscriber {
         &self,
         request: &AudioTranscriptionRequest,
     ) -> TranscriptionResult<AudioTranscriptionResponse> {
-        let file = match multipart::Part::bytes(request.audio.clone())
-            .file_name(request.filename.clone())
-            .mime_str(&request.content_type)
-        {
-            Ok(file) => file,
-            Err(source) => return Err(TranscriptionError::internal(source)),
-        };
-        let form = multipart::Form::new()
-            .text("model", self.model_id.clone())
-            .text("response_format", "json")
-            .part("file", file);
+        let context = self.context();
+        validate_media_type(&context, &request.content_type)?;
         let response = match self
-            .client
-            .post(&self.endpoint)
-            .bearer_auth(&self.api_key)
-            .multipart(form)
-            .timeout(self.timeout)
-            .send()
+            .config
+            .apply_headers(
+                self.http_client
+                    .post(&self.endpoint)
+                    .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
+                    .timeout(self.timeout),
+                &self.endpoint,
+            )
+            .multipart(vec![
+                JsonHttpMultipartField::bytes("model", self.model_id.as_bytes().to_vec()),
+                JsonHttpMultipartField::bytes("response_format", b"json".to_vec()),
+                JsonHttpMultipartField::bytes("file", request.audio.clone())
+                    .filename(&request.filename)
+                    .content_type(&request.content_type),
+            ])
+            .send_bytes()
             .await
         {
             Ok(response) => response,
+            Err(source) => return Err(http_failure(&context, source)),
+        };
+        let mut buffered = match http::Response::builder()
+            .status(response.status)
+            .body(response.body)
+        {
+            Ok(buffered) => buffered,
             Err(source) => {
-                return Err(TranscriptionError::transient_provider(
-                    PROVIDER,
-                    &self.model_id,
-                    source.to_string(),
+                return Err(TranscriptionError::with_source(
+                    context.core(ErrorKind::Internal, "internal error"),
+                    context.source(source),
                 ));
             }
         };
-        let status = response.status();
-        if status.is_client_error() || status.is_server_error() {
-            let body = match response.text().await {
-                Ok(body) => body,
-                Err(source) => return Err(TranscriptionError::internal(source)),
-            };
-            return Err(classify_status(status, &self.model_id, body));
-        }
-        let response = match response.json::<OpenAiTranscriptionResponse>().await {
-            Ok(response) => response,
-            Err(source) => return Err(TranscriptionError::internal(source)),
-        };
-        let text = response.text.trim().to_owned();
-        if text.is_empty() {
-            return Err(TranscriptionError::EmptyTranscript);
-        }
-        Ok(AudioTranscriptionResponse { text })
+        *buffered.headers_mut() = response.headers.as_raw().clone();
+        self.read_response(&context, reqwest::Response::from(buffered))
+            .await
     }
 }
 
@@ -97,22 +162,79 @@ struct OpenAiTranscriptionResponse {
     text: String,
 }
 
-fn classify_status(status: StatusCode, model_id: &str, body: String) -> TranscriptionError {
-    if status == StatusCode::TOO_MANY_REQUESTS {
-        return TranscriptionError::rate_limited(PROVIDER, model_id, body);
+fn validate_media_type(context: &ErrorContext, content_type: &str) -> TranscriptionResult<()> {
+    match multipart::Part::bytes(Vec::new()).mime_str(content_type) {
+        Ok(_) => Ok(()),
+        Err(source) => Err(TranscriptionError::with_source(
+            context.core(
+                ErrorKind::UnsupportedInput,
+                format!("unsupported media type `{content_type}`"),
+            ),
+            context.source(source),
+        )),
     }
-    if is_transient_status(status) {
-        return TranscriptionError::transient_provider(PROVIDER, model_id, body);
-    }
-    TranscriptionError::provider(PROVIDER, model_id, body)
 }
 
-fn is_transient_status(status: StatusCode) -> bool {
-    matches!(status, StatusCode::REQUEST_TIMEOUT | StatusCode::CONFLICT)
-        || status.as_u16() == 425
-        || status.is_server_error()
+fn http_failure(context: &ErrorContext, source: json_http::Error) -> TranscriptionError {
+    let context = match source.response_headers() {
+        Some(headers) => context.for_response(headers),
+        None => context.clone(),
+    };
+    match source.into_cause() {
+        json_http::Error::ReqwestTransport { source } => request_failure(&context, source),
+        source => {
+            let mut core = context.request_error(&source);
+            context.apply(&mut core);
+            TranscriptionError::with_source(core, context.source(source))
+        }
+    }
+}
+
+fn classify_status(
+    context: &ErrorContext,
+    status: StatusCode,
+    headers: &JsonHttpHeaders,
+    body: String,
+) -> TranscriptionError {
+    let value = serde_json::from_str(&body).unwrap_or_else(|_| Value::String(body.clone()));
+    let mut core = json_http_error_core(context, status.as_u16(), headers, &value);
+    core.message = context.redact(&body);
+    if status.as_u16() >= 400 {
+        return TranscriptionError::new(core);
+    }
+    TranscriptionError::with_source(
+        core,
+        context.source(json_http::Error::HttpStatus {
+            status: status.as_u16(),
+            headers: Box::new(headers.clone()),
+            body: value,
+        }),
+    )
+}
+
+fn request_failure(context: &ErrorContext, source: reqwest::Error) -> TranscriptionError {
+    if let Some(url) = source.url() {
+        context.add_secret(url.as_str());
+    }
+    let kind = if source.is_decode() {
+        ErrorKind::InvalidOutput
+    } else if source.is_builder() {
+        ErrorKind::Internal
+    } else {
+        ErrorKind::Transient
+    };
+    let message = if kind == ErrorKind::Internal {
+        "internal error".to_owned()
+    } else {
+        source.to_string()
+    };
+    TranscriptionError::with_source(context.core(kind, message), context.source(source))
 }
 
 #[cfg(test)]
 #[path = "_tests_/openai_transcription_tests.rs"]
 mod openai_transcription_tests;
+
+#[cfg(test)]
+#[path = "_tests_/transcription_context_tests.rs"]
+mod transcription_context_tests;

@@ -37,7 +37,15 @@ async fn builds_openai_thinking_variant_requests() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(requests[0].url, "https://api.openai.com/v1/responses");
     assert_eq!(body["model"], "gpt-5.5");
     assert_eq!(body["reasoning"]["effort"], "xhigh");
@@ -76,7 +84,15 @@ async fn maps_openai_max_thinking_to_max_effort() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["model"], GPT_5_6_SOL.provider_model_id.as_ref());
     assert_eq!(body["reasoning"]["effort"], "max");
     assert_eq!(
@@ -112,7 +128,15 @@ async fn downgrades_max_to_gpt_5_5_extra_high() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let body = requests[0].body.as_ref().expect("body present");
+    let body = serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body");
     assert_eq!(body["reasoning"]["effort"], "xhigh");
     assert_eq!(response.effort().map(Effort::as_str), Some("extra_high"));
 }

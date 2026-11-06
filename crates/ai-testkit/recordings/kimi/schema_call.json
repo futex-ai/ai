@@ -1,6 +1,7 @@
 {
   "source": "synthetic",
   "catalog_model_id": "kimi/kimi-k3",
+  "base_url": "https://api.moonshot.ai",
   "effort": "max",
   "exchanges": [
     {

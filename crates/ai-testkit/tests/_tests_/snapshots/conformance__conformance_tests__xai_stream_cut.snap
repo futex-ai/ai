@@ -17,10 +17,11 @@ expression: outcome
         }
       ],
       "error": {
-        "variant": "Interrupted",
+        "kind": "Interrupted",
         "provider": "xai",
         "model_id": "grok-4.5",
-        "message": "[json_http/error] SSE transport failed after 1 events: builder error"
+        "message": "[json_http/error] SSE transport failed after 1 events: builder error",
+        "attempts": []
       }
     }
   ],

@@ -1,12 +1,18 @@
 //! Google image generation response mapping.
 
 use ai_interface::{
-    GeneratedImage, ImageGenerationError, ImageGenerationResponse, ImageGenerationResult,
-    ModelUsage,
+    ErrorKind, GeneratedImage, ImageGenerationError, ImageGenerationResponse,
+    ImageGenerationResult, ModelUsage,
 };
+use ai_models_core::ErrorContext;
 use base64::{Engine, engine::general_purpose::STANDARD};
+use json_http::JsonHttpHeaders;
 use serde::Deserialize;
 use serde_json::Value;
+
+use crate::google::error_context::embedded_status;
+
+use super::error::classify_status;
 
 const PROVIDER: &str = "google";
 
@@ -75,23 +81,55 @@ struct GoogleImageUsage {
 }
 
 pub(super) fn parse_response(
+    context: &ErrorContext,
+    headers: &JsonHttpHeaders,
+    model_id: &str,
+    body: Value,
+) -> ImageGenerationResult<ImageGenerationResponse> {
+    let Some(status) = embedded_status(&body) else {
+        return parse_image(context, model_id, body);
+    };
+    match parse_image(context, model_id, body.clone()) {
+        Ok(response) => Ok(response),
+        Err(error) => {
+            let classified = classify_status(context, status, headers, &body);
+            match error {
+                ImageGenerationError::Internal { source, .. } => {
+                    Err(ImageGenerationError::Internal {
+                        core: Box::new(classified.core().clone()),
+                        source,
+                    })
+                }
+                _ => Err(classified),
+            }
+        }
+    }
+}
+
+fn parse_image(
+    context: &ErrorContext,
     model_id: &str,
     body: Value,
 ) -> ImageGenerationResult<ImageGenerationResponse> {
     let parsed = match serde_json::from_value::<GoogleImageResponse>(body) {
         Ok(parsed) => parsed,
-        Err(source) => return Err(ImageGenerationError::internal(source)),
+        Err(source) => {
+            return Err(ImageGenerationError::with_source(
+                context.core(ErrorKind::InvalidOutput, "invalid provider image response"),
+                context.source(source),
+            ));
+        }
     };
-    if let Some(error) = prompt_feedback_error(model_id, parsed.prompt_feedback.as_ref()) {
+    if let Some(error) = prompt_feedback_error(context, parsed.prompt_feedback.as_ref()) {
         return Err(error);
     }
     let usage = parsed.usage_metadata.unwrap_or_default();
     let mut provider_failure = None;
     for candidate in parsed.candidates {
-        if let Some(error) = candidate_finish_error(model_id, &candidate) {
+        if let Some(error) = candidate_finish_error(context, &candidate) {
             match error {
                 ImageGenerationError::NoImage { .. } => continue,
-                ImageGenerationError::ContentPolicy { .. } => return Err(error),
+                error if error.core().kind == ErrorKind::ContentPolicy => return Err(error),
                 _ => {
                     if provider_failure.is_none() {
                         provider_failure = Some(error);
@@ -108,25 +146,29 @@ pub(super) fn parse_response(
                 continue;
             };
             let Some(encoded) = inline_data.data else {
-                return Err(ImageGenerationError::provider(
-                    PROVIDER,
-                    model_id,
-                    "Google image part omitted data",
+                return Err(ImageGenerationError::new(
+                    context.core(ErrorKind::InvalidOutput, "Google image part omitted data"),
                 ));
             };
             let Some(mime_type) = inline_data.mime_type else {
-                return Err(ImageGenerationError::provider(
-                    PROVIDER,
-                    model_id,
+                return Err(ImageGenerationError::new(context.core(
+                    ErrorKind::InvalidOutput,
                     "Google image part omitted MIME type",
-                ));
+                )));
             };
             let data = match STANDARD.decode(encoded) {
                 Ok(data) => data,
-                Err(source) => return Err(ImageGenerationError::internal(source)),
+                Err(source) => {
+                    return Err(ImageGenerationError::with_source(
+                        context.core(ErrorKind::InvalidOutput, "invalid provider image response"),
+                        context.source(source),
+                    ));
+                }
             };
             if data.is_empty() {
-                return Err(ImageGenerationError::no_image(PROVIDER, model_id));
+                return Err(ImageGenerationError::NoImage {
+                    core: Box::new(context.core(ErrorKind::InvalidOutput, "no image returned")),
+                });
             }
             return Ok(ImageGenerationResponse {
                 provider: PROVIDER.to_owned(),
@@ -140,11 +182,13 @@ pub(super) fn parse_response(
     if let Some(error) = provider_failure {
         return Err(error);
     }
-    Err(ImageGenerationError::no_image(PROVIDER, model_id))
+    Err(ImageGenerationError::NoImage {
+        core: Box::new(context.core(ErrorKind::InvalidOutput, "no image returned")),
+    })
 }
 
 fn prompt_feedback_error(
-    model_id: &str,
+    context: &ErrorContext,
     feedback: Option<&GooglePromptFeedback>,
 ) -> Option<ImageGenerationError> {
     let feedback = feedback?;
@@ -158,15 +202,17 @@ fn prompt_feedback_error(
         reason,
         "SAFETY" | "BLOCKLIST" | "PROHIBITED_CONTENT" | "IMAGE_SAFETY"
     ) {
-        return Some(ImageGenerationError::content_policy(
-            PROVIDER, model_id, message,
+        return Some(ImageGenerationError::new(
+            context.core(ErrorKind::ContentPolicy, message),
         ));
     }
-    Some(ImageGenerationError::provider(PROVIDER, model_id, message))
+    Some(ImageGenerationError::new(
+        context.core(ErrorKind::InvalidOutput, message),
+    ))
 }
 
 fn candidate_finish_error(
-    model_id: &str,
+    context: &ErrorContext,
     candidate: &GoogleImageCandidate,
 ) -> Option<ImageGenerationError> {
     let reason = candidate.finish_reason.as_deref()?;
@@ -174,7 +220,9 @@ fn candidate_finish_error(
         return None;
     }
     if reason == "NO_IMAGE" {
-        return Some(ImageGenerationError::no_image(PROVIDER, model_id));
+        return Some(ImageGenerationError::NoImage {
+            core: Box::new(context.core(ErrorKind::InvalidOutput, "no image returned")),
+        });
     }
     let message = candidate
         .finish_message
@@ -182,11 +230,13 @@ fn candidate_finish_error(
         .unwrap_or(reason)
         .to_owned();
     if is_policy_finish_reason(reason) {
-        return Some(ImageGenerationError::content_policy(
-            PROVIDER, model_id, message,
+        return Some(ImageGenerationError::new(
+            context.core(ErrorKind::ContentPolicy, message),
         ));
     }
-    Some(ImageGenerationError::provider(PROVIDER, model_id, message))
+    Some(ImageGenerationError::new(
+        context.core(ErrorKind::InvalidOutput, message),
+    ))
 }
 
 fn is_policy_finish_reason(reason: &str) -> bool {

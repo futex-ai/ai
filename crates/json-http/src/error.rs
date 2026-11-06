@@ -5,11 +5,19 @@ use std::{sync::Arc, time::Duration};
 use serde_json::Value;
 use thiserror::Error;
 
-use crate::sse::JsonHttpSseDecodeError;
+use crate::{JsonHttpHeaders, sse::JsonHttpSseDecodeError};
 
-#[derive(Debug, Error)]
+#[derive(Error)]
 /// Errors returned by the JSON HTTP boundary.
 pub enum Error {
+    /// A response failed after its headers arrived.
+    #[error("[json_http/error] response failed: {source}")]
+    ResponseContext {
+        /// Headers received before the failure.
+        headers: Box<JsonHttpHeaders>,
+        /// Original typed failure with its progress and diagnostics.
+        source: Box<Error>,
+    },
     /// The configured reqwest client could not be constructed.
     #[error("[json_http/error] failed to initialize reqwest client: {source}")]
     ClientInitialization {
@@ -51,11 +59,13 @@ pub enum Error {
     /// The configured transport does not support SSE execution.
     #[error("[json_http/error] SSE execution is unsupported by this transport")]
     SseUnsupported,
-    /// A streaming request opened with a non-success HTTP status.
-    #[error("[json_http/error] SSE request returned HTTP {status}")]
+    /// An HTTP request ended with a non-success status.
+    #[error("[json_http/error] request returned HTTP {status}")]
     HttpStatus {
         /// HTTP status code returned by the server.
         status: u16,
+        /// Response headers returned by the server.
+        headers: Box<JsonHttpHeaders>,
         /// Bounded JSON or textual diagnostic body.
         body: Value,
     },
@@ -100,6 +110,48 @@ pub enum Error {
 }
 
 impl Error {
+    /// Retains response headers with the original typed failure.
+    pub fn with_response_headers(self, headers: JsonHttpHeaders) -> Self {
+        Self::ResponseContext {
+            headers: Box::new(headers),
+            source: Box::new(self),
+        }
+    }
+
+    /// Returns received response headers when a response was available.
+    pub fn response_headers(&self) -> Option<&JsonHttpHeaders> {
+        match self {
+            Self::ResponseContext { headers, .. } | Self::HttpStatus { headers, .. } => {
+                Some(headers)
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns the original typed cause beneath response-context wrappers.
+    pub fn cause(&self) -> &Self {
+        match self {
+            Self::ResponseContext { source, .. } => source.cause(),
+            cause => cause,
+        }
+    }
+
+    /// Removes response-context wrappers and returns the original typed cause.
+    pub fn into_cause(self) -> Self {
+        match self {
+            Self::ResponseContext { source, .. } => source.into_cause(),
+            cause => cause,
+        }
+    }
+
+    /// Reports request or stream transport failures, excluding auth and local errors.
+    pub fn is_transport_failure(&self) -> bool {
+        matches!(
+            self.cause(),
+            Self::Transport { .. } | Self::ReqwestTransport { .. } | Self::SseTransport { .. }
+        )
+    }
+
     /// Builds a transport error from a message.
     pub fn transport(message: impl Into<String>) -> Self {
         Self::Transport {

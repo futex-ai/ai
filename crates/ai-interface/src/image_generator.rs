@@ -1,13 +1,13 @@
 //! Image generation DTOs and generator trait.
 
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use async_trait::async_trait;
-use internal_error::InternalError;
+use internal_error::{DefinedAt, InternalError};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::ModelUsage;
+use crate::{ErrorCore, ErrorKind, ModelUsage, SafeErrorSource};
 
 /// Provider-agnostic image generation or edit request.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -89,143 +89,74 @@ pub struct ImageGenerationResponse {
 }
 
 /// Errors returned by the image generation boundary.
-#[derive(Debug, Error, internal_error::ErrorContract)]
+#[derive(Error)]
 pub enum ImageGenerationError {
     /// The client submitted a blank prompt.
     #[error("[ai_interface/image_generator] prompt must not be empty")]
-    EmptyPrompt,
+    EmptyPrompt {
+        /// Shared failure details, including the adapter identity.
+        core: Box<ErrorCore>,
+    },
     /// An input image used an unsupported MIME media type.
     #[error("[ai_interface/image_generator] unsupported media type `{content_type}`")]
     UnsupportedMediaType {
+        /// Shared failure details, including the adapter identity.
+        core: Box<ErrorCore>,
         /// Unsupported MIME media type.
         content_type: String,
     },
-    /// The provider refused the request due to content policy.
-    #[error(
-        "[ai_interface/image_generator] content policy refusal for `{provider}` model `{model_id}`: {message}"
-    )]
-    ContentPolicy {
-        /// Provider that refused the request.
-        provider: String,
-        /// Requested provider model identifier.
-        model_id: String,
-        /// Provider-supplied refusal details.
-        message: String,
-    },
     /// The provider returned no final image.
-    #[error("[ai_interface/image_generator] no image returned by `{provider}` model `{model_id}`")]
+    #[error("[ai_interface/image_generator] no image returned by `{provider}` model `{model_id}`", provider = core.provider, model_id = core.model_id)]
     NoImage {
-        /// Provider that returned no final image.
-        provider: String,
-        /// Requested provider model identifier.
-        model_id: String,
+        /// Shared failure details, including the adapter identity.
+        core: Box<ErrorCore>,
     },
-    /// The provider rejected the request due to a rate limit.
-    #[error(
-        "[ai_interface/image_generator] provider rate limit for `{provider}` model `{model_id}`: {message}"
-    )]
-    RateLimited {
-        /// Provider that returned the rate limit.
-        provider: String,
-        /// Requested provider model identifier.
-        model_id: String,
-        /// Provider-supplied failure details.
-        message: String,
+    /// A classified provider or adapter failure.
+    #[error("[ai_interface/image_generator] {kind:?} for `{provider}` model `{model_id}`: {message}", kind = core.kind, provider = core.provider, model_id = core.model_id, message = core.message)]
+    Failure {
+        /// Shared failure details.
+        core: Box<ErrorCore>,
     },
-    /// The provider returned a transient failure that may succeed later.
-    #[error(
-        "[ai_interface/image_generator] transient provider failure for `{provider}` model `{model_id}`: {message}"
-    )]
-    TransientProvider {
-        /// Provider that returned the transient failure.
-        provider: String,
-        /// Requested provider model identifier.
-        model_id: String,
-        /// Provider-supplied failure details.
-        message: String,
+    /// A classified failure with tracked definition and caller locations.
+    #[error("[ai_interface/image_generator] {kind:?} for `{provider}` model `{model_id}`: {message}", kind = core.kind, provider = core.provider, model_id = core.model_id, message = core.message)]
+    Internal {
+        /// Shared failure details, including the adapter identity.
+        core: Box<ErrorCore>,
+        /// Original source and its tracked locations.
+        source: InternalError,
     },
-    /// The provider returned a non-retryable failure.
-    #[error(
-        "[ai_interface/image_generator] provider failure for `{provider}` model `{model_id}`: {message}"
-    )]
-    Provider {
-        /// Provider that returned the failure.
-        provider: String,
-        /// Requested provider model identifier.
-        model_id: String,
-        /// Provider-supplied failure details.
-        message: String,
-    },
-    /// Unhandled image-generation-boundary failure.
-    #[error("[ai_interface/image_generator] internal error")]
-    Internal(#[from] InternalError),
+}
+
+impl fmt::Debug for ImageGenerationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ImageGenerationError")
+            .field("core", self.core())
+            .finish()
+    }
 }
 
 impl ImageGenerationError {
-    /// Builds an unsupported media type error.
-    pub fn unsupported_media_type(content_type: impl Into<String>) -> Self {
-        Self::UnsupportedMediaType {
-            content_type: content_type.into(),
-        }
-    }
-
-    /// Builds a content-policy refusal.
-    pub fn content_policy(
+    /// Wraps an internal failure without losing its source or caller location.
+    #[track_caller]
+    pub fn internal(
         provider: impl Into<String>,
         model_id: impl Into<String>,
-        message: impl Into<String>,
+        source: SafeErrorSource,
     ) -> Self {
-        Self::ContentPolicy {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            message: message.into(),
-        }
+        Self::with_source(
+            ErrorCore::new(ErrorKind::Internal, provider, model_id, "internal error"),
+            source,
+        )
     }
 
-    /// Builds a no-image provider response error.
-    pub fn no_image(provider: impl Into<String>, model_id: impl Into<String>) -> Self {
-        Self::NoImage {
-            provider: provider.into(),
-            model_id: model_id.into(),
-        }
-    }
-
-    /// Builds a rate-limited provider error.
-    pub fn rate_limited(
-        provider: impl Into<String>,
-        model_id: impl Into<String>,
-        message: impl Into<String>,
-    ) -> Self {
-        Self::RateLimited {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            message: message.into(),
-        }
-    }
-
-    /// Builds a transient provider error.
-    pub fn transient_provider(
-        provider: impl Into<String>,
-        model_id: impl Into<String>,
-        message: impl Into<String>,
-    ) -> Self {
-        Self::TransientProvider {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            message: message.into(),
-        }
-    }
-
-    /// Builds a non-retryable provider error.
-    pub fn provider(
-        provider: impl Into<String>,
-        model_id: impl Into<String>,
-        message: impl Into<String>,
-    ) -> Self {
-        Self::Provider {
-            provider: provider.into(),
-            model_id: model_id.into(),
-            message: message.into(),
+    /// Retains a source and its tracked locations with an explicit failure category.
+    #[track_caller]
+    pub fn with_source(core: ErrorCore, source: SafeErrorSource) -> Self {
+        const DEFINED_AT: DefinedAt = DefinedAt::new(module_path!(), file!(), line!(), column!());
+        Self::Internal {
+            core: Box::new(core),
+            source: InternalError::from_source(DEFINED_AT, source),
         }
     }
 }

@@ -1,6 +1,6 @@
 //! OpenAI Responses stream failure classification tests.
 
-use ai_interface::{ConversationMessage, Model, ModelError, ModelRequest};
+use ai_interface::{ConversationMessage, Model, ModelRequest};
 use serde_json::json;
 
 use crate::openai::stream_support::custom_spec;
@@ -38,8 +38,39 @@ async fn classifies_first_failed_and_error_events() {
         .await
         .expect_err("error event should fail");
 
-    assert!(matches!(failed, ModelError::TransientProvider { .. }));
-    assert!(matches!(rate_limit, ModelError::RateLimited { .. }));
+    assert!(matches!(failed, ref error if error.core().kind == ai_interface::ErrorKind::Transient));
+    assert!(
+        matches!(rate_limit, ref error if error.core().kind == ai_interface::ErrorKind::RateLimited)
+    );
+    for (code, expected) in [
+        ("invalid_api_key", ai_interface::ErrorKind::RejectedKey),
+        ("permission_denied", ai_interface::ErrorKind::RejectedKey),
+        ("insufficient_quota", ai_interface::ErrorKind::RejectedKey),
+        ("model_not_found", ai_interface::ErrorKind::UnknownModel),
+        (
+            "context_length_exceeded",
+            ai_interface::ErrorKind::ContextLimitExceeded,
+        ),
+        (
+            "unsupported_image_media_type",
+            ai_interface::ErrorKind::UnsupportedInput,
+        ),
+        ("invalid_prompt", ai_interface::ErrorKind::InvalidRequest),
+        ("server_is_overloaded", ai_interface::ErrorKind::Transient),
+        ("new_error", ai_interface::ErrorKind::InvalidRequest),
+    ] {
+        let native = event(
+            "error",
+            json!({"type":"error","code":code,"message":"retained diagnostic","param":null}),
+        );
+        let (client, _) = recording_streaming_client(vec![vec![native]]);
+        let error = OpenAiModel::new(client, custom_spec("gpt-5.5"), "key")
+            .complete(&simple_request())
+            .await
+            .unwrap_err();
+        assert_eq!(error.core().kind, expected, "{code}");
+        assert_eq!(error.core().message, "retained diagnostic", "{code}");
+    }
 }
 
 #[tokio::test]
@@ -71,7 +102,10 @@ async fn terminal_failures_after_progress_are_interruptions() {
             .complete(&simple_request())
             .await
             .expect_err("partially generated stream should fail");
-        assert!(matches!(error, ModelError::Interrupted { .. }), "{label}");
+        assert!(
+            matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::Interrupted),
+            "{label}"
+        );
     }
 }
 
@@ -89,8 +123,10 @@ async fn classifies_eof_before_and_after_progress() {
         .await
         .expect_err("partial stream should fail");
 
-    assert!(matches!(before, ModelError::TransientProvider { .. }));
-    assert!(matches!(after, ModelError::Interrupted { .. }));
+    assert!(matches!(before, ref error if error.core().kind == ai_interface::ErrorKind::Transient));
+    assert!(
+        matches!(after, ref error if error.core().kind == ai_interface::ErrorKind::Interrupted)
+    );
 }
 
 #[tokio::test]
@@ -110,8 +146,10 @@ async fn classifies_transport_failure_before_and_after_progress() {
         .await
         .expect_err("mid-stream transport failure should fail");
 
-    assert!(matches!(before, ModelError::TransientProvider { .. }));
-    assert!(matches!(after, ModelError::Interrupted { .. }));
+    assert!(matches!(before, ref error if error.core().kind == ai_interface::ErrorKind::Transient));
+    assert!(
+        matches!(after, ref error if error.core().kind == ai_interface::ErrorKind::Interrupted)
+    );
 }
 
 #[tokio::test]
@@ -131,8 +169,10 @@ async fn malformed_events_follow_progress_classification() {
         .await
         .expect_err("malformed event after progress should fail");
 
-    assert!(matches!(before, ModelError::TransientProvider { .. }));
-    assert!(matches!(after, ModelError::Interrupted { .. }));
+    assert!(matches!(before, ref error if error.core().kind == ai_interface::ErrorKind::Transient));
+    assert!(
+        matches!(after, ref error if error.core().kind == ai_interface::ErrorKind::Interrupted)
+    );
 }
 
 fn progress_event() -> crate::openai::stream_support::StreamItem {

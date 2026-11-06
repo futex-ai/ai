@@ -36,6 +36,10 @@ pub(crate) enum Error {
     MatrixMarkersInvalid,
     #[error("[xtask/smoke] failed to build tool-calling runtime: {source}")]
     SmokeRuntime { source: ai_tool_calling::Error },
+    #[error("[xtask/smoke] failed to build registry adapter: {source}")]
+    SmokeRegistry {
+        source: ai_models_registry::BuildError,
+    },
     #[error("[xtask/smoke] failed to build MCP tool adapter: {source}")]
     SmokeMcp { source: ai_mcp::Error },
     #[error("[xtask/smoke] failed to build MCP OAuth boundary: {source}")]

@@ -3,13 +3,14 @@
 use ai_interface::{
     Effort, FinishReason, ModelEvent, ModelResult, ModelUsage, StructuredOutputSchema,
 };
-use ai_models_core::parse_structured_output;
+use ai_models_core::{ErrorContext, parse_structured_output};
 
 use super::stream::types::{GoogleCompletion, GoogleUsageMetadata};
 
 const PROVIDER: &str = "google";
 
 pub(super) fn terminal_events(
+    context: &ErrorContext,
     catalog_model_id: &str,
     provider_model_id: &str,
     thinking_level: Option<Effort>,
@@ -25,14 +26,9 @@ pub(super) fn terminal_events(
         FinishReason::Filtered
     };
     let structured_output = match response_schema {
-        Some(schema) if matches!(finish_reason, FinishReason::Stop) => {
-            Some(parse_structured_output(
-                PROVIDER,
-                provider_model_id,
-                &completion.assistant_message,
-                schema,
-            )?)
-        }
+        Some(schema) if matches!(finish_reason, FinishReason::Stop) => Some(
+            parse_structured_output(context, &completion.assistant_message, schema)?,
+        ),
         _ => None,
     };
     let mut events = completion.state_events;

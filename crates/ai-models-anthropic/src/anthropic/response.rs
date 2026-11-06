@@ -1,15 +1,16 @@
 //! Anthropic typed terminal metadata and validation.
 
 use ai_interface::{
-    Effort, FinishReason, ModelError, ModelEvent, ModelResult, ModelUsage, StructuredOutputSchema,
+    Effort, ErrorKind, FinishReason, ModelEvent, ModelResult, ModelUsage, StructuredOutputSchema,
 };
-use ai_models_core::parse_structured_output;
+use ai_models_core::{ErrorContext, parse_structured_output};
 
 use super::{replay::AnthropicAssistantBlock, stream::types::AnthropicCompletion};
 
 const PROVIDER: &str = "anthropic";
 
 pub(super) fn terminal_events(
+    context: &ErrorContext,
     catalog_model_id: &str,
     provider_model_id: &str,
     thinking_level: Option<Effort>,
@@ -23,9 +24,8 @@ pub(super) fn terminal_events(
             .iter()
             .any(|block| matches!(block, AnthropicAssistantBlock::ToolUse { .. }))
     {
-        return Err(ModelError::provider(
-            PROVIDER,
-            provider_model_id,
+        return Err(context.model_error(
+            ErrorKind::InvalidOutput,
             "tool_calls finish had no complete tool call",
         ));
     }
@@ -42,7 +42,7 @@ pub(super) fn terminal_events(
         .join("\n");
     let structured_output = match response_schema {
         Some(schema) if matches!(finish_reason, FinishReason::Stop) => Some(
-            parse_structured_output(PROVIDER, provider_model_id, &assistant_message, schema)?,
+            parse_structured_output(context, &assistant_message, schema)?,
         ),
         _ => None,
     };

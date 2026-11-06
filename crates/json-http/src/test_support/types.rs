@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::JsonHttpMethod;
+use crate::{JsonHttpHeaders, JsonHttpMethod};
 
 use super::RecordedFailure;
 
@@ -90,6 +90,13 @@ pub enum RecordedResponse {
     Json {
         /// HTTP response status.
         status: u16,
+        /// Sanitized response headers. Older recordings omit this field.
+        #[serde(
+            default,
+            with = "super::headers",
+            skip_serializing_if = "JsonHttpHeaders::is_empty"
+        )]
+        headers: JsonHttpHeaders,
         /// Sanitized response payload.
         body: Value,
     },
@@ -97,6 +104,13 @@ pub enum RecordedResponse {
     Bytes {
         /// HTTP response status.
         status: u16,
+        /// Sanitized response headers. Older recordings omit this field.
+        #[serde(
+            default,
+            with = "super::headers",
+            skip_serializing_if = "JsonHttpHeaders::is_empty"
+        )]
+        headers: JsonHttpHeaders,
         /// Sanitized bytes in standard base64.
         body_base64: String,
     },
@@ -104,6 +118,13 @@ pub enum RecordedResponse {
     Sse {
         /// Successful openings use 200 because the stream boundary has no status.
         status: u16,
+        /// Sanitized response headers. Older recordings omit this field.
+        #[serde(
+            default,
+            with = "super::headers",
+            skip_serializing_if = "JsonHttpHeaders::is_empty"
+        )]
+        headers: JsonHttpHeaders,
         /// Events in consumption order.
         events: Vec<RecordedEvent>,
         /// Observed terminal state.
@@ -111,6 +132,13 @@ pub enum RecordedResponse {
     },
     /// A failure before a response was available.
     Failure {
+        /// Sanitized response headers when headers arrived before this failure.
+        #[serde(
+            default,
+            with = "super::optional_headers",
+            skip_serializing_if = "Option::is_none"
+        )]
+        headers: Option<JsonHttpHeaders>,
         /// Failure class without raw error text or credentials.
         failure: RecordedFailure,
     },

@@ -77,7 +77,15 @@ async fn converted_google_content_preserves_order_signatures_and_missing_call_fi
 
     {
         let requests = requests.lock().unwrap();
-        let contents = &requests[0].body.as_ref().unwrap()["contents"];
+        let contents = &serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body"),
+        )
+        .expect("valid JSON request body")["contents"];
         assert_eq!(contents[1]["parts"], original);
         assert_eq!(
             contents[2]["parts"],
@@ -155,7 +163,7 @@ async fn assert_portable_conversion_cases() {
 
         actual.push(json!({
             "case": case, "portable": portable,
-            "contents": requests.lock().unwrap()[0].body.as_ref().unwrap()["contents"]
+            "contents": serde_json::from_slice::<serde_json::Value>(requests.lock().unwrap()[0].body.as_ref().unwrap().as_json_bytes().expect("JSON request body")).expect("valid JSON request body")["contents"]
         }));
         expected.push(json!({
             "case": case, "portable": {"text": text, "calls": calls},

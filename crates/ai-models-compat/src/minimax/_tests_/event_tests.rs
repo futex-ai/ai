@@ -1,6 +1,8 @@
 //! Public completion-event tests for MiniMax streams.
 
-use ai_interface::{ModelError, StructuredOutputSchema};
+use ai_interface::ErrorKind;
+
+use ai_interface::StructuredOutputSchema;
 use ai_models_core::test_support::{SseFixture, done_event, event, recording_streaming_client};
 use serde_json::{Value, json};
 
@@ -79,7 +81,7 @@ async fn emits_partial_normalized_content_before_an_interruption() {
         .await
         .expect_err("interrupted completion should fail");
 
-    assert!(matches!(error, ModelError::Interrupted { .. }));
+    assert!(matches!(error.core().kind, ErrorKind::Interrupted));
     assert_eq!(content_events(&recorded), vec![assistant_delta("partial")]);
 }
 

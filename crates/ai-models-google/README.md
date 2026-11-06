@@ -56,7 +56,7 @@ against the spec before transport. The adapter handles:
   when runtime dispatch needs a synthetic id. Unsigned calls keep their
   runtime id on both the call and its result. Signatures do not change
   answer text or text deltas. Own state with an unknown version or a payload
-  that does not decode fails before transport with `ModelError::Provider`.
+  that does not decode fails before transport with the `InvalidRequest` error kind.
   Log copies drop this state.
 - `GoogleLegacyProviderConverter` for a stored version 1
   `google_assistant_message` item. In a message with items from Google only,
@@ -102,12 +102,23 @@ against the spec before transport. The adapter handles:
   input, and thinking token counts
 - the last finish reason and the last usage metadata of the stream as those
   of the call. The stream must end after a finish reason or a prompt block
-- typed classification of failures before stream progress as retryable or
-  provider errors and failures after progress as `ModelError::Interrupted`
+- typed classification of failures before stream progress by their precise
+  error kind, and of failures after progress as the `Interrupted` error kind
 - status, transport, and structured-output validation failure mapping onto
   `ai_interface::ModelError`
 
-This crate does not load config, read environment variables, or resolve
+All three adapters expose `from_config(http_client, spec, config)`.
+`ProviderConfig` from `ai-models-core` supplies the base URL, API key or auth
+hook, extra headers, and timeout overrides. A base URL can include a path
+prefix. Each adapter appends its API path and keeps that prefix. A trailing
+slash changes no request URL. Adapter and auth headers take precedence over
+extra headers without regard to case. Auth hooks run for each request.
+Model calls use configured idle and total timeouts. Image calls use the total
+timeout. Video calls also use the poll interval. A model request's total
+timeout replaces the configured total timeout for that call.
+The existing constructors and their builder methods remain available.
+
+This crate does not load config files, read environment variables, or resolve
 credentials on its own. It exports one `ModelSpec` constant for each catalog
 model: `GEMINI_3_6_FLASH`, `GEMINI_3_5_FLASH_LITE`,
 and `GEMINI_3_1_FLASH_IMAGE`. `CATALOG` lists
@@ -140,6 +151,13 @@ stream consumers receive them as reasoning deltas. A call with a response
 schema emits text deltas like any other call, and its finish event carries
 the validated structured output.
 
+Each adapter attaches shared error details with its configured model id.
+Adapters inspect `x-goog-request-id`, `x-request-id`, and `request-id` as optional aliases.
+Errors inside successful HTTP responses retain those response headers.
+Late stream and output failures keep the relevant metadata and safe original sources.
+`with_clock` supplies a wall clock for HTTP-date retry hints.
+Provider diagnostics and typed media details redact the credentials applied for that call.
+
 `GoogleImageGenerator` uses the current `v1` compatibility endpoint with an
 injected `json-http` client and explicit API key or auth hook. It maps text and
 ordered source images to Gemini content parts, requests exactly one final image
@@ -154,19 +172,26 @@ the id to pass.
 
 `GoogleVideoGenerator` submits text or one inline first frame to Veo's
 `predictLongRunning` endpoint, polls the returned operation, and downloads the
-first generated MP4 with the same API-key auth. The catalog lists no video
-model, so callers pass a provider model id. The adapter maps portable
+first generated MP4. The catalog lists no video model. Hosts pass a custom
+model spec to the adapter. The adapter maps portable
 landscape/portrait, four/eight-second, and 720p controls, enforces one
-ten-minute total deadline through an injected polling runtime, rejects download
-URIs outside the configured API origin, and keeps policy, timeout, rate-limit,
-transient, and terminal failures typed.
+ten-minute total deadline through an injected polling runtime, and downloads
+only HTTPS sample URIs on the configured host. An invalid sample URI has the
+`InvalidOutput` error kind. A sample on another port of that host can still
+download. Credentials go only to the configured scheme, host, and port.
+The adapter gives content-policy, timed-out, rate-limited, transient, and other
+failures their precise error kinds.
+A transport failure after the total deadline has the `TimedOut` kind during
+submission, polling, or download. A provider status before that deadline keeps
+its status kind.
 
 ## Quick Start
 
 ```rust
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use ai_interface::{ImageGenerator, ModelSpec, VideoGenerator};
+use ai_interface::ModelSpec;
+use ai_models_core::ProviderConfig;
 use ai_models_google::{
     CUSTOM_DEFAULTS, GEMINI_2_5_PRO, GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH, PROVIDER_ID,
     GoogleImageGenerator, GoogleModel, GoogleVideoGenerator, known_models,
@@ -174,10 +199,10 @@ use ai_models_google::{
 use json_http::ReqwestJsonHttpClient;
 
 fn build_model() -> GoogleModel {
-    GoogleModel::new(
+    GoogleModel::from_config(
         Arc::new(ReqwestJsonHttpClient::new()),
         GEMINI_3_6_FLASH,
-        "google-demo",
+        google_config(),
     )
 }
 
@@ -194,19 +219,26 @@ fn known_model_count() -> usize {
 }
 
 fn build_image_generator() -> GoogleImageGenerator {
-    GoogleImageGenerator::new(
+    GoogleImageGenerator::from_config(
         Arc::new(ReqwestJsonHttpClient::new()),
-        GEMINI_3_1_FLASH_IMAGE.provider_model_id,
-        "google-demo",
+        GEMINI_3_1_FLASH_IMAGE,
+        google_config(),
     )
 }
 
 fn build_video_generator(provider_model_id: &str) -> GoogleVideoGenerator {
-    GoogleVideoGenerator::new(
+    GoogleVideoGenerator::from_config(
         Arc::new(ReqwestJsonHttpClient::new()),
-        provider_model_id,
-        "google-demo",
+        ModelSpec::custom(PROVIDER_ID, provider_model_id.to_owned(), &CUSTOM_DEFAULTS),
+        google_config(),
     )
+}
+
+fn google_config() -> ProviderConfig {
+    ProviderConfig::new(PROVIDER_ID, "google-demo")
+        .with_base_url("https://proxy.example/google")
+        .with_header("x-route", "west")
+        .with_total_timeout(Duration::from_secs(90))
 }
 ```
 
@@ -219,7 +251,8 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 
 ### Key Code
 
-- `src/google/mod.rs` - `Model::stream` implementation and request dispatch
+- `src/google/mod.rs` - `GoogleModel::from_config`, model construction,
+  `Model::stream`, and request dispatch
 - `src/catalog.rs` - Google provider id, model spec constants, `CATALOG`,
   custom defaults, and the retained Gemini 2.5 provider model ids. Each
   spec and the custom defaults take their efforts from the effort table
@@ -238,14 +271,20 @@ cargo clippy -p ai-models-google --all-targets --all-features -- -D warnings
 - `src/google/response.rs` - typed terminal metadata and output checks
 - `src/google/stream/` - typed Gemini chunks, model event mapping, replay
   parts, and stream failure mapping
-- `src/google/image_generation/` - Google image request, response, and error mapping
+- `src/google/image_generation/` - `GoogleImageGenerator::from_config`,
+  Google image request, response, and error mapping
 - `src/google/video_generation/` - Google long-running video submission,
-  polling, download, request, response, and error mapping
+  `GoogleVideoGenerator::from_config`, polling, sample validation and download,
+  request, response, and error mapping
+- `src/google/video_generation/deadline.rs` - the shared generation budget and
+  deadline-aware transport error classification
 
 ### Related Docs
 
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
+- [`../../docs/protocol/provider-registry.md`](../../docs/protocol/provider-registry.md)
 - [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
+- [`../../docs/protocol/model-policies.md`](../../docs/protocol/model-policies.md)
 - [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
 - [`../../docs/protocol/conversation-parts.md`](../../docs/protocol/conversation-parts.md)
 - [`../../docs/protocol/live-model-api-tests.md`](../../docs/protocol/live-model-api-tests.md)

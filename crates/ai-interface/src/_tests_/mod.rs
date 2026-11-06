@@ -1,3 +1,4 @@
+mod error_core_tests;
 mod image_generator_tests;
 mod messages;
 mod mock_image_generator_tests;

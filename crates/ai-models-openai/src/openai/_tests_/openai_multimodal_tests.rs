@@ -2,9 +2,7 @@
 
 use std::sync::Arc;
 
-use ai_interface::{
-    ConversationMessage, ConversationPart, Model, ModelError, ModelRequest, ToolCall,
-};
+use ai_interface::{ConversationMessage, ConversationPart, Model, ModelRequest, ToolCall};
 use json_http::{JsonHttpClient, TransportBackedJsonHttpClient};
 use serde_json::json;
 use unimock::Unimock;
@@ -55,7 +53,15 @@ async fn serializes_multimodal_messages_and_tool_history() {
     let requests = requests
         .lock()
         .expect("requests lock should not be poisoned");
-    let input = &requests[0].body.as_ref().expect("body present")["input"];
+    let input = &serde_json::from_slice::<serde_json::Value>(
+        requests[0]
+            .body
+            .as_ref()
+            .expect("body present")
+            .as_json_bytes()
+            .expect("JSON request body"),
+    )
+    .expect("valid JSON request body")["input"];
     assert_eq!(input[0]["content"][0]["type"], "input_text");
     assert_eq!(input[0]["content"][0]["text"], "look");
     assert_eq!(input[0]["content"][1]["type"], "input_image");
@@ -98,18 +104,14 @@ async fn rejects_video_content_parts_before_transport() {
         .await
         .expect_err("video parts must be rejected");
 
-    match error {
-        ModelError::Provider {
-            provider,
-            model_id,
-            message,
-        } => {
-            assert_eq!(provider, "openai");
-            assert_eq!(model_id, "gpt-5.5");
-            assert_eq!(message, "OpenAI accepts text and image content parts only");
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
+    let core = error.core();
+    assert_eq!(core.kind, ai_interface::ErrorKind::UnsupportedInput);
+    assert_eq!(core.provider, "openai");
+    assert_eq!(core.model_id, "gpt-5.5");
+    assert_eq!(
+        core.message,
+        "OpenAI accepts text and image content parts only"
+    );
 }
 
 fn openai_text_response(text: &str) -> serde_json::Value {

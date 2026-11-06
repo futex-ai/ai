@@ -8,7 +8,7 @@ use ai_interface::{
 
 use crate::{Error, Result, ToolCallingRuntime};
 
-use super::failures::provider_error;
+use super::failures::invalid_output_error;
 
 pub(super) async fn complete_model_request(
     runtime: &ToolCallingRuntime,
@@ -41,19 +41,19 @@ pub(super) async fn complete_model_request(
 
 pub(super) fn validate_response_contract(response: &ModelResponse) -> Result<()> {
     if response.finish_reason != FinishReason::ToolCalls && !response.tool_calls().is_empty() {
-        return Err(provider_error(
+        return Err(invalid_output_error(
             response,
             "model returned tool calls without a tool-call finish reason",
         ));
     }
     match &response.finish_reason {
         FinishReason::Stop | FinishReason::Truncated => Ok(()),
-        FinishReason::Filtered => Err(provider_error(
+        FinishReason::Filtered => Err(invalid_output_error(
             response,
             "model response was filtered by the provider",
         )),
-        FinishReason::Other(raw) => Err(provider_error(response, raw.clone())),
-        FinishReason::ToolCalls if response.tool_calls().is_empty() => Err(provider_error(
+        FinishReason::Other(raw) => Err(invalid_output_error(response, raw.clone())),
+        FinishReason::ToolCalls if response.tool_calls().is_empty() => Err(invalid_output_error(
             response,
             "model reported tool calls without any tool call payloads",
         )),

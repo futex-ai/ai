@@ -12,9 +12,8 @@ Implemented. The
 [DeepSeek Model Provider implementation plan](../../plans/add-deepseek-model-provider.md)
 records the milestones and verification used to deliver this contract.
 
-Once implemented, the
-[Chat Completions dialects protocol](chat-completions-dialects.md) governs the
-shared engine that serves this provider.
+The [Chat Completions dialects protocol](chat-completions-dialects.md) governs
+the shared engine that serves this provider.
 
 ## Scope
 
@@ -28,10 +27,10 @@ reasoning usage. Its stream emits model events for the primary choice:
 reasoning deltas.
 
 The provider does not support the retired `deepseek-chat` or
-`deepseek-reasoner` aliases, image input, the Anthropic-format API, third-party
-or custom endpoints, FIM completion, chat prefix completion, strict tool mode,
-or beta endpoints. These capabilities
-require separate contracts rather than silent partial support.
+`deepseek-reasoner` aliases, image input, the Anthropic-format API, FIM
+completion, chat prefix completion, strict tool mode, or beta endpoints.
+These capabilities require separate contracts rather than silent partial
+support.
 
 ## Ownership
 
@@ -55,7 +54,7 @@ construction.
 
 ## API Boundary
 
-The adapter uses:
+By default, the adapter uses:
 
 ```text
 POST https://api.deepseek.com/chat/completions
@@ -64,12 +63,19 @@ Content-Type: application/json
 ```
 
 Requests set `stream: true` and `stream_options.include_usage: true`.
-`DeepSeekModel::new` and `with_auth` construct the `deepseek-v4-pro` spec,
-whose default effort is high. `with_catalog_auth` accepts the injected
-client, a model spec, and auth.
+The [provider registry](provider-registry.md) builds the model from a spec
+and the provider config of `deepseek`. The registry is the preferred way to
+build the model. Until the user answers the
+[open constructor default-effort decision](../../plans/follow-ups/constructor-default-effort.md),
+`DeepSeekModel` also keeps its constructors. `new` and `with_auth` construct
+the `deepseek-v4-pro` spec, whose default effort is high.
+`with_catalog_auth` accepts the injected client, a model spec, and auth.
 
-Each completion uses a 3,600-second overall deadline and a 120-second idle
-timeout. An explicit portable total timeout replaces the overall deadline.
+By default, each completion uses a 3,600-second overall deadline and a
+120-second idle timeout. A provider config can replace these defaults, as
+the [provider registry](provider-registry.md#timeouts) says. An explicit
+portable total timeout replaces the overall deadline of that call, also
+when the provider config sets one.
 
 ## Known Model Specs
 
@@ -102,9 +108,9 @@ remains an empty string. User and assistant names are sent only when present;
 tool messages omit `name` and include the matching `tool_call_id`.
 
 DeepSeek V4 is text-only at this boundary. It sends text parts. A message
-with an image or video part fails locally with a typed provider error before
-authentication or transport is invoked. The adapter must not drop an image or
-video part, or claim vision support.
+with an image or video part fails locally with the unsupported input kind
+before authentication or transport is invoked. The adapter must not drop an
+image or video part, or claim vision support.
 
 Portable output limits map to `max_tokens` and ordered stops map to `stop` at
 every effort. With thinking disabled, temperature, top-p, and all
@@ -151,8 +157,8 @@ DeepSeek provider state, as the
 Null assistant content becomes an empty string so replay always sends
 non-null `content`.
 
-An enabled-thinking tool-call response without `reasoning_content` is a
-non-retryable provider failure because it cannot be continued correctly. A
+An enabled-thinking tool-call response without `reasoning_content` has the
+invalid output kind because it cannot be continued correctly. A
 disabled-thinking tool call may omit reasoning.
 
 On continuation, the adapter sends the raw values of its own state. It uses
@@ -174,7 +180,7 @@ name, and JSON arguments; provider order, ids, and raw arguments survive
 parallel calls and replay.
 
 A `tool_calls` finish with an absent, null, empty, or malformed tool-call
-collection is a non-retryable provider failure. Tool payloads attached to
+collection has the invalid output kind. Tool payloads attached to
 terminal, truncated, filtered, unknown, or missing finish reasons are neither
 parsed, dispatched, nor retained for replay.
 

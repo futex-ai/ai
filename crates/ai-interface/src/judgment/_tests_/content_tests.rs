@@ -2,7 +2,7 @@
 
 use serde_json::{Map, Value, json};
 
-use crate::{JudgmentContent, JudgmentError, JudgmentJsonType};
+use crate::{ErrorKind, JudgmentContent, JudgmentError, JudgmentJsonType};
 
 #[test]
 fn content_uses_untagged_text_object_and_array_shapes() {
@@ -70,7 +70,9 @@ fn json_value_conversion_rejects_unsupported_shapes_with_typed_errors() {
         let error = JudgmentContent::try_from(value).unwrap_err();
         assert!(matches!(
             error,
-            JudgmentError::UnsupportedContent { json_type } if json_type == expected_type
+            JudgmentError::UnsupportedContent { json_type, core } if json_type == expected_type
+                && core.kind == ErrorKind::InvalidRequest && core.provider == "local"
+                && core.model_id == "judgment-validation"
         ));
     }
 }

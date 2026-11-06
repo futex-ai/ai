@@ -16,6 +16,7 @@ use super::AnthropicModel;
 #[tokio::test]
 async fn builds_anthropic_tool_requests_and_parses_response() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "stop_reason": "tool_use",
@@ -73,7 +74,15 @@ async fn builds_anthropic_tool_requests_and_parses_response() {
         Some(&"2023-06-01".to_owned())
     );
     assert_eq!(
-        requests[0].body.as_ref().expect("body present")["model"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body present")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["model"],
         "claude-sonnet-4-6"
     );
 
@@ -91,6 +100,7 @@ async fn builds_anthropic_tool_requests_and_parses_response() {
 #[tokio::test]
 async fn builds_anthropic_structured_output_requests_and_parses_response() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "stop_reason": "end_turn",
@@ -133,7 +143,15 @@ async fn builds_anthropic_structured_output_requests_and_parses_response() {
         .lock()
         .expect("requests lock should not be poisoned");
     assert!(
-        requests[0].body.as_ref().expect("body present")["system"]
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body present")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["system"]
             .as_str()
             .expect("system prompt should be a string")
             .contains("return raw JSON only")
@@ -175,6 +193,7 @@ async fn maps_anthropic_stop_reasons() {
 
     for (raw_reason, expected, include_tool) in cases {
         let (http_client, _) = recording_http_client(JsonHttpResponse {
+            headers: Default::default(),
             status: 200,
             body: anthropic_response_body(raw_reason, include_tool),
         });
@@ -192,6 +211,7 @@ async fn maps_anthropic_stop_reasons() {
 #[tokio::test]
 async fn maps_missing_anthropic_stop_reason_to_other() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "content": [

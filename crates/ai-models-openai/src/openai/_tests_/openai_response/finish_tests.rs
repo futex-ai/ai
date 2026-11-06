@@ -1,6 +1,6 @@
 //! Finish reason and tool-call response tests.
 
-use ai_interface::{FinishReason, ModelError};
+use ai_interface::FinishReason;
 use serde_json::json;
 
 use super::{Effort, openai_function_call_body, openai_text_body, response_from_fixture};
@@ -158,5 +158,7 @@ async fn rejects_invalid_function_call_arguments() {
     .await
     .expect_err("invalid tool arguments should fail");
 
-    assert!(matches!(error, ModelError::Provider { .. }));
+    assert!(
+        matches!(error, ref error if error.core().kind == ai_interface::ErrorKind::InvalidOutput)
+    );
 }

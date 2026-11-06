@@ -4,7 +4,9 @@ use std::sync::Arc;
 
 use ai_interface::{
     DynModel, Effort, Model, ModelRequest, ModelResponse, ModelResponseFold, ModelResult,
+    ProviderId,
 };
+use ai_models_registry::ProviderConfig;
 use async_trait::async_trait;
 use json_http::{
     TransportBackedJsonHttpClient,
@@ -95,12 +97,14 @@ impl ConformanceRunner for ScenarioRunner {
         let client = Arc::new(TransportBackedJsonHttpClient::new(Arc::new(
             RecordingTransport::new(transport, log.clone()),
         )));
-        let model = self.factory.build(
-            provider,
-            &recording.catalog_model_id,
-            client,
-            provider.auth("conformance-placeholder-key".to_owned()),
-        )?;
+        let mut config = ProviderConfig::new(
+            ProviderId::new(provider.name()),
+            "conformance-placeholder-key",
+        );
+        config.base_url = recording.base_url.clone();
+        let model = self
+            .factory
+            .build(provider, &recording.catalog_model_id, client, config)?;
         let mut outcome = self
             .execute(model, scenario, recording.effort, &Redactor::default())
             .await?;
@@ -205,3 +209,7 @@ mod effort_tests;
 #[cfg(test)]
 #[path = "_tests_/stream_runner_tests.rs"]
 mod stream_runner_tests;
+
+#[cfg(test)]
+#[path = "_tests_/base_url_tests.rs"]
+mod base_url_tests;

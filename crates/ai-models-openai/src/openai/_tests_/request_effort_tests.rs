@@ -35,15 +35,39 @@ async fn request_effort_overrides_default_and_caps_output_for_each_call() {
 
     let requests = requests.lock().unwrap();
     assert_eq!(
-        requests[0].body.as_ref().unwrap()["reasoning"]["effort"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["reasoning"]["effort"],
         "max"
     );
     assert_eq!(
-        requests[1].body.as_ref().unwrap()["reasoning"]["effort"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[1]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["reasoning"]["effort"],
         "medium"
     );
     assert_eq!(
-        requests[0].body.as_ref().unwrap()["max_output_tokens"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .unwrap()
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["max_output_tokens"],
         128_000
     );
 }
@@ -84,16 +108,20 @@ async fn assert_legacy_low_wire_request(spec: ModelSpec, model_id: &str) {
             .iter()
             .map(|request| request.body.clone())
             .collect::<Vec<_>>(),
-        vec![Some(JsonHttpBody::Json(json!({
-            "stream": true,
-            "model": model_id,
-            "instructions": "system",
-            "input": [{"role": "user", "content": "hello"}],
-            "store": false,
-            "include": ["reasoning.encrypted_content"],
-            "reasoning": {"effort": "low"},
-            "max_output_tokens": 256
-        })))],
+        vec![Some(JsonHttpBody::Json(
+            json!({
+                "stream": true,
+                "model": model_id,
+                "instructions": "system",
+                "input": [{"role": "user", "content": "hello"}],
+                "store": false,
+                "include": ["reasoning.encrypted_content"],
+                "reasoning": {"effort": "low"},
+                "max_output_tokens": 256
+            })
+            .to_string()
+            .into_bytes()
+        ))],
         "{model_id}/low: {response:?}"
     );
     assert_eq!(response.unwrap().effort(), Some(Effort::Low));

@@ -10,10 +10,11 @@ expression: outcome
       "kind": "error",
       "events": [],
       "error": {
-        "variant": "Provider",
+        "kind": "UnsupportedInput",
         "provider": "deepseek",
         "model_id": "deepseek-v4-pro",
-        "message": "DeepSeek accepts plain text messages only"
+        "message": "DeepSeek accepts plain text messages only",
+        "attempts": []
       }
     }
   ],

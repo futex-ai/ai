@@ -1,8 +1,9 @@
 //! Kimi one-turn request mapping tests.
 
+use ai_interface::ErrorKind;
+
 use ai_interface::{
-    ConversationMessage, ConversationPart, ConversationRole, Effort, ModelError, ModelRequest,
-    ToolCall,
+    ConversationMessage, ConversationPart, ConversationRole, Effort, ModelRequest, ToolCall,
 };
 use serde_json::{Value, json};
 
@@ -85,18 +86,14 @@ fn rejects_video_content_parts_with_typed_provider_error() {
     let error = build_request(KIMI_K3.provider_model_id.as_ref(), Effort::Max, &request)
         .expect_err("video parts must be rejected");
 
-    match error {
-        ModelError::Provider {
-            provider,
-            model_id,
-            message,
-        } => {
-            assert_eq!(provider, "kimi");
-            assert_eq!(model_id, KIMI_K3.provider_model_id.as_ref());
-            assert_eq!(message, "Kimi accepts text and image content parts only");
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
+    assert_eq!(error.core().kind, ErrorKind::UnsupportedInput);
+
+    assert_eq!(error.core().provider, "kimi");
+    assert_eq!(error.core().model_id, KIMI_K3.provider_model_id.as_ref());
+    assert_eq!(
+        error.core().message,
+        "Kimi accepts text and image content parts only"
+    );
 }
 
 #[test]

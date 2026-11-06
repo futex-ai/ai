@@ -10,10 +10,11 @@ expression: outcome
       "kind": "error",
       "events": [],
       "error": {
-        "variant": "RateLimited",
+        "kind": "RateLimited",
         "provider": "google",
         "model_id": "gemini-3.6-flash",
-        "message": "HTTP 429: Quota exceeded."
+        "message": "HTTP 429: Quota exceeded.",
+        "attempts": []
       }
     }
   ],

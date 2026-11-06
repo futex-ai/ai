@@ -10,6 +10,7 @@ use super::{XaiModel, test_support::recording_http_client};
 #[tokio::test]
 async fn missing_xai_total_tokens_falls_back_to_normalized_usage_sum() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{
@@ -40,6 +41,7 @@ async fn missing_xai_total_tokens_falls_back_to_normalized_usage_sum() {
 #[tokio::test]
 async fn xai_usage_separates_cached_and_reasoning_tokens() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{

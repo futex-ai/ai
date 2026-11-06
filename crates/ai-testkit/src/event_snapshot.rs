@@ -1,8 +1,6 @@
 //! Typed, serializable snapshots of public model events.
 
-use ai_interface::{
-    Effort, FinishReason, ModelAttemptError, ModelEvent, ModelUsage, ProviderState,
-};
+use ai_interface::{Effort, ErrorCore, FinishReason, ModelEvent, ModelUsage, ProviderState};
 use json_http::test_support::Redactor;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -86,7 +84,9 @@ pub enum ModelEventSnapshot {
     /// A failed attempt whose events the consumer must discard.
     Fallback {
         /// Serializable failure details of the discarded attempt.
-        error: ModelAttemptError,
+        error: ErrorCore,
+        /// Whether the discarded attempt returned any model event.
+        emitted_events: bool,
     },
 }
 
@@ -97,3 +97,7 @@ impl ModelEventSnapshot {
         serde_json::from_value(redactor.value(&value)).context("sanitize model event")
     }
 }
+
+#[cfg(test)]
+#[path = "_tests_/event_snapshot_tests.rs"]
+mod event_snapshot_tests;

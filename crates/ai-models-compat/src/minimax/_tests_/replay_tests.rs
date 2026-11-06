@@ -59,7 +59,11 @@ async fn preserves_and_replays_complete_reasoning_context_without_disclosure() {
     let replay_body = requests[1]
         .body
         .as_ref()
-        .and_then(|body| body.as_json())
+        .and_then(|body| {
+            body.as_json_bytes().map(|bytes| {
+                serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
+            })
+        })
         .expect("JSON body should be present");
     assert_eq!(
         replay_body["messages"][1],
@@ -101,6 +105,7 @@ fn simple_request() -> ModelRequest {
 
 fn reasoning_tool_response() -> JsonHttpResponse<serde_json::Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{
@@ -131,6 +136,7 @@ fn reasoning_tool_response() -> JsonHttpResponse<serde_json::Value> {
 
 fn stopped_response() -> JsonHttpResponse<serde_json::Value> {
     JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "choices": [{

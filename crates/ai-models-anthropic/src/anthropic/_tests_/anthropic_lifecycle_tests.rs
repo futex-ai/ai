@@ -1,6 +1,6 @@
 //! Tool lifecycle and terminal validation through the public stream.
 
-use ai_interface::{ConversationMessage, Model, ModelError, ModelRequest, StructuredOutputSchema};
+use ai_interface::{ConversationMessage, Model, ModelRequest, StructuredOutputSchema};
 use serde_json::json;
 
 use crate::CLAUDE_SONNET_4_6;
@@ -133,7 +133,10 @@ async fn validates_terminal_output_before_usage_and_closes_after_failure() {
     let mut request = simple_request();
     let mut stream = model.stream(&request).await.expect("stream should open");
     let missing_call = stream.next().await.expect_err("tool finish needs a call");
-    assert!(matches!(missing_call, ModelError::Provider { .. }));
+    assert!(matches!(
+        missing_call.core().kind,
+        ai_interface::ErrorKind::InvalidOutput
+    ));
     assert!(
         stream
             .next()
@@ -165,7 +168,10 @@ async fn validates_terminal_output_before_usage_and_closes_after_failure() {
         .next()
         .await
         .expect_err("schema should fail before usage");
-    assert!(matches!(invalid_schema, ModelError::Provider { .. }));
+    assert!(matches!(
+        invalid_schema.core().kind,
+        ai_interface::ErrorKind::InvalidOutput
+    ));
     assert!(
         stream
             .next()

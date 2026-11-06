@@ -1,12 +1,11 @@
 //! TypeSafe judgment error classification.
 
-use ai_interface::JudgmentError;
-use ai_models_core::{HttpFailureClass, classify_http_status};
+use ai_interface::{ErrorKind, JudgmentError};
+use ai_models_core::{ErrorContext, json_http_error_core};
+use json_http::JsonHttpHeaders;
 use serde_json::Value;
 
 use super::redaction::redact_secrets;
-
-const PROVIDER: &str = "typesafe";
 
 /// Fixed auth failure diagnostic used because hook errors can contain
 /// undiscovered credentials and therefore cannot be safely sanitized.
@@ -14,59 +13,61 @@ pub(super) const AUTH_HOOK_FAILED: &str = "authentication hook failed";
 
 /// Classifies one unsuccessful System One HTTP response.
 pub(super) fn classify_status(
+    context: &ErrorContext,
     status: u16,
-    model_id: &str,
+    headers: &JsonHttpHeaders,
     body: &Value,
     secrets: &[String],
 ) -> JudgmentError {
-    let message = match error_message(body) {
-        Some(message) => message,
-        None => http_status_message(status),
-    };
-    let message = redact_secrets(&message, secrets);
-    match classify_http_status(status) {
-        Some(HttpFailureClass::RateLimited) => {
-            JudgmentError::rate_limited(PROVIDER, model_id, message)
-        }
-        Some(HttpFailureClass::Transient) => {
-            JudgmentError::transient_provider(PROVIDER, model_id, message)
-        }
-        Some(HttpFailureClass::Terminal) | None => {
-            JudgmentError::provider(PROVIDER, model_id, message)
-        }
+    let message = error_message(body).unwrap_or_else(|| http_status_message(status));
+    let mut core = json_http_error_core(context, status, headers, body);
+    if status == 400
+        && matches!(
+            body.get("detail")
+                .and_then(|detail| detail.get("error_type"))
+                .and_then(Value::as_str),
+            Some(
+                "context_length_exceeded"
+                    | "model_context_window_exceeded"
+                    | "input_too_long"
+                    | "too_many_tokens"
+            )
+        )
+    {
+        core.kind = ErrorKind::ContextLimitExceeded;
     }
+    core.message = redact_secrets(&message, secrets);
+    JudgmentError::new(core)
 }
 
-/// Classifies request failures while reserving opaque internal errors for local
-/// serialization and client initialization, which cannot contain auth headers.
+/// Classifies one request failure without losing its original source or response headers.
 pub(super) fn classify_request_error(
     source: json_http::Error,
-    model_id: &str,
+    context: &ErrorContext,
     secrets: &[String],
 ) -> JudgmentError {
-    match source {
-        json_http::Error::Auth { .. } => {
-            JudgmentError::transient_provider(PROVIDER, model_id, AUTH_HOOK_FAILED)
-        }
-        source @ (json_http::Error::Transport { .. }
-        | json_http::Error::ReqwestTransport { .. }
-        | json_http::Error::IdleTimeout { .. }
-        | json_http::Error::DeadlineExceeded { .. }
-        | json_http::Error::SseTransport { .. }) => {
-            let message = redact_secrets(&source.to_string(), secrets);
-            JudgmentError::transient_provider(PROVIDER, model_id, message)
-        }
-        source @ (json_http::Error::SerializeRequest { .. }
-        | json_http::Error::ClientInitialization { .. }) => JudgmentError::internal(source),
-        source @ (json_http::Error::DeserializeResponse { .. }
-        | json_http::Error::SseUnsupported
-        | json_http::Error::HttpStatus { .. }
-        | json_http::Error::InvalidSseContentType { .. }
-        | json_http::Error::SseDecode { .. }) => {
-            let message = redact_secrets(&source.to_string(), secrets);
-            JudgmentError::provider(PROVIDER, model_id, message)
-        }
+    if matches!(source.cause(), json_http::Error::Auth { .. }) {
+        return JudgmentError::new(context.request_error(&source));
     }
+    let core = if let json_http::Error::HttpStatus {
+        status,
+        headers,
+        body,
+    } = source.cause()
+    {
+        classify_status(
+            context,
+            *status,
+            source.response_headers().unwrap_or(headers),
+            body,
+            secrets,
+        )
+        .core()
+        .clone()
+    } else {
+        context.request_error(&source)
+    };
+    JudgmentError::with_source(core, context.source(source))
 }
 
 /// Builds the fallback diagnostic for an empty response body.

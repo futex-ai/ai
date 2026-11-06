@@ -33,7 +33,10 @@ impl AudioTranscriber for MockAudioTranscriber {
         _request: &AudioTranscriptionRequest,
     ) -> TranscriptionResult<AudioTranscriptionResponse> {
         if self.text.trim().is_empty() {
-            return Err(TranscriptionError::EmptyTranscript);
+            return Err(TranscriptionError::empty_transcript(
+                "mock",
+                "mock-transcription",
+            ));
         }
         Ok(AudioTranscriptionResponse {
             text: self.text.clone(),

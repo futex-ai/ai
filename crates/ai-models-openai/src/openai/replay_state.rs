@@ -1,7 +1,7 @@
 //! Private version one payloads for stateless Responses replay.
 
-use ai_interface::{ModelError, ModelResult, ProviderState};
-use serde::{Deserialize, Serialize};
+use ai_interface::ProviderState;
+use serde::{Deserialize, Serialize, ser::Error};
 use serde_json::Value;
 
 use crate::PROVIDER_ID;
@@ -62,17 +62,13 @@ pub(super) struct ReasoningSummary {
 }
 
 impl ReplayState {
-    pub(super) fn encode(&self, model_id: &str) -> ModelResult<ProviderState> {
+    pub(super) fn encode(&self, model_id: &str) -> serde_json::Result<ProviderState> {
         let payload = match serde_json::to_value(self) {
             Ok(Value::Object(payload)) => payload,
             Ok(_) => {
-                return Err(ModelError::provider(
-                    "openai",
-                    model_id,
-                    "invalid provider state payload",
-                ));
+                return Err(serde_json::Error::custom("invalid provider state payload"));
             }
-            Err(source) => return Err(ModelError::internal(source)),
+            Err(source) => return Err(source),
         };
         Ok(ProviderState {
             provider: PROVIDER_ID,

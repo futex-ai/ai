@@ -32,6 +32,12 @@ output, and exposes explicit mutation APIs for embedding services.
   of the model into one response. The runtime does not forward model events.
   The model-call logger copy and the response checkpoint keep the failed
   fallback attempts of `ModelResponse::attempts`.
+- Reports an invalid generated response with `ErrorKind::InvalidOutput`.
+  The error keeps the response provider, model id, and earlier failed attempts.
+- Returns every other model error unchanged, with its shared error core and
+  earlier attempts. The model-call logger receives its safe display and debug
+  text. Retry, fallback, concurrency, and pricing are layers of
+  `ai-models-policy` that wrap the model before the runtime receives it.
 - Lets callers apply `ModelCallControls`, including the request effort, to a
   turn with `ActiveTurn::with_controls(...)`; every model step receives the
   controls unchanged. The model resolves the effort against its own spec on

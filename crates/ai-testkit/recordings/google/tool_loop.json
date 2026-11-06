@@ -1,6 +1,7 @@
 {
   "source": "synthetic",
   "catalog_model_id": "google/gemini-3.6-flash",
+  "base_url": "https://generativelanguage.googleapis.com",
   "effort": "medium",
   "exchanges": [
     {

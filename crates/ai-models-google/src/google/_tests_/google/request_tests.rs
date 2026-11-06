@@ -10,6 +10,7 @@ use super::{GoogleModel, recording_http_client, simple_request};
 #[tokio::test]
 async fn builds_google_tool_requests_and_parses_response() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "candidates": [{
@@ -70,7 +71,15 @@ async fn builds_google_tool_requests_and_parses_response() {
         Some(&"google-key".to_owned())
     );
     assert_eq!(
-        requests[0].body.as_ref().expect("body present")["tools"][0]["functionDeclarations"][0]["name"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body present")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["tools"][0]["functionDeclarations"][0]["name"],
         "memory_read"
     );
 
@@ -85,6 +94,7 @@ async fn builds_google_tool_requests_and_parses_response() {
 #[tokio::test]
 async fn google_function_call_without_args_uses_empty_object_input() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "candidates": [{
@@ -115,6 +125,7 @@ async fn google_function_call_without_args_uses_empty_object_input() {
 #[tokio::test]
 async fn builds_google_structured_output_requests_and_parses_response() {
     let (http_client, requests) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "candidates": [{
@@ -161,7 +172,15 @@ async fn builds_google_structured_output_requests_and_parses_response() {
         .lock()
         .expect("requests lock should not be poisoned");
     assert_eq!(
-        requests[0].body.as_ref().expect("body present")["generationConfig"]["responseMimeType"],
+        serde_json::from_slice::<serde_json::Value>(
+            requests[0]
+                .body
+                .as_ref()
+                .expect("body present")
+                .as_json_bytes()
+                .expect("JSON request body")
+        )
+        .expect("valid JSON request body")["generationConfig"]["responseMimeType"],
         "application/json"
     );
     assert_eq!(
@@ -177,6 +196,7 @@ async fn builds_google_structured_output_requests_and_parses_response() {
 #[tokio::test]
 async fn missing_google_total_tokens_falls_back_to_normalized_usage_sum() {
     let (http_client, _) = recording_http_client(JsonHttpResponse {
+        headers: Default::default(),
         status: 200,
         body: json!({
             "candidates": [{

@@ -10,11 +10,12 @@ use std::{
 };
 
 use ai_interface::{
-    DynJudgmentModel, JudgmentAnswer, JudgmentAnswerProblem, JudgmentContent, JudgmentError,
-    JudgmentJsonType, JudgmentModel, JudgmentModelMock, JudgmentQuestion, JudgmentQuestionProblem,
-    JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage,
+    DynJudgmentModel, ErrorCore, ErrorKind, JudgmentAnswer, JudgmentAnswerProblem, JudgmentContent,
+    JudgmentError, JudgmentJsonType, JudgmentModel, JudgmentModelMock, JudgmentQuestion,
+    JudgmentQuestionProblem, JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage,
+    SafeErrorSource,
 };
-use ai_models_core::{DynSleeper, STANDARD_TRANSIENT_RETRY_DELAYS, TokioSleeper};
+use ai_models_policy::{DynSleeper, STANDARD_TRANSIENT_RETRY_DELAYS, SleeperMock, TokioSleeper};
 use async_trait::async_trait;
 use unimock::{MockFn, Unimock, matching};
 
@@ -58,9 +59,12 @@ impl JudgmentModel for RetryingJudgmentModel {
 
         loop {
             match self.inner.judge(request).await {
-                Err(
-                    JudgmentError::RateLimited { .. } | JudgmentError::TransientProvider { .. },
-                ) if retry_index < self.retry_delays.len() => {
+                Err(error)
+                    if matches!(
+                        error.core().kind,
+                        ErrorKind::RateLimited | ErrorKind::Transient
+                    ) && retry_index < self.retry_delays.len() =>
+                {
                     let delay = self.retry_delays[retry_index];
                     retry_index += 1;
                     self.sleeper.sleep(delay).await;
@@ -77,21 +81,27 @@ async fn retries_only_rate_limits_and_transient_provider_failures() {
     let retrying = RetryingJudgmentModel::new(
         scripted_model(
             vec![
-                Err(JudgmentError::rate_limited(
+                Err(JudgmentError::new(ErrorCore::new(
+                    ErrorKind::RateLimited,
                     "typesafe",
                     "jev-latest",
                     "retry one",
-                )),
-                Err(JudgmentError::transient_provider(
+                ))),
+                Err(JudgmentError::new(ErrorCore::new(
+                    ErrorKind::Transient,
                     "typesafe",
                     "jev-latest",
                     "retry two",
-                )),
+                ))),
                 Ok(success_response()),
             ],
             calls.clone(),
         ),
-        Arc::new(TokioSleeper),
+        Arc::new(Unimock::new(
+            SleeperMock::sleep
+                .each_call(matching!(&Duration::ZERO))
+                .returns(()),
+        )),
         vec![Duration::ZERO, Duration::ZERO],
     );
 
@@ -111,7 +121,11 @@ async fn returns_the_last_retryable_error_after_three_attempts() {
             vec![transient("one"), transient("two"), transient("three")],
             calls.clone(),
         ),
-        Arc::new(TokioSleeper),
+        Arc::new(Unimock::new(
+            SleeperMock::sleep
+                .each_call(matching!(&Duration::ZERO))
+                .returns(()),
+        )),
         vec![Duration::ZERO, Duration::ZERO],
     );
 
@@ -120,18 +134,16 @@ async fn returns_the_last_retryable_error_after_three_attempts() {
         .await
         .expect_err("third transient failure should be returned");
 
-    assert!(matches!(error, JudgmentError::TransientProvider { .. }));
+    assert_eq!(error.core().kind, ErrorKind::Transient);
     assert_eq!(calls.load(Ordering::SeqCst), 3);
 }
 
 #[tokio::test]
 async fn terminal_error_classes_stop_after_one_attempt() {
     let errors = vec![
-        JudgmentError::UnsupportedContent {
-            json_type: JudgmentJsonType::Null,
-        },
-        JudgmentError::EmptyState,
-        JudgmentError::NoQuestions,
+        JudgmentError::unsupported_content(JudgmentJsonType::Null),
+        JudgmentError::empty_state(),
+        JudgmentError::no_questions(),
         JudgmentError::invalid_question("urgent", JudgmentQuestionProblem::NoOptions),
         JudgmentError::invalid_answer(
             "typesafe",
@@ -139,15 +151,24 @@ async fn terminal_error_classes_stop_after_one_attempt() {
             "urgent",
             JudgmentAnswerProblem::Missing,
         ),
-        JudgmentError::provider("typesafe", "jev-latest", "rejected"),
-        JudgmentError::internal(std::io::Error::other("internal")),
+        JudgmentError::new(ErrorCore::new(
+            ErrorKind::InvalidRequest,
+            "typesafe",
+            "jev-latest",
+            "rejected",
+        )),
+        JudgmentError::internal(
+            "typesafe",
+            "jev-latest",
+            SafeErrorSource::redacted(std::io::Error::other("internal")),
+        ),
     ];
 
     for error in errors {
         let calls = Arc::new(AtomicUsize::new(0));
         let retrying = RetryingJudgmentModel::new(
             scripted_model(vec![Err(error)], calls.clone()),
-            Arc::new(TokioSleeper),
+            Arc::new(Unimock::new(())),
             vec![Duration::ZERO, Duration::ZERO],
         );
 
@@ -190,11 +211,12 @@ fn scripted_model(
 }
 
 fn transient(message: &str) -> JudgmentResult<JudgmentResponse> {
-    Err(JudgmentError::transient_provider(
+    Err(JudgmentError::new(ErrorCore::new(
+        ErrorKind::Transient,
         "typesafe",
         "jev-latest",
         message,
-    ))
+    )))
 }
 
 fn probe_request() -> JudgmentRequest {

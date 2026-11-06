@@ -1,0 +1,23 @@
+[package]
+name = "ai-models-policy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+ai-interface.workspace = true
+async-trait = "0.1.89"
+rand = "=0.9.4"
+thiserror = "2.0.18"
+tokio = { version = "1.52.1", features = ["sync", "time"] }
+unimock = { version = "0.6.8", optional = true }
+
+[dev-dependencies]
+ai-interface = { workspace = true, features = ["test-support"] }
+serde_json = "1.0.149"
+tokio = { version = "1.52.1", features = ["macros", "rt", "rt-multi-thread", "time"] }
+unimock = "0.6.8"
+
+[features]
+test-support = ["ai-interface/test-support", "dep:unimock"]

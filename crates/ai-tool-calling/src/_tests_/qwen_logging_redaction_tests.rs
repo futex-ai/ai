@@ -6,7 +6,7 @@ use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     ConversationMessage, ConversationPart, ConversationRole, Effort, FinishReason, Logger,
     LoggerMock, Model, ModelCallLogEntry, ModelCallLogResult, ModelError, ModelMock, ModelRequest,
-    ModelResponse, ModelUsage, ToolCall,
+    ModelResponse, ModelUsage, SafeErrorSource, ToolCall,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
@@ -97,7 +97,11 @@ async fn qwen_reasoning_is_redacted_from_failed_request_logs() {
                             .iter()
                             .any(|message| replay_parts(&message.parts) == replay_context)
                     );
-                    Err(ModelError::internal(FixtureModelError))
+                    Err(ModelError::internal(
+                        "qwen",
+                        "qwen3.7-plus",
+                        SafeErrorSource::redacted(FixtureModelError),
+                    ))
                 }
                 .map(model_response_stream)
             })),

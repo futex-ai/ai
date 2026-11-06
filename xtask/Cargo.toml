@@ -15,6 +15,7 @@ name = "live_judgments"
 path = "tests/live_judgments/mod.rs"
 
 [dependencies]
+ai-models-registry = { workspace = true }
 ai-models-compat = { workspace = true }
 ai-testkit = { workspace = true }
 ai-interface = { workspace = true, features = ["test-support"] }
@@ -37,6 +38,7 @@ tokio = { version = "1.53.1", features = ["rt-multi-thread", "time"] }
 ai-testkit = { workspace = true, features = ["test-support"] }
 ai-interface = { workspace = true, features = ["test-support"] }
 ai-models-core.workspace = true
+ai-models-policy = { workspace = true, features = ["test-support"] }
 tempfile = "3.27.0"
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
 unimock = "0.6.8"
