@@ -390,6 +390,20 @@ All calls are mine, made on 2026-11-01.
 - 2026-11-04, applying item 26: a custom spec that reuses a known Gemini
   model id still sends a thinking value for each enabled effort. It rejects
   disabled when the effort table gives that model no off value.
+- 2026-11-05, after the user moved the open items to follow-up items:
+  - Pull request 8 holds Milestones 13 and 14, and it deletes this plan.
+    No pull request 7 exists.
+  - The two post-merge tasks for Firna and Juno became the follow-up items
+    `follow-ups/firna-adopts-redesigned-api.md` and
+    `follow-ups/juno-adopts-redesigned-api.md`. The Juno item waits for
+    items 53 and 55 before Juno drops a version 1 original, because the
+    converter does not keep the facts that those items decide.
+- 2026-11-06, the doc check before the deletion of this plan: every
+  decision in force is in a doc. The docs dropped the links to this plan,
+  the target wording of `docs/architecture.md`, and an anchor that named
+  Milestone 8. They gained the rejected alternatives of decisions 6 and 7
+  and item 26, the plain read of version 1 messages, and the registry
+  catalog as the spec source of the live suite.
 
 ## Pull requests
 
@@ -704,8 +718,10 @@ pull request #23.
 
 Depends on: every other milestone
 
-- [ ] Run `cargo xtask check` and `cargo xtask smoke-test`.
-- [ ] Commit with Conventional Commits and push the branch.
+- [x] Run `cargo xtask check` and `cargo xtask smoke-test`. Both passed
+      on `1d47604` on 2026-11-05: 1,425 tests passed, 0 failed, and 11 live
+      tests ignored.
+- [x] Commit with Conventional Commits and push the branch.
 - [ ] Review the complete local diff against `origin/main` with the
       `implementation-review` skill after the push. Report the findings,
       then apply the fix rule: fix the `fix now` findings, record
@@ -719,5 +735,7 @@ Depends on: every other milestone
 
 ## Post-merge follow-up (non-blocking)
 
-- [ ] Firna adopts the new API at a pinned revision.
-- [ ] Juno adopts the new API and converts its stored conversations.
+- [ ] Firna adopts the new API at a pinned revision. Item:
+      [follow-ups/firna-adopts-redesigned-api.md](follow-ups/firna-adopts-redesigned-api.md).
+- [ ] Juno adopts the new API and converts its stored conversations. Item:
+      [follow-ups/juno-adopts-redesigned-api.md](follow-ups/juno-adopts-redesigned-api.md).
