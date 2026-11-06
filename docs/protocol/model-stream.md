@@ -1,6 +1,6 @@
 # Model Stream Protocol
 
-Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented.
 
 The [provider registry](provider-registry.md) defines deadline defaults
 from a provider config.

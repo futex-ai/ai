@@ -220,6 +220,7 @@ dependencies = [
  "ai-models-google",
  "ai-models-openai",
  "ai-models-registry",
+ "ai-tool-calling",
  "async-trait",
  "insta",
  "internal-error",

@@ -1,6 +1,6 @@
 # Provider Registry Protocol
 
-Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented.
 
 This protocol governs how hosts build adapters through the registry. The
 per-provider constructors `new`, `with_auth`, and `with_catalog_auth` remain

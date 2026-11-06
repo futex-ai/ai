@@ -1,10 +1,8 @@
 # Architecture
 
-Status: Approved, not implemented. Plan: [plans/ai-library-redesign.md](../plans/ai-library-redesign.md).
+Status: Implemented.
 
-When implemented, this document replaces no current doc.
-
-This document describes the target structure of the workspace. It names the
+This document describes the structure of the workspace. It names the
 components, the responsibility of each component, the boundaries between
 them, and the flow of data in one model call and in one agent turn. The
 protocol docs under [`protocol/`](protocol/) hold the requirements at each
@@ -100,8 +98,11 @@ serves a model or which policy layers wrap it.
 
 The MCP client exposes the tools of a remote MCP server as `Tool` values,
 and the OAuth companion gets and refreshes the credentials of that server.
-These crates keep their current design until Milestone 11 of the plan
-decides whether `rmcp` replaces the client.
+The MCP crates send their requests through their own HTTP transports.
+They use only the auth hook interface of the HTTP component. The open
+follow-up item
+[Choose how the MCP crates change](../plans/follow-ups/mcp-crate-direction.md)
+decides where the MCP protocol logic and its HTTP code live.
 
 ### Test kit
 
@@ -118,8 +119,8 @@ results. No product code depends on the test kit.
   the HTTP component, and the adapter helpers.
 - The policies and the agent loop depend on the contracts. They never
   depend on an adapter.
-- The registry depends on the contracts, the HTTP component, and each
-  provider crate that a Cargo feature selects.
+- The registry depends on the contracts, the HTTP component, the adapter
+  helpers, and each provider crate that a Cargo feature selects.
 - The MCP crates depend on the contracts and the HTTP component.
 - The test kit can depend on every other component.
 

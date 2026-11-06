@@ -10,8 +10,8 @@ upstream production API.
 ## Scope
 
 The credentialed suite covers Anthropic, DeepSeek, Google Gemini, Kimi,
-MiniMax, OpenAI, QwenCloud, and xAI. Each provider test obtains its specs from
-that crate's `known_models()` function. It runs one probe at the default of
+MiniMax, OpenAI, QwenCloud, and xAI. Each provider test takes its specs from
+the combined catalog of the registry. It runs one probe at the default of
 each chat-capable spec, then one probe for each other listed effort, so new
 specs and efforts enter the live test automatically. The default probe of a
 spec without a default effort sets no effort. Probes that share a spec
@@ -33,6 +33,12 @@ and QwenCloud. For xAI it selects the submit-and-poll lifecycle, which emits
 every event of the call after the provider result arrives. Deterministic
 transport tests in the provider crates remain responsible for detailed event
 ordering and wire behavior.
+
+Decision: the suite keeps its single-turn probes and adds no multi-step
+check. The rejected alternatives were multi-step probes for one thinking
+model of each provider, probes for every catalog model, recordings only,
+the conformance scenarios run live, and live models chosen from the
+specs.
 
 Credentialed image generation is specified separately by the implemented
 [live image API test protocol](live-image-api-tests.md). Keeping the suites
@@ -136,6 +142,11 @@ and limits parallelism to reduce rate pressure. A newer revision of the same
 pull request cancels its superseded live run. The workflow has read-only
 repository permissions and exposes only the current provider's secret, only to
 the credential check and test steps.
+
+Decision: the paid live suites keep these triggers. The rejected
+alternatives were path filters, a pull-request label, schedules only, a
+small pull-request set, one run for each merged change, and a run set
+from the Cargo dependency graph.
 
 The required repository Actions secrets are:
 

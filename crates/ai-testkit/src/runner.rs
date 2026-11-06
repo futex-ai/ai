@@ -172,7 +172,8 @@ fn sanitized_response(response: ModelResponse, redactor: &Redactor) -> Result<Mo
     serde_json::from_value(redactor.value(&value)).context("sanitize model response")
 }
 
-fn compare_requests(
+/// Compares sanitized requests and reports the first differing exchange in full.
+pub fn compare_requests(
     provider: Provider,
     scenario: Scenario,
     expected: &[Recording],

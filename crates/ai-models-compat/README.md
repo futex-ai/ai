@@ -185,7 +185,7 @@ stream, response, validation, and usage code. Put dialect tests in its
 ### Related Docs
 
 - [Architecture](../../docs/architecture.md)
-- [Target dialect protocol](../../docs/protocol/chat-completions-dialects.md)
+- [Chat Completions dialect protocol](../../docs/protocol/chat-completions-dialects.md)
 - [Model stream](../../docs/protocol/model-stream.md)
 - [Conversation parts](../../docs/protocol/conversation-parts.md)
 - [Model capabilities](../../docs/protocol/model-capabilities.md)

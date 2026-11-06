@@ -6,13 +6,16 @@ Product libraries do not depend on this crate.
 
 ## Responsibilities
 
-- Build the same six scenarios for each chat provider.
+- Build the same six model scenarios for each chat provider.
 - Store sanitized HTTP exchanges with their source, the text id of the model
   spec, the request effort, and optional provider base URL.
 - Run production adapters against ordered replay transports.
 - Compare every sanitized outbound request with its recorded exchange.
 - Snapshot the ordered model events of each scenario, then its folded
   response or typed error, without provider credentials.
+- Run text turns and tool loops through `Agent::run`, and snapshot the
+  outcome and appended messages.
+- Check native replay for every supported catalog effort that needs it.
 - Prove that a stored version 1 tool loop, read through the composed
   provider converters, still sends each recorded continuation request.
 
@@ -43,10 +46,11 @@ The scenarios are:
 | `image_input` | A text prompt and a valid 32 by 32 base64 PNG. |
 | `rate_limit` | A synthetic HTTP 429 opening failure. |
 | `stream_cut` | A transport failure after the first progress events. |
+| `agent_tool_loop` | An agent executes the tool call and continues with its output envelope. |
 
-The second tool step appends the assistant message that holds every part of
-the first response with its provider state. It then appends one tool result
-for each call and asks for the final answer.
+The model-level `tool_loop` builds its second request by hand. It appends
+the assistant parts with their provider state, raw tool results, and an
+extra user prompt. It changes the tool choice to `none`.
 The runner stops at the first model error and stores its shared `ErrorCore`
 and earlier failed attempts. It sanitizes every diagnostic and identity field.
 It does not retry or change provider behavior.
@@ -55,6 +59,25 @@ Replay compares the method, URL, sanitized body, and all recorded headers.
 It also checks for missing or extra requests.
 A mismatch names the provider, scenario, and zero-based exchange index.
 It shows both requests as pretty JSON.
+
+Agent conformance uses `text_turn` and `agent_tool_loop` for all eight
+providers. Text turns reuse the model recordings. Agent tool loops have
+separate synthetic recordings. The agent keeps the original tool choice,
+appends the tool output envelope, and adds no user message. Each agent
+snapshot shows the completed outcome and the messages that the turn
+appended, including provider state. The agent runs use the same request
+comparison as the model runner. A missing model or agent recording fails
+conformance instead of skipping that case.
+
+One parameterized replay test traverses the registry catalogs. It selects
+each supported effort for which the spec declares a replay need. It builds
+the adapter through `Registry` and plays the two raw responses from that
+provider's `tool_loop` recording. The continuation carries the first
+response's complete assistant message. Its ordered native assistant items
+must match the recorded continuation, including signatures, encrypted
+reasoning, phases, native call fields, and reasoning details where present.
+The response-only transport permits different model ids and effort controls.
+It changes no recorded request and needs no file for each spec.
 
 Recordings live at `recordings/<provider>/<scenario>.json`.
 Each JSON file has `source`, `catalog_model_id`, an optional `effort`, and
@@ -67,14 +90,15 @@ URL. Recorded requests and responses keep their original values.
 the spec, such as `anthropic/claude-sonnet-5`. The replay runner finds that
 text id in a combined catalog of the provider's chat specs.
 `source` is `synthetic` for hand-built fixtures and `recorded` for live runs.
-The initial set contains 48 synthetic files.
+The set contains 48 model recording files and eight agent tool-loop files.
+All 56 files are synthetic.
 Each synthetic success payload follows the provider's documented response
 to the adapter's real request.
 DeepSeek and the first Qwen spec reject image input before transport.
 Their image recordings therefore contain no HTTP exchanges.
 
 File snapshots live under `tests/_tests_/snapshots/`.
-Each snapshot shows the event sequence of a scenario, then its folded
+Model snapshots show the event sequence of a scenario, then its folded
 response or its error. They preserve successful responses and remaining
 defects. The schema scenarios show text deltas, because a call with a
 response schema emits text deltas like any other call.
@@ -86,6 +110,19 @@ Rate-limit errors keep the provider message in the shared error core.
 Synthetic fixtures can be refreshed offline by wrapping their replay transport
 with the recording transport and running the production adapter. This keeps
 `source: "synthetic"` and does not prove live provider acceptance.
+
+To build an `agent_tool_loop` recording offline:
+
+1. Load the provider's `tool_loop` recording as the replay source.
+2. Wrap its replay transport with a recording transport and build the
+   adapter through the registry.
+3. Run `Agent::run` with the tool-loop prompt, recorded effort, and a
+   `lookup` tool that returns `{"value":7}`.
+4. Save the captured exchanges as `agent_tool_loop.json` with
+   `source: "synthetic"`. Keep the original model id and base URL.
+5. Review both requests and confirm that both responses match the source.
+   Check the assistant replay state and the tool output envelope.
+   Confirm that the continuation adds no user prompt.
 
 The legacy conversion test reads one stored version 1 assistant message for
 each provider from `tests/fixtures/version1/`. It reads the message through a
@@ -132,6 +169,7 @@ It records rejected scenarios too and reports their count.
 It makes at most five model calls and never retries a billable call.
 Provider rejection can reduce the number of HTTP exchanges.
 Rate-limit and stream-cut fixtures remain synthetic.
+The live recorder does not write `agent_tool_loop` files.
 
 The `Record provider streams` workflow runs on manual dispatch from the
 default branch, or when a same-repository pull request gets the
@@ -163,10 +201,16 @@ See `json-http` for the transport boundary's status and failure limits.
   registry adapters from specs and provider config through `ModelFactory`.
 - `src/storage.rs` defines `ScenarioRecording`, `RecordingStorage`, and its JSON
   filesystem implementation.
-- `src/runner.rs` implements `ConformanceRunner` with injected adapters and replay.
+- `src/runner.rs` implements `ConformanceRunner` and the shared request comparison.
 - `src/event_snapshot.rs` captures typed, sanitized model events for snapshots.
 - `src/outcome.rs` defines the event sequences and response or error results.
-- `tests/_tests_/conformance_tests.rs` snapshots every available provider scenario.
+- `tests/_tests_/conformance_tests.rs` snapshots all 48 model scenario pairs.
+- `tests/_tests_/agent_conformance_tests.rs` compares agent requests and snapshots
+  outcomes and appended messages for all 16 agent scenario pairs.
+- `tests/_tests_/agent_support.rs` builds registry adapters and executes agent turns.
+- `tests/_tests_/replay_need_tests.rs` checks replay for every required catalog effort.
+- `tests/_tests_/replay_support.rs` plays recorded responses and selects native
+  assistant wire items for comparison.
 - `tests/_tests_/legacy_conversion_tests.rs` replays converted version 1 tool
   loops from `tests/fixtures/version1/`.
 - `tests/_tests_/mixed_native_replay_tests.rs` checks mixed version 1 native
@@ -185,3 +229,5 @@ See `json-http` for the transport boundary's status and failure limits.
 - [Model policies](../../docs/protocol/model-policies.md)
 - [Conversation parts](../../docs/protocol/conversation-parts.md)
 - [Provider registry](../../docs/protocol/provider-registry.md)
+- [Agent loop](../../docs/protocol/agent-loop.md)
+- [Tool output management](../../docs/protocol/tool-output-management.md)

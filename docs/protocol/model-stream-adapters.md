@@ -1,6 +1,6 @@
 # Model Stream Adapter Protocol
 
-Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented.
 
 This page is part of the [model stream protocol](model-stream.md), and it
 uses the terms and the progress rule of that protocol. It gives the mapping

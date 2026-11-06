@@ -3,3 +3,19 @@
 #[cfg(test)]
 #[path = "_tests_/conformance_tests.rs"]
 mod conformance_tests;
+
+#[cfg(test)]
+#[path = "_tests_/agent_conformance_tests.rs"]
+mod agent_conformance_tests;
+
+#[cfg(test)]
+#[path = "_tests_/agent_support.rs"]
+mod agent_support;
+
+#[cfg(test)]
+#[path = "_tests_/replay_need_tests.rs"]
+mod replay_need_tests;
+
+#[cfg(test)]
+#[path = "_tests_/replay_support.rs"]
+mod replay_support;
