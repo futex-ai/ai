@@ -1,6 +1,6 @@
 # Chat Completions Dialects Protocol
 
-Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented.
 
 This protocol defines the engine that serves the Chat Completions providers,
 the settings of a dialect, and the xAI dialect. The provider docs of

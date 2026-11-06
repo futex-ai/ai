@@ -1,13 +1,11 @@
 # Model Policies Protocol
 
-Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented.
 
 This protocol defines the error core, the scope of each error kind, and the
 retry, fallback, concurrency, and pricing layers. The
 [model stream protocol](model-stream.md) defines how each layer keeps the
 event stream.
-
-<a id="rules-in-force-until-milestone-8"></a>
 
 ## Error core
 

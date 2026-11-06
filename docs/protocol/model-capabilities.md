@@ -1,6 +1,6 @@
 # Model Capabilities Protocol
 
-Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented.
 
 This protocol defines model specs, provider ids, text ids, custom specs,
 effort, the capability check, and the control matrix. The portable controls
@@ -138,6 +138,11 @@ a spec for short.
   goes to the wire only as an explicit off value. The rejected alternative
   kept one disabled effort for both meanings and fixed each false off claim
   by hand. New specs could then repeat the claim.
+- Decision: `Effort` has no minimal value. Gemini 3.5 Flash-Lite sends its
+  provider level `minimal` for the low effort, and low is its default. The
+  rejected alternatives were the native `low` level as the default, the
+  provider default, and a portable minimal effort, which expands the public
+  contract.
 - Decision: a call without a resolved effort counts as thinking on, because
   the provider may reason. The rejected alternative counted it as off, which
   can send sampling values or a forced tool choice that the provider rejects.

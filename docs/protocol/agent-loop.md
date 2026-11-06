@@ -1,6 +1,6 @@
 # Agent Loop Protocol
 
-Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented.
 
 The output window rules are in
 [tool-output-management.md](tool-output-management.md).

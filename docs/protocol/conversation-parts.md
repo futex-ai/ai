@@ -1,6 +1,6 @@
 # Conversation Parts Protocol
 
-Status: Implemented. Plan: [plans/ai-library-redesign.md](../../plans/ai-library-redesign.md).
+Status: Implemented.
 
 The [provider registry](provider-registry.md) exposes the composed converter.
 [Model policies](model-policies.md#error-kinds) defines the error kinds.
@@ -128,8 +128,10 @@ for the old format, and log copies.
 - A serialized message without a format version has format version 1.
   Version 1 has the fields `content`, `content_parts`, `name`,
   `tool_call_id`, `tool_calls`, and `provider_context`.
-- Reading accepts versions 1 and 2. Reading a version 1 message applies the
-  converter that the registry exposes.
+- Reading accepts versions 1 and 2. A host reads a version 1 message
+  through the converter that the registry exposes. A read without that
+  converter, such as plain deserialization, keeps every old item whole as
+  the provider state of its provider, in the generic order.
 - Writing produces version 2 only.
 - Reading a message with another version fails with a typed error.
 - A version 2 message has the fields `format_version`, `role`, `parts`, and
