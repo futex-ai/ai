@@ -16,7 +16,9 @@ pub(super) static DIALECT: Dialect = Dialect {
     thinking: ThinkingFormat::Effort,
     output_limit: OutputLimit::MaxCompletionTokens,
     structured_output: StructuredOutput::JsonSchema,
-    tool_choice: ToolChoiceWire::AutoWhenTools,
+    tool_choice: ToolChoiceWire::AutoWhenTools {
+        omit_without_tools: false,
+    },
     input: InputParts::TextImage,
     deferred_timeout: None,
     clean_eof: false,
