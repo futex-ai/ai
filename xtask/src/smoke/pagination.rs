@@ -32,18 +32,18 @@ impl Model for SmokePaginationModel {
 
 impl SmokePaginationModel {
     fn response(&self, request: &ModelRequest) -> ModelResult<ModelResponse> {
-        if !request
+        let step = self.calls.fetch_add(1, Ordering::SeqCst);
+        let reader_offered = request
             .tools
             .iter()
-            .any(|definition| definition.name == "tool_output_read")
-        {
+            .any(|definition| definition.name == "tool_output_read");
+        if reader_offered != (step > 0) {
             return Err(ai_interface::ModelError::internal(
                 "smoke",
                 "smoke-model",
-                SafeErrorSource::redacted(SmokeModelError::MissingReaderDefinition),
+                SafeErrorSource::redacted(SmokeModelError::UnexpectedReaderDefinition { step }),
             ));
         }
-        let step = self.calls.fetch_add(1, Ordering::SeqCst);
         match step {
             0 => Ok(tool_call_response(tool_call(
                 "smoke-big-call",
@@ -211,8 +211,8 @@ fn tool_call_response(call: ToolCall) -> ModelResponse {
 
 #[derive(Debug, ThisError)]
 pub(super) enum SmokeModelError {
-    #[error("[xtask/smoke] tool_output_read definition was missing")]
-    MissingReaderDefinition,
+    #[error("[xtask/smoke] tool_output_read offer did not match stored output at step {step}")]
+    UnexpectedReaderDefinition { step: usize },
     #[error("[xtask/smoke] expected a tool output window in conversation")]
     MissingToolWindow,
     #[error("[xtask/smoke] failed to decode tool output envelope: {source}")]

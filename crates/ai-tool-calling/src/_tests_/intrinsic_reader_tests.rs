@@ -6,80 +6,18 @@ use ai_interface::test_support::model_response_stream;
 use ai_interface::{
     ConversationRole, FinishReason, Logger, LoggerMock, Model, ModelMock, ModelRequest,
     ModelResponse, ModelUsage, ToolActivityLogEntry, ToolActivityPhase, ToolCall, ToolCallLogEntry,
-    ToolCallLogResult, ToolDefinition, ToolMock, ToolOutputEnvelope,
+    ToolCallLogResult, ToolOutputEnvelope,
 };
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::event_support::{collect_events, executions, request, run_outcome};
 use crate::tests::support::{response_parts, stream_result};
 use crate::{
-    InMemoryToolOutputStore, StepOutcome, ToolCallingRuntime, ToolOutputPolicy, ToolOutputStore,
-    ToolOutputWriteRequest, Turn,
+    Agent, InMemoryToolOutputStore, ToolOutputPolicy, ToolOutputStore, ToolOutputWriteRequest,
 };
 
-use super::support::{runtime, runtime_with_logger_store_and_policy, user_message};
-
-#[test]
-fn reserved_reader_name_is_rejected_for_injected_tools() {
-    let tool = Arc::new(Unimock::new(
-        ToolMock::definitions
-            .next_call(matching!())
-            .returns(vec![ToolDefinition {
-                name: "tool_output_read".to_owned(),
-                description: "Not allowed.".to_owned(),
-                input_schema: json!({ "type": "object" }),
-                activity_verb: None,
-            }]),
-    ));
-    let model: Arc<dyn Model> = Arc::new(Unimock::new(()));
-    let error = match ToolCallingRuntime::new(
-        "system prompt",
-        model,
-        Arc::new(ai_interface::NoopLogger),
-        vec![tool],
-        Arc::new(InMemoryToolOutputStore::new()),
-        ToolOutputPolicy::default(),
-    ) {
-        Ok(_) => panic!("reserved tool name should fail construction"),
-        Err(error) => error,
-    };
-
-    assert!(
-        matches!(error, crate::Error::ReservedToolDefinition { name } if name == "tool_output_read")
-    );
-}
-
-#[test]
-fn intrinsic_reader_definition_is_always_present_after_tool_replacement() {
-    let model: Arc<dyn Model> = Arc::new(Unimock::new(()));
-    let runtime = runtime(model, Vec::new()).expect("runtime should build");
-
-    assert_reader_definition(runtime.tool_definitions());
-    runtime
-        .replace_tools(vec![catalog_only_tool("echo")])
-        .expect("replacement should accept normal tools");
-    let definitions = runtime.tool_definitions();
-
-    assert!(
-        definitions
-            .iter()
-            .any(|definition| definition.name == "echo")
-    );
-    assert_reader_definition(definitions);
-}
-
-fn catalog_only_tool(name: &str) -> ai_interface::DynTool {
-    Arc::new(Unimock::new(
-        ToolMock::definitions
-            .next_call(matching!())
-            .returns(vec![ToolDefinition {
-                name: name.to_owned(),
-                description: "Catalog-only test tool.".to_owned(),
-                input_schema: json!({ "type": "object" }),
-                activity_verb: None,
-            }]),
-    ))
-}
+use super::support::{runtime_with_logger_store_and_policy, user_message};
 
 #[tokio::test]
 async fn intrinsic_reader_reads_requested_id_without_recursive_wrapping() {
@@ -134,22 +72,24 @@ async fn intrinsic_reader_reads_requested_id_without_recursive_wrapping() {
                 assert_eq!(entry.phase, ToolActivityPhase::Completed);
                 Ok(())
             }),
+        LoggerMock::log_turn_outcome
+            .some_call(matching!(_))
+            .returns(Ok(())),
     )));
     let runtime = runtime_with_logger_store_and_policy(model, logger, Vec::new(), store, policy)
         .expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(1));
-    let outcome = turn.step().await.expect("read should succeed");
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(1))))
+        .await
+        .expect("read should succeed");
 
     assert!(matches!(
-        outcome,
-        StepOutcome::Stepped {
-            tool_results,
-            ..
-        } if tool_results[0].output_id.as_ref() == Some(&output_id)
-            && tool_results[0].operation_id == "read-operation"
-            && tool_results[0].raw_output
-                == serde_json::to_value(&tool_results[0].model_visible_output).unwrap()
+        executions(&events).as_slice(),
+        [record] if record.output_id.as_ref() == Some(&output_id)
+            && record.operation_id == "read-operation"
+            && record.raw_output
+                == serde_json::to_value(&record.model_visible_output).unwrap()
     ));
 }
 
@@ -227,35 +167,20 @@ async fn replaced_output_store_makes_previous_ids_unavailable_and_run_recovers()
             .expect("runtime should build");
     runtime.replace_output_store(Arc::new(InMemoryToolOutputStore::new()));
 
-    let mut turn = runtime.send(user_message("start"), Some(3));
-    let outcome = turn.run().await.expect("run should recover");
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(3))))
+        .await
+        .expect("run should recover");
+    let outcome = run_outcome(&events);
 
     assert!(matches!(
         outcome,
         crate::RunOutcome::Completed {
             assistant_message,
             steps_taken: 2,
+            ..
         } if assistant_message == "recovered"
     ));
-}
-
-fn assert_reader_definition(definitions: Vec<ToolDefinition>) {
-    let definition = definitions
-        .iter()
-        .find(|definition| definition.name == "tool_output_read")
-        .expect("intrinsic reader should be exposed");
-    assert!(
-        definition
-            .description
-            .contains("only when the task requires")
-    );
-    assert!(
-        definition
-            .description
-            .contains("narrowing the original query")
-    );
-    assert!(definition.description.contains("bytes, not tokens"));
-    assert_eq!(definition.input_schema["required"], json!(["output_id"]));
 }
 
 fn tool_call_response(call: ToolCall) -> ModelResponse {

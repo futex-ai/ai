@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use thiserror::Error;
 
-use crate::{ModelRequest, ModelResponse, ToolCall, ToolOutputEnvelope};
+use crate::{ModelRequest, ModelResponse, SafeErrorSource, ToolCall, ToolOutputEnvelope};
 
 #[derive(Clone, Debug, PartialEq)]
 /// Result observed for one model call.
@@ -18,7 +18,7 @@ pub enum ModelCallLogResult {
     Error {
         /// User-facing error text returned by the model boundary.
         message: String,
-        /// Full debug representation of the model-boundary failure.
+        /// Safe debug representation of the model-boundary failure.
         debug: String,
     },
 }
@@ -46,7 +46,7 @@ pub enum ToolCallLogResult {
     Error {
         /// Error text recorded for the model to see.
         message: String,
-        /// Full debug representation of the tool-boundary failure.
+        /// Safe debug representation of the tool-boundary failure.
         debug: String,
     },
 }
@@ -115,7 +115,7 @@ pub enum LoggerError {
     /// Logger implementation failure.
     Write {
         /// Underlying logger failure.
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: SafeErrorSource,
     },
 }
 
@@ -123,7 +123,7 @@ impl LoggerError {
     /// Wraps a logger callback failure.
     pub fn write(source: impl std::error::Error + Send + Sync + 'static) -> Self {
         Self::Write {
-            source: Box::new(source),
+            source: SafeErrorSource::redacted(source),
         }
     }
 }

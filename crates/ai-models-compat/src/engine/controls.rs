@@ -16,8 +16,11 @@ pub(super) fn tool_choice(
     controls: &ResolvedModelControls,
 ) -> Option<ChatCompletionsToolChoice> {
     let choice = controls.tool_choice.as_ref();
-    if matches!(dialect.tool_choice, ToolChoiceWire::OmitWhileThinking)
-        && controls.effort.is_none_or(Effort::is_enabled)
+    let omit_choice = match dialect.tool_choice {
+        ToolChoiceWire::OmitWhileThinking => controls.effort.is_none_or(Effort::is_enabled),
+        ToolChoiceWire::AutoWhenTools { omit_without_tools } => omit_without_tools && !has_tools,
+    };
+    if omit_choice
         && matches!(
             choice,
             None | Some(ResolvedToolChoice::None | ResolvedToolChoice::Auto)
@@ -37,7 +40,11 @@ pub(super) fn tool_choice(
                 },
             ));
         }
-        None if has_tools && matches!(dialect.tool_choice, ToolChoiceWire::AutoWhenTools) => "auto",
+        None if has_tools
+            && matches!(dialect.tool_choice, ToolChoiceWire::AutoWhenTools { .. }) =>
+        {
+            "auto"
+        }
         None => return None,
     };
     Some(ChatCompletionsToolChoice::Mode(mode.to_owned()))

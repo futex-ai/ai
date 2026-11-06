@@ -1,7 +1,8 @@
-//! Failure helpers for turn execution.
+//! Safe model-facing messages for recoverable tool failures.
 
 use ai_interface::{
-    ConversationMessage, ModelError, ModelResponse, ToolCall, ToolCallLogResult, ToolError,
+    ConversationMessage, ModelError, ModelResponse, SafeErrorSource, ToolCall, ToolCallLogResult,
+    ToolError,
 };
 use serde_json::json;
 
@@ -10,13 +11,6 @@ use crate::{Error, ToolOutputStoreError};
 const INVALID_OUTPUT_READ_ARGUMENTS: &str = "Invalid tool output read arguments. Provide an output id and optional non-negative byte offset and positive byte length.";
 const UNAVAILABLE_OUTPUT: &str = "The output is no longer available; the original tool call itself succeeded. Re-run the original tool only if it is read-only or otherwise safe to repeat, and confirm with the user before repeating a side-effecting call.";
 const UNREADABLE_OUTPUT: &str = "The tool output could not be read. Try again later.";
-
-pub(super) fn tool_error_log_result(error: &ToolError) -> ToolCallLogResult {
-    ToolCallLogResult::Error {
-        message: error.to_string(),
-        debug: format!("{error:?}"),
-    }
-}
 
 pub(super) fn invalid_output_error(response: &ModelResponse, message: impl Into<String>) -> Error {
     Error::Model(
@@ -29,25 +23,41 @@ pub(super) fn invalid_output_error(response: &ModelResponse, message: impl Into<
     )
 }
 
-pub(super) fn tool_error_message(call: &ToolCall, error: &ToolError) -> ConversationMessage {
-    tool_error_message_with_text(call, error.to_string())
+pub(super) fn tool_error_log_result(error: &ToolError) -> ToolCallLogResult {
+    ToolCallLogResult::Error {
+        message: error.to_string(),
+        debug: format!("{error:?}"),
+    }
 }
 
-pub(super) fn tool_output_read_error_message(
-    call: &ToolCall,
-    error: &ToolError,
-) -> ConversationMessage {
-    let message = match error {
+pub(super) fn tool_error_message(call: &ToolCall, error: &ToolError) -> ConversationMessage {
+    let message = if call.name == "tool_output_read" {
+        read_error_message(error)
+    } else {
+        error.to_string()
+    };
+    ConversationMessage::tool(
+        json!({"ok": false, "error": {"message": message}}).to_string(),
+        call.name.clone(),
+        call.id.clone(),
+    )
+}
+
+fn read_error_message(error: &ToolError) -> String {
+    match error {
         ToolError::InvalidArguments { .. } => INVALID_OUTPUT_READ_ARGUMENTS.to_owned(),
         ToolError::Execution { source, .. } => {
-            match source.downcast_ref::<ToolOutputStoreError>() {
-                Some(store_error) => output_store_read_error_message(store_error),
-                None => unreadable_output_message(),
+            let cause = match source.downcast_ref::<SafeErrorSource>() {
+                Some(safe) => safe.raw_cause(),
+                None => source.as_ref(),
+            };
+            match cause.downcast_ref::<ToolOutputStoreError>() {
+                Some(error) => output_store_read_error_message(error),
+                None => UNREADABLE_OUTPUT.to_owned(),
             }
         }
-        ToolError::UnknownTool { .. } => unreadable_output_message(),
-    };
-    tool_error_message_with_text(call, message)
+        ToolError::UnknownTool { .. } => UNREADABLE_OUTPUT.to_owned(),
+    }
 }
 
 fn output_store_read_error_message(error: &ToolOutputStoreError) -> String {
@@ -70,26 +80,34 @@ fn output_store_read_error_message(error: &ToolOutputStoreError) -> String {
         } => format!(
             "No complete UTF-8 character fits in length {length} at offset {offset}; use at least {minimum_usable_length} bytes."
         ),
-        ToolOutputStoreError::PerOutputOverflow { .. }
-        | ToolOutputStoreError::AggregateExhausted { .. }
-        | ToolOutputStoreError::WriteFailure { .. } => unreadable_output_message(),
+        _ => UNREADABLE_OUTPUT.to_owned(),
     }
 }
 
-fn unreadable_output_message() -> String {
-    UNREADABLE_OUTPUT.to_owned()
-}
-
-fn tool_error_message_with_text(call: &ToolCall, message: String) -> ConversationMessage {
-    ConversationMessage::tool(
-        json!({
-            "ok": false,
-            "error": {
-                "message": message,
-            }
-        })
-        .to_string(),
-        call.name.clone(),
-        call.id.clone(),
-    )
+pub(super) fn safe_output_read_source(error: ToolOutputStoreError) -> SafeErrorSource {
+    let diagnostic = match &error {
+        ToolOutputStoreError::UnavailableOutput { .. } => {
+            "[ai_tool_calling/output_store] UnavailableOutput: output is no longer available"
+                .to_owned()
+        }
+        ToolOutputStoreError::InvalidOffset {
+            offset,
+            total_bytes,
+            ..
+        } => format!(
+            "[ai_tool_calling/output_store] InvalidOffset: offset {offset} for output of {total_bytes} bytes"
+        ),
+        ToolOutputStoreError::InvalidLength { length } => {
+            format!("[ai_tool_calling/output_store] InvalidLength: length {length}; minimum is 1")
+        }
+        ToolOutputStoreError::NoCompleteCharacterFits {
+            offset,
+            length,
+            minimum_usable_length,
+        } => format!(
+            "[ai_tool_calling/output_store] NoCompleteCharacterFits: length {length} at offset {offset}; minimum usable length is {minimum_usable_length}"
+        ),
+        _ => return SafeErrorSource::redacted(error),
+    };
+    SafeErrorSource::new(error, vec![diagnostic])
 }

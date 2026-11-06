@@ -54,30 +54,24 @@ and `none`.
 
 ## Execution
 
-`xtask/tests/live_models.rs` owns the ignored integration tests. Every provider
-test:
+Every provider test:
 
 1. Requires a non-empty `LIVE_MODEL_API_KEY`.
 2. Selects every spec that advertises neither image generation, video
    generation, nor judgment, and expands it into one probe at its default,
-   then one probe for each other listed effort. It constructs the production
-   chat adapter from the spec with `ReqwestJsonHttpClient` and explicit
-   provider authentication, and it sets the effort of the probe in the
-   request controls.
+   then one probe for each other listed effort. Each probe uses the production
+   chat adapter with explicit provider authentication and the requested effort.
    Each probe uses the production adapter lifecycle without a live-test-only
    branch.
-3. Erases the concrete adapter behind `DynModel` and applies the standard
-   retry layer for the rate limited and transient error kinds.
-4. Wraps the dynamic model in a test-only `Model` whose `stream` forwards
-   the events of the inner model's `stream` and records them in order.
-   `ToolCallingRuntime` folds the same events through the provided
-   `complete` and captures the normalized response through its
-   provider-neutral response-checkpoint boundary.
+3. Applies the [standard model retry policy](model-policies.md) for the rate
+   limited and transient error kinds.
+4. Records the model events in order and captures the normalized response
+   from each one-step runtime turn.
 5. Runs one synchronous probe against the provider's first chat spec at its
    default effort and requires text-event parity with its response.
 6. Runs every probe with no tool calls, a ten-minute adapter-call
-   deadline, and `PreferDeferred`. XAI resolves that preference to its native
-   deferred lifecycle; every other adapter falls back to its ordinary
+   deadline, and a preference for deferred completion. XAI uses its native
+   deferred lifecycle. Every other adapter falls back to its ordinary
    synchronous lifecycle. Every probe must keep text-event parity.
 7. Retries the synchronous probe or a catalog probe exactly once when a
    successful response fails only because it omitted the probe marker and its
@@ -92,11 +86,6 @@ test:
 
 The MiniMax provider test first runs its strict required-tool probe. A failure
 there aborts that provider job before the ordinary catalog loop.
-
-Provider-specific matching is restricted to the test composition registry that
-loads catalogs, authentication, and concrete adapters. Once construction is
-complete, the execution path depends only on `DynModel`, `ModelCallControls`,
-and `ToolCallingRuntime`.
 
 The normal workspace test and `cargo xtask check` commands compile the suite,
 run its credential-free coverage guards, and leave the eight credentialed

@@ -8,54 +8,67 @@ use ai_interface::{
 };
 use unimock::{MockFn, Unimock, matching};
 
-use crate::Turn;
-use crate::tests::support::{response_parts, stream_result};
+use crate::tests::event_support::{collect_events, request, run_outcome};
+use crate::tests::support::response_parts;
+use crate::{Agent, RunOutcome};
 
 use super::support::{runtime, user_message};
 
 #[tokio::test]
-async fn conversation_mutation_and_send_flow_work() {
+async fn caller_owned_conversation_and_run_flow_work() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
         ModelMock::stream
             .next_call(matching!(_))
-            .answers_arc(stream_result(Ok(ModelResponse {
-                attempts: Vec::new(),
-                provider: "mock".to_owned(),
-                model_id: "mock-model".to_owned(),
-                catalog_model_id: None,
-                thinking_level: None,
-                parts: response_parts("done".to_owned(), Vec::new(), Vec::new()),
-                finish_reason: FinishReason::Stop,
-                structured_output: None,
-                usage: ModelUsage::default(),
-            }))),
+            .answers(&|_, request| {
+                assert_eq!(request.messages.len(), 2);
+                assert_eq!(request.messages[0].text(), "replaced");
+                assert_eq!(request.messages[1].text(), "hello");
+                Ok(model_response_stream(ModelResponse {
+                    attempts: Vec::new(),
+                    provider: "mock".to_owned(),
+                    model_id: "mock-model".to_owned(),
+                    catalog_model_id: None,
+                    thinking_level: None,
+                    parts: response_parts("done".to_owned(), Vec::new(), Vec::new()),
+                    finish_reason: FinishReason::Stop,
+                    structured_output: None,
+                    usage: ModelUsage::default(),
+                }))
+            }),
     ));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
-    runtime.push_user_message("seed user");
-    runtime.push_assistant_message("seed assistant");
-    assert_eq!(runtime.conversation().len(), 2);
-
-    runtime.replace_conversation(vec![ConversationMessage::user("replaced")]);
-    assert_eq!(runtime.conversation().len(), 1);
-
-    let mut turn = runtime.send(user_message("hello"), Some(4));
-    assert_eq!(runtime.conversation().len(), 2);
-    let outcome = turn.step().await.expect("step should succeed");
+    let mut conversation = vec![
+        ConversationMessage::user("seed user"),
+        ConversationMessage::assistant("seed assistant", Vec::new()),
+    ];
+    conversation.clear();
+    conversation.push(ConversationMessage::user("replaced"));
+    conversation.push(user_message("hello"));
+    let events = collect_events(runtime.run(&mut conversation, request(Some(4))))
+        .await
+        .expect("turn should succeed");
     assert!(matches!(
-        outcome,
-        crate::StepOutcome::Completed {
+        run_outcome(&events),
+        RunOutcome::Completed {
             assistant_message,
             steps_taken: 1,
+            ..
         } if assistant_message == "done"
     ));
 
-    runtime.clear_conversation();
-    assert!(runtime.conversation().is_empty());
+    assert_eq!(
+        conversation,
+        vec![
+            ConversationMessage::user("replaced"),
+            ConversationMessage::user("hello"),
+            ConversationMessage::assistant("done", Vec::new()),
+        ]
+    );
 }
 
 #[tokio::test]
-async fn resume_starts_turn_without_appending_user_message() {
+async fn run_uses_supplied_history_without_appending_user_message() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
         ModelMock::stream
             .next_call(matching!(_))
@@ -79,16 +92,18 @@ async fn resume_starts_turn_without_appending_user_message() {
             }),
     ));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
-    runtime.replace_conversation(vec![user_message("already retained")]);
+    let mut conversation = vec![user_message("already retained")];
 
-    let mut turn = runtime.resume(Some(4));
-    let outcome = turn.step().await.expect("step should succeed");
+    let events = collect_events(runtime.run(&mut conversation, request(Some(4))))
+        .await
+        .expect("turn should succeed");
 
     assert!(matches!(
-        outcome,
-        crate::StepOutcome::Completed {
+        run_outcome(&events),
+        RunOutcome::Completed {
             assistant_message,
             steps_taken: 1,
+            ..
         } if assistant_message == "done"
     ));
 }

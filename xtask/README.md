@@ -46,15 +46,9 @@ Each ignored provider test reads one explicit `LIVE_MODEL_API_KEY` and takes
 every chat-capable spec of that provider in the registry's combined catalog. It runs
 one probe at the default of the spec, then one probe for each other listed
 effort. The default probe of a spec without a default effort sets no effort.
-Each probe builds the adapter through the registry from the spec and provider
-config, wraps it in the standard retry
-layer of `ai-models-policy`, erases it behind `DynModel`, sets the probe
-effort in the request controls, and sends real one-step turns through
-`ToolCallingRuntime`.
-A test-only model wrapper forwards the events of the inner model's
-`Model::stream` and records them in order. The runtime folds the same events
-through its ordinary `complete` call and terminal checkpoint. Every provider
-first gets a synchronous text-parity probe. The catalog then uses portable
+Each probe sets the requested effort and sends a real one-step turn through
+the generic tool-calling runtime. Every provider first gets a synchronous
+text-parity probe. The catalog then uses portable
 no-tools, ten-minute, `PreferDeferred` controls: seven providers fall back to
 their synchronous lifecycle, and xAI uses its deferred lifecycle. Every probe,
 also an xAI deferred probe, must emit text deltas. The text parts of those
@@ -177,6 +171,11 @@ cargo clippy -p xtask --all-targets --all-features
   transcription, and judgment adapters with placeholder credentials
 - `tests/live_models.rs` and `tests/live_models/` - ignored credentialed tests
   plus credential-free event, catalog, runner, tool-choice, and workflow guards
+- [`tests/live_models/runner_tests.rs`](tests/live_models/runner_tests.rs) -
+  `run_live_provider` builds production probes, and `complete_through_runtime`
+  captures responses from one-step agent turns.
+- [`tests/live_models/event_tests.rs`](tests/live_models/event_tests.rs) -
+  `observing_model` records model-stream events for validation.
 - `tests/live_images/mod.rs` - ignored credentialed tests and credential-free
   guards over image-provider catalogs
 - `tests/live_judgments/mod.rs` - ignored credentialed tests and

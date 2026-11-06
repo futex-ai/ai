@@ -20,7 +20,9 @@ pub(super) static DIALECT: Dialect = Dialect {
     },
     output_limit: OutputLimit::MaxTokens,
     structured_output: StructuredOutput::JsonSchema,
-    tool_choice: ToolChoiceWire::AutoWhenTools,
+    tool_choice: ToolChoiceWire::AutoWhenTools {
+        omit_without_tools: true,
+    },
     input: InputParts::TextImage,
     names: true,
     required_reasoning: false,

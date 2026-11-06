@@ -13,8 +13,7 @@ provider adapters only at the composition boundary. They then call each
 chat-capable model spec once at its default and once for each other effort
 that the spec lists, through the same `DynModel` and `ToolCallingRuntime`
 path with portable controls. The default call of a spec without a default
-effort sets no effort. A test-only model wrapper records the events of
-each call's `Model::stream`: each provider first proves synchronous text
+effort sets no effort. Each provider first proves synchronous text
 parity on its first chat spec at its default effort, and every catalog call,
 also each xAI deferred call, keeps that parity. Parity means that the text
 parts of the deltas, joined in part position order, equal the response

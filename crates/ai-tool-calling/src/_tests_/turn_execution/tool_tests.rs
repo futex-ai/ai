@@ -9,13 +9,14 @@ use ai_interface::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
-use crate::tests::support::{response_parts, stream_result, tool_result_id};
-use crate::{RunOutcome, StepOutcome, Turn};
+use crate::tests::event_support::{collect_events, request, run_outcome, steps, tool_errors};
+use crate::tests::support::{response_parts, stream_result};
+use crate::{Agent, RunOutcome};
 
 use super::super::support::{TypedEchoTool, runtime, user_message};
 
 #[tokio::test]
-async fn tool_errors_surface_on_step_and_are_reused_by_run() {
+async fn tool_errors_emit_finished_events_and_the_run_recovers() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new((
         ModelMock::stream
             .next_call(matching!(_))
@@ -67,16 +68,22 @@ async fn tool_errors_surface_on_step_and_are_reused_by_run() {
     let tool = TypedEchoTool::fail_once();
     let runtime = runtime(model, vec![tool.tool()]).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let error = turn.step().await.expect_err("first step should fail");
-    assert!(matches!(error, crate::Error::Tool(_)));
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(4))))
+        .await
+        .expect("tool error should not stop the turn");
+    assert!(matches!(
+        tool_errors(&events).as_slice(),
+        [ToolError::Execution { .. }]
+    ));
 
-    let outcome = turn.run().await.expect("run should recover");
+    let outcome = run_outcome(&events);
     assert!(matches!(
         outcome,
         RunOutcome::Completed {
             assistant_message,
             steps_taken: 2,
+            ..
         } if assistant_message == "recovered"
     ));
 }
@@ -110,14 +117,13 @@ async fn step_limit_is_reported_as_capped() {
     let runtime =
         runtime(model, vec![TypedEchoTool::succeeding().tool()]).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(1));
-    let first_step = turn.step().await.expect("first step should succeed");
-    assert!(matches!(
-        first_step,
-        StepOutcome::Stepped { steps_taken: 1, .. }
-    ));
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(1))))
+        .await
+        .expect("run should cap");
+    assert_eq!(steps(&events).len(), 1);
 
-    let outcome = turn.run().await.expect("run should cap");
+    let outcome = run_outcome(&events);
     assert!(matches!(
         outcome,
         RunOutcome::Capped {
@@ -185,104 +191,23 @@ async fn invalid_tool_arguments_surface_once_and_are_retained() {
     let tool = TypedEchoTool::succeeding();
     let runtime = runtime(model, vec![tool.tool()]).expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let error = turn
-        .step()
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(4))))
         .await
-        .expect_err("step should return parse error");
+        .expect("invalid arguments should not stop the turn");
     assert!(matches!(
-        error,
-        crate::Error::Tool(ToolError::InvalidArguments { .. })
+        tool_errors(&events).as_slice(),
+        [ToolError::InvalidArguments { .. }]
     ));
     assert_eq!(tool.parse_count(), 0);
 
-    let outcome = turn.run().await.expect("run should continue");
+    let outcome = run_outcome(&events);
     assert!(matches!(
         outcome,
         RunOutcome::Completed {
             assistant_message,
             steps_taken: 2,
+            ..
         } if assistant_message == "after parse failure"
-    ));
-}
-
-#[tokio::test]
-async fn failed_tool_calls_still_append_messages_for_later_calls_in_the_same_batch() {
-    let model: Arc<dyn Model> = Arc::new(Unimock::new((
-        ModelMock::stream
-            .next_call(matching!(_))
-            .answers_arc(stream_result(Ok(ModelResponse {
-                attempts: Vec::new(),
-                provider: "mock".to_owned(),
-                model_id: "mock-model".to_owned(),
-                catalog_model_id: None,
-                thinking_level: None,
-                parts: response_parts(
-                    "trying tools".to_owned(),
-                    vec![
-                        ToolCall {
-                            id: "call-1".to_owned(),
-                            name: "echo".to_owned(),
-                            input: json!({ "message": "first" }),
-                            operation_id: None,
-                        },
-                        ToolCall {
-                            id: "call-2".to_owned(),
-                            name: "echo".to_owned(),
-                            input: json!({ "message": "second" }),
-                            operation_id: None,
-                        },
-                    ],
-                    Vec::new(),
-                ),
-                finish_reason: FinishReason::ToolCalls,
-                structured_output: None,
-                usage: ModelUsage::default(),
-            }))),
-        ModelMock::stream
-            .next_call(matching!(_))
-            .answers(&|_, request: &ModelRequest| {
-                {
-                    let tool_messages = request
-                        .messages
-                        .iter()
-                        .filter(|message| message.role == ai_interface::ConversationRole::Tool)
-                        .cloned()
-                        .collect::<Vec<_>>();
-                    assert_eq!(tool_messages.len(), 2);
-                    assert_eq!(tool_result_id(&tool_messages[0]), Some("call-1"),);
-                    assert_eq!(tool_result_id(&tool_messages[1]), Some("call-2"),);
-                    assert!(tool_messages[0].text().contains("\"ok\":false"));
-                    assert!(tool_messages[1].text().contains("\"echo\":\"second\""));
-                    Ok(ModelResponse {
-                        attempts: Vec::new(),
-                        provider: "mock".to_owned(),
-                        model_id: "mock-model".to_owned(),
-                        catalog_model_id: None,
-                        thinking_level: None,
-                        parts: response_parts("recovered".to_owned(), Vec::new(), Vec::new()),
-                        finish_reason: FinishReason::Stop,
-                        structured_output: None,
-                        usage: ModelUsage::default(),
-                    })
-                }
-                .map(model_response_stream)
-            }),
-    )));
-    let tool = TypedEchoTool::fail_once();
-    let runtime = runtime(model, vec![tool.tool()]).expect("runtime should build");
-
-    let mut turn = runtime.send(user_message("start"), Some(4));
-    let error = turn.step().await.expect_err("first step should fail");
-    assert!(matches!(error, crate::Error::Tool(_)));
-    assert_eq!(tool.parse_count(), 2);
-
-    let outcome = turn.run().await.expect("run should recover");
-    assert!(matches!(
-        outcome,
-        RunOutcome::Completed {
-            assistant_message,
-            steps_taken: 2,
-        } if assistant_message == "recovered"
     ));
 }

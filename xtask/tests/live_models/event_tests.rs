@@ -78,6 +78,11 @@ impl ModelEventStream for EventObservingStream {
     }
 }
 
+/// Wraps a `DynModel` with an observer of its `Model::stream` events.
+///
+/// The wrapper forwards each inner stream event unchanged and records a redacted
+/// snapshot in the same pull order. The returned log shares those snapshots with
+/// the runtime probe for validation.
 pub(super) fn observing_model(inner: DynModel) -> (DynModel, CompletionEventLog) {
     let events = CompletionEventLog::default();
     let model = Arc::new(EventObservingModel {

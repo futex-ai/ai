@@ -1,3 +1,5 @@
+//! Output policy validation and constructor checks.
+
 use std::sync::Arc;
 
 use ai_interface::{Model, NoopLogger};
@@ -50,7 +52,6 @@ async fn policy_defaults_and_validation_match_protocol_limits() {
 fn raw_limit_constructor_fails_runtime_construction_for_invalid_policy() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new(()));
     let error = match ToolCallingRuntime::new_with_output_policy_limits(
-        "system prompt",
         model,
         Arc::new(NoopLogger),
         Vec::new(),

@@ -12,13 +12,14 @@ use ai_interface::{
 use serde_json::json;
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::event_support::{collect_events, executions, request};
 use crate::tests::support::{response_parts, stream_result, tool_result_id};
-use crate::{Error, StepOutcome, TurnCheckpointMock};
+use crate::{Agent, Error, NoopModelResponseCheckpoint, TurnCheckpointMock};
 
 use super::super::support::{TypedEchoTool, runtime, user_message};
 
 #[tokio::test]
-async fn checkpoint_runs_before_each_tool_and_after_completed_tools() {
+async fn checkpoint_runs_before_tools_and_after_completed_tools() {
     let model: Arc<dyn Model> = Arc::new(Unimock::new(
         ModelMock::stream
             .next_call(matching!(_))
@@ -43,19 +44,20 @@ async fn checkpoint_runs_before_each_tool_and_after_completed_tools() {
             .next_call(matching!())
             .returns(Ok(())),
     ));
-    let mut turn = runtime.send(user_message("start"), Some(4));
+    let mut conversation = vec![user_message("start")];
+    let mut response_checkpoint = NoopModelResponseCheckpoint;
 
-    let outcome = turn
-        .step_with_checkpoint(&mut checkpoint)
-        .await
-        .expect("step should interrupt cleanly");
+    let events = collect_events(runtime.run_with_checkpoints(
+        &mut conversation,
+        request(Some(1)),
+        &mut checkpoint,
+        &mut response_checkpoint,
+    ))
+    .await
+    .expect("step should finish cleanly");
 
-    assert!(matches!(
-        outcome,
-        StepOutcome::Stepped { tool_results, .. } if tool_results.len() == 2
-    ));
+    assert_eq!(executions(&events).len(), 2);
     assert_eq!(tool.parse_count(), 2);
-    let conversation = runtime.conversation();
     let tool_messages = conversation
         .iter()
         .filter(|message| tool_result_id(message).is_some())
@@ -73,17 +75,21 @@ async fn checkpoint_error_before_model_call_stops_without_model_request() {
     let mut checkpoint = Unimock::new(TurnCheckpointMock::check.next_call(matching!()).returns(
         Err(Error::checkpoint(std::io::Error::other("agent killed"))),
     ));
-    let mut turn = runtime.send(user_message("start"), Some(4));
+    let mut conversation = vec![user_message("start")];
+    let mut response_checkpoint = NoopModelResponseCheckpoint;
 
-    let error = turn
-        .step_with_checkpoint(&mut checkpoint)
-        .await
-        .expect_err("checkpoint error should stop the step");
+    let error = collect_events(runtime.run_with_checkpoints(
+        &mut conversation,
+        request(Some(4)),
+        &mut checkpoint,
+        &mut response_checkpoint,
+    ))
+    .await
+    .expect_err("checkpoint error should stop the step");
 
     assert!(matches!(error, Error::Checkpoint { .. }));
     assert!(
-        runtime
-            .conversation()
+        conversation
             .iter()
             .all(|message| message.role != ConversationRole::Assistant)
     );
@@ -115,18 +121,22 @@ async fn checkpoint_error_after_terminal_model_call_stops_before_assistant_messa
                 "agent killed",
             )))),
     ));
-    let mut turn = runtime.send(user_message("start"), Some(4));
+    let mut conversation = vec![user_message("start")];
+    let mut response_checkpoint = NoopModelResponseCheckpoint;
 
-    let error = turn
-        .step_with_checkpoint(&mut checkpoint)
-        .await
-        .expect_err("checkpoint error should stop before storing terminal response");
+    let error = collect_events(runtime.run_with_checkpoints(
+        &mut conversation,
+        request(Some(4)),
+        &mut checkpoint,
+        &mut response_checkpoint,
+    ))
+    .await
+    .expect_err("checkpoint error should stop before storing terminal response");
 
     assert!(matches!(error, Error::Checkpoint { .. }));
     assert_eq!(model_calls.load(Ordering::SeqCst), 1);
     assert!(
-        runtime
-            .conversation()
+        conversation
             .iter()
             .all(|message| message.role != ConversationRole::Assistant)
     );

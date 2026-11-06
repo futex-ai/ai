@@ -142,7 +142,7 @@ no `output_id`, no `next_offset`, `truncated: true`, and a
 
 Degraded windows occur only as the initial dispatch envelope, never from
 reads. A degraded envelope is a successful tool result, not a turn error;
-`step()` and `run()` proceed normally. The runtime emits a `tracing`
+the turn continues. The runtime emits a `tracing`
 diagnostic so hosts can observe size and budget pressure. Failed store writes
 release any aggregate reservation and never leave a readable partial output.
 Clock or entropy failures during output-id generation are store write failures
@@ -150,7 +150,7 @@ and follow the same reservation rollback and `store_unavailable` degradation.
 
 ## Intrinsic Output Reader
 
-`ai-tool-calling` always adds this reserved model-visible tool:
+`ai-tool-calling` provides this reserved model-visible tool:
 
 ```text
 tool_output_read(output_id, offset?, length?)
@@ -168,8 +168,8 @@ tool_output_read(output_id, offset?, length?)
 - Reading at `offset == total_bytes` returns an empty, non-truncated window.
 - Unknown, expired, and wrong-scope ids share one unavailable-output error.
 
-Once implemented, the [agent loop protocol](agent-loop.md) states when the
-runtime offers this reader.
+The [agent loop protocol](agent-loop.md) states when a model call offers
+this reader.
 
 The intrinsic reader is dispatched by the runtime rather than through an
 injected `Tool`. A user tool may not declare the reserved `tool_output_read`
@@ -206,8 +206,9 @@ durable journals, public chat, and audit metadata receive
 `ToolCallLogResult::Success` therefore carries the bounded model-visible value,
 not the hidden raw value. After a run ends the raw output is gone everywhere:
 normal logs never contain more than the bounded envelope. A host that needs
-raw capture for debugging or audit must take it from step execution records or
-a custom store, under its own retention and redaction policy.
+raw capture for debugging or audit must take it from tool-finished event
+execution records or a custom store, under its own retention and redaction
+policy.
 
 Redaction must be applied to raw output before the store write and envelope
 construction. Window `content` is an opaque byte range of serialized JSON and
@@ -255,9 +256,9 @@ inline envelope's `output` field when only bounded model-visible data is
 available.
 
 Conversations persisted before adoption contain raw tool JSON while newer
-messages carry envelopes, and `replace_conversation` accepts arbitrary
-content, so consumers must not assume every tool message is an envelope. Old
-history is not migrated.
+messages carry envelopes. The caller supplies the conversation, so consumers
+must not assume every tool message is an envelope. Old history is not
+migrated.
 
 App runtimes that already implement private output windowing must remove that
 second envelope and reader in the same change that adopts this protocol, so

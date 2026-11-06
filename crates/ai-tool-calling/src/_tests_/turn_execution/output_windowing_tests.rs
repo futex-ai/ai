@@ -9,17 +9,23 @@ use ai_interface::{
 use serde_json::{Value, json};
 use unimock::{MockFn, Unimock, matching};
 
+use crate::tests::event_support::{collect_events, executions, request};
 use crate::tests::support::{response_parts, stream_result, tool_result_id};
 use crate::{
-    DynToolOutputStore, InMemoryToolOutputStore, StepOutcome, ToolOutputPolicy,
-    ToolOutputStoreError, ToolOutputStoreMock, ToolOutputStoreWindow, Turn,
+    Agent, AgentEvent, DynToolOutputStore, InMemoryToolOutputStore, ToolCallingRuntime,
+    ToolExecutionRecord, ToolOutputPolicy, ToolOutputStoreError, ToolOutputStoreMock,
+    ToolOutputStoreWindow,
 };
 
 use super::super::support::{runtime_with_store_and_policy, user_message};
 
 #[tokio::test]
 async fn small_success_is_inline_and_keeps_handled_false_raw_output() {
-    let store: DynToolOutputStore = Arc::new(Unimock::new(()));
+    let store: DynToolOutputStore = Arc::new(Unimock::new(
+        ToolOutputStoreMock::has_outputs
+            .each_call(matching!())
+            .returns(false),
+    ));
     let runtime = runtime_with_store_and_policy(
         model_for_call(tool_call("call-1", "handled")),
         vec![output_tool(
@@ -31,18 +37,17 @@ async fn small_success_is_inline_and_keeps_handled_false_raw_output() {
     )
     .expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(1));
-    let outcome = turn.step().await.expect("step should succeed");
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(1))))
+        .await
+        .expect("step should succeed");
 
     assert!(matches!(
-        outcome,
-        StepOutcome::Stepped {
-            tool_results,
-            ..
-        } if tool_results[0].output_id.is_none()
-            && tool_results[0].raw_output["ok"] == json!(false)
+        executions(&events).as_slice(),
+        [record] if record.output_id.is_none()
+            && record.raw_output["ok"] == json!(false)
             && matches!(
-                &tool_results[0].model_visible_output,
+                &record.model_visible_output,
                 ToolOutputEnvelope::Inline(inline) if inline.output()["ok"] == json!(false)
             )
     ));
@@ -61,18 +66,17 @@ async fn exactly_inline_limit_serialized_bytes_stays_inline() {
     )
     .expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(1));
-    let outcome = turn.step().await.expect("step should succeed");
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(1))))
+        .await
+        .expect("step should succeed");
 
     assert_eq!(store.reserved_bytes(), 0);
     assert!(matches!(
-        outcome,
-        StepOutcome::Stepped {
-            tool_results,
-            ..
-        } if tool_results[0].output_id.is_none()
+        executions(&events).as_slice(),
+        [record] if record.output_id.is_none()
             && matches!(
-                &tool_results[0].model_visible_output,
+                &record.model_visible_output,
                 ToolOutputEnvelope::Inline(inline) if inline.total_bytes() == 20_000
             )
     ));
@@ -105,12 +109,12 @@ async fn aggregate_overflow_degrades_one_sibling_without_pinning_order() {
     )
     .expect("runtime should build");
 
-    let mut turn = runtime.send(user_message("start"), Some(1));
-    let outcome = turn.step().await.expect("step should succeed");
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(1))))
+        .await
+        .expect("step should succeed");
 
-    let StepOutcome::Stepped { tool_results, .. } = outcome else {
-        panic!("expected tool step");
-    };
+    let tool_results = executions(&events);
     assert_eq!(tool_results.len(), 2);
     assert!(tool_results.iter().any(|record| record.output_id.is_some()));
     assert!(tool_results.iter().any(|record| {
@@ -121,14 +125,13 @@ async fn aggregate_overflow_degrades_one_sibling_without_pinning_order() {
                     == Some(&ToolOutputRemainderUnavailableReason::BudgetExhausted)
         )
     }));
-    let tool_messages = runtime
-        .conversation()
-        .into_iter()
+    let tool_messages = conversation
+        .iter()
         .filter(|message| tool_result_id(message).is_some())
         .collect::<Vec<_>>();
     assert_eq!(tool_messages.len(), 2);
-    assert_eq!(tool_result_id(&tool_messages[0]), Some("call-1"));
-    assert_eq!(tool_result_id(&tool_messages[1]), Some("call-2"));
+    assert_eq!(tool_result_id(tool_messages[0]), Some("call-1"));
+    assert_eq!(tool_result_id(tool_messages[1]), Some("call-2"));
 }
 
 #[tokio::test]
@@ -147,7 +150,10 @@ async fn store_write_failure_degrades_as_success() {
         truncated: true,
         next_offset: Some(4),
     };
-    let store: DynToolOutputStore = Arc::new(Unimock::new(
+    let store: DynToolOutputStore = Arc::new(Unimock::new((
+        ToolOutputStoreMock::has_outputs
+            .each_call(matching!())
+            .returns(false),
         ToolOutputStoreMock::write
             .next_call(matching!(_))
             .answers_arc(Arc::new(move |_, _| {
@@ -156,7 +162,7 @@ async fn store_write_failure_degrades_as_success() {
                     WriteFailed,
                 ))
             })),
-    ));
+    )));
     let runtime = runtime_with_store_and_policy(
         model_for_call(tool_call("call-1", "big")),
         vec![output_tool("big", json!("abcd"))],
@@ -195,22 +201,23 @@ async fn multibyte_first_window_snaps_to_utf8_boundary() {
     ));
 }
 
-async fn single_step_record(runtime: crate::ToolCallingRuntime) -> crate::ToolExecutionRecord {
-    let mut turn = runtime.send(user_message("start"), Some(1));
-    let outcome = turn.step().await.expect("step should succeed");
-    let StepOutcome::Stepped {
-        mut tool_results, ..
-    } = outcome
-    else {
-        panic!("expected tool step");
-    };
-    tool_results.remove(0)
+async fn single_step_record(runtime: ToolCallingRuntime) -> ToolExecutionRecord {
+    let mut conversation = vec![user_message("start")];
+    let events = collect_events(runtime.run(&mut conversation, request(Some(1))))
+        .await
+        .expect("step should succeed");
+    events
+        .into_iter()
+        .find_map(|event| match event {
+            AgentEvent::ToolFinished {
+                result: Ok(record), ..
+            } => Some(record),
+            _ => None,
+        })
+        .expect("successful tool execution event")
 }
 
-fn assert_degraded(
-    record: crate::ToolExecutionRecord,
-    reason: ToolOutputRemainderUnavailableReason,
-) {
+fn assert_degraded(record: ToolExecutionRecord, reason: ToolOutputRemainderUnavailableReason) {
     assert!(record.output_id.is_none());
     assert!(matches!(
         record.model_visible_output,

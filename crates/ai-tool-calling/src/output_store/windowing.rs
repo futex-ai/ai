@@ -48,7 +48,7 @@ pub(super) fn read_window(
     Ok(window)
 }
 
-pub(super) fn prefix_window(
+pub(crate) fn prefix_window(
     tool_name: impl Into<String>,
     content: &str,
     length: usize,

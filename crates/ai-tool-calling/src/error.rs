@@ -4,13 +4,19 @@ use std::error::Error as StdError;
 
 use thiserror::Error;
 
-use ai_interface::{LoggerError, ModelError, ToolError, ToolOutputEnvelopeError};
+use ai_interface::{LoggerError, ModelError, SafeErrorSource, ToolError};
 
-use crate::{ToolOutputPolicyError, ToolOutputStoreError};
+use crate::ToolOutputPolicyError;
 
 #[derive(Debug, Error)]
 /// Errors returned by the generic tool-calling runtime.
 pub enum Error {
+    /// An internal agent failure whose diagnostic chain is safe to report.
+    #[error("[ai_tool_calling/runtime] internal error: {source}")]
+    Internal {
+        /// Redacted diagnostic source with private typed access.
+        source: SafeErrorSource,
+    },
     /// Model execution failed.
     #[error("[ai_tool_calling/runtime] model error: {0}")]
     Model(#[from] ModelError),
@@ -25,7 +31,7 @@ pub enum Error {
     Checkpoint {
         /// Underlying checkpoint failure.
         #[source]
-        source: Box<dyn StdError + Send + Sync>,
+        source: SafeErrorSource,
     },
     /// Two injected tools exposed the same model-visible name.
     #[error("[ai_tool_calling/runtime] duplicate tool definition `{name}`")]
@@ -51,7 +57,7 @@ pub enum Error {
         /// Tool name whose output failed to serialize.
         tool_name: String,
         /// Underlying JSON serialization failure.
-        source: serde_json::Error,
+        source: SafeErrorSource,
     },
     /// The runtime could not serialize a model-visible output envelope.
     #[error("[ai_tool_calling/runtime] failed to serialize envelope for `{tool_name}`: {source}")]
@@ -59,19 +65,19 @@ pub enum Error {
         /// Tool name whose envelope failed to serialize.
         tool_name: String,
         /// Underlying JSON serialization failure.
-        source: serde_json::Error,
+        source: SafeErrorSource,
     },
     /// The runtime could not construct a valid model-visible output envelope.
     #[error("[ai_tool_calling/runtime] invalid output envelope: {source}")]
     OutputEnvelope {
         /// Underlying envelope construction error.
-        source: ToolOutputEnvelopeError,
+        source: SafeErrorSource,
     },
     /// A store returned a read-only error while writing output.
     #[error("[ai_tool_calling/runtime] unexpected output store write failure: {source}")]
     UnexpectedOutputStoreWrite {
         /// Underlying store error.
-        source: ToolOutputStoreError,
+        source: SafeErrorSource,
     },
 }
 
@@ -79,7 +85,7 @@ impl Error {
     /// Builds a checkpoint error from an embedding runtime failure.
     pub fn checkpoint(source: impl StdError + Send + Sync + 'static) -> Self {
         Self::Checkpoint {
-            source: Box::new(source),
+            source: SafeErrorSource::redacted(source),
         }
     }
 }

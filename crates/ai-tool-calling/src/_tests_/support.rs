@@ -143,14 +143,7 @@ pub(crate) fn runtime_with_logger_store_and_policy(
     output_store: crate::DynToolOutputStore,
     output_policy: ToolOutputPolicy,
 ) -> crate::Result<ToolCallingRuntime> {
-    ToolCallingRuntime::new(
-        "system prompt",
-        model,
-        logger,
-        tools,
-        output_store,
-        output_policy,
-    )
+    ToolCallingRuntime::new(model, logger, tools, output_store, output_policy)
 }
 
 pub(crate) fn user_message(content: &str) -> ConversationMessage {

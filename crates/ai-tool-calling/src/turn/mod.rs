@@ -1,16 +1,19 @@
-//! Turn handle and turn execution flow.
+//! Turn outcomes, execution records, and checkpoint hooks.
 
-mod active_turn;
+mod batch;
+mod event_copy;
 mod failures;
+mod observer;
+mod pending;
 mod response;
+pub(crate) mod stream;
 mod tool_dispatch;
 mod types;
 
-pub use active_turn::ActiveTurn;
 pub use types::{
     ModelResponseCheckpoint, NoopModelResponseCheckpoint, NoopTurnCheckpoint, RunOutcome,
-    StepOutcome, ToolExecutionRecord, Turn, TurnCheckpoint,
+    ToolExecutionRecord, TurnCheckpoint,
 };
 
-#[cfg(any(test, doctest))]
-pub use types::TurnCheckpointMock;
+#[cfg(any(test, doctest, feature = "test-support"))]
+pub use types::{ModelResponseCheckpointMock, TurnCheckpointMock};

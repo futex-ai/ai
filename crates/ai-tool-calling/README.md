@@ -1,137 +1,106 @@
 # ai-tool-calling
 
-`ai-tool-calling` is an application-agnostic Rust crate for in-memory
-tool-calling conversations. Depend on it when you need a reusable runtime that
-keeps conversation state, drives model/tool rounds, bounds model-visible tool
-output, and exposes explicit mutation APIs for embedding services.
+`ai-tool-calling` runs agent turns over conversations that the caller owns.
+Use it to stream model events, run tools in parallel, and keep bounded tool
+output in model context. Model providers and model policies remain separate.
 
 ## Responsibilities
 
-- Own the in-memory `ToolCallingRuntime`, retained conversation state, and turn
-  loop.
-- Dispatch model-emitted tool calls through the generic `ai-interface::Tool`
-  boundary.
-- Own output windowing policy, output-store integration, degraded-window
-  handling, and the intrinsic `tool_output_read` reader.
-- Preserve the ordered response parts with their provider state, operation
-  ids, turn checkpoints, and public tool activity lifecycle logging.
-- Keep durable storage, principal isolation, retention, and raw-output
-  redaction policy in the embedding host.
+- Run one turn from the caller's conversation and an `AgentRequest`.
+- Forward model events and build responses with the shared model-response fold.
+- Run tool calls in parallel with a default limit of four.
+- Append assistant messages and completed tool results to the conversation.
+- Give observers log copies and give checkpoints control over continuation.
+- Bound tool output through an injected store and `ToolOutputPolicy`.
+
+The host owns durable storage, principal isolation, retention, and raw-output
+redaction. The host also closes unfinished tool calls before the next turn.
 
 ## What This Crate Does
 
-- Starts turns with `send(...)` or resumes from retained history with
-  `resume(...)`.
-- Returns `Completed` when the model stops normally, `Truncated` when a token
-  or context limit cuts off the answer, and `Capped` when the step budget ends.
-  Both `StepOutcome` and `RunOutcome` preserve the latest non-empty assistant
-  text and the steps taken. Truncation ends the turn without dispatching tools
-  or requesting a continuation. Turn logs use `TurnOutcome` for these states.
-- Calls an injected model with the active system prompt, conversation, and tool
-  definitions. Each step calls `Model::complete`, which folds the event stream
-  of the model into one response. The runtime does not forward model events.
-  The model-call logger copy and the response checkpoint keep the failed
-  fallback attempts of `ModelResponse::attempts`.
-- Reports an invalid generated response with `ErrorKind::InvalidOutput`.
-  The error keeps the response provider, model id, and earlier failed attempts.
-- Returns every other model error unchanged, with its shared error core and
-  earlier attempts. The model-call logger receives its safe display and debug
-  text. Retry, fallback, concurrency, and pricing are layers of
-  `ai-models-policy` that wrap the model before the runtime receives it.
-- Lets callers apply `ModelCallControls`, including the request effort, to a
-  turn with `ActiveTurn::with_controls(...)`; every model step receives the
-  controls unchanged. The model resolves the effort against its own spec on
-  each step.
-- Always advertises the reserved intrinsic `tool_output_read` tool. Injecting a
-  normal tool with that name fails during runtime construction or
-  `replace_tools(...)`.
-- Dispatches `tool_output_read` inside the runtime, reading byte windows
-  directly from the injected `ToolOutputStore`. Offsets and lengths are bytes,
-  not tokens.
-- Keeps intrinsic read failures actionable and free of storage internals in
-  model-visible conversation state while retaining typed error details for
-  logger callbacks.
-- Serializes each successful raw tool result once as compact UTF-8 JSON and
-  applies `ToolOutputPolicy`:
-  - At or below the inline limit, the model receives a complete `tool_output`
-    envelope. The store is not touched.
-  - Above the inline limit, the runtime stores the serialized output and returns
-    the first UTF-8-safe `tool_output_window` with an opaque `output_id` and
-    `next_offset`.
-  - If storage cannot retain a successful result, the runtime returns a
-    degraded `tool_output_window` with no id and a `remainder_unavailable`
-    reason. The tool call is still treated as successful because side effects
-    may already have happened.
-  - Clock or entropy failures during output-id generation follow that same
-    recoverable `store_unavailable` path instead of panicking the runtime.
-- Appends only bounded envelope JSON to conversation tool messages and logger
-  success payloads. Raw output remains available only through current-run
-  `ToolExecutionRecord::raw_output`.
-- Gives model-call loggers the `log_copy()` of each request and response
-  from `ai-interface`. A log copy keeps every message and part, drops every
-  provider state, and empties every reasoning text, for every provider.
-  Requests sent to the model and retained conversation state keep their
-  provider state for replay.
-- Records `ToolExecutionRecord::output_id`,
-  `ToolExecutionRecord::raw_output`, and
-  `ToolExecutionRecord::model_visible_output` for successful tool executions.
-  Intrinsic reads use the returned window as both raw and model-visible output.
-- Appends exactly one tool-role message per provider tool-call id, including
-  multi-call rounds where sibling calls fail or degrade.
-- Appends the assistant message of each step with every response part and
-  its provider state unchanged, in generated order, through
-  `ModelResponse::to_assistant_message()`. Reasoning parts and provider
-  state survive the tool round, while reasoning remains absent from the
-  visible assistant text and tool output. This keeps the Anthropic thinking
-  blocks, the Gemini thought signatures, and the raw DeepSeek, Kimi, Qwen,
-  and MiniMax replay data for the next step.
+`ToolCallingRuntime` implements `Agent`. It holds the model, tools, observer,
+output store, output policy, and tool-call limit. It holds no conversation or
+system prompt. Its constructor rejects duplicate tool names and the reserved
+name `tool_output_read`. `replace_tools` validates a new catalog before it
+replaces the old catalog. `replace_output_store` changes the store for future
+turns. `with_tool_call_limit` accepts a nonzero limit.
 
-Output store ownership is part of the host contract. Use a fresh
-`InMemoryToolOutputStore` for each active run. Output ids expire when that
-store is dropped or replaced, and a store must never be shared across runs that
-belong to different principals. Hosts that reuse one `ToolCallingRuntime` for
-successive runs should call `replace_output_store(...)` at the run boundary.
-Durable output ids require a host-owned protected storage design with explicit
-retention, access control, and deletion behavior; the in-memory store is not a
-durable archive.
+`AgentRequest` supplies the system prompt, call controls, optional step limit,
+and optional final-answer schema. Each model step receives the controls and
+schema unchanged. A request without a step limit has no cap.
 
-Hosts should apply redaction to raw tool output before the store write and
-before envelope construction. Window content is an opaque byte range of the
-serialized output, so it cannot be reliably redacted after pagination has
-started.
+`Agent::run` borrows the caller's conversation and returns an
+`AgentEventStream`. The stream emits model, response, tool-started,
+tool-finished, step-finished, and finished events. Model events include the
+original fallback events. A fallback voids the earlier attempt's events.
+The shared `ModelResponseFold` builds the response, as `Model::complete` does.
 
-Normal observability receives bounded envelopes only. After a run ends, raw
-output is gone everywhere unless the host captured it from step execution
-records or implemented a custom store under its own retention and redaction
-policy.
+The loop appends no user message. It appends the assistant message after the
+response checkpoint and before tool execution. It appends no empty assistant
+message and none for filtered or unknown finishes. Tools start in call order.
+Normal result appends wait only for earlier calls that still run.
+`StepFinished` carries the messages that the step appended, in conversation
+order. `ToolFinished` carries the successful `ToolExecutionRecord` or tool error.
 
-Persisted history can be mixed-format. Conversations saved before adopting
-output management may contain raw tool JSON, and `replace_conversation(...)`
-accepts arbitrary message content. Consumers should not assume every tool-role
-message is an envelope. Read history stored in format version 1 through the
-composed version 1 converter before you pass it to
-`replace_conversation(...)`, as the
-[conversation parts protocol](../../docs/protocol/conversation-parts.md)
-says.
+A stopped turn keeps every completed tool result. The loop publishes each
+received output synchronously before it awaits output storage. Dropping the
+stream flushes waiting results in call order and cancels running calls.
+A dropped write keeps a bounded degraded result. A checkpoint error prevents
+new calls and waits for running calls to finish. Calls that did not complete
+have no result. The host must close those calls before another turn.
 
-Avoid suspending a run mid-pagination when possible. If persisted window
-envelopes become stale before replay, a host may rewrite them to a user-facing
-unavailable-output explanation or rerun the original tool only when that is
-safe. Size `max_steps` for pagination rounds because each `tool_output_read`
-call consumes one model round.
+`RunOutcome` distinguishes three terminal states:
 
-Breaking changes from `0.2.x`:
+- `Completed` carries the latest nonblank assistant text, structured output,
+  and step count.
+- `Truncated` carries the latest nonblank assistant text and step count.
+  The loop runs no tool call from a truncated response.
+- `Capped` carries the latest nonblank assistant text, step count, and limit.
+  The loop runs the tools of the last allowed step before it reports the cap.
 
-- `ToolCallingRuntime::new(...)` now requires a `DynToolOutputStore` and a
-  validated `ToolOutputPolicy`.
-- `ToolCallLogResult::Success` carries `ToolOutputEnvelope`, not raw
-  `serde_json::Value`.
-- Conversation tool messages for successful calls contain compact envelope JSON
-  instead of the raw tool JSON.
-- `ToolExecutionRecord` exposes `output_id`, `raw_output`, and
-  `model_visible_output`; downstream code that read the old raw `output` field
-  should switch to `raw_output` for active-run inspection or
-  `model_visible_output` for replay/log parity.
+Model errors end the turn. Filtered and unknown finishes become model errors.
+A tool error becomes a tool-result message with `ok: false`, and the turn
+continues. Each tool receives its operation id or its call id as an idempotency
+key. The loop keeps the model's provider state for replay.
+
+The observer uses `ai-interface::Logger`. It receives model-call log copies,
+tool groups, bounded results or errors, activity verbs, call latencies, and
+turn outcomes. Log copies remove provider state and reasoning text. Observer
+errors produce tracing warnings and never fail a turn.
+`run_with_checkpoints` accepts a `TurnCheckpoint` and a
+`ModelResponseCheckpoint`. The response checkpoint can set operation ids
+before the assistant message is appended.
+
+`TypedTool` declares an argument type and a serializable output type.
+`TypedToolAdapter` derives the input schema with `schemars`, decodes arguments
+before execution, forwards the operation id, and serializes output to JSON.
+Bad arguments return `ToolError::InvalidArguments` before the tool runs.
+
+Successful ordinary output uses a bounded envelope:
+
+- Small output stays inline and consumes no store budget.
+- Large output is stored and returns its first UTF-8-safe byte window.
+- Oversized output, exhausted budgets, and failed writes return degraded
+  windows. The successful tool action remains recorded.
+
+The loop offers `tool_output_read` only when the current store holds output.
+It also dispatches a reader call that was not offered. Reads do not create
+another stored output or wrap a window again.
+
+`ToolExecutionRecord` exposes `output_id`, `raw_output`, and
+`model_visible_output`. Only current-run consumers receive raw output through
+`ToolFinished`. Conversation history and observers receive bounded output.
+Apply redaction before output enters the store or its envelope.
+
+Use a fresh `InMemoryToolOutputStore` for each active run. A reused agent can
+replace the store between turns. Never share a store across principals.
+Output ids expire with their store. Durable ids require host-owned access
+control, retention, encryption, and cleanup.
+
+The caller can supply old history that contains raw tool JSON. Do not assume
+every tool message is an envelope. Read stored version 1 messages through the
+composed message converter before the turn. Budget pagination steps in
+`AgentRequest::max_steps`, because each reader call needs another model step.
 
 ## Quick Start
 
@@ -140,75 +109,63 @@ use std::sync::Arc;
 
 use ai_interface::{ConversationMessage, MockModel, NoopLogger};
 use ai_tool_calling::{
-    InMemoryToolOutputStore, RunOutcome, ToolCallingRuntime, ToolOutputPolicy, Turn,
+    Agent, AgentEvent, AgentRequest, InMemoryToolOutputStore,
+    ToolCallingRuntime, ToolOutputPolicy,
 };
 
-async fn run_prompt() -> ai_tool_calling::Result<RunOutcome> {
-    let runtime = ToolCallingRuntime::new(
-        "You are concise.",
+async fn run_prompt() -> ai_tool_calling::Result<()> {
+    let agent = ToolCallingRuntime::new(
         Arc::new(MockModel::new("mock-model")),
         Arc::new(NoopLogger),
         Vec::new(),
         Arc::new(InMemoryToolOutputStore::new()),
         ToolOutputPolicy::default(),
     )?;
-
-    let mut turn = runtime.send(ConversationMessage::user("Say done"), Some(4));
-    turn.run().await
-}
-```
-
-For a reused runtime, swap to a fresh store before starting the next principal
-or active run:
-
-```rust
-use std::sync::Arc;
-
-use ai_tool_calling::{InMemoryToolOutputStore, ToolCallingRuntime};
-
-fn prepare_next_run(runtime: &ToolCallingRuntime) {
-    runtime.replace_output_store(Arc::new(InMemoryToolOutputStore::new()));
+    let mut conversation = vec![ConversationMessage::user("Say done")];
+    let request = AgentRequest {
+        system_prompt: "You are concise.".to_owned(),
+        max_steps: Some(4),
+        ..Default::default()
+    };
+    let mut events = agent.run(&mut conversation, request);
+    while let Some(event) = events.next().await? {
+        if let AgentEvent::Finished(outcome) = event {
+            println!("{outcome:?}");
+        }
+    }
+    Ok(())
 }
 ```
 
 ## Development
 
-Downstream crates that want generated `Unimock` mock types for runtime-facing
-traits should enable the `test-support` feature:
-
-```toml
-ai-tool-calling = { version = "0.3.0", features = ["test-support"] }
-```
+Enable the `test-support` feature to use generated `unimock` types for the
+output store and checkpoint contracts.
 
 ```sh
-cargo test -p ai-tool-calling
-cargo clippy -p ai-tool-calling --all-targets --all-features -- -D warnings
+cargo test -p ai-tool-calling --all-features
+cargo clippy -p ai-tool-calling --all-targets --all-features
+cargo xtask smoke-test
 ```
 
 ### Key Code
 
-- `src/runtime.rs` - retained conversation state, runtime constructor,
-  `replace_tools(...)`, and `replace_output_store(...)`.
-- `src/policy.rs` - validated inline, read, per-output, and aggregate byte
-  limits.
-- `src/output_store/` - async `ToolOutputStore` trait, typed errors, request
-  DTOs, and `InMemoryToolOutputStore`.
-- `src/tool_output.rs` - envelope construction, store writes, and degraded
-  window mapping.
-- `src/intrinsic.rs` - reserved `tool_output_read` definition and model
-  guidance.
-- `src/turn/` - `step()`, `run()`, tool dispatch, execution records,
-  checkpoints, and the model call with its log copies.
-- [`../ai-interface/README.md`](../ai-interface/README.md) - shared DTO and
-  trait ownership.
+- `src/agent.rs` defines `Agent`, requests, events, and the borrowed stream.
+- `src/runtime.rs` builds agents and replaces tools or output stores.
+- `src/turn/stream/` runs model steps, checkpoints, and outcomes.
+- `src/turn/batch.rs` limits parallel tool calls and reports completion.
+- `src/turn/pending.rs` keeps completed results through cancellation.
+- `src/typed_tool.rs` derives schemas and adapts typed tool execution.
+- `src/policy.rs` validates output size and store limits.
+- `src/output_store/` defines the store contract and in-memory implementation.
+- `src/tool_output.rs` prepares bounded output before an asynchronous write.
+- `src/intrinsic.rs` defines the output reader and its model guidance.
 
 ### Related Docs
 
-- [`../../docs/protocol/model-stream.md`](../../docs/protocol/model-stream.md)
-- [`../../docs/protocol/conversation-parts.md`](../../docs/protocol/conversation-parts.md)
-- [`../../docs/protocol/provider-call-controls.md`](../../docs/protocol/provider-call-controls.md)
-- [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)
-- [`../ai-interface/README.md`](../ai-interface/README.md)
-- [`../../docs/protocol/kimi-model-provider.md`](../../docs/protocol/kimi-model-provider.md)
-- [`../../docs/protocol/deepseek-model-provider.md`](../../docs/protocol/deepseek-model-provider.md)
-- [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)
+- [Agent loop](../../docs/protocol/agent-loop.md)
+- [Tool output management](../../docs/protocol/tool-output-management.md)
+- [Model stream](../../docs/protocol/model-stream.md)
+- [Conversation parts](../../docs/protocol/conversation-parts.md)
+- [Architecture](../../docs/architecture.md)
+- [Shared contracts](../ai-interface/README.md)

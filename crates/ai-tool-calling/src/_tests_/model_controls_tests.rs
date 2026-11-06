@@ -10,13 +10,14 @@ use ai_interface::{
 };
 use unimock::{MockFn, Unimock, matching};
 
-use crate::Turn;
+use crate::Agent;
+use crate::tests::event_support::{collect_events, request, run_outcome};
 use crate::tests::support::response_parts;
 
 use super::support::runtime;
 
 #[tokio::test]
-async fn active_turn_forwards_controls_to_every_model_step() {
+async fn agent_request_forwards_controls_to_every_model_step() {
     let controls = ModelCallControls {
         generation: ModelGenerationControls {
             effort: None,
@@ -45,14 +46,17 @@ async fn active_turn_forwards_controls_to_every_model_step() {
     ));
     let runtime = runtime(model, Vec::new()).expect("runtime should build");
 
-    let outcome = runtime
-        .send(ConversationMessage::user("hello"), Some(1))
-        .with_controls(controls)
-        .run()
+    let mut conversation = vec![ConversationMessage::user("hello")];
+    let mut agent_request = request(Some(1));
+    agent_request.controls = controls;
+    let events = collect_events(runtime.run(&mut conversation, agent_request))
         .await
         .expect("turn should finish");
 
-    assert!(matches!(outcome, crate::RunOutcome::Completed { .. }));
+    assert!(matches!(
+        run_outcome(&events),
+        crate::RunOutcome::Completed { .. }
+    ));
 }
 
 fn response() -> ModelResponse {

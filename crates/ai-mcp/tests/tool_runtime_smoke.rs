@@ -15,7 +15,8 @@ use ai_mcp::{
     McpToolDescriptor, McpToolSet, Result,
 };
 use ai_tool_calling::{
-    InMemoryToolOutputStore, NoopTurnCheckpoint, RunOutcome, ToolCallingRuntime, ToolOutputPolicy,
+    Agent, AgentEvent, AgentRequest, InMemoryToolOutputStore, RunOutcome, ToolCallingRuntime,
+    ToolOutputPolicy,
 };
 use async_trait::async_trait;
 use serde_json::{Value, json};
@@ -30,7 +31,6 @@ async fn runtime_advertises_and_dispatches_mcp_tools() {
     let tool_set = McpToolSet::new(client, &config, vec![descriptor()]).unwrap();
     let tool: Arc<dyn Tool> = Arc::new(tool_set);
     let runtime = ToolCallingRuntime::new(
-        "Use the tool.",
         Arc::new(FixtureModel::default()),
         Arc::new(NoopLogger),
         vec![tool],
@@ -40,18 +40,29 @@ async fn runtime_advertises_and_dispatches_mcp_tools() {
     .unwrap();
 
     assert_eq!(runtime.tool_definitions()[0].name, "mcp__demo__echo");
-    let mut turn = runtime.send(ConversationMessage::user("echo hello"), Some(3));
-    let outcome = turn
-        .run_with_checkpoint(&mut NoopTurnCheckpoint)
-        .await
-        .unwrap();
+    let mut conversation = vec![ConversationMessage::user("echo hello")];
+    let mut events = runtime.run(
+        &mut conversation,
+        AgentRequest {
+            system_prompt: "Use the tool.".to_owned(),
+            max_steps: Some(3),
+            ..Default::default()
+        },
+    );
+    let mut outcome = None;
+    while let Some(event) = events.next().await.unwrap() {
+        if let AgentEvent::Finished(finished) = event {
+            outcome = Some(finished);
+        }
+    }
 
     assert!(matches!(
         outcome,
-        RunOutcome::Completed {
+        Some(RunOutcome::Completed {
             assistant_message,
-            steps_taken: 2
-        } if assistant_message == "complete"
+            steps_taken: 2,
+            ..
+        }) if assistant_message == "complete"
     ));
     assert_eq!(called_names.lock().unwrap().as_slice(), ["echo"]);
 }

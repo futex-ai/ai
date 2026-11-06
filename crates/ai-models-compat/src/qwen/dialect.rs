@@ -26,7 +26,9 @@ pub(super) static DIALECT: Dialect = Dialect {
         QWEN_3_7_PLUS_ID,
         QWEN_3_7_FLASH_ID,
     ]),
-    tool_choice: ToolChoiceWire::AutoWhenTools,
+    tool_choice: ToolChoiceWire::AutoWhenTools {
+        omit_without_tools: false,
+    },
     input: InputParts::UserTextImage {
         plain_text_model: QWEN_3_7_MAX_ID,
     },

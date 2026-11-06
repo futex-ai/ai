@@ -34,7 +34,7 @@ async fn id_generation_failure_rolls_back_reservation_as_write_failure() {
         panic!("id generation should surface as a write failure");
     };
     assert!(matches!(
-        source.downcast_ref::<OutputIdGenerationError>(),
+        source.raw_cause().downcast_ref::<OutputIdGenerationError>(),
         Some(OutputIdGenerationError::Entropy { .. })
     ));
 }

@@ -1,12 +1,13 @@
-//! Terminal turn log outcomes and cached terminal results.
+//! Terminal turn log outcomes and permanently exhausted streams.
 
 use std::sync::{Arc, Mutex};
 
 use ai_interface::{FinishReason, LoggerMock, ModelMock, ModelResponse, ModelUsage, TurnOutcome};
 use unimock::{MockFn, Unimock, matching};
 
-use crate::Turn;
+use crate::tests::event_support::request;
 use crate::tests::support::{response_parts, stream_result};
+use crate::{Agent, AgentEvent};
 
 use super::support::{runtime_with_logger, user_message};
 
@@ -54,9 +55,15 @@ async fn terminal_logs_distinguish_completed_truncated_and_capped() {
                 )
             };
         let runtime = runtime_with_logger(Arc::new(model), Arc::new(logger), Vec::new()).unwrap();
-        let mut turn = runtime.send(user_message("start"), Some(max_steps));
-        let first = turn.step().await.unwrap();
-        assert_eq!(turn.step().await.unwrap(), first);
+        let mut conversation = vec![user_message("start")];
+        let mut stream = runtime.run(&mut conversation, request(Some(max_steps)));
+        loop {
+            let event = stream.next().await.unwrap().expect("turn must finish");
+            if matches!(event, AgentEvent::Finished(_)) {
+                break;
+            }
+        }
+        assert!(stream.next().await.unwrap().is_none());
         let entries = entries.lock().unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0], expected);
