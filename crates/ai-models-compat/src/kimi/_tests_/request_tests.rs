@@ -3,7 +3,8 @@
 use ai_interface::ErrorKind;
 
 use ai_interface::{
-    ConversationMessage, ConversationPart, ConversationRole, Effort, ModelRequest, ToolCall,
+    ConversationMessage, ConversationPart, ConversationRole, Effort, ModelRequest, ModelToolChoice,
+    ToolCall,
 };
 use serde_json::{Value, json};
 
@@ -12,6 +13,17 @@ use crate::part_test_support::{assistant_with_items, message};
 use crate::kimi::KIMI_K3;
 
 use super::{request::build_request, test_support::simple_request};
+
+#[test]
+fn tool_choice_wire_keeps_none_without_tools() {
+    let mut request = simple_request();
+    request.tools.clear();
+    request.controls.generation.tool_choice = Some(ModelToolChoice::None);
+    let body = request_json(&request, Effort::Max);
+
+    assert_eq!(body.get("tools"), None);
+    assert_eq!(body.get("tool_choice"), Some(&json!("none")));
+}
 
 #[test]
 fn serializes_leading_system_and_every_shared_role() {

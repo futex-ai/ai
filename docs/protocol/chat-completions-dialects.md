@@ -137,7 +137,7 @@ the dialect, with the auth of the dialect.
 | Replay rule | The own state that it writes, and how a previous assistant message goes back: empty or null content, reasoning, and raw tool calls |
 | Thinking parameter | The request fields for each effort |
 | Usage fields | The source of the cached-token and reasoning-token counts |
-| Tool-choice forms | The wire form of each allowed tool choice, and the choice that it sends when tools are present and the request sets none |
+| Tool-choice forms | The wire form of each allowed tool choice. The default choice when tools are present. Whether it leaves out a none or auto choice when the request has no tools. |
 | Structured output | An instruction in the system prompt, a response format, or both |
 | Input parts | The part kinds that the provider takes. Other parts fail with the unsupported input kind |
 | Participant names | Whether the provider takes names on user and assistant messages |
@@ -163,7 +163,7 @@ the dialect, with the auth of the dialect.
 | Reasoning field | `reasoning_content` deltas when xAI exposes them. The dialect writes no reasoning state |
 | Thinking parameter | `reasoning_effort`: `none` for disabled, `low`, `medium`, or `high` for those efforts, `xhigh` for extra high, and `high` for max. Left out without a resolved effort, and for the efforts above disabled on Grok 4.20 models |
 | Usage fields | Cached input from `prompt_tokens_details.cached_tokens`. Reasoning from `completion_tokens_details.reasoning_tokens` |
-| Tool-choice forms | `none`, `auto`, `required`, and a named `function` object. `auto` when tools are present and the request sets none |
+| Tool-choice forms | `none`, `auto`, `required`, and a named `function` object. `auto` when tools are present and the request sets no choice. The dialect leaves out `none` and `auto` when the request has no tools. xAI rejects a tool choice without tools. |
 | Structured output | `response_format` of type `json_schema` with `strict: false`, and no instruction |
 | Input parts | Text and image |
 | Participant names | Taken |

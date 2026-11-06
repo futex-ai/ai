@@ -82,7 +82,10 @@ pub(crate) enum StructuredOutput {
 #[derive(Clone, Copy)]
 pub(crate) enum ToolChoiceWire {
     OmitWhileThinking,
-    AutoWhenTools,
+    AutoWhenTools {
+        /// Leave out none and auto choices when the request has no tools.
+        omit_without_tools: bool,
+    },
 }
 
 #[derive(Clone, Copy)]

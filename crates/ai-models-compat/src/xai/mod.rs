@@ -64,6 +64,10 @@ mod xai_deferred_event_tests;
 mod xai_controls_tests;
 
 #[cfg(test)]
+#[path = "_tests_/tool_choice_wire_tests.rs"]
+mod tool_choice_wire_tests;
+
+#[cfg(test)]
 #[path = "_tests_/xai_streaming_tests.rs"]
 mod xai_streaming_tests;
 
