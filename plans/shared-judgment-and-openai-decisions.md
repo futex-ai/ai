@@ -219,8 +219,10 @@ decision test, unless a line names a user decision. The options check of
   `ai-models-openai`. It posts to the configured base URL plus
   `/v1/decisions` with Bearer auth.
 - **Spec:** `GPT_6_LUNA`, text id `openai/gpt-6-luna`, with the `Judgment`
-  and `Vision` features, no effort, the very fast speed tier, and the low
-  cost tier. Prices stay in host config, as
+  and `Vision` features, no effort, intelligence score 5, the very fast
+  speed tier, and the low cost tier. Score 5 matches the TypeSafe Jev specs,
+  because routing compares judgment specs with each other. The docs agent
+  of Milestone 1 found that the spec needs a score. Prices stay in host config, as
   `docs/protocol/model-capabilities.md` requires. A catalog lists each
   model id once. If the library later adds chat support for `gpt-6-luna`,
   this one spec gains the chat features, and the chat suites stop skipping
@@ -269,8 +271,12 @@ decision test, unless a line names a user decision. The options check of
   `plans/follow-ups/google-video-poll-failure-rebills.md`, which cover the
   same risk.
 - **Errors:** parse the OpenAI `error` envelope, map its codes through the
-  existing OpenAI error mapper, and keep `x-request-id`. The API key, image
-  data, and request content never reach error text.
+  `native_kind` code table of the OpenAI chat adapter, and fall back to the
+  HTTP status. Keep `x-request-id`. The API key, the auth headers, and the
+  base64 data of each request image never reach error text. Other request
+  text can appear in a provider message, as in the other OpenAI adapters.
+  Redacting all request text would remove too much of the provider message.
+  This narrows the first wording after Milestone 1 found the gap.
 - **Construction:** `from_config` only, for the registry, as
   `plans/follow-ups/remove-provider-constructors.md` proposes.
 
@@ -301,8 +307,10 @@ Contract owners:
 
 - [Judgment boundary protocol](../docs/protocol/judgment-boundary.md).
 - [TypeSafe judgment provider protocol](../docs/protocol/typesafe-judgment-provider.md).
-- A new OpenAI judgment provider protocol,
-  `docs/protocol/openai-judgment-provider.md`.
+- [Judgment responses protocol](../docs/protocol/judgment-responses.md).
+- [TypeSafe judgment responses protocol](../docs/protocol/typesafe-judgment-responses.md).
+- [OpenAI judgment provider protocol](../docs/protocol/openai-judgment-provider.md).
+- [OpenAI judgment responses protocol](../docs/protocol/openai-judgment-responses.md).
 - [Live judgment API test protocol](../docs/protocol/live-judgment-api-tests.md).
 - [Provider registry protocol](../docs/protocol/provider-registry.md).
 - [Model capabilities protocol](../docs/protocol/model-capabilities.md).
@@ -319,25 +327,25 @@ Depends on: none
 The protocol docs state the shared contract, the TypeSafe mapping, and the
 OpenAI mapping before code changes.
 
-- [ ] Update `docs/protocol/judgment-boundary.md` with typed content parts,
+- [x] Update `docs/protocol/judgment-boundary.md` with typed content parts,
       the description type, `JudgmentInput`, ordered options, labelled
       levels, the refusal answer and its kind, the `DuplicateOptionLabel`
       problem, the shared support check, and the `UnsupportedInput` error.
       Correct the sentence that says question ids never reach the model.
-- [ ] Update `docs/protocol/typesafe-judgment-provider.md` with its
+- [x] Update `docs/protocol/typesafe-judgment-provider.md` with its
       support, the content mapping, the level mapping, and the criteria
       order in the caller's order.
-- [ ] Update the json-http README with the opt-in ordered-object value and
+- [x] Update the json-http README with the opt-in ordered-object value and
       its exception to the sorted key order.
-- [ ] Write `docs/protocol/openai-judgment-provider.md`: purpose, scope,
+- [x] Write `docs/protocol/openai-judgment-provider.md`: purpose, scope,
       endpoint, spec, support, request mapping, response mapping, usage,
       errors, timeout, and billing notes with the links to the three
       rebill follow-up items.
-- [ ] Update `docs/protocol/provider-registry.md`,
+- [x] Update `docs/protocol/provider-registry.md`,
       `docs/protocol/model-capabilities.md`, and
       `docs/protocol/live-judgment-api-tests.md` for the OpenAI judgment
       spec and adapter.
-- [ ] Link the new protocol doc from the workspace README and the
+- [x] Link the new protocol doc from the workspace README and the
       `ai-models-openai` README.
 
 ## Milestone 2: Ordered options, labelled levels, and refusals
@@ -362,7 +370,8 @@ TypeSafe criteria. TypeSafe, the mock, and every test move with them.
 - [ ] Move every consumer that the replaced-ways list names for options and
       levels. Delete the old map and list types.
 - [ ] Update the `ai-interface` and `ai-models-typesafe` READMEs and
-      `crates/ai-interface/docs/examples.md`.
+      `crates/ai-interface/docs/examples.md`. Link the new judgment and
+      TypeSafe response pages from the two READMEs.
 
 ## Milestone 3: Typed content, conversation input, and the support check
 
@@ -420,6 +429,10 @@ and the ignored live suite cover it.
       judgment specs, and remove `openai` from the non-judgment provider
       list. Keep the live tests ignored and out of `cargo xtask check`.
 - [ ] Add the `OPENAI_API_KEY` secret to `.github/workflows/live-judgments.yml`.
+- [ ] Update `docs/protocol/model-policies.md` with the judgment
+      `UnsupportedInput` error, `crates/ai-models-registry/README.md` with
+      the OpenAI judgment adapter, and `docs/development.md` and
+      `xtask/README.md` with the OpenAI live judgment secret and command.
 - [ ] Run the live judgment test against OpenAI once with credentials.
       Check that `choice` is the most probable option, that each
       distribution lists every option, and that the error envelope matches

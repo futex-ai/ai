@@ -1,6 +1,8 @@
 # Model Capabilities Protocol
 
-Status: Implemented.
+Status: Implemented, except the `openai/gpt-6-luna` judgment spec that
+[Milestone 4](../../plans/shared-judgment-and-openai-decisions.md#milestone-4-openai-decisions-adapter)
+adds.
 
 This protocol defines model specs, provider ids, text ids, custom specs,
 effort, the capability check, and the control matrix. The portable controls
@@ -36,6 +38,9 @@ a spec for short.
   provider default when the spec has no default effort.
 - The replay need is data for callers and for the test kit. The conformance
   runner checks replay for each spec that has this need.
+- Features are routing data. No adapter check reads them. The judgment
+  support check reads the support value of its adapter, as the
+  [judgment boundary protocol](judgment-boundary.md#support-check) says.
 - Model specs hold no prices. Decision: prices come from the deployment, as
   [model policies](model-policies.md) says, because deployment prices
   change without a release. The rejected alternative put prices in specs.
@@ -45,6 +50,10 @@ a spec for short.
 - Each provider crate exports one constant for each spec and a `CATALOG`
   slice of its specs.
 - A catalog lists each provider model id once.
+- A model that serves more than one modality has one spec. Its features name
+  each modality that the library supports for the model. For example,
+  `openai/gpt-6-luna` advertises `Judgment` and `Vision`. When the library
+  adds chat support for that model, the same spec gains the chat features.
 - `ModelCatalog` combines the catalogs of several providers. It keeps the
   specs in the order in which the host adds them.
 - The [registry](provider-registry.md) combines the catalogs of the

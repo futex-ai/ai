@@ -256,6 +256,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - [OpenAI Responses streaming reference](https://developers.openai.com/api/reference/typescript/resources/beta/subresources/responses/methods/create)
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/live-image-api-tests.md`](../../docs/protocol/live-image-api-tests.md)
+- [`../../docs/protocol/openai-judgment-provider.md`](../../docs/protocol/openai-judgment-provider.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

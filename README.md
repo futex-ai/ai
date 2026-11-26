@@ -160,13 +160,21 @@ adapters from custom specs that name the provider model.
 - [Live image API tests](docs/protocol/live-image-api-tests.md) defines the
   implemented credentialed catalog coverage, low-cost probe, response
   validation, and CI secret boundary for image providers.
+- [Judgment boundary](docs/protocol/judgment-boundary.md) and its
+  [response page](docs/protocol/judgment-responses.md) define the
+  provider-agnostic condition, choice, and score boundary: content and
+  conversation input, the support check, answers, refusals, and the response
+  check.
 - [TypeSafe judgment provider](docs/protocol/typesafe-judgment-provider.md)
-  and its [judgment boundary](docs/protocol/judgment-boundary.md) define the
-  implemented provider-agnostic condition/choice/score judgment boundary and
-  the TypeSafe Jev wire, validation, usage, and error mapping.
+  and its [response page](docs/protocol/typesafe-judgment-responses.md)
+  define the TypeSafe Jev wire, validation, usage, and error mapping.
+- [OpenAI judgment provider](docs/protocol/openai-judgment-provider.md) and
+  its [response page](docs/protocol/openai-judgment-responses.md) define the
+  OpenAI Decisions spec, wire mapping, usage, errors, timeout, and billing
+  notes.
 - [Live judgment API tests](docs/protocol/live-judgment-api-tests.md) defines
-  the implemented credentialed judgment catalog coverage, probe, validation,
-  and CI secret boundary.
+  the credentialed judgment catalog coverage, probe, validation, and CI
+  secret boundary.
 - [Video input](docs/protocol/video-input.md) defines the shared video part,
   the Google and MiniMax mappings, and typed rejection elsewhere.
 - [DeepSeek model provider](docs/protocol/deepseek-model-provider.md) and its
