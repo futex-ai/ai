@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{ErrorCore, ErrorKind, SafeErrorSource};
 
-use super::{JudgmentAnswerProblem, JudgmentJsonType};
+use super::{JudgmentAnswerProblem, JudgmentInputFeature, JudgmentJsonType};
 
 /// Typed local validation problem for one judgment question.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -59,8 +59,16 @@ pub enum JudgmentError {
         /// Unsupported JSON scalar kind.
         json_type: JudgmentJsonType,
     },
-    /// Request state was blank or structurally empty.
-    #[error("[ai_interface/judgment] state must not be empty")]
+    /// An adapter cannot send the supplied input form or part.
+    #[error("[ai_interface/judgment] {kind:?} for `{provider}` model `{model_id}`: {message}", kind = core.kind, provider = core.provider, model_id = core.model_id, message = core.message)]
+    UnsupportedInput {
+        /// Shared failure details with the adapter identity.
+        core: Box<ErrorCore>,
+        /// The input form or part that the adapter does not support.
+        feature: JudgmentInputFeature,
+    },
+    /// Request input was blank or structurally empty.
+    #[error("[ai_interface/judgment] input must not be empty")]
     EmptyState {
         /// Shared failure details.
         core: Box<ErrorCore>,

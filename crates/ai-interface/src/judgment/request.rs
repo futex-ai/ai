@@ -5,25 +5,23 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    JudgmentContent, JudgmentError, JudgmentOption, JudgmentQuestion, JudgmentQuestionProblem,
+    JudgmentError, JudgmentInput, JudgmentOption, JudgmentQuestion, JudgmentQuestionProblem,
     JudgmentResult,
 };
 
-/// State and typed questions submitted in one judgment call.
+/// Input and typed questions submitted in one judgment call.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct JudgmentRequest {
-    /// Text or structured state evaluated by every question.
-    pub state: JudgmentContent,
+    /// Content or a conversation evaluated by every question.
+    pub input: JudgmentInput,
     /// Caller-defined ids mapped to independent questions.
     pub questions: BTreeMap<String, JudgmentQuestion>,
 }
 
 impl JudgmentRequest {
-    /// Validates state and question structure without provider access.
+    /// Validates input and question structure without provider access.
     pub fn validate(&self) -> JudgmentResult<()> {
-        if state_is_empty(&self.state) {
-            return Err(JudgmentError::empty_state());
-        }
+        self.input.validate()?;
         if self.questions.is_empty() {
             return Err(JudgmentError::no_questions());
         }
@@ -64,14 +62,6 @@ fn choice_problem(options: &[JudgmentOption]) -> Option<JudgmentQuestionProblem>
         .iter()
         .any(|option| !labels.insert(option.label.as_str()))
         .then_some(JudgmentQuestionProblem::DuplicateOptionLabel)
-}
-
-fn state_is_empty(state: &JudgmentContent) -> bool {
-    match state {
-        JudgmentContent::Text(text) => text.trim().is_empty(),
-        JudgmentContent::Object(object) => object.is_empty(),
-        JudgmentContent::Array(array) => array.is_empty(),
-    }
 }
 
 #[cfg(test)]

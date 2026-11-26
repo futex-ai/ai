@@ -79,7 +79,7 @@ async fn config_secrets_are_available_to_local_validation_before_dynamic_auth() 
         let model = TypeSafeJudgmentModel::from_config(unused_http_client(), spec(), config);
         let error = model
             .judge(&JudgmentRequest {
-                state: "ticket".into(),
+                input: "ticket".into(),
                 questions: BTreeMap::from([(
                     id.to_owned(),
                     JudgmentQuestion::Choice {

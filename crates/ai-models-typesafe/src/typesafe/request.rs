@@ -2,14 +2,18 @@
 
 use std::collections::BTreeMap;
 
-use ai_interface::{JudgmentContent, JudgmentQuestion, JudgmentRequest};
+use ai_interface::{
+    JudgmentContent, JudgmentDescription, JudgmentInput, JudgmentPart, JudgmentQuestion,
+    JudgmentRequest,
+};
 use json_http::OrderedObject;
-use serde::Serialize;
+use serde::{Serialize, Serializer, ser::Error};
 
 #[derive(Debug, Serialize)]
 /// Serialized System One request body.
 pub(super) struct TypeSafeRequest<'a> {
-    state: &'a JudgmentContent,
+    #[serde(serialize_with = "serialize_input")]
+    state: &'a JudgmentInput,
     model: &'a str,
     questions: BTreeMap<&'a str, TypeSafeQuestion<'a>>,
 }
@@ -19,17 +23,20 @@ pub(super) struct TypeSafeRequest<'a> {
 enum TypeSafeQuestion<'a> {
     #[serde(rename = "noul")]
     Condition {
+        #[serde(serialize_with = "serialize_content")]
         instructions: &'a JudgmentContent,
         #[serde(skip_serializing_if = "Option::is_none")]
         criteria: Option<TypeSafeConditionCriteria<'a>>,
     },
     #[serde(rename = "choice")]
     Choice {
+        #[serde(serialize_with = "serialize_content")]
         instructions: &'a JudgmentContent,
-        criteria: OrderedObject<&'a str, Option<&'a JudgmentContent>>,
+        criteria: OrderedObject<&'a str, Option<&'a JudgmentDescription>>,
     },
     #[serde(rename = "score")]
     Score {
+        #[serde(serialize_with = "serialize_content")]
         instructions: &'a JudgmentContent,
         criteria: Vec<TypeSafeLevel<'a>>,
     },
@@ -38,9 +45,9 @@ enum TypeSafeQuestion<'a> {
 #[derive(Debug, Serialize)]
 struct TypeSafeConditionCriteria<'a> {
     #[serde(rename = "true", skip_serializing_if = "Option::is_none")]
-    yes: Option<&'a JudgmentContent>,
+    yes: Option<&'a JudgmentDescription>,
     #[serde(rename = "false", skip_serializing_if = "Option::is_none")]
-    no: Option<&'a JudgmentContent>,
+    no: Option<&'a JudgmentDescription>,
 }
 
 #[derive(Debug, Serialize)]
@@ -49,7 +56,7 @@ enum TypeSafeLevel<'a> {
     Label(&'a str),
     Described {
         label: &'a str,
-        description: &'a JudgmentContent,
+        description: &'a JudgmentDescription,
     },
 }
 
@@ -59,7 +66,7 @@ pub(super) fn build_request<'a>(
     request: &'a JudgmentRequest,
 ) -> TypeSafeRequest<'a> {
     TypeSafeRequest {
-        state: &request.state,
+        state: &request.input,
         model: model_id,
         questions: request
             .questions
@@ -108,6 +115,39 @@ fn map_question(question: &JudgmentQuestion) -> TypeSafeQuestion<'_> {
                 })
                 .collect(),
         },
+    }
+}
+
+fn serialize_input<S: Serializer>(input: &JudgmentInput, serializer: S) -> Result<S::Ok, S::Error> {
+    match input {
+        JudgmentInput::Content(content) => serialize_content(content, serializer),
+        JudgmentInput::Conversation { .. } => Err(S::Error::custom(
+            "unexpected conversation input in TypeSafe request",
+        )),
+    }
+}
+
+fn serialize_content<S: Serializer>(
+    content: &JudgmentContent,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    match content.parts.as_slice() {
+        [part] => TypeSafePart(part).serialize(serializer),
+        parts => serializer.collect_seq(parts.iter().map(TypeSafePart)),
+    }
+}
+
+struct TypeSafePart<'a>(&'a JudgmentPart);
+
+impl Serialize for TypeSafePart<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self.0 {
+            JudgmentPart::Text { text } => text.serialize(serializer),
+            JudgmentPart::Json { value } => value.serialize(serializer),
+            JudgmentPart::Image { .. } => {
+                Err(S::Error::custom("unexpected image in TypeSafe request"))
+            }
+        }
     }
 }
 

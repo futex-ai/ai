@@ -7,9 +7,9 @@ use std::{
 };
 
 use ai_interface::{
-    DynJudgmentModel, ErrorCore, ErrorKind, JudgmentContent, JudgmentError, JudgmentLevel,
-    JudgmentModel, JudgmentModelMock, JudgmentOption, JudgmentQuestion, JudgmentRequest,
-    MockJudgmentModel, ModelSpec,
+    DynJudgmentModel, ErrorCore, ErrorKind, JudgmentContent, JudgmentError, JudgmentInput,
+    JudgmentJson, JudgmentLevel, JudgmentModel, JudgmentModelMock, JudgmentOption, JudgmentPart,
+    JudgmentQuestion, JudgmentRequest, MockJudgmentModel, ModelSpec,
 };
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use serde_json::{Map, Value};
@@ -78,10 +78,15 @@ fn require_api_key(value: Option<String>) -> Result<String, ApiKeyError> {
 
 fn probe_request() -> JudgmentRequest {
     JudgmentRequest {
-        state: JudgmentContent::Object(Map::from_iter([(
-            "message".to_owned(),
-            Value::String("Please help; my payment did not go through.".to_owned()),
-        )])),
+        input: JudgmentContent {
+            parts: vec![JudgmentPart::Json {
+                value: JudgmentJson::Object(Map::from_iter([(
+                    "message".to_owned(),
+                    Value::String("Please help; my payment did not go through.".to_owned()),
+                )])),
+            }],
+        }
+        .into(),
         questions: BTreeMap::from([
             (
                 "urgent".to_owned(),
@@ -146,13 +151,21 @@ fn requires_a_present_non_empty_api_key() {
 #[test]
 fn probe_request_has_the_documented_provider_neutral_shape() {
     let request = probe_request();
-    let JudgmentContent::Object(state) = request.state else {
-        panic!("probe state must be an object");
+    let JudgmentInput::Content(input) = request.input else {
+        panic!("probe input must be content");
+    };
+    let [
+        JudgmentPart::Json {
+            value: JudgmentJson::Object(object),
+        },
+    ] = input.parts.as_slice()
+    else {
+        panic!("probe input must contain one JSON object");
     };
 
-    assert_eq!(state.len(), 1);
+    assert_eq!(object.len(), 1);
     assert_eq!(
-        state.get("message"),
+        object.get("message"),
         Some(&Value::String(
             "Please help; my payment did not go through.".to_owned()
         ))

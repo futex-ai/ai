@@ -6,7 +6,7 @@ use async_trait::async_trait;
 
 use crate::{
     JudgmentAnswer, JudgmentError, JudgmentModel, JudgmentQuestion, JudgmentQuestionProblem,
-    JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage,
+    JudgmentRequest, JudgmentResponse, JudgmentResult, JudgmentSupport, ModelUsage,
 };
 
 const MOCK_MODEL_ID: &str = "mock-judgment";
@@ -21,6 +21,7 @@ impl JudgmentModel for MockJudgmentModel {
         if let Err(error) = request.validate() {
             return Err(error.with_identity("mock", MOCK_MODEL_ID));
         }
+        JudgmentSupport::ALL.check(request, "mock", MOCK_MODEL_ID)?;
         let mut answers = BTreeMap::new();
         for (id, question) in &request.questions {
             answers.insert(id.clone(), answer_question(id, question)?);

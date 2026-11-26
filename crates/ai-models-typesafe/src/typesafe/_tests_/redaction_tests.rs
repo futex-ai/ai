@@ -129,7 +129,7 @@ async fn unknown_probability_option_labels_are_redacted() {
 
 fn choice_request() -> JudgmentRequest {
     JudgmentRequest {
-        state: "A support ticket".into(),
+        input: "A support ticket".into(),
         questions: BTreeMap::from([(
             "team".to_owned(),
             JudgmentQuestion::choice("Choose a team", [("billing", None), ("technical", None)]),

@@ -3,8 +3,8 @@
 use serde_json::json;
 
 use crate::{
-    JudgmentConditionCriteria, JudgmentContent, JudgmentLevel, JudgmentOption, JudgmentQuestion,
-    JudgmentQuestionKind,
+    JudgmentConditionCriteria, JudgmentContent, JudgmentDescription, JudgmentLevel, JudgmentOption,
+    JudgmentQuestion, JudgmentQuestionKind,
 };
 
 #[test]
@@ -45,7 +45,7 @@ fn every_question_variant_uses_a_snake_case_type_tag() {
             JudgmentQuestion::condition("Is this urgent?", None),
             json!({
                 "type": "condition",
-                "instructions": "Is this urgent?"
+                "instructions": [{"type": "text", "text": "Is this urgent?"}]
             }),
         ),
         (
@@ -53,12 +53,12 @@ fn every_question_variant_uses_a_snake_case_type_tag() {
                 "Choose a team",
                 [
                     ("technical", None),
-                    ("billing", Some(JudgmentContent::from("Payments"))),
+                    ("billing", Some(JudgmentDescription::from("Payments"))),
                 ],
             ),
             json!({
                 "type": "choice",
-                "instructions": "Choose a team",
+                "instructions": [{"type": "text", "text": "Choose a team"}],
                 "options": [
                     {"label": "technical"},
                     {"label": "billing", "description": "Payments"}
@@ -69,7 +69,7 @@ fn every_question_variant_uses_a_snake_case_type_tag() {
             JudgmentQuestion::score("Rate frustration", ["Calm", "Frustrated"]),
             json!({
                 "type": "score",
-                "instructions": "Rate frustration",
+                "instructions": [{"type": "text", "text": "Rate frustration"}],
                 "levels": [{"label": "Calm"}, {"label": "Frustrated"}]
             }),
         ),
@@ -126,7 +126,7 @@ fn questions_round_trip_structured_instructions_and_descriptions() {
     let cases = [
         json!({
             "type": "condition",
-            "instructions": {"field": "ticket", "rule": "urgent"},
+            "instructions": [{"type": "json", "value": {"field": "ticket", "rule": "urgent"}}],
             "criteria": {
                 "yes": {"signals": ["blocked", "deadline"]},
                 "no": ["informational", {"resolved": true}]
@@ -134,7 +134,7 @@ fn questions_round_trip_structured_instructions_and_descriptions() {
         }),
         json!({
             "type": "choice",
-            "instructions": ["route", {"using": "department"}],
+            "instructions": [{"type": "json", "value": ["route", {"using": "department"}]}],
             "options": [
                 {"label": "billing", "description": {"owns": ["payments", "refunds"]}},
                 {"label": "technical", "description": {"owns": ["availability"]}}
@@ -142,7 +142,7 @@ fn questions_round_trip_structured_instructions_and_descriptions() {
         }),
         json!({
             "type": "score",
-            "instructions": {"measure": "frustration"},
+            "instructions": [{"type": "json", "value": {"measure": "frustration"}}],
             "levels": [
                 {"label": "calm"},
                 {"label": "frustrated"},
@@ -165,7 +165,7 @@ fn score_questions_require_labelled_level_objects() {
     ] {
         let error = serde_json::from_value::<JudgmentQuestion>(json!({
             "type": "score",
-            "instructions": "Rate frustration",
+            "instructions": [{"type": "text", "text": "Rate frustration"}],
             "levels": [{"label": "Calm"}, invalid_level, {"label": "Very frustrated"}]
         }))
         .unwrap_err();
@@ -176,8 +176,8 @@ fn score_questions_require_labelled_level_objects() {
 #[test]
 fn constructors_preserve_supplied_values_without_validation() {
     let criteria = JudgmentConditionCriteria::new(
-        Some(JudgmentContent::from("yes")),
-        Some(JudgmentContent::from("no")),
+        Some(JudgmentDescription::from("yes")),
+        Some(JudgmentDescription::from("no")),
     );
     assert_eq!(
         JudgmentQuestion::condition("condition", Some(criteria.clone())),
@@ -198,7 +198,7 @@ fn constructors_preserve_supplied_values_without_validation() {
                 },
                 JudgmentOption {
                     label: "second".to_owned(),
-                    description: Some(JudgmentContent::from("two")),
+                    description: Some(JudgmentDescription::from("two")),
                 },
             ],
         }

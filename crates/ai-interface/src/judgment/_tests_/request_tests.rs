@@ -5,27 +5,28 @@ use std::collections::BTreeMap;
 use serde_json::{Map, json};
 
 use crate::{
-    JudgmentContent, JudgmentError, JudgmentQuestion, JudgmentQuestionProblem, JudgmentRequest,
+    ConversationMessage, ConversationRole, ErrorKind, JudgmentContent, JudgmentDescription,
+    JudgmentError, JudgmentInput, JudgmentJson, JudgmentPart, JudgmentQuestion,
+    JudgmentQuestionProblem, JudgmentRequest,
 };
 
 #[test]
-fn request_uses_state_and_question_map_wire_shape() {
+fn request_uses_input_and_question_map_wire_shape() {
     let request = JudgmentRequest {
-        state: JudgmentContent::Object(Map::from_iter([(
-            "ticket".to_owned(),
-            json!("Payouts have failed"),
-        )])),
+        input: JudgmentContent::try_from(json!({"ticket": "Payouts have failed"}))
+            .unwrap()
+            .into(),
         questions: BTreeMap::from([(
             "urgent".to_owned(),
             JudgmentQuestion::condition("Is the ticket urgent?", None),
         )]),
     };
     let expected = json!({
-        "state": {"ticket": "Payouts have failed"},
+        "input": [{"type": "json", "value": {"ticket": "Payouts have failed"}}],
         "questions": {
             "urgent": {
                 "type": "condition",
-                "instructions": "Is the ticket urgent?"
+                "instructions": [{"type": "text", "text": "Is the ticket urgent?"}]
             }
         }
     });
@@ -38,20 +39,64 @@ fn request_uses_state_and_question_map_wire_shape() {
 }
 
 #[test]
-fn validation_rejects_every_empty_state_shape() {
-    for state in [
-        JudgmentContent::from(" \n\t"),
-        JudgmentContent::Object(Map::new()),
-        JudgmentContent::Array(Vec::new()),
+fn validation_rejects_every_empty_input_shape() {
+    for input in [
+        JudgmentContent { parts: vec![] }.into(),
+        " \n\t".into(),
+        JudgmentContent::try_from(json!({})).unwrap().into(),
+        JudgmentContent::try_from(json!([])).unwrap().into(),
+        JudgmentContent {
+            parts: vec![
+                JudgmentPart::Text {
+                    text: " \n".to_owned(),
+                },
+                JudgmentPart::Json {
+                    value: JudgmentJson::Object(Map::new()),
+                },
+                JudgmentPart::Json {
+                    value: JudgmentJson::Array(Vec::new()),
+                },
+            ],
+        }
+        .into(),
+        JudgmentInput::Conversation {
+            system: Some("Directions alone".to_owned()),
+            messages: Vec::new(),
+        },
     ] {
-        let error = request(state, valid_questions()).validate().unwrap_err();
-        assert!(matches!(error, JudgmentError::EmptyState { .. }));
+        let result = request(input.clone(), valid_questions()).validate();
+        assert!(
+            matches!(&result, Err(JudgmentError::EmptyState { core }) if core.kind == ErrorKind::InvalidRequest),
+            "{input:?}: {result:?}"
+        );
     }
 }
 
 #[test]
+fn validation_rejects_an_invalid_role_in_a_later_conversation_message() {
+    let input = JudgmentInput::Conversation {
+        system: None,
+        messages: vec![
+            ConversationMessage::user("ticket"),
+            ConversationMessage::new(ConversationRole::Tool, vec![]),
+        ],
+    };
+
+    let result = request(input, valid_questions()).validate();
+
+    assert!(
+        matches!(&result, Err(error)
+            if error.core().kind == ErrorKind::InvalidRequest
+            && error.core().provider == "local"
+            && error.core().model_id == "judgment-validation"
+            && error.core().message == "conversation parts do not match the message role"),
+        "{result:?}"
+    );
+}
+
+#[test]
 fn validation_rejects_an_empty_question_map() {
-    let error = request(JudgmentContent::from("state"), BTreeMap::new())
+    let error = request("ticket".into(), BTreeMap::new())
         .validate()
         .unwrap_err();
 
@@ -74,7 +119,7 @@ fn validation_rejects_a_choice_without_options() {
         "team".to_owned(),
         JudgmentQuestion::choice(
             "Choose a team",
-            std::iter::empty::<(&str, Option<JudgmentContent>)>(),
+            std::iter::empty::<(&str, Option<JudgmentDescription>)>(),
         ),
     )]);
 
@@ -132,16 +177,29 @@ fn validation_rejects_scores_with_fewer_than_two_levels() {
 
 #[test]
 fn validation_accepts_every_valid_question_kind() {
-    request(JudgmentContent::from("state"), valid_questions())
-        .validate()
-        .unwrap();
+    for input in [
+        "ticket".into(),
+        JudgmentContent {
+            parts: vec![JudgmentPart::Image {
+                mime_type: "image/png".to_owned(),
+                data_base64: "AQID".to_owned(),
+            }],
+        }
+        .into(),
+        JudgmentInput::Conversation {
+            system: None,
+            messages: vec![
+                ConversationMessage::user("ticket"),
+                ConversationMessage::tool("ok", "lookup", "call-1"),
+            ],
+        },
+    ] {
+        request(input, valid_questions()).validate().unwrap();
+    }
 }
 
-fn request(
-    state: JudgmentContent,
-    questions: BTreeMap<String, JudgmentQuestion>,
-) -> JudgmentRequest {
-    JudgmentRequest { state, questions }
+fn request(input: JudgmentInput, questions: BTreeMap<String, JudgmentQuestion>) -> JudgmentRequest {
+    JudgmentRequest { input, questions }
 }
 
 fn valid_questions() -> BTreeMap<String, JudgmentQuestion> {
@@ -166,7 +224,7 @@ fn assert_invalid_question(
     expected_id: &str,
     expected_problem: JudgmentQuestionProblem,
 ) {
-    let result = request(JudgmentContent::from("state"), questions).validate();
+    let result = request("ticket".into(), questions).validate();
     assert!(
         matches!(
             &result,

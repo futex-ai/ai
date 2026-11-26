@@ -74,7 +74,7 @@ pub(super) fn json_response(status: u16, body: Value) -> JsonHttpResponse<Vec<u8
 /// Builds the smallest valid condition request fixture.
 pub(super) fn simple_request() -> JudgmentRequest {
     JudgmentRequest {
-        state: "A payout has been delayed for three days.".into(),
+        input: "A payout has been delayed for three days.".into(),
         questions: BTreeMap::from([(
             "is_urgent".to_owned(),
             JudgmentQuestion::condition("Is this urgent?", None),

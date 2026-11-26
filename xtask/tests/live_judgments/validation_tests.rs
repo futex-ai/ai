@@ -5,8 +5,8 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 use ai_interface::{
-    JudgmentAnswer, JudgmentContent, JudgmentModel, JudgmentQuestion, JudgmentRequest,
-    JudgmentResponse, MockJudgmentModel, ModelFeature, ModelSpec,
+    JudgmentAnswer, JudgmentModel, JudgmentQuestion, JudgmentRequest, JudgmentResponse,
+    MockJudgmentModel, ModelFeature, ModelSpec,
 };
 
 const JUDGMENT_FEATURES: &[ModelFeature] = &[ModelFeature::Judgment];
@@ -126,7 +126,7 @@ async fn accepts_patched_mock_judgment_output() {
 
 fn request() -> JudgmentRequest {
     JudgmentRequest {
-        state: JudgmentContent::from("Please help with my account today."),
+        input: "Please help with my account today.".into(),
         questions: BTreeMap::from([
             (
                 "urgent".to_owned(),

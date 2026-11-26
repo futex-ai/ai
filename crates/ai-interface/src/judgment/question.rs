@@ -2,22 +2,22 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::JudgmentContent;
+use super::{JudgmentContent, JudgmentDescription};
 
 /// Optional descriptions for the yes and no outcomes of a condition.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct JudgmentConditionCriteria {
     /// Description of evidence that supports the condition.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub yes: Option<JudgmentContent>,
+    pub yes: Option<JudgmentDescription>,
     /// Description of evidence that does not support the condition.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub no: Option<JudgmentContent>,
+    pub no: Option<JudgmentDescription>,
 }
 
 impl JudgmentConditionCriteria {
     /// Builds condition criteria from optional yes and no descriptions.
-    pub fn new(yes: Option<JudgmentContent>, no: Option<JudgmentContent>) -> Self {
+    pub fn new(yes: Option<JudgmentDescription>, no: Option<JudgmentDescription>) -> Self {
         Self { yes, no }
     }
 }
@@ -29,12 +29,12 @@ pub struct JudgmentOption {
     pub label: String,
     /// Optional description that helps the model choose.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<JudgmentContent>,
+    pub description: Option<JudgmentDescription>,
 }
 
 impl JudgmentOption {
     /// Builds an option from a label and an optional description.
-    pub fn new(label: impl Into<String>, description: Option<JudgmentContent>) -> Self {
+    pub fn new(label: impl Into<String>, description: Option<JudgmentDescription>) -> Self {
         Self {
             label: label.into(),
             description,
@@ -49,12 +49,12 @@ pub struct JudgmentLevel {
     pub label: String,
     /// Optional description that explains the level.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<JudgmentContent>,
+    pub description: Option<JudgmentDescription>,
 }
 
 impl JudgmentLevel {
     /// Builds a level from a label and an optional description.
-    pub fn new(label: impl Into<String>, description: Option<JudgmentContent>) -> Self {
+    pub fn new(label: impl Into<String>, description: Option<JudgmentDescription>) -> Self {
         Self {
             label: label.into(),
             description,
@@ -86,7 +86,7 @@ pub enum JudgmentQuestionKind {
     Score,
 }
 
-/// A typed question evaluated against shared request state.
+/// A typed question evaluated against shared request input.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum JudgmentQuestion {
@@ -105,7 +105,7 @@ pub enum JudgmentQuestion {
         /// Options in the order supplied by the caller.
         options: Vec<JudgmentOption>,
     },
-    /// Places the state on an ordered, zero-indexed rubric.
+    /// Places the input on an ordered, zero-indexed rubric.
     Score {
         /// Instructions that define how to score the state.
         instructions: JudgmentContent,
@@ -115,6 +115,14 @@ pub enum JudgmentQuestion {
 }
 
 impl JudgmentQuestion {
+    pub(super) fn instructions(&self) -> &JudgmentContent {
+        match self {
+            Self::Condition { instructions, .. }
+            | Self::Choice { instructions, .. }
+            | Self::Score { instructions, .. } => instructions,
+        }
+    }
+
     /// Returns the answer shape required by this question.
     pub fn kind(&self) -> JudgmentQuestionKind {
         match self {
@@ -138,7 +146,7 @@ impl JudgmentQuestion {
     /// Builds a choice question without validating it.
     pub fn choice(
         instructions: impl Into<JudgmentContent>,
-        options: impl IntoIterator<Item = (impl Into<String>, Option<JudgmentContent>)>,
+        options: impl IntoIterator<Item = (impl Into<String>, Option<JudgmentDescription>)>,
     ) -> Self {
         Self::Choice {
             instructions: instructions.into(),

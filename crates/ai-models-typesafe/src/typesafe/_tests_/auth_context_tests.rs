@@ -54,7 +54,7 @@ async fn typed_answer_ids_and_labels_and_rotating_auth_stay_safe_and_call_scoped
     let model = TypeSafeJudgmentModel::with_auth(http, "jev-custom", Arc::new(auth))
         .with_clock(Arc::new(Unimock::new(())));
     let input = JudgmentRequest {
-        state: "ticket".into(),
+        input: "ticket".into(),
         questions: BTreeMap::from([(
             "q-first-secret".to_owned(),
             JudgmentQuestion::choice("Choose", [("billing", None)]),

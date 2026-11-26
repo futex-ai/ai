@@ -3,8 +3,8 @@
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use ai_interface::{
-    ErrorKind, JudgmentError, JudgmentModel, JudgmentRequest, JudgmentResponse, JudgmentResult,
-    ModelSpec,
+    ErrorKind, JudgmentError, JudgmentInputForm, JudgmentModel, JudgmentPartKind, JudgmentRequest,
+    JudgmentResponse, JudgmentResult, JudgmentSupport, ModelSpec,
 };
 use ai_models_core::{ApiKeyScheme, Clock, ErrorContext, ProviderConfig, SystemClock};
 use async_trait::async_trait;
@@ -24,6 +24,11 @@ const PROVIDER: &str = "typesafe";
 const TYPESAFE_BASE_URL: &str = "https://api.typesafe.ai";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 const REQUEST_ID_HEADERS: &[&str] = &["x-request-id", "request-id"];
+const SUPPORT: JudgmentSupport = JudgmentSupport {
+    content_parts: &[JudgmentPartKind::Text, JudgmentPartKind::Json],
+    input_forms: &[JudgmentInputForm::Content],
+    conversation_parts: &[],
+};
 
 /// TypeSafe-backed `ai_interface::JudgmentModel` implementation.
 #[derive(Clone)]
@@ -123,6 +128,9 @@ impl JudgmentModel for TypeSafeJudgmentModel {
         if let Err(error) = request.validate() {
             return Err(context.apply_judgment_error(error.with_identity(PROVIDER, &self.model_id)));
         }
+        if let Err(error) = SUPPORT.check(request, PROVIDER, &self.model_id) {
+            return Err(context.apply_judgment_error(error));
+        }
         let mut headers = BTreeMap::new();
         if context
             .capture_auth(self.auth.clone())
@@ -198,6 +206,10 @@ mod construction_tests;
 #[cfg(test)]
 #[path = "_tests_/client_tests.rs"]
 mod client_tests;
+
+#[cfg(test)]
+#[path = "_tests_/input_support_tests.rs"]
+mod input_support_tests;
 
 #[cfg(test)]
 #[path = "_tests_/auth_redaction_tests.rs"]

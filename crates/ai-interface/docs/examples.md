@@ -120,14 +120,14 @@ async fn generate_video() -> ai_interface::VideoGenerationResult<Vec<u8>> {
 use std::collections::BTreeMap;
 
 use ai_interface::{
-    JudgmentLevel, JudgmentModel, JudgmentQuestion, JudgmentRequest, JudgmentResponse,
-    MockJudgmentModel,
+    ConversationMessage, JudgmentInput, JudgmentLevel, JudgmentModel, JudgmentQuestion,
+    JudgmentRequest, JudgmentResponse, JudgmentResult, MockJudgmentModel,
 };
 
-async fn judge_state() -> ai_interface::JudgmentResult<JudgmentResponse> {
+async fn judge_ticket() -> JudgmentResult<JudgmentResponse> {
     MockJudgmentModel
         .judge(&JudgmentRequest {
-            state: "The payout has failed for three days.".into(),
+            input: "The payout has failed for three days.".into(),
             questions: BTreeMap::from([
                 (
                     "urgent".to_owned(),
@@ -151,6 +151,25 @@ async fn judge_state() -> ai_interface::JudgmentResult<JudgmentResponse> {
                     ),
                 ),
             ]),
+        })
+        .await
+}
+
+async fn judge_conversation() -> JudgmentResult<JudgmentResponse> {
+    let input = JudgmentInput::Conversation {
+        system: Some("Evaluate the customer's last request.".to_owned()),
+        messages: vec![
+            ConversationMessage::user("The payout has failed."),
+            ConversationMessage::assistant("I can check the payout status.", Vec::new()),
+        ],
+    };
+    MockJudgmentModel
+        .judge(&JudgmentRequest {
+            input,
+            questions: BTreeMap::from([(
+                "resolved".to_owned(),
+                JudgmentQuestion::condition("Has the issue been resolved?", None),
+            )]),
         })
         .await
 }

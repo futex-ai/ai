@@ -1,10 +1,5 @@
 # Judgment Boundary Protocol
 
-Status: Implemented, except the typed content, the description type, the
-conversation input, and the support check that
-[Milestone 3](../../plans/shared-judgment-and-openai-decisions.md#milestone-3-typed-content-conversation-input-and-the-support-check)
-adds.
-
 This protocol defines the provider-agnostic judgment boundary of
 `ai-interface`: its requests, questions, local validation, support check, and
 mock. A judgment model evaluates one input against typed questions and

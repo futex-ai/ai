@@ -200,13 +200,21 @@ runtime implementation.
   second controls, downloaded MP4 bytes with metadata, and typed policy,
   timeout, and retry errors. `ModelFeature::VideoGeneration` is the stable
   routing capability.
-- Defines the `JudgmentModel` boundary for evaluating text or JSON state
+- Defines the `JudgmentModel` boundary for evaluating a `JudgmentInput`
   against typed condition, choice, and score questions in one call.
+  Content inputs and question instructions use ordered `JudgmentPart`
+  values for text, JSON objects or arrays, and inline images.
+  Conversation inputs reuse `ConversationMessage` and accept optional
+  system instructions.
   A choice keeps its `JudgmentOption` values in caller order.
   A score uses ordered `JudgmentLevel` values. Each level has a label.
-  Condition criteria, options, and levels can carry optional descriptions.
-  Local validation rejects empty state and invalid questions, including
-  duplicate option labels, before provider access.
+  Condition criteria, options, and levels can carry optional text or JSON
+  descriptions through `JudgmentDescription`.
+  Local validation rejects empty input, invalid conversation messages, and
+  invalid questions, including duplicate option labels.
+  Each adapter then checks its `JudgmentSupport` before transport.
+  `JudgmentError::UnsupportedInput` identifies the input form or part that
+  the adapter cannot send.
   `JudgmentResponse::validate_against` checks answer kinds, option and level
   membership, complete probability distributions, value ranges, and
   distribution sums. It also checks selection and expected score consistency.

@@ -27,7 +27,7 @@ async fn judgment_factory_forwards_specs_and_provider_settings() {
     let response = built
         .unwrap()
         .judge(&JudgmentRequest {
-            state: "A ticket is delayed".into(),
+            input: "A ticket is delayed".into(),
             questions: BTreeMap::from([(
                 "urgent".into(),
                 JudgmentQuestion::condition("Is it urgent?", None),

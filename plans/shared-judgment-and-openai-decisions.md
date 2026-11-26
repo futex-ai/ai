@@ -380,19 +380,19 @@ Depends on: 2
 Requests take typed content parts or a conversation. The shared support
 check rejects what an adapter cannot send.
 
-- [ ] Replace `JudgmentContent` with typed text, JSON, and image parts, and
+- [x] Replace `JudgmentContent` with typed text, JSON, and image parts, and
       add the text-or-JSON description type. Keep the `From<&str>` and
       `From<String>` conversions.
-- [ ] Add `JudgmentInput` and rename `state` to `input`. Move the empty-input
+- [x] Add `JudgmentInput` and rename `state` to `input`. Move the empty-input
       validation to the new type.
-- [ ] Add `JudgmentSupport`, the shared support check, and
+- [x] Add `JudgmentSupport`, the shared support check, and
       `JudgmentError::UnsupportedInput`, with tests for each place that can
       hold an unsupported part.
-- [ ] Give the TypeSafe adapter its support value, with tests that prove an
+- [x] Give the TypeSafe adapter its support value, with tests that prove an
       image or a conversation sends no request.
-- [ ] Move every consumer that the replaced-ways list names for content and
+- [x] Move every consumer that the replaced-ways list names for content and
       state. Delete the old content type.
-- [ ] Update the READMEs and `crates/ai-interface/docs/examples.md`.
+- [x] Update the READMEs and `crates/ai-interface/docs/examples.md`.
 
 ## Milestone 4: OpenAI Decisions adapter
 

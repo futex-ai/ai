@@ -1,6 +1,6 @@
 //! Shared-core access and pre-adapter identities for judgment validation.
 
-use crate::{ErrorCore, ErrorKind, JudgmentError, JudgmentJsonType};
+use crate::{ErrorCore, ErrorKind, JudgmentError, JudgmentInputFeature, JudgmentJsonType};
 
 impl JudgmentError {
     /// Builds a classified failure from its shared details.
@@ -14,6 +14,7 @@ impl JudgmentError {
     pub fn core(&self) -> &ErrorCore {
         match self {
             Self::UnsupportedContent { core, .. }
+            | Self::UnsupportedInput { core, .. }
             | Self::EmptyState { core }
             | Self::NoQuestions { core }
             | Self::InvalidQuestion { core, .. }
@@ -27,6 +28,7 @@ impl JudgmentError {
     pub fn core_mut(&mut self) -> &mut ErrorCore {
         match self {
             Self::UnsupportedContent { core, .. }
+            | Self::UnsupportedInput { core, .. }
             | Self::EmptyState { core }
             | Self::NoQuestions { core }
             | Self::InvalidQuestion { core, .. }
@@ -60,13 +62,30 @@ impl JudgmentError {
         }
     }
 
-    /// Builds an empty-state error before an adapter is selected.
+    /// Builds a support error for the selected adapter.
+    pub fn unsupported_input(
+        provider: impl Into<String>,
+        model_id: impl Into<String>,
+        feature: JudgmentInputFeature,
+    ) -> Self {
+        Self::UnsupportedInput {
+            core: Box::new(ErrorCore::new(
+                ErrorKind::UnsupportedInput,
+                provider,
+                model_id,
+                format!("unsupported judgment input feature {feature:?}"),
+            )),
+            feature,
+        }
+    }
+
+    /// Builds an empty-input error before an adapter is selected.
     pub fn empty_state() -> Self {
         Self::EmptyState {
             core: Box::new(ErrorCore::local(
                 ErrorKind::InvalidRequest,
                 "judgment-validation",
-                "state must not be empty",
+                "input must not be empty",
             )),
         }
     }

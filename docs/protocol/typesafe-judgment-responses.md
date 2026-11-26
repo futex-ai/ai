@@ -1,9 +1,5 @@
 # TypeSafe Judgment Response Protocol
 
-Status: Implemented, except the unsupported input error that
-[Milestone 3](../../plans/shared-judgment-and-openai-decisions.md#milestone-3-typed-content-conversation-input-and-the-support-check)
-adds.
-
 This protocol defines how the TypeSafe adapter maps responses and usage, and
 how it handles errors. The
 [TypeSafe judgment provider protocol](typesafe-judgment-provider.md) defines

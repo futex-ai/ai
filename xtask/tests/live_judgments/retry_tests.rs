@@ -10,10 +10,9 @@ use std::{
 };
 
 use ai_interface::{
-    DynJudgmentModel, ErrorCore, ErrorKind, JudgmentAnswer, JudgmentAnswerProblem, JudgmentContent,
-    JudgmentError, JudgmentJsonType, JudgmentModel, JudgmentModelMock, JudgmentQuestion,
-    JudgmentQuestionProblem, JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage,
-    SafeErrorSource,
+    DynJudgmentModel, ErrorCore, ErrorKind, JudgmentAnswer, JudgmentAnswerProblem, JudgmentError,
+    JudgmentJsonType, JudgmentModel, JudgmentModelMock, JudgmentQuestion, JudgmentQuestionProblem,
+    JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage, SafeErrorSource,
 };
 use ai_models_policy::{DynSleeper, STANDARD_TRANSIENT_RETRY_DELAYS, SleeperMock, TokioSleeper};
 use async_trait::async_trait;
@@ -221,7 +220,7 @@ fn transient(message: &str) -> JudgmentResult<JudgmentResponse> {
 
 fn probe_request() -> JudgmentRequest {
     JudgmentRequest {
-        state: JudgmentContent::from("A support message"),
+        input: "A support message".into(),
         questions: BTreeMap::from([(
             "urgent".to_owned(),
             JudgmentQuestion::condition("Is it urgent?", None),

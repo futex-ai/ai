@@ -1,9 +1,5 @@
 # TypeSafe Judgment Provider Protocol
 
-Status: Implemented, except the support check and the content mapping that
-[Milestone 3](../../plans/shared-judgment-and-openai-decisions.md#milestone-3-typed-content-conversation-input-and-the-support-check)
-adds.
-
 ## Purpose And Status
 
 Add TypeSafe's System One models (Jev) to the workspace as a first-class

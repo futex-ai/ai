@@ -3,28 +3,30 @@
 use std::collections::BTreeMap;
 
 use ai_interface::{
-    JudgmentConditionCriteria, JudgmentContent, JudgmentLevel, JudgmentQuestion, JudgmentRequest,
+    JudgmentConditionCriteria, JudgmentContent, JudgmentDescription, JudgmentJson, JudgmentLevel,
+    JudgmentPart, JudgmentQuestion, JudgmentRequest,
 };
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 use super::build_request;
 
 #[test]
 fn every_question_variant_maps_to_the_exact_wire_shape() {
     let request = JudgmentRequest {
-        state: JudgmentContent::try_from(json!({
+        input: JudgmentContent::try_from(json!({
             "ticket": "Payouts have failed for three days",
             "attempts": 4,
             "escalated": true
         }))
-        .expect("object state should be supported"),
+        .expect("object input should be supported")
+        .into(),
         questions: BTreeMap::from([
             (
                 "department".to_owned(),
                 JudgmentQuestion::choice(
                     "Which team should handle this?",
                     [
-                        ("billing", Some(JudgmentContent::from("Payments"))),
+                        ("billing", Some(JudgmentDescription::from("Payments"))),
                         ("technical", None),
                     ],
                 ),
@@ -41,8 +43,8 @@ fn every_question_variant_maps_to_the_exact_wire_shape() {
                 JudgmentQuestion::condition(
                     "Does the ticket convey urgency?",
                     Some(JudgmentConditionCriteria::new(
-                        Some(JudgmentContent::from("Time-sensitive")),
-                        Some(JudgmentContent::try_from(json!(["no urgency"])).expect("array")),
+                        Some(JudgmentDescription::from("Time-sensitive")),
+                        Some(JudgmentDescription::try_from(json!(["no urgency"])).expect("array")),
                     )),
                 ),
             ),
@@ -85,8 +87,9 @@ fn every_question_variant_maps_to_the_exact_wire_shape() {
 #[test]
 fn absent_and_partial_condition_criteria_omit_only_optional_fields() {
     let request = JudgmentRequest {
-        state: JudgmentContent::try_from(json!(["verbatim", null, 3]))
-            .expect("array state should be supported"),
+        input: JudgmentContent::try_from(json!(["verbatim", null, 3]))
+            .expect("array input should be supported")
+            .into(),
         questions: BTreeMap::from([
             (
                 "absent".to_owned(),
@@ -105,7 +108,7 @@ fn absent_and_partial_condition_criteria_omit_only_optional_fields() {
                     "Negative rubric",
                     Some(JudgmentConditionCriteria::new(
                         None,
-                        Some(JudgmentContent::from("no evidence")),
+                        Some(JudgmentDescription::from("no evidence")),
                     )),
                 ),
             ),
@@ -114,7 +117,7 @@ fn absent_and_partial_condition_criteria_omit_only_optional_fields() {
                 JudgmentQuestion::condition(
                     "Partial rubric",
                     Some(JudgmentConditionCriteria::new(
-                        Some(JudgmentContent::from("yes evidence")),
+                        Some(JudgmentDescription::from("yes evidence")),
                         None,
                     )),
                 ),
@@ -167,17 +170,17 @@ fn structured_instructions_and_descriptions_map_verbatim() {
         {"window_hours": 24}
     ]))
     .expect("array instructions should be supported");
-    let option_description = JudgmentContent::try_from(json!({
+    let option_description = JudgmentDescription::try_from(json!({
         "owner": "payments",
         "priority": 1
     }))
     .expect("object option description should be supported");
-    let level_description = JudgmentContent::try_from(json!({
+    let level_description = JudgmentDescription::try_from(json!({
         "requires_page": true
     }))
     .expect("object level description should be supported");
     let request = JudgmentRequest {
-        state: "ticket".into(),
+        input: "ticket".into(),
         questions: BTreeMap::from([
             (
                 "choice".to_owned(),
@@ -232,7 +235,7 @@ fn structured_instructions_and_descriptions_map_verbatim() {
 #[test]
 fn text_state_and_model_are_verbatim_without_extra_fields() {
     let request = JudgmentRequest {
-        state: "  preserve surrounding whitespace  ".into(),
+        input: "  preserve surrounding whitespace  ".into(),
         questions: BTreeMap::from([(
             "condition".to_owned(),
             JudgmentQuestion::condition("Question", None),
@@ -250,5 +253,45 @@ fn text_state_and_model_are_verbatim_without_extra_fields() {
             .keys()
             .collect::<Vec<_>>(),
         vec!["model", "questions", "state"]
+    );
+}
+
+#[test]
+fn multiple_parts_use_an_untagged_array_for_state_and_instructions() {
+    let content = JudgmentContent {
+        parts: vec![
+            JudgmentPart::Text {
+                text: "first".to_owned(),
+            },
+            JudgmentPart::Json {
+                value: JudgmentJson::Object(Map::from_iter([("second".to_owned(), json!(true))])),
+            },
+            JudgmentPart::Json {
+                value: JudgmentJson::Array(vec![json!("third")]),
+            },
+        ],
+    };
+    let request = JudgmentRequest {
+        input: content.clone().into(),
+        questions: BTreeMap::from([(
+            "condition".to_owned(),
+            JudgmentQuestion::condition(content, None),
+        )]),
+    };
+
+    let body = serde_json::to_value(build_request("jev-latest", &request)).unwrap();
+
+    assert_eq!(
+        body,
+        json!({
+            "state": ["first", {"second": true}, ["third"]],
+            "model": "jev-latest",
+            "questions": {
+                "condition": {
+                    "type": "noul",
+                    "instructions": ["first", {"second": true}, ["third"]]
+                }
+            }
+        })
     );
 }

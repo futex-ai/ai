@@ -56,9 +56,11 @@ pub use image_generator::{
 };
 pub use judgment::{
     DynJudgmentModel, EXPECTED_SCORE_TOLERANCE, JudgmentAnswer, JudgmentAnswerProblem,
-    JudgmentConditionCriteria, JudgmentContent, JudgmentError, JudgmentJsonType, JudgmentLevel,
-    JudgmentModel, JudgmentOption, JudgmentQuestion, JudgmentQuestionKind, JudgmentQuestionProblem,
-    JudgmentRequest, JudgmentResponse, JudgmentResult, PROBABILITY_SUM_TOLERANCE,
+    JudgmentConditionCriteria, JudgmentContent, JudgmentConversationPartKind, JudgmentDescription,
+    JudgmentError, JudgmentInput, JudgmentInputFeature, JudgmentInputForm, JudgmentJson,
+    JudgmentJsonType, JudgmentLevel, JudgmentModel, JudgmentOption, JudgmentPart, JudgmentPartKind,
+    JudgmentQuestion, JudgmentQuestionKind, JudgmentQuestionProblem, JudgmentRequest,
+    JudgmentResponse, JudgmentResult, JudgmentSupport, PROBABILITY_SUM_TOLERANCE,
     SELECTED_PROBABILITY_TOLERANCE, deserialize_score_probabilities,
 };
 pub use logger::{
