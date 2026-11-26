@@ -39,15 +39,17 @@ fn answer_question(id: &str, question: &JudgmentQuestion) -> JudgmentResult<Judg
     match question {
         JudgmentQuestion::Condition { .. } => Ok(JudgmentAnswer::Condition { probability: 1.0 }),
         JudgmentQuestion::Choice { options, .. } => {
-            let Some(selected) = options.keys().next().cloned() else {
+            let Some(first) = options.first() else {
                 return Err(JudgmentError::invalid_question(
                     id,
                     JudgmentQuestionProblem::NoOptions,
                 )
                 .with_identity("mock", MOCK_MODEL_ID));
             };
+            let selected = first.label.clone();
             let probabilities = options
-                .keys()
+                .iter()
+                .map(|option| &option.label)
                 .map(|label| (label.clone(), f64::from(label == &selected)))
                 .collect();
             Ok(JudgmentAnswer::Choice {

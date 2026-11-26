@@ -84,7 +84,7 @@ async fn config_secrets_are_available_to_local_validation_before_dynamic_auth() 
                     id.to_owned(),
                     JudgmentQuestion::Choice {
                         instructions: "Choose".into(),
-                        options: BTreeMap::new(),
+                        options: Vec::new(),
                     },
                 )]),
             })

@@ -109,7 +109,7 @@ impl JsonHttpRequestBuilder {
     where
         T: Serialize,
     {
-        let body = match body.serialize(CanonicalSerializer) {
+        let body = match body.serialize(CanonicalSerializer::SORTED) {
             Ok(body) => body,
             Err(source) => return Err(Error::SerializeRequest { source }),
         };

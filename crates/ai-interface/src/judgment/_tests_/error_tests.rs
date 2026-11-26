@@ -23,6 +23,10 @@ fn question_problems_have_specific_display_messages() {
             "choice option labels must not be blank",
         ),
         (
+            JudgmentQuestionProblem::DuplicateOptionLabel,
+            "choice option labels must be unique",
+        ),
+        (
             JudgmentQuestionProblem::TooFewLevels { levels: 1 },
             "score must include at least two levels, got 1",
         ),

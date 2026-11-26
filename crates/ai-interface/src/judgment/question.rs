@@ -1,7 +1,5 @@
 //! Typed questions submitted to judgment models.
 
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 
 use super::JudgmentContent;
@@ -21,6 +19,58 @@ impl JudgmentConditionCriteria {
     /// Builds condition criteria from optional yes and no descriptions.
     pub fn new(yes: Option<JudgmentContent>, no: Option<JudgmentContent>) -> Self {
         Self { yes, no }
+    }
+}
+
+/// One choice option with a label and an optional description.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct JudgmentOption {
+    /// Label that identifies this option in the answer.
+    pub label: String,
+    /// Optional description that helps the model choose.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<JudgmentContent>,
+}
+
+impl JudgmentOption {
+    /// Builds an option from a label and an optional description.
+    pub fn new(label: impl Into<String>, description: Option<JudgmentContent>) -> Self {
+        Self {
+            label: label.into(),
+            description,
+        }
+    }
+}
+
+/// One score level with a label and an optional description.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct JudgmentLevel {
+    /// Label shown to the model for this level.
+    pub label: String,
+    /// Optional description that explains the level.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<JudgmentContent>,
+}
+
+impl JudgmentLevel {
+    /// Builds a level from a label and an optional description.
+    pub fn new(label: impl Into<String>, description: Option<JudgmentContent>) -> Self {
+        Self {
+            label: label.into(),
+            description,
+        }
+    }
+}
+
+impl From<&str> for JudgmentLevel {
+    fn from(label: &str) -> Self {
+        Self::new(label, None)
+    }
+}
+
+impl From<String> for JudgmentLevel {
+    fn from(label: String) -> Self {
+        Self::new(label, None)
     }
 }
 
@@ -52,15 +102,15 @@ pub enum JudgmentQuestion {
     Choice {
         /// Instructions that define how to choose an option.
         instructions: JudgmentContent,
-        /// Option labels and their optional descriptions.
-        options: BTreeMap<String, Option<JudgmentContent>>,
+        /// Options in the order supplied by the caller.
+        options: Vec<JudgmentOption>,
     },
     /// Places the state on an ordered, zero-indexed rubric.
     Score {
         /// Instructions that define how to score the state.
         instructions: JudgmentContent,
-        /// Ordered levels and their required descriptions.
-        levels: Vec<JudgmentContent>,
+        /// Levels in ascending score order.
+        levels: Vec<JudgmentLevel>,
     },
 }
 
@@ -94,7 +144,7 @@ impl JudgmentQuestion {
             instructions: instructions.into(),
             options: options
                 .into_iter()
-                .map(|(label, description)| (label.into(), description))
+                .map(|(label, description)| JudgmentOption::new(label, description))
                 .collect(),
         }
     }
@@ -102,7 +152,7 @@ impl JudgmentQuestion {
     /// Builds a score question without validating it.
     pub fn score(
         instructions: impl Into<JudgmentContent>,
-        levels: impl IntoIterator<Item = impl Into<JudgmentContent>>,
+        levels: impl IntoIterator<Item = impl Into<JudgmentLevel>>,
     ) -> Self {
         Self::Score {
             instructions: instructions.into(),

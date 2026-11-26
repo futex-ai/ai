@@ -1,10 +1,11 @@
 //! Judgment question DTO and constructor tests.
 
-use std::collections::BTreeMap;
-
 use serde_json::json;
 
-use crate::{JudgmentConditionCriteria, JudgmentContent, JudgmentQuestion, JudgmentQuestionKind};
+use crate::{
+    JudgmentConditionCriteria, JudgmentContent, JudgmentLevel, JudgmentOption, JudgmentQuestion,
+    JudgmentQuestionKind,
+};
 
 #[test]
 fn condition_criteria_omits_absent_descriptions() {
@@ -51,17 +52,17 @@ fn every_question_variant_uses_a_snake_case_type_tag() {
             JudgmentQuestion::choice(
                 "Choose a team",
                 [
-                    ("billing", Some(JudgmentContent::from("Payments"))),
                     ("technical", None),
+                    ("billing", Some(JudgmentContent::from("Payments"))),
                 ],
             ),
             json!({
                 "type": "choice",
                 "instructions": "Choose a team",
-                "options": {
-                    "billing": "Payments",
-                    "technical": null
-                }
+                "options": [
+                    {"label": "technical"},
+                    {"label": "billing", "description": "Payments"}
+                ]
             }),
         ),
         (
@@ -69,7 +70,7 @@ fn every_question_variant_uses_a_snake_case_type_tag() {
             json!({
                 "type": "score",
                 "instructions": "Rate frustration",
-                "levels": ["Calm", "Frustrated"]
+                "levels": [{"label": "Calm"}, {"label": "Frustrated"}]
             }),
         ),
     ];
@@ -134,10 +135,10 @@ fn questions_round_trip_structured_instructions_and_descriptions() {
         json!({
             "type": "choice",
             "instructions": ["route", {"using": "department"}],
-            "options": {
-                "billing": {"owns": ["payments", "refunds"]},
-                "technical": {"owns": ["availability"]}
-            }
+            "options": [
+                {"label": "billing", "description": {"owns": ["payments", "refunds"]}},
+                {"label": "technical", "description": {"owns": ["availability"]}}
+            ]
         }),
         json!({
             "type": "score",
@@ -145,7 +146,7 @@ fn questions_round_trip_structured_instructions_and_descriptions() {
             "levels": [
                 {"label": "calm"},
                 {"label": "frustrated"},
-                {"label": "angry"}
+                {"label": "angry", "description": {"signals": ["threatens to cancel"]}}
             ]
         }),
     ];
@@ -157,15 +158,19 @@ fn questions_round_trip_structured_instructions_and_descriptions() {
 }
 
 #[test]
-fn score_questions_reject_null_level_descriptions() {
-    assert!(
-        serde_json::from_value::<JudgmentQuestion>(json!({
+fn score_questions_require_labelled_level_objects() {
+    for (invalid_level, message) in [
+        (json!(null), "invalid type: null"),
+        (json!({"description": "Upset"}), "missing field `label`"),
+    ] {
+        let error = serde_json::from_value::<JudgmentQuestion>(json!({
             "type": "score",
             "instructions": "Rate frustration",
-            "levels": ["Calm", null, "Very frustrated"]
+            "levels": [{"label": "Calm"}, invalid_level, {"label": "Very frustrated"}]
         }))
-        .is_err()
-    );
+        .unwrap_err();
+        assert!(error.to_string().contains(message), "{error}");
+    }
 }
 
 #[test]
@@ -186,18 +191,27 @@ fn constructors_preserve_supplied_values_without_validation() {
         JudgmentQuestion::choice("choice", [("", None), ("second", Some("two".into()))]),
         JudgmentQuestion::Choice {
             instructions: JudgmentContent::from("choice"),
-            options: BTreeMap::from([
-                (String::new(), None),
-                ("second".to_owned(), Some(JudgmentContent::from("two"))),
-            ]),
+            options: vec![
+                JudgmentOption {
+                    label: String::new(),
+                    description: None,
+                },
+                JudgmentOption {
+                    label: "second".to_owned(),
+                    description: Some(JudgmentContent::from("two")),
+                },
+            ],
         }
     );
 
     assert_eq!(
-        JudgmentQuestion::score("score", ["only"]),
+        JudgmentQuestion::score("score", ["only".to_owned()]),
         JudgmentQuestion::Score {
             instructions: JudgmentContent::from("score"),
-            levels: vec![JudgmentContent::from("only")],
+            levels: vec![JudgmentLevel {
+                label: "only".to_owned(),
+                description: None,
+            }],
         }
     );
 }

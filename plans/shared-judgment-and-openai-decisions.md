@@ -356,20 +356,20 @@ The shared answer and question types gain the refusal, the ordered options,
 and the labelled levels. json-http gains the ordered-object value for the
 TypeSafe criteria. TypeSafe, the mock, and every test move with them.
 
-- [ ] Add `JudgmentOption`, `JudgmentLevel`, and the `DuplicateOptionLabel`
+- [x] Add `JudgmentOption`, `JudgmentLevel`, and the `DuplicateOptionLabel`
       problem in `crates/ai-interface/src/judgment/`, with tests first.
-- [ ] Add `JudgmentAnswer::Refused`, change `kind()` to return an option,
+- [x] Add `JudgmentAnswer::Refused`, change `kind()` to return an option,
       and accept a refusal in `validate_against` for any question kind.
-- [ ] Move `MockJudgmentModel` to the new option and level types.
-- [ ] Move the TypeSafe request mapping to the new options and the level
+- [x] Move `MockJudgmentModel` to the new option and level types.
+- [x] Move the TypeSafe request mapping to the new options and the level
       mapping.
-- [ ] Add the opt-in ordered-object value to json-http, with a test of its
+- [x] Add the opt-in ordered-object value to json-http, with a test of its
       insertion-order bytes and a test that other bodies keep sorted keys.
-- [ ] Send the TypeSafe `criteria` object through the ordered-object value,
+- [x] Send the TypeSafe `criteria` object through the ordered-object value,
       with a request test that proves the caller's order on the wire.
-- [ ] Move every consumer that the replaced-ways list names for options and
+- [x] Move every consumer that the replaced-ways list names for options and
       levels. Delete the old map and list types.
-- [ ] Update the `ai-interface` and `ai-models-typesafe` READMEs and
+- [x] Update the `ai-interface` and `ai-models-typesafe` READMEs and
       `crates/ai-interface/docs/examples.md`. Link the new judgment and
       TypeSafe response pages from the two READMEs.
 

@@ -1,9 +1,5 @@
 # json-http
 
-Status: Implemented, except the ordered-object value that
-[Milestone 2](../../plans/shared-judgment-and-openai-decisions.md#milestone-2-ordered-options-labelled-levels-and-refusals)
-adds.
-
 `json-http` is a small typed HTTP client crate for workspace services and
 provider clients. Depend on it when you need a reusable builder-style API over
 JSON requests, multipart uploads, authenticated binary downloads, or decoded
@@ -25,12 +21,10 @@ SSE streams without embedding reqwest boilerplate in each caller.
 or attached as multipart byte fields, and responses can be read as raw bytes,
 `serde_json::Value`, or deserialized into typed response DTOs.
 
-Typed request bodies serialize directly into JSON bytes. Object keys keep
-their sorted wire order. The one exception is the opt-in ordered-object
-value. It writes its keys in insertion order, for a provider that reads the
-key order of an object, such as the option order of a TypeSafe choice. The
-values inside it keep the canonical encoding, so the keys of a nested object
-stay sorted. Every other object of every body keeps sorted keys.
+Typed request bodies serialize directly into JSON bytes. Object keys use
+sorted wire order by default. Use `OrderedObject::new` with key-value pairs
+to write one object in insertion order. The TypeSafe adapter uses it for
+choice criteria. Nested objects use the same sorted default.
 
 Buffered responses expose `headers`, and successful SSE streams expose
 `headers()`. Both use `JsonHttpHeaders`, a case-insensitive

@@ -18,6 +18,8 @@ pub enum JudgmentQuestionProblem {
     NoOptions,
     /// A choice question has a blank option label.
     BlankOptionLabel,
+    /// A choice question has a repeated option label.
+    DuplicateOptionLabel,
     /// A score question has fewer than two ordered levels.
     TooFewLevels {
         /// Number of levels supplied by the caller.
@@ -31,6 +33,9 @@ impl fmt::Display for JudgmentQuestionProblem {
             Self::BlankId => formatter.write_str("question id must not be blank"),
             Self::NoOptions => formatter.write_str("choice must include at least one option"),
             Self::BlankOptionLabel => formatter.write_str("choice option labels must not be blank"),
+            Self::DuplicateOptionLabel => {
+                formatter.write_str("choice option labels must be unique")
+            }
             Self::TooFewLevels { levels } => {
                 write!(
                     formatter,

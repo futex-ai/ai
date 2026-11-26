@@ -84,6 +84,20 @@ fn validation_accepts_complete_answers_for_all_question_kinds() {
 }
 
 #[test]
+fn validation_accepts_a_refusal_for_every_question_kind() {
+    for (id, question) in valid_questions() {
+        let request = JudgmentRequest {
+            state: "state".into(),
+            questions: BTreeMap::from([(id.clone(), question)]),
+        };
+        let response = response_with(BTreeMap::from([(id.clone(), JudgmentAnswer::Refused)]));
+
+        let result = response.validate_against(&request);
+        assert!(matches!(result, Ok(())), "{id}: {result:?}");
+    }
+}
+
+#[test]
 fn validation_ignores_answer_ids_not_present_in_the_request() {
     let request = request(JudgmentQuestion::condition("condition", None));
     let response = response_with(BTreeMap::from([

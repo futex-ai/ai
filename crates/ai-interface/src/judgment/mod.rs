@@ -15,7 +15,10 @@ pub use answer_problem::JudgmentAnswerProblem;
 pub use content::{JudgmentContent, JudgmentJsonType};
 pub use error::{JudgmentError, JudgmentQuestionProblem, JudgmentResult};
 pub use model::{DynJudgmentModel, JudgmentModel};
-pub use question::{JudgmentConditionCriteria, JudgmentQuestion, JudgmentQuestionKind};
+pub use question::{
+    JudgmentConditionCriteria, JudgmentLevel, JudgmentOption, JudgmentQuestion,
+    JudgmentQuestionKind,
+};
 pub use request::JudgmentRequest;
 pub use response::{
     EXPECTED_SCORE_TOLERANCE, JudgmentResponse, PROBABILITY_SUM_TOLERANCE,

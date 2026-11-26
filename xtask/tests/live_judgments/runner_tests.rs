@@ -7,8 +7,9 @@ use std::{
 };
 
 use ai_interface::{
-    DynJudgmentModel, ErrorCore, ErrorKind, JudgmentContent, JudgmentError, JudgmentModel,
-    JudgmentModelMock, JudgmentQuestion, JudgmentRequest, MockJudgmentModel, ModelSpec,
+    DynJudgmentModel, ErrorCore, ErrorKind, JudgmentContent, JudgmentError, JudgmentLevel,
+    JudgmentModel, JudgmentModelMock, JudgmentOption, JudgmentQuestion, JudgmentRequest,
+    MockJudgmentModel, ModelSpec,
 };
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use serde_json::{Map, Value};
@@ -168,16 +169,19 @@ fn probe_request_has_the_documented_provider_neutral_shape() {
         request.questions.get("urgent"),
         Some(JudgmentQuestion::Condition { .. })
     ));
+    let expected_options = [
+        JudgmentOption::new("billing", None),
+        JudgmentOption::new("technical", None),
+        JudgmentOption::new("other", None),
+    ];
     assert!(matches!(
         request.questions.get("queue"),
-        Some(JudgmentQuestion::Choice { options, .. })
-            if options.keys().map(String::as_str).collect::<Vec<_>>()
-                == vec!["billing", "other", "technical"]
+        Some(JudgmentQuestion::Choice { options, .. }) if options == &expected_options
     ));
-    let expected_levels = vec![
-        JudgmentContent::from("Calm"),
-        JudgmentContent::from("Frustrated"),
-        JudgmentContent::from("Very frustrated"),
+    let expected_levels = [
+        JudgmentLevel::from("Calm"),
+        JudgmentLevel::from("Frustrated"),
+        JudgmentLevel::from("Very frustrated"),
     ];
     assert!(matches!(
         request.questions.get("frustration"),

@@ -29,10 +29,10 @@ async fn mock_returns_deterministic_answers_and_identity() {
             (
                 "choice".to_owned(),
                 JudgmentAnswer::Choice {
-                    selected: "billing".to_owned(),
+                    selected: "technical".to_owned(),
                     probabilities: BTreeMap::from([
-                        ("billing".to_owned(), 1.0),
-                        ("technical".to_owned(), 0.0),
+                        ("billing".to_owned(), 0.0),
+                        ("technical".to_owned(), 1.0),
                     ]),
                     confidence: 1.0,
                 },

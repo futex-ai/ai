@@ -1,11 +1,12 @@
 //! Judgment request DTO and local validation.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
 use super::{
-    JudgmentContent, JudgmentError, JudgmentQuestion, JudgmentQuestionProblem, JudgmentResult,
+    JudgmentContent, JudgmentError, JudgmentOption, JudgmentQuestion, JudgmentQuestionProblem,
+    JudgmentResult,
 };
 
 /// State and typed questions submitted in one judgment call.
@@ -33,36 +34,36 @@ impl JudgmentRequest {
                     JudgmentQuestionProblem::BlankId,
                 ));
             }
-            match question {
-                JudgmentQuestion::Choice { options, .. } if options.is_empty() => {
-                    return Err(JudgmentError::invalid_question(
-                        id,
-                        JudgmentQuestionProblem::NoOptions,
-                    ));
-                }
-                JudgmentQuestion::Choice { options, .. }
-                    if options.keys().any(|label| label.trim().is_empty()) =>
-                {
-                    return Err(JudgmentError::invalid_question(
-                        id,
-                        JudgmentQuestionProblem::BlankOptionLabel,
-                    ));
-                }
+            let problem = match question {
+                JudgmentQuestion::Choice { options, .. } => choice_problem(options),
                 JudgmentQuestion::Score { levels, .. } if levels.len() < 2 => {
-                    return Err(JudgmentError::invalid_question(
-                        id,
-                        JudgmentQuestionProblem::TooFewLevels {
-                            levels: levels.len(),
-                        },
-                    ));
+                    Some(JudgmentQuestionProblem::TooFewLevels {
+                        levels: levels.len(),
+                    })
                 }
-                JudgmentQuestion::Condition { .. }
-                | JudgmentQuestion::Choice { .. }
-                | JudgmentQuestion::Score { .. } => {}
+                JudgmentQuestion::Condition { .. } | JudgmentQuestion::Score { .. } => None,
+            };
+            if let Some(problem) = problem {
+                return Err(JudgmentError::invalid_question(id, problem));
             }
         }
         Ok(())
     }
+}
+
+fn choice_problem(options: &[JudgmentOption]) -> Option<JudgmentQuestionProblem> {
+    if options.is_empty() {
+        return Some(JudgmentQuestionProblem::NoOptions);
+    }
+    if options.iter().any(|option| option.label.trim().is_empty()) {
+        return Some(JudgmentQuestionProblem::BlankOptionLabel);
+    }
+
+    let mut labels = BTreeSet::new();
+    options
+        .iter()
+        .any(|option| !labels.insert(option.label.as_str()))
+        .then_some(JudgmentQuestionProblem::DuplicateOptionLabel)
 }
 
 fn state_is_empty(state: &JudgmentContent) -> bool {

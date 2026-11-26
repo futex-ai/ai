@@ -2,7 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use ai_interface::{JudgmentConditionCriteria, JudgmentContent, JudgmentQuestion, JudgmentRequest};
+use ai_interface::{
+    JudgmentConditionCriteria, JudgmentContent, JudgmentLevel, JudgmentQuestion, JudgmentRequest,
+};
 use serde_json::{Value, json};
 
 use super::build_request;
@@ -171,7 +173,6 @@ fn structured_instructions_and_descriptions_map_verbatim() {
     }))
     .expect("object option description should be supported");
     let level_description = JudgmentContent::try_from(json!({
-        "label": "critical",
         "requires_page": true
     }))
     .expect("object level description should be supported");
@@ -189,7 +190,11 @@ fn structured_instructions_and_descriptions_map_verbatim() {
                 "score".to_owned(),
                 JudgmentQuestion::score(
                     score_instructions,
-                    [JudgmentContent::from("Routine"), level_description],
+                    [
+                        JudgmentLevel::from("Routine"),
+                        JudgmentLevel::new("Urgent", Some("Needs action today".into())),
+                        JudgmentLevel::new("critical", Some(level_description)),
+                    ],
                 ),
             ),
         ]),
@@ -214,7 +219,11 @@ fn structured_instructions_and_descriptions_map_verbatim() {
             "score": {
                 "type": "score",
                 "instructions": ["Assess urgency", {"window_hours": 24}],
-                "criteria": ["Routine", {"label": "critical", "requires_page": true}]
+                "criteria": [
+                    "Routine",
+                    {"label": "Urgent", "description": "Needs action today"},
+                    {"label": "critical", "description": {"requires_page": true}}
+                ]
             }
         })
     );

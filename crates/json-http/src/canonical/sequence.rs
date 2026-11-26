@@ -25,7 +25,8 @@ impl Sequence {
         if self.bytes.len() > 1 {
             self.bytes.push(b',');
         }
-        self.bytes.extend(value.serialize(CanonicalSerializer)?);
+        self.bytes
+            .extend(value.serialize(CanonicalSerializer::SORTED)?);
         Ok(())
     }
 

@@ -34,13 +34,14 @@ reasoning control. The adapter sends one request to
 60-second timeout by default. Endpoint and timeout overrides support alternate
 deployments and deterministic tests.
 
-The adapter preserves text and structured JSON content, maps condition
-questions to TypeSafe `noul` questions, requires concrete descriptions for
-every score criterion, and normalizes condition, choice, and score answers
-into the provider-independent interface. It accepts unlisted
-provider model ids so callers can pin newer releases before catalog metadata
-is updated. It does not read environment variables, load credentials, retry,
-price usage, or make network calls during unit tests.
+The adapter preserves text and structured JSON content. It maps condition
+questions to TypeSafe `noul` questions and sends choice criteria in caller
+order. A score criterion is a label string or an object with a label and a
+description. The adapter normalizes condition, choice, and score answers
+into the shared interface. It accepts unlisted provider model ids so callers
+can pin newer releases before the catalog lists them. It does not read
+environment variables, load credentials, retry, price usage, or make network
+calls during unit tests.
 
 Responses are decoded directly from bytes, and only `2xx` statuses are treated
 as successful judgments. Requested answer fragments are decoded independently,
@@ -125,6 +126,7 @@ credentials or network access are required.
 
 - [`../../docs/protocol/provider-registry.md`](../../docs/protocol/provider-registry.md)
 - [`../../docs/protocol/typesafe-judgment-provider.md`](../../docs/protocol/typesafe-judgment-provider.md)
+- [`../../docs/protocol/typesafe-judgment-responses.md`](../../docs/protocol/typesafe-judgment-responses.md)
 - [`../../docs/protocol/judgment-boundary.md`](../../docs/protocol/judgment-boundary.md)
 - [`../../docs/protocol/live-judgment-api-tests.md`](../../docs/protocol/live-judgment-api-tests.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)

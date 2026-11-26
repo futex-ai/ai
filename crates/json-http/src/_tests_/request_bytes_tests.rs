@@ -8,7 +8,7 @@ use serde_json::value::RawValue;
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{
-    Error, JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
+    Error, JsonHttpClient, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock, OrderedObject,
     TransportBackedJsonHttpClient,
 };
 
@@ -53,6 +53,53 @@ async fn typed_request_serialization_keeps_sorted_wire_bytes() {
             float: 1.1,
             raw: serde_json::from_str(r#"{ "z": 1e2, "a": { "z":2, "a":1 }, "dup":0, "dup":3 }"#)
                 .unwrap(),
+        })
+        .unwrap()
+        .send_value()
+        .await
+        .unwrap();
+}
+
+#[derive(Serialize)]
+struct OrderedBody {
+    ordered: OrderedObject<&'static str, ObjectValue>,
+    a: ObjectValue,
+}
+
+#[derive(Serialize)]
+struct ObjectValue {
+    z: u32,
+    a: u32,
+}
+
+#[tokio::test]
+async fn ordered_object_keeps_insertion_order_and_other_objects_stay_sorted() {
+    let transport = Arc::new(Unimock::new(
+        JsonHttpTransportMock::execute
+            .some_call(matching!(_))
+            .answers(&|_, request: &JsonHttpRequest| {
+                assert_eq!(
+                    str::from_utf8(request.body.as_ref().unwrap().as_json_bytes().unwrap())
+                        .unwrap(),
+                    r#"{"a":{"a":2,"z":1},"ordered":{"z\"ed":{"a":4,"z":3},"alpha":{"a":6,"z":5}}}"#
+                );
+                Ok(JsonHttpResponse {
+                    status: 200,
+                    headers: Default::default(),
+                    body: json!({}),
+                })
+            }),
+    ));
+    let client = TransportBackedJsonHttpClient::new(transport);
+    client
+        .post("https://example.com/typed")
+        .json(OrderedBody {
+            ordered: OrderedObject::new([
+                ("z\"ed", ObjectValue { z: 0, a: 0 }),
+                ("alpha", ObjectValue { z: 5, a: 6 }),
+                ("z\"ed", ObjectValue { z: 3, a: 4 }),
+            ]),
+            a: ObjectValue { z: 1, a: 2 },
         })
         .unwrap()
         .send_value()

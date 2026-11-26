@@ -30,6 +30,7 @@ pub use test_support::{
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use auth::JsonHttpAuthMock;
 pub use auth::{DynJsonHttpAuth, JsonHttpAuth, StaticHeaderAuth};
+pub use canonical::OrderedObject;
 #[cfg(any(test, doctest, feature = "test-support"))]
 pub use client::JsonHttpTransportMock;
 pub use client::{

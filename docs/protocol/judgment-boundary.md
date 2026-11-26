@@ -1,10 +1,7 @@
 # Judgment Boundary Protocol
 
-Status: Implemented, except the ordered options and the labelled levels
-that
-[Milestone 2](../../plans/shared-judgment-and-openai-decisions.md#milestone-2-ordered-options-labelled-levels-and-refusals)
-adds, and the typed content, the description type, the conversation input,
-and the support check that
+Status: Implemented, except the typed content, the description type, the
+conversation input, and the support check that
 [Milestone 3](../../plans/shared-judgment-and-openai-decisions.md#milestone-3-typed-content-conversation-input-and-the-support-check)
 adds.
 

@@ -120,17 +120,37 @@ async fn generate_video() -> ai_interface::VideoGenerationResult<Vec<u8>> {
 use std::collections::BTreeMap;
 
 use ai_interface::{
-    JudgmentModel, JudgmentQuestion, JudgmentRequest, JudgmentResponse, MockJudgmentModel,
+    JudgmentLevel, JudgmentModel, JudgmentQuestion, JudgmentRequest, JudgmentResponse,
+    MockJudgmentModel,
 };
 
 async fn judge_state() -> ai_interface::JudgmentResult<JudgmentResponse> {
     MockJudgmentModel
         .judge(&JudgmentRequest {
             state: "The payout has failed for three days.".into(),
-            questions: BTreeMap::from([(
-                "urgent".to_owned(),
-                JudgmentQuestion::condition("Is this urgent?", None),
-            )]),
+            questions: BTreeMap::from([
+                (
+                    "urgent".to_owned(),
+                    JudgmentQuestion::condition("Is this urgent?", None),
+                ),
+                (
+                    "queue".to_owned(),
+                    JudgmentQuestion::choice(
+                        "Which team should handle this ticket?",
+                        [("billing", Some("Payouts and refunds".into())), ("other", None)],
+                    ),
+                ),
+                (
+                    "urgency".to_owned(),
+                    JudgmentQuestion::score(
+                        "How soon does this ticket need attention?",
+                        [
+                            JudgmentLevel::from("Routine"),
+                            JudgmentLevel::new("Urgent", Some("Needs action today".into())),
+                        ],
+                    ),
+                ),
+            ]),
         })
         .await
 }

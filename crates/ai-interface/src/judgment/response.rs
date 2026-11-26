@@ -1,13 +1,13 @@
 //! Normalized judgment response DTO.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
 use crate::ModelUsage;
 
 use super::{
-    JudgmentAnswer, JudgmentAnswerProblem, JudgmentContent, JudgmentError, JudgmentQuestion,
+    JudgmentAnswer, JudgmentAnswerProblem, JudgmentError, JudgmentOption, JudgmentQuestion,
     JudgmentRequest, JudgmentResult,
 };
 
@@ -86,35 +86,41 @@ fn answer_problem(
                 probabilities,
                 confidence,
             },
-        ) => score_problem(levels, *expected, probabilities, *confidence),
-        _ => Some(JudgmentAnswerProblem::KindMismatch {
-            expected: question.kind(),
-            actual: answer.kind(),
-        }),
+        ) => score_problem(levels.len(), *expected, probabilities, *confidence),
+        _ => answer
+            .kind()
+            .map(|actual| JudgmentAnswerProblem::KindMismatch {
+                expected: question.kind(),
+                actual,
+            }),
     }
 }
 
 fn choice_problem(
-    options: &BTreeMap<String, Option<JudgmentContent>>,
+    options: &[JudgmentOption],
     selected: &str,
     probabilities: &BTreeMap<String, f64>,
     confidence: f64,
 ) -> Option<JudgmentAnswerProblem> {
+    let labels = options
+        .iter()
+        .map(|option| option.label.as_str())
+        .collect::<BTreeSet<_>>();
     for label in probabilities.keys() {
-        if !options.contains_key(label) {
+        if !labels.contains(label.as_str()) {
             return Some(JudgmentAnswerProblem::UnknownOption {
                 label: label.clone(),
             });
         }
     }
-    for label in options.keys() {
+    for &label in &labels {
         if !probabilities.contains_key(label) {
             return Some(JudgmentAnswerProblem::MissingOption {
-                label: label.clone(),
+                label: label.to_owned(),
             });
         }
     }
-    if !options.contains_key(selected) {
+    if !labels.contains(selected) {
         return Some(JudgmentAnswerProblem::UnknownOption {
             label: selected.to_owned(),
         });
@@ -152,17 +158,17 @@ fn selected_problem(
 }
 
 fn score_problem(
-    levels: &[JudgmentContent],
+    level_count: usize,
     expected: f64,
     probabilities: &BTreeMap<u32, f64>,
     confidence: f64,
 ) -> Option<JudgmentAnswerProblem> {
     for index in probabilities.keys() {
-        if *index as usize >= levels.len() {
+        if *index as usize >= level_count {
             return Some(JudgmentAnswerProblem::UnknownLevel { index: *index });
         }
     }
-    for index in 0..levels.len() {
+    for index in 0..level_count {
         let index = index as u32;
         if !probabilities.contains_key(&index) {
             return Some(JudgmentAnswerProblem::MissingLevel { index });
@@ -177,7 +183,7 @@ fn score_problem(
     if let Some(problem) = distribution_sum_problem(sum) {
         return Some(problem);
     }
-    let maximum = levels.len().saturating_sub(1) as f64;
+    let maximum = level_count.saturating_sub(1) as f64;
     if value_out_of_range(expected, maximum) {
         return Some(JudgmentAnswerProblem::ExpectedOutOfRange { value: expected });
     }

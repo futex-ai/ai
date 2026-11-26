@@ -1,8 +1,6 @@
 # TypeSafe Judgment Provider Protocol
 
-Status: Implemented, except the option order and the level mapping that
-[Milestone 2](../../plans/shared-judgment-and-openai-decisions.md#milestone-2-ordered-options-labelled-levels-and-refusals)
-adds, and the support check and the content mapping that
+Status: Implemented, except the support check and the content mapping that
 [Milestone 3](../../plans/shared-judgment-and-openai-decisions.md#milestone-3-typed-content-conversation-input-and-the-support-check)
 adds.
 

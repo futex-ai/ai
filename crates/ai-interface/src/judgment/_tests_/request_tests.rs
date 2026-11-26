@@ -92,6 +92,27 @@ fn validation_rejects_a_blank_choice_option_label() {
 }
 
 #[test]
+fn validation_rejects_an_exact_duplicate_choice_option_label() {
+    let questions = BTreeMap::from([(
+        "team".to_owned(),
+        JudgmentQuestion::choice(
+            "Choose a team",
+            [
+                ("billing", None),
+                ("technical", None),
+                ("billing", Some("Payments".into())),
+            ],
+        ),
+    )]);
+
+    assert_invalid_question(
+        questions,
+        "team",
+        JudgmentQuestionProblem::DuplicateOptionLabel,
+    );
+}
+
+#[test]
 fn validation_rejects_scores_with_fewer_than_two_levels() {
     for levels in [Vec::new(), vec!["only"]] {
         let questions = BTreeMap::from([(
@@ -131,7 +152,7 @@ fn valid_questions() -> BTreeMap<String, JudgmentQuestion> {
         ),
         (
             "choice".to_owned(),
-            JudgmentQuestion::choice("Choose", [("yes", None)]),
+            JudgmentQuestion::choice("Choose", [("yes", None), ("Yes", None), (" yes ", None)]),
         ),
         (
             "score".to_owned(),
@@ -145,12 +166,13 @@ fn assert_invalid_question(
     expected_id: &str,
     expected_problem: JudgmentQuestionProblem,
 ) {
-    let error = request(JudgmentContent::from("state"), questions)
-        .validate()
-        .unwrap_err();
-    assert!(matches!(
-        error,
-        JudgmentError::InvalidQuestion { id, problem, .. }
-            if id == expected_id && problem == expected_problem
-    ));
+    let result = request(JudgmentContent::from("state"), questions).validate();
+    assert!(
+        matches!(
+            &result,
+            Err(JudgmentError::InvalidQuestion { id, problem, .. })
+                if id == expected_id && *problem == expected_problem
+        ),
+        "{result:?}"
+    );
 }

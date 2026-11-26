@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use ai_interface::{JudgmentContent, JudgmentQuestion, JudgmentRequest};
+use json_http::OrderedObject;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -25,12 +26,12 @@ enum TypeSafeQuestion<'a> {
     #[serde(rename = "choice")]
     Choice {
         instructions: &'a JudgmentContent,
-        criteria: &'a BTreeMap<String, Option<JudgmentContent>>,
+        criteria: OrderedObject<&'a str, Option<&'a JudgmentContent>>,
     },
     #[serde(rename = "score")]
     Score {
         instructions: &'a JudgmentContent,
-        criteria: &'a [JudgmentContent],
+        criteria: Vec<TypeSafeLevel<'a>>,
     },
 }
 
@@ -40,6 +41,16 @@ struct TypeSafeConditionCriteria<'a> {
     yes: Option<&'a JudgmentContent>,
     #[serde(rename = "false", skip_serializing_if = "Option::is_none")]
     no: Option<&'a JudgmentContent>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+enum TypeSafeLevel<'a> {
+    Label(&'a str),
+    Described {
+        label: &'a str,
+        description: &'a JudgmentContent,
+    },
 }
 
 /// Maps a shared judgment request to the System One wire contract.
@@ -75,14 +86,27 @@ fn map_question(question: &JudgmentQuestion) -> TypeSafeQuestion<'_> {
             options,
         } => TypeSafeQuestion::Choice {
             instructions,
-            criteria: options,
+            criteria: OrderedObject::new(
+                options
+                    .iter()
+                    .map(|option| (option.label.as_str(), option.description.as_ref())),
+            ),
         },
         JudgmentQuestion::Score {
             instructions,
             levels,
         } => TypeSafeQuestion::Score {
             instructions,
-            criteria: levels,
+            criteria: levels
+                .iter()
+                .map(|level| match &level.description {
+                    Some(description) => TypeSafeLevel::Described {
+                        label: &level.label,
+                        description,
+                    },
+                    None => TypeSafeLevel::Label(&level.label),
+                })
+                .collect(),
         },
     }
 }

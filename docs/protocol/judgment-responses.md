@@ -1,9 +1,5 @@
 # Judgment Response Protocol
 
-Status: Implemented, except the refusal answer that
-[Milestone 2](../../plans/shared-judgment-and-openai-decisions.md#milestone-2-ordered-options-labelled-levels-and-refusals)
-adds.
-
 This protocol defines the answers and the response of the judgment boundary,
 and the shared response check. The
 [judgment boundary protocol](judgment-boundary.md) defines the requests, the
