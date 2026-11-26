@@ -1,6 +1,6 @@
 //! Decisions status, transport, support, and redaction tests.
 
-use std::{collections::BTreeMap, error::Error, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use ai_interface::{
     ConversationMessage, ConversationPart, ErrorKind, JudgmentContent,
@@ -18,7 +18,8 @@ use unimock::{MockFn, Unimock, matching};
 use crate::{OpenAiJudgmentModel, PROVIDER_ID, openai::error_context_support::headers};
 
 use super::support::{
-    API_KEY, MODEL_ID, client, config, predicate, request, response, sent_request, spec,
+    API_KEY, MODEL_ID, assert_safe, client, config, predicate, request, response, sent_request,
+    spec,
 };
 
 const INPUT_IMAGE: &str = "RklYVFVSRV9JTUFHRQ==";
@@ -71,11 +72,7 @@ async fn unknown_codes_and_non_envelope_bodies_use_http_status() {
             ErrorKind::RateLimited,
             "slow down",
         ),
-        (
-            response(503, json!(null)),
-            ErrorKind::Transient,
-            "proxy unavailable",
-        ),
+        (response(503, json!(null)), ErrorKind::Transient, "HTTP 503"),
     ] {
         if reply.status == 503 {
             reply.body = b"proxy unavailable".to_vec();
@@ -251,22 +248,5 @@ fn image(data_base64: &str) -> JudgmentContent {
             mime_type: "image/png".to_owned(),
             data_base64: data_base64.to_owned(),
         }],
-    }
-}
-
-fn assert_safe(error: &JudgmentError, secrets: &[&str]) {
-    let mut link: Option<&dyn Error> = Some(error);
-    while let Some(error) = link {
-        for secret in secrets {
-            assert!(
-                !error.to_string().contains(secret),
-                "secret in error display"
-            );
-            assert!(
-                !format!("{error:?}").contains(secret),
-                "secret in error debug"
-            );
-        }
-        link = error.source();
     }
 }

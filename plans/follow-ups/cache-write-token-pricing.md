@@ -24,5 +24,6 @@
 - **Left out:** a price multiplier on the input price. The cache-write rate is not a fixed multiple of the input rate for every provider.
 - **Wider fix:** B. Each provider that reports cache writes then maps them to one shared count.
 - **Previous examples:** The Anthropic adapter, `crates/ai-models-anthropic/src/anthropic/response.rs:49-50`.
+- **Related:** `plans/follow-ups/shared-inclusive-usage-split.md`: same code. That item moves the usage split of the OpenAI judgment adapter into one shared helper in `ai-models-core`. Option B of this item then adds the cache-write split to that helper once.
 - **Recommendation:** B. Correct cost estimates need the count and the price, and the change is small enough to do before more adapters copy the gap.
 - **Action:** ask the user, because option B changes the public `ModelUsage` type that every adapter and caller uses.

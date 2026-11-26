@@ -108,10 +108,14 @@ An OpenAI error envelope has this form.
   limit exceeded kind.
 - For an absent or unknown code, the HTTP status gives the kind, as the
   [error kinds table](model-policies.md#error-kinds) says.
-- For responses outside `3xx`, the message uses `error.message` when it is
-  a string. A JSON fallback body becomes compact JSON with protected values
-  redacted in every decoded key and string. A plain-text fallback body
-  becomes redacted text.
+- For responses outside `3xx`, a string `error.message` supplies the message
+  after redaction. Without that string, the message is `HTTP <status>`.
+- A `2xx` body that fails to decode reports `malformed provider payload`
+  with the decoder category, line, and column. Its public source diagnostics
+  are redacted.
+- An explicitly accessed raw cause can hold the original fallback body or
+  decoder text. Display, debug output, and the public source chain use safe
+  diagnostics for these failures.
 - The error core keeps the `x-request-id` response header as the provider
   request id, and `Retry-After` as the retry-after.
 - No error text holds the API key, an auth header value, or the base64 data
@@ -125,10 +129,11 @@ An OpenAI error envelope has this form.
   provider config replaces it.
 - A call that reaches transport sends one request. A redirect response ends
   the call.
-- A transport failure, also a transport timeout, has the transient kind.
-- Warning: OpenAI can process and bill a request after the timeout ends the
-  call. A host that retries the transient kind can then pay twice for one
-  decision.
+- A transport failure has the transient kind. This includes a timeout and a
+  failed body read after a `2xx` response.
+- OpenAI can process and bill a request after a timeout. It can also bill a
+  request whose `2xx` body fails to read. A host that retries either failure
+  can pay twice for one decision.
 - The same risk exists for
   [xAI deferred timeouts](../../plans/follow-ups/xai-deferred-timeout-rebills.md),
   [DeepSeek resource errors](../../plans/follow-ups/deepseek-resource-error-rebills.md),

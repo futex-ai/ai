@@ -1,0 +1,54 @@
+# Auth hooks run outside the total timeout
+
+- **Severity:** Medium. **Likelihood:** Rare. **Effort:** Medium. **Confidence:** High. **Harder later:** No.
+- **Kind:** Fix after merge.
+- **Added:** 2026-11-26, from branch `calummoore/adding-openai-decisions-api-9ler`, review round 2, finding 8. It adds the TypeSafe, xAI, and Google cases that the finding check found outside the scope.
+- **Location:** `crates/json-http/src/request.rs:145`, `crates/json-http/src/request.rs:193`, `crates/ai-models-openai/src/openai/decisions/client.rs:93`, `crates/ai-models-typesafe/src/typesafe/client.rs:135`, `crates/ai-models-compat/src/xai/deferred.rs:73`, `crates/ai-models-google/src/google/video_generation/transport.rs:54`, `crates/ai-models-core/src/provider_config.rs:15`, `docs/protocol/provider-call-controls.md:70`, `docs/protocol/provider-registry.md:93`
+- **Reason:** The likelihood is Rare, a host can bound its own hook, and the fix changes the shared json-http request builder that every adapter uses.
+
+- **Terms:**
+  - **Auth hook:** a host-supplied asynchronous function that sets the credentials of a request. `ProviderConfig::with_auth` in `crates/ai-models-core/src/provider_config.rs` takes one.
+  - **Total timeout:** the time that the provider config gives one adapter operation, `ProviderTimeouts::total_timeout`.
+  - **`json-http`:** the shared HTTP crate in `crates/json-http`. Every adapter builds its requests with its `JsonHttpRequestBuilder`.
+  - **Paused clock:** a Tokio test mode, `#[tokio::test(start_paused = true)]`, in which time moves only when every task waits.
+- **Background:**
+  - `docs/protocol/provider-call-controls.md:70` says that `total_timeout` is the total duration available to one adapter invocation. A deferred adapter applies it across submission, sleeps, and every retrieval attempt.
+  - `crates/ai-models-core/src/provider_config.rs:15` documents `total_timeout` as the total duration of one logical operation.
+  - `docs/protocol/provider-registry.md:93` gives the OpenAI and TypeSafe judgment adapters a default total timeout of 60 s. The xAI deferred lifecycle has 60 s, and the Google video adapter has 600 s.
+  - A host gives an adapter an API key or an auth hook. An API key becomes a static header that applies at once. Only a hook can wait.
+  - The json-http builder runs each auth hook in `build_request`, in the loop at `crates/json-http/src/request.rs:193`. It awaits each hook with no time bound.
+  - `send_value`, `send_bytes`, and `send_sse` call `build_request` first. `send_bytes` is at `crates/json-http/src/request.rs:145`. The transport starts its timer with the request timeout only after that.
+  - So the request timeout covers the transport only. A slow hook adds its time to the call. A hook that never returns leaves the call pending without end.
+  - The json-http README says that auth hooks run once before dispatch. It also says that redirect hops share one total timeout budget.
+  - The OpenAI Decisions adapter gives the builder its hook and its total timeout at `crates/ai-models-openai/src/openai/decisions/client.rs:93`.
+  - On 2026-11-26, a paused-clock probe gave Decisions a total timeout of one second and a hook that never returned. `judge` was still pending after that second.
+  - The test `transport_timeout_uses_config_and_returns_one_safe_transient_failure`, at `crates/ai-models-openai/src/openai/decisions/_tests_/error_tests.rs:167`, checks only the duration that the adapter gives the transport. Its transport fails at once.
+  - TypeSafe awaits its hook itself, at `crates/ai-models-typesafe/src/typesafe/client.rs:135`, before it builds the request. Its 60 s timeout starts only in the transport.
+  - The xAI deferred lifecycle starts its clock in `complete`, then gives the submission the full total timeout. The submission hook runs in json-http, at `crates/ai-models-compat/src/xai/deferred.rs:73`. Each poll runs the hook again.
+  - The Google video adapter computes the remaining time of its deadline before each request. The hook runs after that, so the transport still gets the full remaining time, and the hook time comes on top. The submission is at `crates/ai-models-google/src/google/video_generation/transport.rs:54`. The poll and the download work in the same way.
+  - So in xAI and Google, a slow hook makes the call exceed its total timeout, and a hook that never returns leaves the call pending.
+  - A transport timeout has the transient kind. `docs/protocol/openai-judgment-responses.md`, section "Timeout, Retries, And Billing", states this for Decisions.
+  - A hook that runs out of time has sent no request. So a retry after that timeout cannot bill twice.
+  - A host can bound its hook itself, or wrap the call, such as `judge`, in its own timeout.
+  - The builder already has one per-request setting of this kind, `without_redirects()`.
+  - Since 2026-11-26, the reqwest transport returns a `3xx` without reading its body when a request uses `without_redirects()`. Before that change, an outer timer could end a redirect body read and lose the final redirect error.
+- **Problem:** The total timeout starts in the transport, after the auth hooks. A hook that stalls leaves a Decisions, TypeSafe, xAI deferred, or Google video call without a bound.
+- **Impact if no action:** A stalled credential lookup can leave a host waiting without end for one judgment, one deferred completion, or one video. A slow hook makes a call exceed the total timeout that the host set.
+- **Root question:** What must the total timeout of one call cover, and which layer starts and enforces it, so that no step waits without a bound?
+- **Options:**
+  - **A.** Wrap the whole Decisions operation in one deadline of the total timeout, such as `tokio::time::timeout` around its send. Keep the transient kind for a timeout. Add a paused-clock regression with a hook that never returns. Risk: two timers then cover the HTTP phase, and an outer timer that ends a body read loses the status that the transport received. Effort: Small.
+  - **B.** Bound the auth hook and the HTTP phase separately, each with the remaining time of one deadline that starts at the public call. The adapter must then run the hook itself, as TypeSafe does. Effort: Medium.
+  - **C.** Make json-http start the request timeout before the auth hooks for every request, by default. This covers each adapter whose hook runs in json-http. It does not cover the TypeSafe hook, which runs outside json-http. A lifecycle of several requests, such as xAI or Google video, also needs the remaining time for each request. Effort: Medium.
+  - **D.** Change the contract: the total timeout starts at dispatch, and the host bounds its own hook. Update `docs/protocol/provider-call-controls.md` and the doc comment of `total_timeout`. Risk: it changes the requirement that the total timeout covers one whole invocation. Effort: Small.
+  - **E.** Add a per-request json-http setting, in the pattern of `without_redirects()`. Effort: Medium.
+    - With the setting, the request timeout starts before the auth hooks. The builder bounds each hook with the remaining time, and the transport gets the time that is left.
+    - When no time is left, the builder sends nothing. It returns a timeout error that the shared classifier gives the transient kind.
+    - Use the setting for Decisions. Add a paused-clock json-http test, and a Decisions regression with a hook that never returns.
+    - State in `docs/protocol/openai-judgment-responses.md` that the total timeout covers the auth hook.
+  - **F.** Put one deadline at the public call of each adapter. Make the behaviour of E the json-http default, and give each request of a lifecycle the remaining time of that deadline. Bound each await outside json-http with the same deadline, such as the TypeSafe hook. Effort: Large.
+- **Left out:** Give the auth hook a full timeout of its own: the operation can then exceed its total timeout. Change nothing: a stalled hook keeps the call pending, which breaks the total timeout requirement.
+- **Wider fix:** F. One deadline at each public call bounds every step of every adapter, also each await outside json-http. C covers only hooks that run in json-http.
+- **Previous examples:** The OAuth transport of `ai-mcp-oauth` bounds a stalled DNS lookup with the time budget of its request. The paused-clock test `stalled_dns_resolution_cannot_outlive_one_hop_timeout`, at `crates/ai-mcp-oauth/src/_tests_/transport_timeout_tests.rs:13`, checks it.
+- **Related:** `plans/follow-ups/json-http-body-read-loses-status.md`: options that conflict. Option A of this item ends a body read from outside the transport, so the status that the other item keeps is lost. E and F keep the transport as the only timer of the HTTP phase.
+- **Recommendation:** E. It bounds the Decisions call, where the probe found the hang, with one json-http setting that the other adapters can adopt. F best protects the codebase.
+- **Action:** fix after merge, apply E, because the likelihood is Rare, a host can bound its own hook, and E changes the shared json-http builder. A branch that applies only E keeps this item, and narrows it to F and to the TypeSafe, xAI, and Google cases.

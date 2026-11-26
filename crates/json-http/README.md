@@ -53,8 +53,9 @@ Every header is a credential unless the adapter supplied it through `header`
 or `headers` and no auth hook changed it. Standard credential headers always
 remain credentials. The builder marks credential names in `auth_headers`.
 Requests follow up to ten redirects by default. Use `without_redirects()` on
-the request builder to stop at the first `3xx` response. Buffered calls then
-return that response. SSE calls return its HTTP status error.
+the request builder to stop at the first `3xx` response. The reqwest transport
+keeps its status and headers and skips its body. Buffered calls return an
+empty body. SSE calls return an HTTP status error with an empty body.
 Redirects preserve credentials on the original origin and remove credential
 headers elsewhere.
 A 307 or 308 response with a multipart body is returned without following

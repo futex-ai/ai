@@ -2,10 +2,11 @@
 
 use std::{
     collections::BTreeMap,
+    error::Error,
     sync::{Arc, Mutex},
 };
 
-use ai_interface::{JudgmentQuestion, JudgmentRequest, ModelSpec};
+use ai_interface::{JudgmentError, JudgmentQuestion, JudgmentRequest, ModelSpec};
 use ai_models_core::ProviderConfig;
 use json_http::{
     DynJsonHttpClient, JsonHttpHeaders, JsonHttpRequest, JsonHttpResponse, JsonHttpTransportMock,
@@ -90,4 +91,21 @@ pub(super) fn sent_request(requests: &Requests) -> JsonHttpRequest {
 
 pub(super) fn request_body(request: &JsonHttpRequest) -> Value {
     serde_json::from_slice(request.body.as_ref().unwrap().as_json_bytes().unwrap()).unwrap()
+}
+
+pub(super) fn assert_safe(error: &JudgmentError, secrets: &[&str]) {
+    let mut link: Option<&dyn Error> = Some(error);
+    while let Some(error) = link {
+        for secret in secrets {
+            assert!(
+                !error.to_string().contains(secret),
+                "secret in error display"
+            );
+            assert!(
+                !format!("{error:?}").contains(secret),
+                "secret in error debug"
+            );
+        }
+        link = error.source();
+    }
 }

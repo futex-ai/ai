@@ -2,7 +2,7 @@
 
 - **Severity:** High. **Effort:** Medium. **Confidence:** High. **Harder later:** Yes.
 - **Kind:** Outside the scope.
-- **Added:** 2026-11-02, from branch `calummoore/redesign-2-safety-net`. The options check of the MCP evaluation of `plans/ai-library-redesign.md` found it outside its scope. Updated on 2026-11-26 from branch `calummoore/adding-openai-decisions-api-9ler`, review round 1. The update adds option D of finding 2 and the Decisions opt-out. It also adds the retried redirect loop that the finding check found outside the scope.
+- **Added:** 2026-11-02, from branch `calummoore/redesign-2-safety-net`. The options check of the MCP evaluation of `plans/ai-library-redesign.md` found it outside its scope. Updated on 2026-11-26 from branch `calummoore/adding-openai-decisions-api-9ler`, review round 1. The update adds option D of finding 2 and the Decisions opt-out. It also adds the retried redirect loop that the finding check found outside the scope. Review round 2 of the same branch added the 3xx body skip and the related item.
 - **Location:** `crates/json-http/src/reqwest_transport.rs`, `crates/json-http/src/reqwest_redirect.rs`, `crates/json-http/src/request.rs`, `crates/ai-models-core/src/errors.rs:56`, `crates/ai-models-core/src/errors.rs:111`
 - **Reason:** Credential filtering now protects redirect hops. Each option that limits redirects adds failures for endpoints that use redirects, so the user decides.
 
@@ -27,6 +27,7 @@
   - So a same-origin 307 loop on a model call sends 11 authenticated POSTs with the same body in each attempt. It can send up to 33 for one call. The test `redirect_limit_retains_reqwest_failure_for_buffered_and_sse` in `crates/json-http/tests/_tests_/redirect_transport/limit_tests.rs` shows the 11 requests for a GET loop.
   - On 2026-11-26, a loopback gateway returned HTTP 307 to the OpenAI Decisions adapter. One call sent two authenticated POSTs with the same body. The Decisions protocol requires one request for each call.
   - The fix opted the Decisions adapter out of redirects with a per-request setting of the `json-http` request builder, in `crates/ai-models-openai/src/openai/decisions/client.rs`. With the setting, a buffered call returns the first 3xx response, and an SSE call returns its HTTP status error.
+  - Review round 2 of the same branch made the reqwest transport skip the body of that 3xx under the setting. It keeps the status and headers, so a failed body read cannot turn the redirect into a transient failure.
   - Only the Decisions adapter uses the setting. Every other adapter still follows redirects, also the TypeSafe judgment adapter, which sends a POST through the same transport.
   - A 3xx response that reaches an adapter has the invalid output kind, as `docs/protocol/model-policies.md` says for an unexpected status below 400.
   - Two adapters send GET requests. The Google video adapter polls its operation and downloads the video sample, and the xAI adapter polls deferred completions.
@@ -42,5 +43,6 @@
 - **Left out:** Forward credentials to another origin. It breaks the provider credential-origin requirement. Give only the redirect-limit failure a kind that the retry layer does not retry: each attempt still sends 11 POSTs.
 - **Wider fix:** D. One transport rule stops body replay and repeated submission for every method that can carry a body, and it keeps GET redirects. The item of 2026-11-02 named A.
 - **Previous examples:** The MCP transport of `ai-mcp` disables redirects for the same reason. `docs/protocol/ai-mcp.md` requires it. The OAuth transport of `ai-mcp-oauth` follows redirects only for metadata GETs. The Decisions POST of 2026-11-26 went out twice after one 307.
+- **Related:** `plans/follow-ups/json-http-body-read-loses-status.md`: same code. Option D of this item returns every POST 3xx to every adapter without a follow. Its fix must then cover each unfollowed 3xx. The transport can skip the body of that 3xx, as it does under `without_redirects()`, or the error can keep the status, as the other item proposes. Otherwise a failed body read of that 3xx gets the transient kind, and the retry layer sends the POST again.
 - **Recommendation:** D. It stops body replay and repeated submission for each method that carries a body, and it keeps GET redirects, which carry no body. The item of 2026-11-02 recommended A, which is smaller but also stops each GET poll or download that uses a redirect.
 - **Action:** ask the user, because A, B, and D add failures for redirect responses, and no recorded decision covers that change.

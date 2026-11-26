@@ -1,0 +1,50 @@
+# Four copies split inclusive token usage
+
+- **Severity:** Low. **Effort:** Medium. **Confidence:** High. **Harder later:** Yes.
+- **Kind:** Fix after merge.
+- **Added:** 2026-11-26, from branch `calummoore/adding-openai-decisions-api-9ler`, review round 2, finding 10. It adds the two compat copies and the `null` counter case that the finding check found outside the scope.
+- **Location:** `crates/ai-models-openai/src/openai/response/mod.rs:43`, `crates/ai-models-openai/src/openai/decisions/response.rs:96`, `crates/ai-models-compat/src/engine/response/usage.rs:155`, `crates/ai-models-compat/src/engine/response/stream_usage.rs:48`, `crates/ai-models-openai/src/openai/response/types.rs:66`
+- **Reason:** The four copies give the same counts today, and the shared helper changes OpenAI and compat code that was on `main` before the Decisions branch.
+
+- **Terms:**
+  - **`ModelUsage`:** the shared usage record in `crates/ai-interface/src/usage.rs`. Its input, output, cached input, and reasoning buckets do not overlap, and it has a total.
+  - **Inclusive count:** a provider token count that already holds another category, such as an input count that holds the cached input tokens.
+  - **Compat engine:** the shared Chat Completions engine in `crates/ai-models-compat/src/engine`. The DeepSeek, Kimi, MiniMax, Qwen, and xAI adapters use it.
+- **Background:**
+  - OpenAI Responses and OpenAI Decisions report an `input_tokens` count that holds the cached tokens. Their `output_tokens` count holds the reasoning tokens.
+  - `ModelUsage` keeps each category in its own bucket. So each adapter subtracts the inner count from the outer count.
+  - `docs/protocol/openai-judgment-responses.md`, section "Usage", gives the Decisions rule:
+    - Input is `input_tokens` minus `input_tokens_details.cached_tokens`.
+    - Output is `output_tokens` minus `output_tokens_details.reasoning_tokens`.
+    - Total is `total_tokens`, or the sum of the four buckets when it is missing.
+    - Each subtraction stops at zero. A missing usage object or counter counts as zero.
+  - `docs/protocol/chat-completions-dialects.md:116` gives the same rule for the compat engine. When a dialect reports a cache-miss count, that count is the input.
+  - Four copies of this arithmetic exist:
+    - OpenAI Responses, at `crates/ai-models-openai/src/openai/response/mod.rs:43`.
+    - OpenAI Decisions, at `crates/ai-models-openai/src/openai/decisions/response.rs:96`. The Decisions branch copied it from Responses on 2026-11-26.
+    - The compat engine for a buffered response, at `crates/ai-models-compat/src/engine/response/usage.rs:155`.
+    - The compat engine for a stream, at `crates/ai-models-compat/src/engine/response/stream_usage.rs:48`.
+  - Each copy subtracts with saturation. Each copy computes a missing total as the saturating sum of the four buckets.
+  - The two compat copies also take an optional cache-miss count, which DeepSeek reports as `prompt_cache_miss_tokens`.
+  - The four copies give the same counts today.
+  - The copies differ in decoding. Responses reads each counter as a plain number with a default, at `crates/ai-models-openai/src/openai/response/types.rs:66`.
+  - So a missing Responses counter counts as zero, but an explicit `null` counter fails the decode. The `response.completed` event then fails, and the stream ends with an error.
+  - Decisions reads each counter as an optional number, so a `null` counter counts as zero.
+  - The compat usage types, such as `ChatCompletionsUsage` at `crates/ai-models-compat/src/chat_completions/types.rs:65`, read counters in the same way as Responses. So a `null` counter fails there too.
+  - The Google chat and image adapters subtract cached tokens from the prompt count in the same way. They are at `crates/ai-models-google/src/google/response.rs:76` and `crates/ai-models-google/src/google/image_generation/response.rs:260`.
+  - Gemini reports thought tokens outside its output count, so the Google adapters subtract no reasoning.
+- **Problem:** Four adapters each hold a copy of the rule that turns inclusive token counts into `ModelUsage` buckets.
+- **Impact if no action:** A correction of the rule must reach each copy, and a missed copy reports other counts for the same provider data. Each new adapter with inclusive counts can add one more copy.
+- **Root question:** How can every adapter whose provider counts cached and reasoning tokens inside its totals use one copy of the rule that turns those counts into `ModelUsage` buckets?
+- **Options:**
+  - **A.** Put the arithmetic in one private helper of the OpenAI crate. Keep the decoding rules of each endpoint, and check that the existing usage tests pass. The two compat copies stay. Effort: Small.
+  - **B.** Convert each OpenAI payload to one internal record with named token fields, and normalize that record. The two compat copies stay. Effort: Medium.
+  - **C.** Add a constructor for inclusive token counts to `ModelUsage`, and adopt it in each provider with the same counting rules. It adds to the public `ai-interface` contract. Effort: Medium.
+  - **D.** Use one OpenAI usage wire type with optional counters for Responses and Decisions. A `null` counter then counts as zero in Responses too, so the Responses behaviour changes and needs a user decision. Effort: Small.
+  - **E.** Add one pure helper to `ai-models-core`. It takes named inclusive counts and an optional cache-miss count, and it returns `ModelUsage`. Move the two OpenAI copies and the two compat copies onto it. Keep each decoding rule, so no count and no `null` handling changes. Add unit tests for the helper. Effort: Medium.
+- **Left out:** Share the Responses wire type with Decisions: a `null` counter then fails a Decisions decode, so the Decisions behaviour changes. Move the Google splits onto the helper: Gemini reports thought tokens outside its output count, so the root question does not cover them.
+- **Wider fix:** E. One helper in the shared core crate serves every adapter with inclusive counts, so a new adapter has no arithmetic to copy.
+- **Previous examples:** The compat engine already held two copies, one for buffered responses and one for streams. The Decisions branch then copied the Responses rule.
+- **Related:** `plans/follow-ups/cache-write-token-pricing.md`: same code. Its option B adds a cache-write count to `ModelUsage` and moves the OpenAI judgment adapter to it. Decisions reports cache-write tokens inside `input_tokens` too. With E, that split goes into the shared helper once.
+- **Recommendation:** E. It removes all four copies with no change of behaviour. E also best protects the codebase. The first review recommended A, which leaves the two compat copies.
+- **Action:** fix after merge, apply E, because the counts agree today and E changes OpenAI and compat code on `main`.

@@ -94,6 +94,7 @@ impl JsonHttpRequestBuilder {
     }
 
     /// Returns the first redirect response from the transport.
+    /// The reqwest transport keeps its status and headers and skips its body.
     pub fn without_redirects(mut self) -> Self {
         self.request.follow_redirects = false;
         self

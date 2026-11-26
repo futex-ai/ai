@@ -20,19 +20,24 @@ const TARGET_BODY: &str =
 
 #[tokio::test]
 async fn temporary_redirect_does_not_resend_the_decisions_post() {
-    assert_redirect_stops_after_post("307 Temporary Redirect").await;
+    assert_redirect_stops_after_post("307 Temporary Redirect", REDIRECT_BODY.len()).await;
 }
 
 #[tokio::test]
 async fn found_redirect_does_not_send_a_followup_get() {
-    assert_redirect_stops_after_post("302 Found").await;
+    assert_redirect_stops_after_post("302 Found", REDIRECT_BODY.len()).await;
 }
 
-async fn assert_redirect_stops_after_post(status: &'static str) {
+#[tokio::test]
+async fn truncated_redirect_preserves_the_decisions_redirect_error() {
+    assert_redirect_stops_after_post("307 Temporary Redirect", REDIRECT_BODY.len() + 1).await;
+}
+
+async fn assert_redirect_stops_after_post(status: &'static str, content_length: usize) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base_url = format!("http://{}", listener.local_addr().unwrap());
     let (finish, finished) = oneshot::channel();
-    let server = tokio::spawn(serve(listener, status, finished));
+    let server = tokio::spawn(serve(listener, status, content_length, finished));
     let model = OpenAiJudgmentModel::from_config(
         Arc::new(ReqwestJsonHttpClient::new()),
         GPT_6_LUNA,
@@ -64,6 +69,7 @@ async fn assert_redirect_stops_after_post(status: &'static str) {
 async fn serve(
     listener: TcpListener,
     redirect_status: &str,
+    redirect_content_length: usize,
     mut finished: oneshot::Receiver<()>,
 ) -> Vec<String> {
     let mut requests = Vec::new();
@@ -74,19 +80,19 @@ async fn serve(
             _ = &mut finished => return requests,
         };
         let request = read_request_line(&mut socket).await;
-        let (status, headers, body) = if request == DECISIONS_REQUEST {
+        let (status, headers, body, length) = if request == DECISIONS_REQUEST {
             (
                 redirect_status,
                 "Location: /target\r\nX-Request-Id: req-redirect\r\n",
                 REDIRECT_BODY,
+                redirect_content_length,
             )
         } else {
-            ("200 OK", "", TARGET_BODY)
+            ("200 OK", "", TARGET_BODY, TARGET_BODY.len())
         };
         requests.push(request);
         let response = format!(
-            "HTTP/1.1 {status}\r\nConnection: close\r\nContent-Type: application/json\r\n{headers}Content-Length: {}\r\n\r\n{body}",
-            body.len()
+            "HTTP/1.1 {status}\r\nConnection: close\r\nContent-Type: application/json\r\n{headers}Content-Length: {length}\r\n\r\n{body}"
         );
         socket.write_all(response.as_bytes()).await.unwrap();
         socket.shutdown().await.unwrap();
