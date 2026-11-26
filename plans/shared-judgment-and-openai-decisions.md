@@ -28,8 +28,8 @@ Saved copies of the OpenAI guide and reference, fetched on 2026-11-26, are in
 
 The user answered decisions 1 to 4 on 2026-11-26. An options check ran over
 them on the same day. It kept each choice and added the options and the
-building blocks that the entries below name. Decision 5 came from that check
-and is open.
+building blocks that the entries below name. Decision 5 came from that check.
+The user answered it on 2026-11-26.
 
 ### 1. How hosts reach the Decisions API
 
@@ -112,48 +112,27 @@ and is open.
 - **Reason:** the model reads the options as prompt text. Hosts must be
   able to put a fallback option such as "other" last.
 
-### 5. TypeSafe still receives the options sorted
+### 5. How TypeSafe sees the options in the host's order
 
-- **Severity:** Medium. **Effort:** Medium.
-- **Source:** Design. The options check of decision 4 found it on
-  2026-11-26.
-- **Category:** Docs or spec.
-- **Location:** `crates/json-http/src/canonical/object.rs:18`.
-- **Terms:**
-  - **json-http:** the workspace HTTP crate. Its typed `.json(body)`
-    serializer writes the keys of every JSON object in sorted order.
-  - **Criteria object:** the TypeSafe wire field that holds the options of
-    a choice question, keyed by label.
-- **Background:** decision 4 makes choice options an ordered list. The
-  OpenAI `choices` field is an array, so it keeps the order. The TypeSafe
-  `criteria` field is a JSON object. json-http sorts the keys of every
-  object, and `crates/json-http/src/_tests_/request_bytes_tests.rs:32`
-  fixes that rule.
-- **Problem:** TypeSafe still receives the options in alphabetical order.
-  Decision 4 then holds for OpenAI only.
-- **Impact if no action:** a host that puts "other" last for TypeSafe sees
-  it in alphabetical position. If the order changes TypeSafe's answers, the
-  host cannot control it. That the order changes the answers is a guess.
 - **Root question:** how does a host make TypeSafe see the options in the
   order that the host chose?
-- **Options:**
-  - **A.** Document that TypeSafe receives the options sorted by label. No
-    code changes. Effort: Small.
-  - **B.** Add an opt-in ordered-object value to json-http that keeps
-    insertion order. The TypeSafe `criteria` object uses it. Every other
-    body keeps its sorted bytes, so the recordings do not change. It changes
-    the tested json-http rule for that one value. Effort: Medium.
+- **Background:** the options check of decision 4 found that json-http
+  sorts the keys of every JSON object, at
+  `crates/json-http/src/canonical/object.rs:18`, and
+  `crates/json-http/src/_tests_/request_bytes_tests.rs:32` tests that rule.
+  The TypeSafe `criteria` field is an object, so TypeSafe would still
+  receive the options in alphabetical order.
+- **Choice:** B, answered by the user on 2026-11-26. Add an opt-in
+  ordered-object value to json-http that keeps insertion order. The
+  TypeSafe `criteria` object uses it. Every other body keeps its sorted
+  bytes, so the recordings do not change.
+- **Alternatives:** A. Document that TypeSafe receives the options sorted
+  by label.
 - **Left out:** an array form for TypeSafe choice criteria. The TypeSafe
   protocol doc defines `criteria` as an object for a choice, and no source
   says that TypeSafe accepts an array.
-- **Wider fix:** B. It keeps the order for every adapter whose wire uses an
-  object.
-- **Previous examples:** None found.
-- **Related:** decision 4. This decision completes it for TypeSafe.
-- **Recommendation:** B. It makes decision 4 hold for every provider, and
-  the opt-in value keeps all other wire bytes as they are.
-- **Action:** ask the user, because option B changes a tested json-http
-  rule that every adapter depends on.
+- **Reason:** decision 4 then holds for every provider, and the opt-in
+  value keeps all other wire bytes as they are.
 
 ## Design
 
@@ -222,8 +201,8 @@ decision test, unless a line names a user decision. The options check of
 - **Content:** content with one text part, or one JSON part, sends the same
   JSON as today. Content with several parts sends a JSON array of the parts.
   The TypeSafe protocol doc gives the exact form.
-- **Options:** the `criteria` object holds the options. Decision 5 decides
-  whether it keeps the caller's order.
+- **Options (decision 5):** the `criteria` object holds the options in the
+  caller's order, through the ordered-object value of json-http.
 - **Levels (changed by the options check):** a level without a description
   sends its label as text. A level with a description sends the JSON object
   `{"label": ..., "description": ...}`. TypeSafe and OpenAI then read the
@@ -329,8 +308,9 @@ Contract owners:
 - [Model capabilities protocol](../docs/protocol/model-capabilities.md).
 - The [ai-interface README](../crates/ai-interface/README.md), the
   [ai-models-openai README](../crates/ai-models-openai/README.md), the
-  [ai-models-typesafe README](../crates/ai-models-typesafe/README.md), and
-  the [workspace README](../README.md).
+  [ai-models-typesafe README](../crates/ai-models-typesafe/README.md), the
+  [json-http README](../crates/json-http/README.md), and the
+  [workspace README](../README.md).
 
 ## Milestone 1: Documentation and protocol
 
@@ -346,7 +326,9 @@ OpenAI mapping before code changes.
       Correct the sentence that says question ids never reach the model.
 - [ ] Update `docs/protocol/typesafe-judgment-provider.md` with its
       support, the content mapping, the level mapping, and the criteria
-      order that decision 5 gives.
+      order in the caller's order.
+- [ ] Update the json-http README with the opt-in ordered-object value and
+      its exception to the sorted key order.
 - [ ] Write `docs/protocol/openai-judgment-provider.md`: purpose, scope,
       endpoint, spec, support, request mapping, response mapping, usage,
       errors, timeout, and billing notes with the links to the three
@@ -363,7 +345,8 @@ OpenAI mapping before code changes.
 Depends on: 1
 
 The shared answer and question types gain the refusal, the ordered options,
-and the labelled levels. TypeSafe, the mock, and every test move with them.
+and the labelled levels. json-http gains the ordered-object value for the
+TypeSafe criteria. TypeSafe, the mock, and every test move with them.
 
 - [ ] Add `JudgmentOption`, `JudgmentLevel`, and the `DuplicateOptionLabel`
       problem in `crates/ai-interface/src/judgment/`, with tests first.
@@ -372,8 +355,10 @@ and the labelled levels. TypeSafe, the mock, and every test move with them.
 - [ ] Move `MockJudgmentModel` to the new option and level types.
 - [ ] Move the TypeSafe request mapping to the new options and the level
       mapping.
-- [ ] Apply decision 5 to the TypeSafe `criteria` order. This TODO waits
-      for the user's answer.
+- [ ] Add the opt-in ordered-object value to json-http, with a test of its
+      insertion-order bytes and a test that other bodies keep sorted keys.
+- [ ] Send the TypeSafe `criteria` object through the ordered-object value,
+      with a request test that proves the caller's order on the wire.
 - [ ] Move every consumer that the replaced-ways list names for options and
       levels. Delete the old map and list types.
 - [ ] Update the `ai-interface` and `ai-models-typesafe` READMEs and
