@@ -1,0 +1,40 @@
+# Judgment tool results can lack their calls
+
+- **Severity:** Medium. **Likelihood:** Rare. **Effort:** Small. **Confidence:** Medium. **Harder later:** Yes.
+- **Kind:** Needs decision.
+- **Added:** 2026-11-26, from branch `calummoore/adding-openai-decisions-api-9ler`, review round 1, finding 3.
+- **Location:** `crates/ai-models-openai/src/openai/decisions/input.rs:123`, `crates/ai-interface/src/judgment/input.rs:30`, `crates/ai-interface/src/judgment/_tests_/request_tests.rs:189`, `docs/protocol/openai-judgment-provider.md:167`, `docs/protocol/judgment-boundary.md` (section "Local Validation")
+- **Reason:** The recommended option adds a stricter validation to the shared judgment contract, and the user decides each new rejection.
+
+- **Terms:**
+  - **Tool call:** an assistant conversation part with a call id, a tool name, and JSON arguments.
+  - **Tool result:** a conversation part with a call id, a tool name, and the text output of a tool. A tool message holds exactly one.
+  - **Local validation:** the method `JudgmentRequest::validate` in `crates/ai-interface/src/judgment/request.rs`. The mock and every judgment adapter call it before transport.
+  - **Support check:** the shared check of the part kinds and input forms that an adapter declares. It runs after local validation and fails with `UnsupportedInput`.
+  - **Decisions:** the OpenAI judgment endpoint `POST /v1/decisions`. `OpenAiJudgmentModel` in `crates/ai-models-openai/src/openai/decisions/` calls it.
+- **Background:**
+  - A judgment request can carry a conversation: an optional system text and ordered messages, as `docs/protocol/conversation-parts.md` defines them.
+  - Local validation checks that the conversation has messages and that each message follows the role table of `docs/protocol/conversation-parts.md`. Nothing checks that an earlier assistant message holds a tool call with the call id of a tool result.
+  - The shared test `validation_accepts_every_valid_question_kind` in `crates/ai-interface/src/judgment/_tests_/request_tests.rs:189` accepts a conversation of one user message and one tool message for `call-1`, without a tool call.
+  - The Decisions adapter maps each tool call to a `function_call` item. It maps each tool message to a `function_call_output` item with the call id and the result content. `docs/protocol/openai-judgment-provider.md:167` states this mapping.
+  - On 2026-11-26, a loopback capture of such a request held one `function_call_output` item and no `function_call` item.
+  - The review of 2026-11-26 states that OpenAI requires a `function_call` item with the same call id in the input. Nobody sent such a request to OpenAI, so nobody saw the rejection.
+  - `docs/protocol/conversation-parts.md` says that the call id of a tool result names the tool call that the result answers. It gives no rule for a result whose call is absent.
+  - The TypeSafe support check takes only the content input form, so TypeSafe fails every conversation with `UnsupportedInput`. The mock takes both input forms and accepts such a conversation.
+- **Problem:** Local validation accepts a judgment conversation with a tool result whose tool call is absent. The Decisions adapter then sends a `function_call_output` item without its `function_call`, which OpenAI rejects.
+- **Impact if no action:** A host that sends a conversation excerpt without the earlier call gets a provider rejection and no judgments. The error does not say that the call is missing.
+- **Root question:** Must a judgment conversation hold the call of each tool result, and what does a caller get when it does not?
+- **Options:**
+  - **A.** The Decisions adapter returns a typed invalid request error before transport for a tool result without an earlier tool call with the same call id. The error tells the caller to include the call. TypeSafe and the mock keep their behaviour. Effort: Small.
+  - **B.** The Decisions adapter sends an unmatched result as structured evidence with its tool name and call id, for example in a user message. This keeps the evidence and changes its role in the provider input. Effort: Medium.
+  - **C.** The Decisions wire types build a tool output only from a matched call record. A result without a call record gets a typed error. Effort: Medium.
+  - **D.** Shared local validation fails a conversation whose tool result has no earlier tool call with the same call id, with the invalid request kind. Decisions, TypeSafe, and the mock all reject it before transport. TypeSafe then returns the invalid request kind instead of `UnsupportedInput` for such a conversation, because local validation runs before the support check. Update the test at `crates/ai-interface/src/judgment/_tests_/request_tests.rs:189`, `docs/protocol/judgment-boundary.md`, and `docs/protocol/openai-judgment-provider.md`. Effort: Small.
+  - **E.** Keep the mapping and let OpenAI reject the request with the invalid request kind. Record in `docs/protocol/openai-judgment-provider.md` that a tool result needs its call. Effort: Small.
+- **Left out:** Invent a call for the result: it changes the evidence. Drop the result: it loses evidence without telling the caller.
+- **Wider fix:** D. One shared rule rejects the case for the mock and for every judgment adapter, also a future one. The first review pass named C.
+- **Previous examples:** `plans/follow-ups/truncated-call-replay.md`: Anthropic rejects retained history that holds only one side of a tool exchange. `plans/follow-ups/stopped-step-calls.md`: a stopped agent step leaves calls without results, which OpenAI and Anthropic reject.
+- **Related:**
+  - `plans/follow-ups/empty-judgment-instructions.md`: the same cause and the same code. Shared validation accepts a form that the Decisions wire rejects, so one answer on where such a rule lives fits both items.
+  - `plans/follow-ups/openai-chat-tool-result-without-call.md`: the OpenAI chat adapter sends an unmatched tool result in the same way. A pairing rule in `docs/protocol/conversation-parts.md` can answer both items, so decide them together.
+- **Recommendation:** D. One shared rule rejects the conversation before transport for the mock and every judgment adapter, so each caller gets the same clear error. The first review pass recommended A, a rejection in the Decisions adapter only.
+- **Action:** ask the user, because D adds a stricter validation to the shared judgment contract, and only the user adds a rejection.

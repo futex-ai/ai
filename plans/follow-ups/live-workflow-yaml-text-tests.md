@@ -19,6 +19,6 @@
 - **Left out:** None.
 - **Wider fix:** B. One reusable workflow holds the secret rule, so a new live workflow cannot drift from it.
 - **Previous examples:** None found.
-- **Related:** None.
+- **Related:** `plans/follow-ups/live-credentials-cross-providers.md`: the same workflow guard tests of the judgment suite. Its recommended option makes each paid test read only the key of its own provider. The pairing text checks that this item removes are then not needed.
 - **Recommendation:** B. It removes the text tests and keeps the secret rule in one place.
 - **Action:** fix after merge, apply B, because the change is outside the scope of the plan that found it.

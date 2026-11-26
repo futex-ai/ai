@@ -1,0 +1,37 @@
+# Live judgment credentials can cross providers
+
+- **Severity:** Medium. **Effort:** Small. **Confidence:** High. **Harder later:** Yes.
+- **Kind:** Needs decision.
+- **Added:** 2026-11-26, from branch `calummoore/adding-openai-decisions-api-9ler`, review round 1, finding 5.
+- **Location:** `xtask/tests/live_judgments/runner_tests.rs:26`, `xtask/tests/live_judgments/workflow_tests.rs:9`, `xtask/tests/live_judgments/provider_tests.rs:33`, `.github/workflows/live-judgments.yml:33`, `docs/protocol/live-judgment-api-tests.md:50`, `xtask/tests/live_models/runner_tests.rs:24`, `xtask/tests/live_images/runner_tests.rs:24`
+- **Reason:** The recommended option changes the `LIVE_JUDGMENT_API_KEY` requirement of `docs/protocol/live-judgment-api-tests.md`, and no user decision covers that change.
+
+- **Terms:**
+  - **Live judgment suite:** the ignored paid tests in `xtask/tests/live_judgments/` that call every judgment catalog model of TypeSafe and OpenAI.
+  - **Workflow matrix:** the list in `.github/workflows/live-judgments.yml` that creates one paid job per provider. Each row names the provider, the exact Cargo test, and the Actions secret.
+  - **`LiveJudgmentProvider`:** the enum in `xtask/tests/live_judgments/provider_tests.rs` that registers each live provider: its id, auth, adapter construction, test name, and secret name.
+- **Background:**
+  - Each job of the workflow copies the secret of its row into `LIVE_JUDGMENT_API_KEY`. It then runs the test of its row with `--ignored --exact`.
+  - `docs/protocol/live-judgment-api-tests.md:50` requires that every provider test reads a non-empty `LIVE_JUDGMENT_API_KEY` and fails without it. The same doc requires that each job exposes only the secret of its own provider.
+  - Both provider tests, `typesafe_judgment_catalog` and `openai_judgment_catalog` in `xtask/tests/live_judgments/catalog_tests.rs`, read that one variable. `xtask/tests/live_judgments/runner_tests.rs:26` names it. Each test sends the key as a bearer token to its own provider.
+  - The guard `workflow_covers_every_registered_provider` in `xtask/tests/live_judgments/workflow_tests.rs:9` checks that the workflow text holds `test: <name>` and `api_key: <secret>` for each provider. It checks the two strings apart, so it does not check that they share a row.
+  - On 2026-11-26, the review swapped the two secret names in a copy of the workflow text in memory, and every guard check still passed. The workflow on the branch has the correct pairs.
+  - A local run of `cargo test -p xtask --test live_judgments -- --ignored` without a test filter runs both provider tests with the one key. So the key of one provider goes to the other provider.
+  - The local commands of `docs/protocol/live-judgment-api-tests.md` and `docs/development.md` avoid this only because each command names one exact test.
+  - `LiveJudgmentProvider::workflow_test()` at `xtask/tests/live_judgments/provider_tests.rs:33` returns fixed strings, such as `catalog_tests::openai_judgment_catalog`. Nothing ties a string to its test function.
+  - A rename of a test function makes the `--exact` filter of its job match no test. Cargo then reports success with zero tests, and the guard still passes.
+  - The chat suite reads one `LIVE_MODEL_API_KEY` for eight providers, at `xtask/tests/live_models/runner_tests.rs:24`. The image suite reads one `LIVE_IMAGE_API_KEY` for Google and OpenAI, at `xtask/tests/live_images/runner_tests.rs:24`.
+  - Both suites have the same local gap, and both exist on `main`. `docs/protocol/live-model-api-tests.md` and `docs/protocol/live-image-api-tests.md` require their single variables.
+- **Problem:** The paid tests of all providers read one shared key variable, and the workflow guard checks test names and secret names apart. A swapped matrix row, or a local run without a test filter, gives the key of one provider to the adapter of another provider.
+- **Impact if no action:** A paid run can send an OpenAI or TypeSafe key to the other provider, and the credential-free gate does not catch it. A renamed test function also makes its paid job pass with zero tests.
+- **Root question:** How can each live judgment run, in CI or on a developer machine, test each provider with only the credential of that provider?
+- **Options:**
+  - **A.** Derive the secret name and the test filter from one provider id in the existing job. Replace the pairing assertions with a check of the command that selects the test. Effort: Small.
+  - **B.** Generate the live job matrix from the provider registrations. Share that approach across the paid suites, so that each registration supplies its coverage. Effort: Medium.
+  - **C.** Each provider test reads only its own variable, named from its provider id, such as `LIVE_JUDGMENT_OPENAI_API_KEY`. A test without its variable fails before the first request. Each job exports the secret of its row under `LIVE_JUDGMENT_` and the secret name, such as `LIVE_JUDGMENT_OPENAI_API_KEY` for `OPENAI_API_KEY`. The two names match because each secret name is the provider id in capitals and `_API_KEY`. A swapped row then leaves its test without the variable. A local run without a filter then never sends one key to two providers. Also derive each `workflow_test()` string from its test function, so that a rename fails the build. Add a unit test of the key lookup in `xtask/tests/live_judgments/runner_tests.rs`. Update the sections "Execution" and "Local Invocation" of `docs/protocol/live-judgment-api-tests.md`, `docs/protocol/typesafe-judgment-provider.md:190`, `docs/development.md`, `xtask/README.md`, and the step-text assertions of `xtask/tests/live_judgments/workflow_tests.rs`. Effort: Small.
+- **Left out:** A row-level assertion of the workflow text: it still tests YAML literals, which the testing rules of this workspace exclude. A paid probe that checks the provider: it finds a swap only after it sends the credential.
+- **Wider fix:** C, also for the chat and image suites. Each test then reads only the key of its own provider, so no matrix row and no local run can give it another key. The first review pass named B.
+- **Previous examples:** `plans/follow-ups/live-workflow-yaml-text-tests.md`: the chat, image, and judgment suites rely on tests of workflow text.
+- **Related:** `plans/follow-ups/live-workflow-yaml-text-tests.md`: the same workflow guard tests. That item moves the shared job conditions into one reusable workflow and removes the YAML text tests. C makes the pairing text checks unneeded, so the two changes fit together.
+- **Recommendation:** C. It removes the cross-send in CI and on a developer machine with one small change, and it needs no test of workflow text. The first review pass recommended A, which only checks workflow text.
+- **Action:** ask the user, because C changes the `LIVE_JUDGMENT_API_KEY` requirement of `docs/protocol/live-judgment-api-tests.md`, and A only tests workflow text.

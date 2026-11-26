@@ -17,6 +17,15 @@ async fn rejects_repeated_answer_names_and_distribution_values() {
             predicate(),
             json!([
                 {"name":"q0","type":"predicate","probability":0.9},
+                {"name":"other","type":"predicate","probability":0.1},
+                {"name":"other","type":"refusal"}
+            ]),
+            "duplicate answer name",
+        ),
+        (
+            predicate(),
+            json!([
+                {"name":"q0","type":"predicate","probability":0.9},
                 {"name":"q0","type":"predicate","probability":0.9}
             ]),
             "duplicate answer name",
@@ -164,6 +173,15 @@ async fn malformed_and_missing_requested_answers_fail() {
             {"name":"q0","type":"predicate","probability":"invalid"}
         ]),
         "malformed provider payload",
+    )
+    .await;
+    assert_invalid(
+        &predicate(),
+        json!([
+            {"name":"q0","type":"predicate","probability":0.9},
+            ["other"]
+        ]),
+        "answer must be a JSON object",
     )
     .await;
 

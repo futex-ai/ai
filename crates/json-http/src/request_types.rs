@@ -103,6 +103,8 @@ pub struct JsonHttpRequest {
     pub timeout: Duration,
     /// Optional maximum gap between decoded events on the SSE path.
     pub idle_timeout: Option<Duration>,
+    /// Whether the transport can follow redirects.
+    pub follow_redirects: bool,
 }
 
 #[derive(Clone, PartialEq)]
@@ -138,6 +140,7 @@ impl fmt::Debug for JsonHttpRequest {
             .field("body", &self.body.as_ref().map(|_| "[redacted]"))
             .field("timeout", &self.timeout)
             .field("idle_timeout", &self.idle_timeout)
+            .field("follow_redirects", &self.follow_redirects)
             .finish()
     }
 }

@@ -1,0 +1,38 @@
+# Escaped secrets survive error body redaction
+
+- **Severity:** High. **Effort:** Small. **Confidence:** High. **Harder later:** Yes.
+- **Kind:** Fix after merge.
+- **Added:** 2026-11-26, from branch `calummoore/adding-openai-decisions-api-9ler`, review round 1. It is the wider fix that the agent split off finding 1. It adds the three cases that the finding check found outside the scope.
+- **Location:** `crates/ai-models-openai/src/openai/transcription.rs:201`, `crates/ai-models-openai/src/openai/image_generation/error.rs:35`, `crates/ai-models-typesafe/src/typesafe/error.rs:93`, `crates/ai-models-core/src/error_context.rs`
+- **Reason:** The three adapters are outside the diff of the Decisions branch that found the leak, so their change gets its own branch and review.
+
+- **Terms:**
+  - **`ErrorContext`:** the per-call error helper in `crates/ai-models-core/src/error_context.rs`. It holds the credentials of one call and removes them from error text.
+  - **Literal redaction:** the replacement of each exact credential string with `[redacted]`. `ErrorContext::redact` and the TypeSafe function `redact_secrets` in `crates/ai-models-typesafe/src/typesafe/redaction.rs` do it.
+  - **JSON escape:** another spelling of a character in a JSON string, such as `\"` for a quote, `\\` for a backslash, or `\u002d` for `-`.
+  - **Decode-and-redact method:** the method of `ErrorContext` that the Decisions adapter uses for an error body. It decodes a JSON body, redacts each decoded key and string, and returns compact JSON. A body that is not JSON gets literal redaction.
+- **Background:**
+  - `docs/protocol/model-policies.md`, section "Error core", requires that a message never holds a credential or an authorization header. `docs/protocol/typesafe-judgment-responses.md` repeats the rule for TypeSafe.
+  - Each adapter captures the credentials of one call in its `ErrorContext`. They are the configured API key, each extra header value, and each header value that the auth hook sets.
+  - For a value such as `Bearer <token>`, the set also holds the last word when that word has six or more characters.
+  - Literal redaction finds a credential only in its plain spelling. A JSON body can spell the same string with escapes, and the escaped spelling stays in the text.
+  - On 2026-11-26, a loopback gateway returned a JSON error body without an OpenAI error envelope to the Decisions adapter. The adapter copied the raw body into the message, and an escaped synthetic credential stayed visible in the `JudgmentError`.
+  - The fix of that leak added the decode-and-redact method to `ErrorContext`. The Decisions adapter calls it in `crates/ai-models-openai/src/openai/decisions/error.rs` for an error body without a string `error.message`.
+  - `serde_json` writes compact JSON with `\"` for a quote, `\\` for a backslash, and an escape for each control character. It writes all other characters plainly.
+  - OpenAI transcription, `crates/ai-models-openai/src/openai/transcription.rs:201`: the message of each non-2xx response is the raw body text after literal redaction. Any JSON escape in a credential keeps it visible, as in the Decisions leak.
+  - OpenAI image generation, `crates/ai-models-openai/src/openai/image_generation/error.rs:35`: a JSON body without a string `error.message` becomes compact JSON, then gets literal redaction. A credential with a quote, a backslash, or a control character stays visible in its escaped form.
+  - TypeSafe, `crates/ai-models-typesafe/src/typesafe/error.rs:93`: a JSON body without a `detail` message or a `detail` string becomes compact JSON. Literal redaction with the TypeSafe secret list follows, so the same credentials stay visible.
+  - The TypeSafe client in `crates/ai-models-typesafe/src/typesafe/client.rs` adds each secret of that list to its `ErrorContext` too, so the shared method can redact them.
+  - A search of `crates/*/src` on 2026-11-26 found no other adapter that copies error body text. The Google image and video adapters and the shared `json_http_error_core` use only decoded JSON strings or a body that is not JSON.
+- **Problem:** Three adapters still copy error body text and then apply literal redaction. An escaped spelling of a captured credential then stays visible in the error message.
+- **Impact if no action:** A caller that logs or reports such an error copies the credential into logs or support diagnostics. An auth hook can set a header value with quotes, so the image and TypeSafe leak needs no unusual API key.
+- **Root question:** How can the error message of every adapter keep useful body detail and never hold a captured credential?
+- **Options:**
+  - **A.** Move the three adapters onto the decode-and-redact method. In transcription, pass the raw body text to the method instead of to `redact`. In the image and TypeSafe adapters, pass the body to the method where they now format compact JSON. Keep the other message rules of each adapter. Add one regression for each adapter. Its body echoes a captured credential in an escaped spelling. The test asserts that neither the display nor the debug output of the error holds the credential. Effort: Small.
+  - **B.** Give the three adapters a fixed `HTTP <status>` message for a body without a known message field, and keep the body only as the raw cause. No body text reaches the message. Gateway detail is lost, and the TypeSafe rule that keeps such a body as compact JSON or text changes. Effort: Small.
+  - **C.** Make the literal redaction of `ErrorContext` decode a text that is one JSON value before it replaces credentials. Transcription and images then need no change, and a future adapter that copies body text is safe too. Risk: the same step redacts ids, labels, model ids, and source links, so JSON-like text such as `[1, 2]` or `1e5` changes its form. TypeSafe still needs a change, because it redacts with its own list. Effort: Medium.
+- **Left out:** Fix only transcription: an auth hook can set a header value with quotes, so the other two cases can leak too. Add escaped spellings of each credential to the secret set: JSON allows many spellings of one string, so a list misses some.
+- **Wider fix:** A. One shared method formats the error body for every adapter, so a new adapter has one tested helper to call. C reaches more callers, but it changes the form of JSON-like ids and labels.
+- **Previous examples:** The Decisions leak of 2026-11-26, fixed with the decode-and-redact method. Milestones 8 and 9 of `plans/add-typesafe-judgment-provider.md` added literal redaction for TypeSafe bodies that echo a credential. Their tests in `crates/ai-models-typesafe/src/typesafe/_tests_/redaction_tests.rs` use only the plain spelling.
+- **Recommendation:** A. It closes the leak at each site with the shared method and keeps the body detail that the TypeSafe protocol doc requires.
+- **Action:** fix after merge, apply A, because the three adapters are outside the diff of the branch that found the leak.

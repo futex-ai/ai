@@ -45,6 +45,7 @@ impl JsonHttpRequestBuilder {
                 body: None,
                 timeout: DEFAULT_TIMEOUT,
                 idle_timeout: None,
+                follow_redirects: true,
             },
             auth_hooks: Vec::new(),
             default_headers: BTreeMap::new(),
@@ -89,6 +90,12 @@ impl JsonHttpRequestBuilder {
     /// Sets the maximum gap between decoded SSE events.
     pub fn idle_timeout(mut self, idle_timeout: Duration) -> Self {
         self.request.idle_timeout = Some(idle_timeout);
+        self
+    }
+
+    /// Returns the first redirect response from the transport.
+    pub fn without_redirects(mut self) -> Self {
+        self.request.follow_redirects = false;
         self
     }
 

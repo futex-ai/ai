@@ -39,10 +39,13 @@ shape:
 ```
 
 - `model` becomes `resolved_model_id`.
-- The adapter matches each answer to its question by the echoed `name`, not
-  by position. It ignores an answer without a name, or with a name that the
-  request did not send.
-- Two answers with the same name are invalid output.
+- The adapter matches each answer to its question by the echoed `name`.
+- Two answers with the same name give the invalid output kind. This rule
+  also applies to names absent from the request.
+- The adapter ignores an answer object with no name or with a name absent
+  from the request.
+- Each answer must be a JSON object. Any other answer value gives the
+  invalid output kind.
 - `predicate` becomes `Condition`, with its `probability`.
 - `choice` becomes `Choice`. `choice` becomes `selected`, the
   `probabilities` entries give the probability of each label, and
@@ -93,16 +96,22 @@ validation, the support check, and the response check have the kinds that
 the [judgment boundary](judgment-boundary.md) and the
 [judgment response protocol](judgment-responses.md) give.
 
-An error response has the OpenAI envelope
+An OpenAI error envelope has this form.
+
 `{"error": {"message": ..., "type": ..., "code": ..., "param": ...}}`.
 
-- A known `error.code` gives its kind from the code table of the OpenAI chat
-  adapter. For example, `insufficient_quota` gives the rejected key kind,
-  and `context_length_exceeded` gives the context limit exceeded kind.
-- Without a known code, the HTTP status gives the kind, as the
+- A `3xx` response has the invalid output kind. Its message is the fixed
+  text `unexpected HTTP redirect`.
+- For other statuses, a known `error.code` gives its kind from the code
+  table of the OpenAI chat adapter. For example, `insufficient_quota` gives
+  the rejected key kind, and `context_length_exceeded` gives the context
+  limit exceeded kind.
+- For an absent or unknown code, the HTTP status gives the kind, as the
   [error kinds table](model-policies.md#error-kinds) says.
-- The message is the `error.message` of the envelope, or the text of a body
-  without an envelope.
+- For responses outside `3xx`, the message uses `error.message` when it is
+  a string. A JSON fallback body becomes compact JSON with protected values
+  redacted in every decoded key and string. A plain-text fallback body
+  becomes redacted text.
 - The error core keeps the `x-request-id` response header as the provider
   request id, and `Retry-After` as the retry-after.
 - No error text holds the API key, an auth header value, or the base64 data
@@ -114,7 +123,8 @@ An error response has the OpenAI envelope
 
 - The default total timeout is 60 s. A total timeout in the `openai`
   provider config replaces it.
-- The adapter sends one request for each call, and it never retries.
+- A call that reaches transport sends one request. A redirect response ends
+  the call.
 - A transport failure, also a transport timeout, has the transient kind.
 - Warning: OpenAI can process and bill a request after the timeout ends the
   call. A host that retries the transient kind can then pay twice for one

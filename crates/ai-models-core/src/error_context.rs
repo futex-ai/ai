@@ -10,6 +10,7 @@ use ai_interface::{
     ErrorCore, ErrorKind, JudgmentAnswerProblem, JudgmentError, ModelError, SafeErrorSource,
 };
 use json_http::{DynJsonHttpAuth, JsonHttpHeaders};
+use serde_json::Value;
 
 use crate::{Clock, ErrorMetadata, capturing_auth::capture, errors::request_error_core};
 
@@ -84,15 +85,27 @@ impl ErrorContext {
 
     /// Redacts known credentials, longest values first.
     pub fn redact(&self, text: &str) -> String {
+        redact_text(text, &self.secrets_in_redaction_order())
+    }
+
+    /// Redacts known secrets in decoded JSON keys and strings, then returns compact JSON.
+    /// Uses plain-text redaction when the body cannot be decoded as JSON.
+    pub fn redact_response_body(&self, body: &str) -> String {
+        let secrets = self.secrets_in_redaction_order();
+        match serde_json::from_str(body) {
+            Ok(value) => redact_json(value, &secrets).to_string(),
+            Err(_) => redact_text(body, &secrets),
+        }
+    }
+
+    fn secrets_in_redaction_order(&self) -> Vec<String> {
         let mut secrets = self
             .secrets
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .clone();
         secrets.sort_by_key(|secret| std::cmp::Reverse(secret.len()));
-        secrets.into_iter().fold(text.to_owned(), |text, secret| {
-            text.replace(&secret, "[redacted]")
-        })
+        secrets
     }
 
     /// Captures redacted source links and keeps the original cause behind explicit inspection.
@@ -179,6 +192,31 @@ impl ErrorContext {
             context = context.for_response(headers);
         }
         request_error_core(&context, source)
+    }
+}
+
+fn redact_text(text: &str, secrets: &[String]) -> String {
+    secrets.iter().fold(text.to_owned(), |text, secret| {
+        text.replace(secret, "[redacted]")
+    })
+}
+
+fn redact_json(value: Value, secrets: &[String]) -> Value {
+    match value {
+        Value::String(text) => Value::String(redact_text(&text, secrets)),
+        Value::Array(values) => Value::Array(
+            values
+                .into_iter()
+                .map(|value| redact_json(value, secrets))
+                .collect(),
+        ),
+        Value::Object(fields) => Value::Object(
+            fields
+                .into_iter()
+                .map(|(key, value)| (redact_text(&key, secrets), redact_json(value, secrets)))
+                .collect(),
+        ),
+        value => value,
     }
 }
 

@@ -88,7 +88,8 @@ impl ReqwestJsonHttpTransport {
         request: &JsonHttpRequest,
     ) -> Result<reqwest::Response> {
         let builder = self.request_builder(request)?.timeout(request.timeout);
-        match reqwest_redirect::send(builder, &request.auth_headers).await {
+        match reqwest_redirect::send(builder, &request.auth_headers, request.follow_redirects).await
+        {
             Ok(response) => Ok(response),
             Err(source) => Err(Error::ReqwestTransport {
                 source: sanitize_reqwest(source),
@@ -147,17 +148,21 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
         if wait.is_zero() {
             return Err(timer.error(kind, 0));
         }
-        let mut response =
-            match timeout(wait, reqwest_redirect::send(builder, &request.auth_headers)).await {
-                Ok(Ok(response)) => response,
-                Ok(Err(source)) => {
-                    return Err(Error::SseTransport {
-                        events_received: 0,
-                        source: sanitize_reqwest(source),
-                    });
-                }
-                Err(_) => return Err(timer.error(kind, 0)),
-            };
+        let mut response = match timeout(
+            wait,
+            reqwest_redirect::send(builder, &request.auth_headers, request.follow_redirects),
+        )
+        .await
+        {
+            Ok(Ok(response)) => response,
+            Ok(Err(source)) => {
+                return Err(Error::SseTransport {
+                    events_received: 0,
+                    source: sanitize_reqwest(source),
+                });
+            }
+            Err(_) => return Err(timer.error(kind, 0)),
+        };
 
         if !response.status().is_success() {
             let status = response.status().as_u16();

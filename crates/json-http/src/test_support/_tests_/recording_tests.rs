@@ -32,6 +32,7 @@ pub(super) fn request() -> JsonHttpRequest {
         )),
         timeout: Duration::from_secs(60),
         idle_timeout: Some(Duration::from_secs(10)),
+        follow_redirects: true,
     }
 }
 

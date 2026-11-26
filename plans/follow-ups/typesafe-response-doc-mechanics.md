@@ -1,0 +1,31 @@
+# TypeSafe response doc describes decoder mechanics
+
+- **Severity:** Low. **Effort:** Small. **Confidence:** High. **Harder later:** No.
+- **Kind:** Outside the scope.
+- **Added:** 2026-11-26, from branch `calummoore/adding-openai-decisions-api-9ler`, review round 1. The finding check of finding 6 found it outside the scope.
+- **Location:** `docs/protocol/typesafe-judgment-responses.md:43`
+- **Reason:** The text was on `main` before the Decisions branch, which only moved it from `docs/protocol/typesafe-judgment-provider.md` to a new page.
+
+- **Terms:**
+  - **Mechanics:** how the code meets a requirement, such as the steps or the types of a decoder. The documentation rules of this workspace keep mechanics in the code and its doc comments.
+- **Background:**
+  - The `documentation` skill of this workspace says that a protocol doc holds only requirements and the decisions in force. A requirement states behaviour that a caller can observe at a boundary.
+  - Its test for each sentence: when a different implementation could not satisfy the sentence, the sentence describes the implementation. The sentence then moves to the code and its doc comments.
+  - The paragraph at `docs/protocol/typesafe-judgment-responses.md:43` says that the adapter reads the response as raw bytes. It says that the adapter decodes a successful body from those bytes, never through an intermediate `serde_json::Value`.
+  - The same paragraph says that the adapter holds answer entries as raw JSON fragments until it matches their ids to the requested questions.
+  - The paragraph also holds three requirements:
+    - A repeated key in the `answers` map, in a choice `probabilities` map, or in a score `probabilities` map is invalid output.
+    - Only a status in `200..300` is a success.
+    - An answer whose id the request did not send is ignored, also when it would not decode.
+  - Before the Decisions branch, the same text was in `docs/protocol/typesafe-judgment-provider.md` on `main`, at line 169 of commit `c5ef065`. The Decisions branch split that doc into a provider page and a response page, and it moved the paragraph without a change.
+  - `crates/ai-models-typesafe/src/typesafe/unique_map.rs` already explains in its doc comment why repeated keys need their own decoder. `crates/ai-models-typesafe/src/typesafe/response.rs` holds answers as raw JSON values, and its doc comments do not say why.
+- **Problem:** The paragraph states how the TypeSafe adapter decodes a response, beside what a caller observes. A different decoder with the same observable rules would contradict the doc.
+- **Impact if no action:** A change of the decoder makes the protocol doc stale, although the behaviour at the boundary stays the same. A reader can take the mechanics for requirements.
+- **Root question:** How does the TypeSafe response doc state the decoding rules, so that it holds only behaviour that a caller can observe?
+- **Options:**
+  - **A.** Rewrite the paragraph as the three observable rules. Move the raw-bytes and raw-fragment mechanics into the doc comments of `crates/ai-models-typesafe/src/typesafe/response.rs`. Effort: Small.
+- **Left out:** Keep the text: it breaks the documentation rule that keeps mechanics out of protocol docs. Delete the mechanics without a move: the reason for the raw decoding then lives nowhere. The documentation rule gives mechanics one home, so only one approach is real.
+- **Wider fix:** None. The `documentation` skill already keeps mechanics out of protocol docs, and its rule is in force.
+- **Previous examples:** `plans/follow-ups/move-ai-mcp-conventions-checklist.md`: agent rules inside `docs/protocol/ai-mcp.md`. Other protocol docs name source files, such as `docs/protocol/live-judgment-api-tests.md:45` and `docs/protocol/live-image-api-tests.md:33`.
+- **Recommendation:** A. It keeps the three rules where callers read them, and it puts the mechanics beside the code that they describe.
+- **Action:** fix after merge, apply A, because the text predates the Decisions branch, and the move is the named fix of the documentation rule.

@@ -91,7 +91,8 @@ impl OpenAiJudgmentModel {
                 self.http_client
                     .post(&self.endpoint)
                     .auth(context.capture_auth(self.config.auth(ApiKeyScheme::Bearer)))
-                    .timeout(self.timeout),
+                    .timeout(self.timeout)
+                    .without_redirects(),
                 &self.endpoint,
             )
             .json(body)

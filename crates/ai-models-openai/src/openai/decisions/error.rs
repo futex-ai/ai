@@ -44,19 +44,27 @@ pub(super) fn classify_request_error(
 }
 
 fn status_core(context: &ErrorContext, status: u16, body: &str) -> ErrorCore {
+    let status_kind = classify_http_status(status).unwrap_or(ErrorKind::InvalidOutput);
+    if (300..400).contains(&status) {
+        return context.core(status_kind, "unexpected HTTP redirect");
+    }
     let envelope = serde_json::from_str::<ErrorEnvelope>(body).ok();
     let details = envelope.as_ref().map(|envelope| &envelope.error);
     let code = details
         .and_then(|error| error.code.as_ref())
         .and_then(Value::as_str);
-    let kind = native_kind(code)
-        .or_else(|| classify_http_status(status))
-        .unwrap_or(ErrorKind::InvalidOutput);
+    let kind = native_kind(code).unwrap_or(status_kind);
     let message = details
         .and_then(|error| error.message.as_ref())
-        .and_then(Value::as_str)
-        .unwrap_or(body);
-    context.core(kind, message)
+        .and_then(Value::as_str);
+    match message {
+        Some(message) => context.core(kind, message),
+        None => {
+            let mut core = context.core(kind, "");
+            core.message = context.redact_response_body(body);
+            core
+        }
+    }
 }
 
 pub(super) fn decode<'a, T: Deserialize<'a>>(

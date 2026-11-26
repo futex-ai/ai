@@ -52,8 +52,11 @@ the request has a different scheme, host, or port from the supplied origin.
 Every header is a credential unless the adapter supplied it through `header`
 or `headers` and no auth hook changed it. Standard credential headers always
 remain credentials. The builder marks credential names in `auth_headers`.
-Requests follow up to ten redirects. Redirects preserve credentials on the
-original origin and remove credential headers elsewhere.
+Requests follow up to ten redirects by default. Use `without_redirects()` on
+the request builder to stop at the first `3xx` response. Buffered calls then
+return that response. SSE calls return its HTTP status error.
+Redirects preserve credentials on the original origin and remove credential
+headers elsewhere.
 A 307 or 308 response with a multipart body is returned without following
 the redirect, because that body cannot be replayed.
 The transport also protects standard authorization, cookie, and API-key headers.

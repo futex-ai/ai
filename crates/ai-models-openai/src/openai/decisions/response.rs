@@ -60,7 +60,11 @@ fn index_answers<'a>(
 ) -> JudgmentResult<BTreeMap<String, &'a RawValue>> {
     let mut by_name = BTreeMap::new();
     for answer in answers {
-        let AnswerName { name } = decode(context, answer.get().as_bytes())?;
+        let json = answer.get();
+        if !json.starts_with('{') {
+            return Err(invalid_output(context, "answer must be a JSON object"));
+        }
+        let AnswerName { name } = decode(context, json.as_bytes())?;
         if let Some(name) = name
             && by_name.insert(name, answer).is_some()
         {
