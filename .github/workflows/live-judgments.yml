@@ -35,6 +35,9 @@ jobs:
           - provider: TypeSafe
             test: catalog_tests::typesafe_judgment_catalog
             api_key: TYPESAFE_API_KEY
+          - provider: OpenAI
+            test: catalog_tests::openai_judgment_catalog
+            api_key: OPENAI_API_KEY
     steps:
       - name: Require provider credential
         env:

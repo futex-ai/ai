@@ -401,18 +401,18 @@ Depends on: 3
 `ai-models-openai` calls `/v1/decisions` behind `JudgmentModel`. Every file
 stays at or below 300 lines.
 
-- [ ] Add the `GPT_6_LUNA` spec to the OpenAI catalog.
-- [ ] Add the request mapping for content, conversations, descriptions, and
+- [x] Add the `GPT_6_LUNA` spec to the OpenAI catalog.
+- [x] Add the request mapping for content, conversations, descriptions, and
       the three question kinds, with request tests.
-- [ ] Add the response mapping for the four answer kinds and the usage, with
+- [x] Add the response mapping for the four answer kinds and the usage, with
       response tests. Cover a refusal, a repeated answer name, a duplicate
       distribution entry, and the subtraction of cached and reasoning
       tokens.
-- [ ] Add the error mapping, the timeout, and the redaction of the API key
+- [x] Add the error mapping, the timeout, and the redaction of the API key
       and request content, with tests.
-- [ ] Give the adapter its support value, with a test that proves a video
+- [x] Give the adapter its support value, with a test that proves a video
       part sends no request.
-- [ ] Update the `ai-models-openai` README.
+- [x] Update the `ai-models-openai` README.
 
 ## Milestone 5: Registry, smoke test, and live tests
 
@@ -421,15 +421,15 @@ Depends on: 4
 Hosts build the OpenAI judgment adapter through the registry. The smoke test
 and the ignored live suite cover it.
 
-- [ ] Add the `openai` arm to the registry judgment factory, with a
+- [x] Add the `openai` arm to the registry judgment factory, with a
       registry test.
-- [ ] Add the OpenAI judgment adapter to `xtask/src/smoke/providers.rs`.
-- [ ] Register `openai` in the live judgment suite under
+- [x] Add the OpenAI judgment adapter to `xtask/src/smoke/providers.rs`.
+- [x] Register `openai` in the live judgment suite under
       `xtask/tests/live_judgments/`. Narrow the catalog guards to the
       judgment specs, and remove `openai` from the non-judgment provider
       list. Keep the live tests ignored and out of `cargo xtask check`.
-- [ ] Add the `OPENAI_API_KEY` secret to `.github/workflows/live-judgments.yml`.
-- [ ] Update `docs/protocol/model-policies.md` with the judgment
+- [x] Add the `OPENAI_API_KEY` secret to `.github/workflows/live-judgments.yml`.
+- [x] Update `docs/protocol/model-policies.md` with the judgment
       `UnsupportedInput` error, `crates/ai-models-registry/README.md` with
       the OpenAI judgment adapter, and `docs/development.md` and
       `xtask/README.md` with the OpenAI live judgment secret and command.

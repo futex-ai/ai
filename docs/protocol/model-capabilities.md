@@ -1,9 +1,5 @@
 # Model Capabilities Protocol
 
-Status: Implemented, except the `openai/gpt-6-luna` judgment spec that
-[Milestone 4](../../plans/shared-judgment-and-openai-decisions.md#milestone-4-openai-decisions-adapter)
-adds.
-
 This protocol defines model specs, provider ids, text ids, custom specs,
 effort, the capability check, and the control matrix. The portable controls
 themselves stay in [provider call controls](provider-call-controls.md). That
@@ -262,6 +258,7 @@ Bold marks the default effort or provider default. `default` marks an output lim
 | `openai/gpt-5.4-mini` | **disabled** | 128000 | 400000 | fixed while thinking | no | always | no | disabled |
 | `openai/gpt-5.4-nano` | **disabled** | 128000 | 400000 | fixed while thinking | no | always | no | disabled |
 | `openai/gpt-image-2` | **provider default** | 0 | 0 | fixed while thinking | no | always | no | none |
+| `openai/gpt-6-luna` | **provider default** | 0 | 0 | fixed | no | never | no | none |
 | `openai/custom` | **provider default**, disabled, low, medium, high, extra_high, max | u32::MAX | 0 | fixed while thinking | no | always | no | disabled, low, medium, high, extra_high, max |
 | `qwen/qwen3.7-max` | disabled, **high** | 65536 | 1000000 | fixed while thinking | yes | only without thinking | no | high |
 | `qwen/qwen3.7-plus` | disabled, **high** | 65536 | 1000000 | fixed while thinking | yes | only without thinking | no | high |

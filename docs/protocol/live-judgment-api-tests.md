@@ -1,8 +1,7 @@
 # Live Judgment API Test Protocol
 
-Status: Implemented for TypeSafe.
-[Milestone 5](../../plans/shared-judgment-and-openai-decisions.md#milestone-5-registry-smoke-test-and-live-tests)
-adds the OpenAI coverage.
+Status: Implemented. The first credentialed OpenAI run is pending in
+[Milestone 5](../../plans/shared-judgment-and-openai-decisions.md#milestone-5-registry-smoke-test-and-live-tests).
 
 ## Purpose And Status
 

@@ -1,11 +1,5 @@
 # OpenAI Judgment Provider Protocol
 
-Status: Not implemented.
-[Milestone 4](../../plans/shared-judgment-and-openai-decisions.md#milestone-4-openai-decisions-adapter)
-adds the adapter, and
-[Milestone 5](../../plans/shared-judgment-and-openai-decisions.md#milestone-5-registry-smoke-test-and-live-tests)
-adds its registry arm, its smoke test, and its live coverage.
-
 ## Purpose
 
 Hosts call the OpenAI Decisions API through the shared

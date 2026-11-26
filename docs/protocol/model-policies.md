@@ -42,7 +42,7 @@ generation, video generation, audio transcription, and judgment.
 | Invalid request | The request breaks the contract, or the provider rejects it as invalid: HTTP 400, 413, 422, or another 4xx status with no more specific kind | no | no |
 | Rejected key | The provider rejects the key or its account: HTTP 401, 402, or 403 | yes | no |
 | Unknown model | The provider does not know the model id: HTTP 404 | yes | no |
-| Unsupported input | The model does not take a part or a media type of the request | yes | no |
+| Unsupported input | The model does not take the request form, a part, or a media type | yes | no |
 | Invalid output | The output of the provider breaks the response contract | yes | no |
 | Content policy | The provider refuses the request or the output for policy reasons | no | no |
 | Rate limited | HTTP 429, or a rate-limit code of the provider | yes | yes |
@@ -82,7 +82,7 @@ generation, video generation, audio transcription, and judgment.
 | Modality error | Kind |
 | --- | --- |
 | Empty prompt, empty audio, empty state, no questions, invalid question, unsupported content | Invalid request |
-| Unsupported media type, audio too large | Unsupported input |
+| `JudgmentError::UnsupportedInput`, unsupported media type, audio too large | Unsupported input |
 | No image, no video, empty transcript, invalid answer | Invalid output |
 
 - Every other provider failure of a modality takes its kind from the kinds

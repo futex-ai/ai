@@ -11,10 +11,11 @@ use json_http::{
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum LiveJudgmentProvider {
     TypeSafe,
+    OpenAi,
 }
 
 impl LiveJudgmentProvider {
-    pub(super) const ALL: [Self; 1] = [Self::TypeSafe];
+    pub(super) const ALL: [Self; 2] = [Self::TypeSafe, Self::OpenAi];
 
     pub(super) fn from_id(provider: ProviderId) -> Option<Self> {
         Self::ALL
@@ -25,18 +26,21 @@ impl LiveJudgmentProvider {
     pub(super) fn provider_id(self) -> ProviderId {
         match self {
             Self::TypeSafe => ai_models_typesafe::PROVIDER_ID,
+            Self::OpenAi => ai_models_openai::PROVIDER_ID,
         }
     }
 
     pub(super) fn workflow_test(self) -> &'static str {
         match self {
             Self::TypeSafe => "catalog_tests::typesafe_judgment_catalog",
+            Self::OpenAi => "catalog_tests::openai_judgment_catalog",
         }
     }
 
     pub(super) fn workflow_secret(self) -> &'static str {
         match self {
             Self::TypeSafe => "TYPESAFE_API_KEY",
+            Self::OpenAi => "OPENAI_API_KEY",
         }
     }
 
@@ -55,7 +59,7 @@ impl LiveJudgmentProvider {
 
     pub(super) fn auth(self, api_key: String) -> DynJsonHttpAuth {
         match self {
-            Self::TypeSafe => Arc::new(StaticHeaderAuth::bearer_token(api_key)),
+            Self::TypeSafe | Self::OpenAi => Arc::new(StaticHeaderAuth::bearer_token(api_key)),
         }
     }
 
@@ -95,19 +99,16 @@ fn registry_covers_every_judgment_capable_provider() {
 }
 
 #[test]
-fn every_registered_provider_has_only_judgment_entries() {
+fn every_registered_provider_has_judgment_entries() {
     for provider in LiveJudgmentProvider::ALL {
-        let catalog = provider.catalog();
-        let judgment_catalog = provider.judgment_catalog();
+        let catalog = provider.judgment_catalog();
 
         assert!(
             !catalog.is_empty(),
-            "{provider:?} catalog must not be empty"
+            "{provider:?} judgment catalog must not be empty"
         );
-        assert_eq!(judgment_catalog, catalog);
         assert!(catalog.iter().all(|model| {
-            model.provider == provider.provider_id()
-                && model.features.as_ref() == [ModelFeature::Judgment]
+            model.provider == provider.provider_id() && model.has_feature(ModelFeature::Judgment)
         }));
     }
 }
@@ -124,6 +125,19 @@ fn judgment_filter_excludes_non_judgment_entries() {
             .iter()
             .all(|model| model.has_feature(ModelFeature::Judgment))
     );
+}
+
+#[test]
+fn openai_live_catalog_selects_only_its_judgment_specs() {
+    let model_ids = LiveJudgmentProvider::from_id(ai_models_openai::PROVIDER_ID).map(|provider| {
+        provider
+            .judgment_catalog()
+            .into_iter()
+            .map(|model| model.text_id())
+            .collect::<Vec<_>>()
+    });
+
+    assert_eq!(model_ids, Some(vec!["openai/gpt-6-luna".to_owned()]));
 }
 
 #[test]
@@ -153,10 +167,9 @@ fn all_known_models() -> Vec<ModelSpec> {
     catalog().all().to_vec()
 }
 
-fn non_judgment_provider_kinds() -> [ProviderId; 9] {
+fn non_judgment_provider_kinds() -> [ProviderId; 8] {
     [
         ai_interface::MOCK_PROVIDER,
-        ai_models_openai::PROVIDER_ID,
         ai_models_anthropic::PROVIDER_ID,
         ai_models_compat::deepseek::PROVIDER_ID,
         ai_models_google::PROVIDER_ID,

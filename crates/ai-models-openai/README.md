@@ -1,10 +1,8 @@
 # ai-models-openai
 
 `ai-models-openai` is the OpenAI-specific `ai-interface` implementation crate
-for the workspace. Depend on it when you want to call OpenAI Responses
-generation models, image generation, image editing, or the audio
-transcription endpoint with explicit auth and shared runtime wrappers from
-neighboring crates.
+for the workspace. Depend on it to call OpenAI Responses, image generation,
+image editing, audio transcription, or Decisions with explicit auth.
 
 ## Responsibilities
 
@@ -12,6 +10,7 @@ neighboring crates.
 - Implement the OpenAI speech-to-text client behind
   `ai_interface::AudioTranscriber`
 - Implement the OpenAI image client behind `ai_interface::ImageGenerator`
+- Implement the OpenAI Decisions client behind `ai_interface::JudgmentModel`
 - Export the OpenAI `PROVIDER_ID`, one `ModelSpec` constant for each known
   model, the `CATALOG` slice, and the `CUSTOM_DEFAULTS` of unlisted models
 - Map shared model/tool DTOs to the OpenAI Responses API
@@ -31,7 +30,7 @@ overrides. Each endpoint keeps the path prefix of the base URL.
 An API key uses Bearer auth. An auth hook runs for each request.
 Adapter and auth headers take precedence over
 extra headers without regard to case. The existing constructors remain
-available and use the same config path.
+available for Responses, images, and transcription and use the same config path.
 
 `OpenAiModel` runs the shared capability check of `ai-models-core`
 against the spec before transport. The adapter handles:
@@ -95,7 +94,7 @@ against the spec before transport. The adapter handles:
 This crate does not load config, read environment variables, or resolve
 credentials on its own. It exports one `ModelSpec` constant for each catalog
 model: `GPT_5_6_SOL`, `GPT_5_6_TERRA`, `GPT_5_6_LUNA`, `GPT_5_5`,
-`GPT_5_4_MINI`, `GPT_5_4_NANO`, and `GPT_IMAGE_2`. `CATALOG` lists
+`GPT_5_4_MINI`, `GPT_5_4_NANO`, `GPT_IMAGE_2`, and `GPT_6_LUNA`. `CATALOG` lists
 them in that order, and `known_models()` returns a copy of it.
 `GPT_5_6_SOL` is the first catalog spec and the default used by workspace
 examples. Its default effort is medium, and it also lists low, high, extra
@@ -142,7 +141,8 @@ Add the converter to the `LegacyMessageConverter` of the host.
 All OpenAI adapters attach shared error details with the configured model id.
 Errors retain `Retry-After` and the `x-request-id` response header.
 Late stream, decode, and download failures keep the relevant response metadata.
-Each adapter offers `with_clock` for HTTP-date retry hints.
+The Responses, image, and transcription adapters offer `with_clock` for
+HTTP-date retry hints.
 Provider diagnostics and typed media details redact the actual call credentials.
 Malformed generated output uses `InvalidOutput`; invalid caller schemas use `InvalidRequest`.
 
@@ -165,6 +165,13 @@ test. The adapter rejects empty decoded payloads, preserves any revised prompt,
 normalizes usage, and keeps content-policy refusals distinct from retryable
 provider failures.
 
+`OpenAiJudgmentModel` uses `GPT_6_LUNA` to evaluate text, JSON, images, and
+conversations. It sends all questions in one request to `/v1/decisions`.
+The response contains typed answers or refusals for individual questions,
+and normalized token usage. A video part returns `UnsupportedInput` before
+transport. The default total timeout is 60 seconds. The host can set a
+different total timeout in the provider config.
+
 The crate has no video adapter, because OpenAI no longer serves its video API.
 
 ## Quick Start
@@ -174,8 +181,9 @@ use std::sync::Arc;
 
 use ai_interface::{AudioTranscriber, ImageGenerator, Model, ModelSpec};
 use ai_models_openai::{
-    CUSTOM_DEFAULTS, GPT_5_6_SOL, GPT_IMAGE_2, PROVIDER_ID, OpenAiAudioTranscriber,
-    OpenAiImageGenerator, OpenAiModel, known_models,
+    CUSTOM_DEFAULTS, GPT_5_6_SOL, GPT_6_LUNA, GPT_IMAGE_2, PROVIDER_ID,
+    OpenAiAudioTranscriber, OpenAiImageGenerator, OpenAiJudgmentModel, OpenAiModel,
+    known_models,
 };
 use ai_models_core::ProviderConfig;
 use json_http::ReqwestJsonHttpClient;
@@ -211,6 +219,14 @@ fn build_image_generator() -> OpenAiImageGenerator {
         "sk-demo",
     )
 }
+
+fn build_judgment_model() -> OpenAiJudgmentModel {
+    OpenAiJudgmentModel::from_config(
+        Arc::new(ReqwestJsonHttpClient::new()),
+        GPT_6_LUNA,
+        ProviderConfig::new(PROVIDER_ID, "sk-demo"),
+    )
+}
 ```
 
 ## Development
@@ -223,8 +239,8 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 ### Key Code
 
 - `src/openai/mod.rs` - `Model::stream` implementation and request dispatch
-- `OpenAiModel::from_config`, `OpenAiImageGenerator::from_config`, and
-  `OpenAiAudioTranscriber::from_config`
+- `OpenAiModel::from_config`, `OpenAiImageGenerator::from_config`,
+  `OpenAiAudioTranscriber::from_config`, and `OpenAiJudgmentModel::from_config`
   build each adapter from one spec and shared provider settings
 - `src/catalog.rs` - OpenAI provider id, model spec constants, `CATALOG`, and
   custom defaults
@@ -242,6 +258,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
   and interruption coverage
 - `src/openai/transcription.rs` - OpenAI audio transcription implementation
 - `src/openai/image_generation/` - OpenAI image request, response, and error mapping
+- `src/openai/decisions/` maps shared judgment requests, answers, usage, and errors.
 
 ### Related Docs
 
@@ -257,6 +274,7 @@ cargo clippy -p ai-models-openai --all-targets --all-features -- -D warnings
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/live-image-api-tests.md`](../../docs/protocol/live-image-api-tests.md)
 - [`../../docs/protocol/openai-judgment-provider.md`](../../docs/protocol/openai-judgment-provider.md)
+- [`../../docs/protocol/openai-judgment-responses.md`](../../docs/protocol/openai-judgment-responses.md)
 - [`../ai-interface/README.md`](../ai-interface/README.md)
 - [`../json-http/README.md`](../json-http/README.md)
 - [`../ai-models-core/README.md`](../ai-models-core/README.md)

@@ -1,9 +1,5 @@
 # OpenAI Judgment Response Protocol
 
-Status: Not implemented.
-[Milestone 4](../../plans/shared-judgment-and-openai-decisions.md#milestone-4-openai-decisions-adapter)
-adds this mapping.
-
 This protocol defines how the OpenAI judgment adapter maps responses and
 usage, and how it handles errors, timeouts, and retries. The
 [OpenAI judgment provider protocol](openai-judgment-provider.md) defines the

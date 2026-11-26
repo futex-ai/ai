@@ -1,11 +1,5 @@
 # Provider Registry Protocol
 
-Status: Implemented, except the OpenAI judgment adapter.
-[Milestone 4](../../plans/shared-judgment-and-openai-decisions.md#milestone-4-openai-decisions-adapter)
-adds its path and its timeout, and
-[Milestone 5](../../plans/shared-judgment-and-openai-decisions.md#milestone-5-registry-smoke-test-and-live-tests)
-adds its registry arm.
-
 This protocol governs how hosts build adapters through the registry. The
 per-provider constructors `new`, `with_auth`, and `with_catalog_auth` remain
 until the user answers the

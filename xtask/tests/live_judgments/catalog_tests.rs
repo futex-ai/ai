@@ -7,3 +7,9 @@ use super::{provider_tests::LiveJudgmentProvider, runner_tests::run_catalog};
 async fn typesafe_judgment_catalog() {
     run_catalog(LiveJudgmentProvider::TypeSafe).await;
 }
+
+#[tokio::test]
+#[ignore = "requires a live OpenAI API credential"]
+async fn openai_judgment_catalog() {
+    run_catalog(LiveJudgmentProvider::OpenAi).await;
+}

@@ -11,7 +11,7 @@ file-length audits, or AI review.
 - Regenerate the control matrix of the model capabilities protocol from the
   model specs
 - Run a credential-free smoke test for chat, transcription, image-provider,
-  video-provider, and TypeSafe judgment-provider construction, tool-calling
+  video-provider, and judgment-provider construction, tool-calling
   registration, MCP tools, and the resource-bound MCP OAuth hook
 - Host credentialed integration tests for every chat, image-provider, and
   judgment-provider catalog against real APIs
@@ -33,9 +33,9 @@ model spec or to custom defaults, and commit the result. No CI step or
 
 `smoke-test` constructs the Anthropic, DeepSeek, Google Gemini, Kimi, MiniMax,
 OpenAI, QwenCloud, and xAI model adapters, the OpenAI transcriber, the Google
-and OpenAI image generators, the Google video generator, and the TypeSafe Jev
-judgment adapter, with placeholder credentials. It also runs an in-memory
-tool-output pagination flow. Provider construction does not send network
+and OpenAI image generators, the Google video generator, and the OpenAI and
+TypeSafe judgment adapters with placeholder credentials. It also runs an
+in-memory tool-output pagination flow. Provider construction does not send network
 requests or require real credentials.
 Every provider adapter is built through `ai-models-registry`. The transcriber
 and the video generator use custom specs, because no catalog lists those
@@ -70,8 +70,8 @@ the ignored tests for eligible pull requests, daily verification, and manual
 dispatch. The MiniMax job first sends MiniMax-M3 a real tool with strict
 `Required` selection and asserts that the provider returns that tool call.
 The judgment workflow additionally requires the repository Actions variable
-`LIVE_JUDGMENT_API_TESTS_ENABLED=true`; its provider job remains skipped until
-the TypeSafe credential is provisioned and that opt-in is enabled.
+`LIVE_JUDGMENT_API_TESTS_ENABLED=true`. The OpenAI job requires `OPENAI_API_KEY`.
+The TypeSafe job requires `TYPESAFE_API_KEY`.
 
 `tests/live_images/mod.rs` is the corresponding ignored image suite. It selects
 every Google and OpenAI catalog spec advertising `ImageGeneration`, constructs
@@ -87,8 +87,8 @@ validation, and workflow secret/event boundaries.
 No live suite covers video generation, because no catalog lists a video model.
 
 `tests/live_judgments/mod.rs` is the corresponding ignored judgment suite. It
-selects every TypeSafe catalog spec advertising `Judgment`, constructs the
-registry adapter behind `DynJudgmentModel`, and evaluates a short support
+selects every OpenAI and TypeSafe catalog spec advertising `Judgment`. It
+constructs the registry adapter behind `DynJudgmentModel` and evaluates a short support
 message against condition, choice, and score questions. Failures whose error
 core has the transient or rate limited kind use the shared retry schedule of
 `ai-models-policy` for no more than three attempts. Credential-free guards
@@ -149,6 +149,11 @@ LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_im
 # Billable: tests every TypeSafe judgment catalog spec against the real API.
 LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
   --test live_judgments catalog_tests::typesafe_judgment_catalog \
+  -- --ignored --exact --nocapture
+
+# Billable: tests every OpenAI judgment catalog spec against the real API.
+LIVE_JUDGMENT_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
+  --test live_judgments catalog_tests::openai_judgment_catalog \
   -- --ignored --exact --nocapture
 ```
 

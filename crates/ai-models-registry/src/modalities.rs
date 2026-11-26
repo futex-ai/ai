@@ -57,6 +57,10 @@ pub(crate) fn judgment(
     config: ProviderConfig,
 ) -> BuildResult<DynJudgmentModel> {
     match (spec.provider.as_str(), http, config) {
+        #[cfg(feature = "openai")]
+        ("openai", http, config) => Ok(Arc::new(
+            ai_models_openai::OpenAiJudgmentModel::from_config(http, spec.clone(), config),
+        )),
         #[cfg(feature = "typesafe")]
         ("typesafe", http, config) => Ok(Arc::new(
             ai_models_typesafe::TypeSafeJudgmentModel::from_config(http, spec.clone(), config),
