@@ -91,6 +91,29 @@ async fn rejects_conversations_without_transport() {
     );
 }
 
+#[tokio::test]
+async fn lone_tool_result_is_rejected_before_support_check() {
+    let mut request = simple_request();
+    request.input = JudgmentInput::Conversation {
+        system: None,
+        messages: vec![ConversationMessage::tool(
+            "fixture output",
+            "lookup",
+            "call-1",
+        )],
+    };
+    let (model, requests) = model_with_transport_log();
+
+    let error = model.judge(&request).await.unwrap_err();
+
+    assert_eq!(requests.snapshot().len(), 0);
+    assert_eq!(error.core().kind, ErrorKind::InvalidRequest);
+    assert_eq!(
+        error.core().message,
+        "tool result has no earlier tool call with id `call-1`"
+    );
+}
+
 fn model_with_transport_log() -> (TypeSafeJudgmentModel, Arc<MemoryRecordingLog>) {
     let log = Arc::new(MemoryRecordingLog::default());
     let transport =

@@ -20,7 +20,7 @@
   - `docs/protocol/conversation-parts.md` says that the call id of a tool result names the tool call that the result answers. It gives no rule for a result whose call is absent, and no rule for what an adapter does then.
   - The review of 2026-11-26 states that OpenAI requires a `function_call` item with the same call id for each `function_call_output` item. Nobody sent such a request to OpenAI from this workspace.
   - A search of `crates/*/src` on 2026-11-26 found no chat adapter that checks that a tool result has its call. Nobody checked which providers reject such a request.
-  - The OpenAI Decisions adapter has the same gap for judgment conversations.
+  - The judgment boundary closed the same gap on 2026-11-27. The user chose a shared validation rule, so a judgment conversation with a lone tool result fails before any adapter sends it.
 - **Problem:** The OpenAI chat adapter sends a tool result without a check for its call. A conversation without the call, or with a call that the mapping drops, gives a request that OpenAI rejects.
 - **Impact if no action:** A host that trims old history, or that continues a converted conversation, gets a rejected request with the invalid request kind. The error does not name the unmatched call.
 - **Root question:** What does a caller get when a conversation holds a tool result without its tool call?
@@ -31,6 +31,6 @@
 - **Left out:** Drop an unmatched result: the caller loses the result without an error. Send the result as user text: it changes the role of the evidence that the caller gave.
 - **Wider fix:** C. One shared rule rejects the case for every chat adapter, also a future one.
 - **Previous examples:** `plans/follow-ups/truncated-call-replay.md`: Anthropic rejects retained history that holds only one side of a tool exchange. `plans/follow-ups/stopped-step-calls.md`: a stopped agent step leaves calls without results, which OpenAI and Anthropic reject.
-- **Related:** `plans/follow-ups/judgment-tool-result-without-call.md`: the same class in the Decisions judgment adapter. A pairing rule in `docs/protocol/conversation-parts.md` can answer both items, so decide them together.
-- **Recommendation:** C. One shared rule gives every chat adapter the same early error, and it matches the shared rule that `plans/follow-ups/judgment-tool-result-without-call.md` recommends for judgments.
+- **Related:** Shared judgment validation now requires an earlier tool call with the same call id for each tool result. This rule is a precedent for the chat side. See the [judgment input rules](../../docs/protocol/judgment-boundary.md#requests).
+- **Recommendation:** C. One shared rule gives every chat adapter the same early error, and it matches the shared rule that the judgment boundary already has.
 - **Action:** ask the user, because each option adds a rejection or a rule to `docs/protocol/conversation-parts.md`, which is silent on this case.

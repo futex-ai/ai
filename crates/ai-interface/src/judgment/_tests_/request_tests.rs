@@ -7,7 +7,7 @@ use serde_json::{Map, json};
 use crate::{
     ConversationMessage, ConversationRole, ErrorKind, JudgmentContent, JudgmentDescription,
     JudgmentError, JudgmentInput, JudgmentJson, JudgmentPart, JudgmentQuestion,
-    JudgmentQuestionProblem, JudgmentRequest,
+    JudgmentQuestionProblem, JudgmentRequest, ToolCall,
 };
 
 #[test]
@@ -231,6 +231,15 @@ fn validation_accepts_every_valid_question_kind() {
             system: None,
             messages: vec![
                 ConversationMessage::user("ticket"),
+                ConversationMessage::assistant(
+                    "",
+                    vec![ToolCall {
+                        id: "call-1".to_owned(),
+                        name: "lookup".to_owned(),
+                        input: json!({}),
+                        operation_id: None,
+                    }],
+                ),
                 ConversationMessage::tool("ok", "lookup", "call-1"),
             ],
         },

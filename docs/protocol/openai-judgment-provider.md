@@ -165,7 +165,9 @@ Conversation:
   an `assistant` message. Each tool call becomes a `function_call` item with
   the call id, the tool name, and the compact JSON of the arguments.
 - A tool message becomes a `function_call_output` item with the call id and
-  the content of its result.
+  the content of its result. The output needs an earlier `function_call`
+  item with the same call id. A result without its call fails shared local
+  validation with `InvalidRequest` before transport.
 - The adapter sends no reasoning part, no provider state, and no participant
   name. It sends each part in its portable form, also when the part carries
   OpenAI state. The

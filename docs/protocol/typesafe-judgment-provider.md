@@ -103,8 +103,10 @@ content input form. It takes no conversation parts.
 
 - An image part, in the input or in instructions, fails the
   [support check](judgment-boundary.md#support-check) before transport.
-- A conversation input fails the support check before transport.
-- A failed check has the unsupported input kind and sends no request.
+- A tool result without an earlier call with the same call id fails local
+  validation with `InvalidRequest` and sends no request.
+- A conversation that passes local validation fails the support check.
+- A failed support check has the unsupported input kind and sends no request.
 
 ## Request Contract
 

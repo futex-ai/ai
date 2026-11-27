@@ -236,6 +236,29 @@ async fn empty_instructions_are_rejected_before_transport() {
 }
 
 #[tokio::test]
+async fn lone_tool_result_is_rejected_before_transport() {
+    let (model, log) = model_with_transport_log();
+    let mut request = predicate();
+    request.input = JudgmentInput::Conversation {
+        system: None,
+        messages: vec![ConversationMessage::tool(
+            "fixture output",
+            "lookup",
+            "call-1",
+        )],
+    };
+
+    let error = model.judge(&request).await.unwrap_err();
+
+    assert_eq!(log.snapshot().len(), 0);
+    assert_eq!(error.core().kind, ErrorKind::InvalidRequest);
+    assert_eq!(
+        error.core().message,
+        "tool result has no earlier tool call with id `call-1`"
+    );
+}
+
+#[tokio::test]
 async fn video_is_rejected_before_transport() {
     let (model, log) = model_with_transport_log();
     let mut input = predicate();

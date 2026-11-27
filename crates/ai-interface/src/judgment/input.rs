@@ -1,10 +1,14 @@
 //! Judgment input and local conversation validation.
 
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::ConversationMessage;
+use crate::{ConversationMessage, ConversationPart, ErrorCore, ErrorKind};
 
 use super::{JudgmentContent, JudgmentError, JudgmentResult};
+
+const VALIDATION_MODEL_ID: &str = "judgment-validation";
 
 /// Content or a conversation that a judgment model evaluates.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -29,23 +33,42 @@ pub enum JudgmentInput {
 impl JudgmentInput {
     pub(super) fn validate(&self) -> JudgmentResult<()> {
         match self {
-            Self::Content(content) if content.is_empty() => {
-                return Err(JudgmentError::empty_state());
-            }
-            Self::Conversation { messages, .. } => {
-                if messages.is_empty() {
-                    return Err(JudgmentError::empty_state());
-                }
-                for message in messages {
-                    if let Err(error) = message.validate("local", "judgment-validation") {
-                        return Err(JudgmentError::new(error.core().clone()));
-                    }
-                }
-            }
-            Self::Content(_) => {}
+            Self::Content(content) if content.is_empty() => Err(JudgmentError::empty_state()),
+            Self::Conversation { messages, .. } => validate_conversation(messages),
+            Self::Content(_) => Ok(()),
         }
-        Ok(())
     }
+}
+
+fn validate_conversation(messages: &[ConversationMessage]) -> JudgmentResult<()> {
+    if messages.is_empty() {
+        return Err(JudgmentError::empty_state());
+    }
+    for message in messages {
+        if let Err(error) = message.validate("local", VALIDATION_MODEL_ID) {
+            return Err(JudgmentError::new(error.core().clone()));
+        }
+    }
+
+    let mut tool_call_ids = BTreeSet::new();
+    for part in messages.iter().flat_map(|message| &message.parts) {
+        match part {
+            ConversationPart::ToolCall { call_id, .. } => {
+                tool_call_ids.insert(call_id.as_str());
+            }
+            ConversationPart::ToolResult { call_id, .. }
+                if !tool_call_ids.contains(call_id.as_str()) =>
+            {
+                return Err(JudgmentError::new(ErrorCore::local(
+                    ErrorKind::InvalidRequest,
+                    VALIDATION_MODEL_ID,
+                    format!("tool result has no earlier tool call with id `{call_id}`"),
+                )));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 fn system_is_absent(system: &Option<String>) -> bool {

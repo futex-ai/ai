@@ -103,6 +103,10 @@ Rules for the input:
 - A message that breaks the [role table](conversation-parts.md#messages) of
   the conversation parts protocol fails local validation with the invalid
   request kind.
+- Each tool result must have an earlier tool call with the same call id.
+  A result without its call fails local validation with `InvalidRequest`.
+  The call id is the only data from the result in the error message. A tool
+  call can appear without a result.
 - A blank system text counts as absent, as the
   [system instruction rules](provider-call-controls.md#system-instructions)
   of model calls say.
@@ -163,8 +167,8 @@ answer shape. `JudgmentQuestion::kind()` returns it. The
 
 Local validation is the pure `JudgmentRequest::validate` method. The mock and
 every provider adapter call it before any transport call. It returns
-`EmptyState`, `NoQuestions`, the invalid request error of a message that
-breaks the role table, or `InvalidQuestion { id, problem }` with a typed
+`EmptyState`, `NoQuestions`, an `InvalidRequest` failure for a conversation
+that breaks the input rules, or `InvalidQuestion { id, problem }` with a typed
 `JudgmentQuestionProblem`:
 
 | Problem | Trigger |
