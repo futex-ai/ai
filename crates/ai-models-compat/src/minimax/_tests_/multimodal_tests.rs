@@ -114,8 +114,10 @@ async fn serializes_video_parts_as_video_url_data_urls() {
         }
     ]);
 
-    for spec in [MINIMAX_M3, custom_model_spec()] {
-        let model_id = spec.provider_model_id.clone();
+    for (spec, model_id) in [
+        (MINIMAX_M3, "MiniMax-M3"),
+        (custom_model_spec(), "minimax-custom"),
+    ] {
         let (http_client, requests) = recording_http_client([response.clone()]);
         MiniMaxModel::new(http_client, spec, "minimax-key")
             .complete(&request)
@@ -137,6 +139,7 @@ async fn serializes_video_parts_as_video_url_data_urls() {
                 })
             })
             .expect("JSON body should be present");
+        assert_eq!(body["model"], model_id, "unexpected request model");
         assert_eq!(
             body["messages"][1]["content"], expected_content,
             "unexpected video content for {model_id}"
