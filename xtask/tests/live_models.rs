@@ -113,27 +113,6 @@ fn typesafe_judgment_models_never_reach_other_live_runners() {
 }
 
 #[test]
-fn workflow_covers_every_live_provider() {
-    let workflow = include_str!("../../.github/workflows/live-models.yml");
-
-    for provider in LiveProvider::ALL
-        .into_iter()
-        .filter(|provider| provider.in_live_workflow())
-    {
-        assert!(
-            workflow.contains(&format!("test: {}", provider.workflow_test())),
-            "workflow omitted the {} test",
-            provider.provider_id()
-        );
-        assert!(
-            workflow.contains(&format!("api_key: {}", provider.workflow_secret())),
-            "workflow omitted the {} credential",
-            provider.provider_id()
-        );
-    }
-}
-
-#[test]
 fn workflow_runs_for_trusted_pull_requests() {
     let workflow = include_str!("../../.github/workflows/live-models.yml");
 

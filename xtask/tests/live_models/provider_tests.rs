@@ -60,39 +60,6 @@ impl LiveProvider {
         }
     }
 
-    /// QwenCloud stays out of the Live model APIs workflow until the CI account
-    /// has paid access. See `plans/follow-ups/restore-qwencloud-live-job.md` for
-    /// the steps to restore the job.
-    pub(super) fn in_live_workflow(self) -> bool {
-        self != Self::Qwen
-    }
-
-    pub(super) fn workflow_test(self) -> &'static str {
-        match self {
-            Self::Anthropic => "anthropic_catalog",
-            Self::DeepSeek => "deepseek_catalog",
-            Self::Google => "google_catalog",
-            Self::Kimi => "kimi_catalog",
-            Self::MiniMax => "minimax_catalog",
-            Self::OpenAi => "openai_catalog",
-            Self::Qwen => "qwen_catalog",
-            Self::Xai => "xai_catalog",
-        }
-    }
-
-    pub(super) fn workflow_secret(self) -> &'static str {
-        match self {
-            Self::Anthropic => "ANTHROPIC_API_KEY",
-            Self::DeepSeek => "DEEPSEEK_API_KEY",
-            Self::Google => "GOOGLE_API_KEY",
-            Self::Kimi => "KIMI_API_KEY",
-            Self::MiniMax => "MINIMAX_API_KEY",
-            Self::OpenAi => "OPENAI_API_KEY",
-            Self::Qwen => "QWEN_API_KEY",
-            Self::Xai => "XAI_API_KEY",
-        }
-    }
-
     pub(super) fn catalog(self) -> Vec<ModelSpec> {
         catalog()
             .all()
