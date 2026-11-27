@@ -30,5 +30,8 @@
 - **Left out:** None.
 - **Wider fix:** A. Live request-and-response pairs remove invented success shapes. D also catches later provider drift.
 - **Previous examples:** The four cases in the problem, all in the files that `ai-testkit` added on 2026-11-02.
+- **Related:**
+  - `plans/follow-ups/restore-qwencloud-live-job.md` has the same secret. The Qwen job of the recording workflow uses `QWEN_API_KEY`, and the free quota of that account is exhausted. So its Qwen calls fail with the same HTTP 403 until the paid access of that item exists.
+  - `plans/follow-ups/recorder-qwen-image-model.md` has the same code. The recorder selects `qwen3.7-max` for the Qwen `image_input` scenario, and that model accepts plain text only. Until that item is fixed, a recording run gives no real Qwen image exchange.
 - **Recommendation:** A. It replaces the invented shapes before the later redesign milestones rely on them, at the cost of a few calls.
 - **Action:** ask the user, because the runs need the provider secrets and billable calls.

@@ -19,6 +19,6 @@
 - **Left out:** A test that compares the provider protocols with the workflow. The `testing` skill gives docs and workflow YAML no test.
 - **Wider fix:** None. The `documentation` skill already says that each fact lives in one place.
 - **Previous examples:** `docs/protocol/qwen-model-provider.md`, fixed on branch `ci-fix/live-model-apis-qwencloud-catalog`.
-- **Related:** `plans/follow-ups/restore-qwencloud-live-job.md`.
+- **Related:** `plans/follow-ups/restore-qwencloud-live-job.md` has the same cause: the removal of the QwenCloud job made the Qwen copy of the CI coverage false. The two tasks do not depend on each other.
 - **Recommendation:** A. It keeps a pointer from each provider protocol to the one place that owns the live coverage.
 - **Action:** fix after merge, apply A, because the three docs are true today and are outside the files of the branch that found them.

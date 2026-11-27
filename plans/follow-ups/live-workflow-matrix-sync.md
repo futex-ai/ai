@@ -1,0 +1,46 @@
+# Live workflow matrices can drift from their tests
+
+- **Severity:** Medium. **Effort:** Medium. **Confidence:** High. **Harder later:** No.
+- **Kind:** Needs decision.
+- **Added:** 2026-11-27, from branch `ci-fix/live-model-apis-qwencloud-catalog`: the blocked wider fix of review finding 2. The finding checks of review round 2 added the zero-test gap and the second chat provider table.
+- **Location:** `.github/workflows/live-models.yml:32-54`, `.github/workflows/live-images.yml:32-39`, `.github/workflows/live-judgments.yml:33-37`, `xtask/tests/live_images/workflow_tests.rs:9`, `xtask/tests/live_judgments/workflow_tests.rs:9`, `xtask/tests/live_images/provider_tests.rs:15`, `xtask/tests/live_judgments/provider_tests.rs:12`, `xtask/tests/live_models/provider_tests.rs:12`, `crates/ai-testkit/src/provider.rs:18`
+- **Reason:** The recommended option adds a drift check to the gate `cargo xtask check`, and only the user can add a check to the gate.
+
+- **Terms:**
+  - **Live workflows:** `.github/workflows/live-models.yml`, `live-images.yml`, and `live-judgments.yml`. Each runs billable provider tests, in one matrix job for each provider.
+  - **Matrix row:** one entry under `matrix.include` of a live workflow. It gives its job a `provider` name, a `test` filter, and an `api_key` secret name.
+  - **Provider table:** a Rust list of the providers of a suite with the facts that its tests need, such as `LiveProvider` in `xtask/tests/live_models/provider_tests.rs`.
+  - **Drift check:** a check that runs a generator in memory and fails when the committed file differs from the output.
+- **Background:**
+  - Each matrix job runs `cargo test --locked -p xtask --test <suite> "${{ matrix.test }}" -- --ignored --exact --nocapture`. Its key comes from the secret that `api_key` names. The suites are `live_models`, `live_images`, and `live_judgments`.
+  - Each row is written by hand. `live-models.yml` has seven chat rows: Anthropic, DeepSeek, Google, Kimi, MiniMax, OpenAI, and xAI. `live-images.yml` has Google and OpenAI. `live-judgments.yml` has TypeSafe.
+  - On 2026-11-27 the user chose to leave the QwenCloud row out of `live-models.yml` until an account with paid QwenCloud access exists. The ignored test `qwen_catalog` stays.
+  - On the same day, branch `ci-fix/live-model-apis-qwencloud-catalog` removed the chat matrix text test `workflow_covers_every_live_provider`. The `testing` skill says that workflow YAML literals, such as matrix values, never get a test. It allows a drift check of generated files.
+  - The image and judgment suites still have a matrix text test, `workflow_covers_every_registered_provider`, at line 9 of `xtask/tests/live_images/workflow_tests.rs` and of `xtask/tests/live_judgments/workflow_tests.rs`. It checks that the workflow text holds `test: <name>` and `api_key: <secret>` for each provider of the suite. `workflow_test()` and `workflow_secret()` of `LiveImageProvider` and `LiveJudgmentProvider` give the names.
+  - Two provider tables list the eight chat providers: `LiveProvider` at `xtask/tests/live_models/provider_tests.rs:12` and `Provider` at `crates/ai-testkit/src/provider.rs:18`. Each has its own chat-catalog filter, which drops image, video, and judgment specs. Each has its own copy of the auth headers: `x-api-key` for Anthropic, `x-goog-api-key` for Google, and a bearer token for the others.
+  - `cargo xtask capability-matrix` already generates the "Control matrix" section of `docs/protocol/model-capabilities.md` from code. As `xtask/README.md` says, no step of `cargo xtask check` compares that section with the generator output.
+- **Problem:** A matrix row whose `test` value matches no test function runs zero tests, and its job passes. Each of the three live test binaries, with `--ignored --exact` and a filter that matches no test, printed `running 0 tests` and `test result: ok` and exited 0. So a renamed catalog test gives a green job that checks nothing, and a test without a row shows only in review.
+- **Impact if no action:** A renamed catalog test silently ends the live check of its provider, so a provider change can break the adapter while every job stays green. The two matrix text tests of the image and judgment suites keep testing YAML text.
+- **Root question:** How do the live workflow matrices stay in step with the live provider tests without tests of YAML text?
+- **Options:**
+  - **A.** Rely on the workflow runs and on review. Remove the two matrix text tests of the image and judgment suites. The chat suite has had no such test since 2026-11-27. A renamed test still gives a green job, and only review finds a missing row. Effort: Small.
+  - **B.** Build each matrix at run time from the list of ignored tests, with a skip list. For example, `cargo test --locked -p xtask --test live_models -- --list --ignored` prints `anthropic_catalog: test` and one such line for each other chat test, eight in all. A first job writes the matrix as JSON, and the provider jobs read it with `fromJSON`. The skip list holds `qwen_catalog` until the restore. Each row then names a real test, so the zero-test gap closes. Remove the two matrix text tests. Effort: Medium. Its costs:
+    - Each run compiles the test target once more, before the provider jobs.
+    - The secret name must follow from the test name by a naming rule, such as `anthropic_catalog` to `ANTHROPIC_API_KEY`.
+    - A new ignored test joins the paid matrix unless someone adds it to the skip list.
+    - The rows no longer show in the workflow files.
+  - **C.** Generate the matrix rows of the three live workflows from one provider table, as `cargo xtask capability-matrix` writes its doc section. Add a drift check to `cargo xtask check`. The table gives each row its provider name, test name, and secret name. It marks QwenCloud as left out of CI until the restore. A row that someone adds, removes, or changes by hand then fails the gate. The drift check can also compare each test name of the table with the `--list --ignored` output of its suite, so a renamed test fails the gate too. Remove the two matrix text tests. Blocked: the drift check adds a new check to the gate, which needs the user. Effort: Medium. The Rust rules allow these homes for the table:
+    - The chat table can extend `Provider` in `crates/ai-testkit/src/provider.rs`. The `xtask` binary already imports it (`xtask/src/record_streams/command.rs:5`), and the `xtask` test targets depend on `ai-testkit` (`xtask/Cargo.toml`). So it needs no new target, and `LiveProvider` can use it instead of its own copy.
+    - The image and judgment tables need a new library target in `xtask`, or a wider scope for `ai-testkit`. The README of `ai-testkit` limits it to chat adapters (`crates/ai-testkit/README.md:3`).
+    - The `rust` skill allows `#[path]` only for test modules. So a module that the binary and a test target both load with `#[path]` is not an allowed home.
+- **Left out:**
+  - Keep the matrix text tests, or parse the YAML in a test and compare it with a table. The `testing` skill gives workflow matrix values no test.
+  - Make each workflow step fail when its filter ran zero tests. It finds a renamed test, but a missing row still shows only in review, so it fails the goal.
+- **Wider fix:** C. One table becomes the source of every row, and the drift check catches each change by hand. B also prevents the class, but then each new ignored test joins the paid matrix by default.
+- **Previous examples:** Branch `ci-fix/live-model-apis-qwencloud-catalog` (2026-11-27) removed the QwenCloud row by hand. Its review found that the chat matrix text test, with a filter for QwenCloud, passed with both the seven-row and the eight-row matrix. The branch then removed that test.
+- **Related:**
+  - `plans/follow-ups/live-workflow-yaml-text-tests.md` is a separate question about the same workflows and the same `testing` rule. It covers the YAML text tests of the triggers, the secret conditions, and the job settings. The two answers do not depend on each other.
+  - `plans/follow-ups/restore-qwencloud-live-job.md` adds the QwenCloud row back, so this answer changes its step 2. Under B, the restore removes `qwen_catalog` from the skip list. Under C, the restore changes the QwenCloud entry of the table and runs the generator.
+  - `plans/follow-ups/recorder-qwen-image-model.md` changes the same file, `crates/ai-testkit/src/provider.rs`. C extends `Provider` there, and that item changes `Provider::model`. The two changes do not depend on each other.
+- **Recommendation:** C. It keeps the rows visible in the workflow files, gives every row one source, and fails the gate on each drift, also on a renamed test.
+- **Action:** ask the user, because C adds a new check to the gate `cargo xtask check`, and a new gate check waits for the user's choice.

@@ -65,9 +65,11 @@ event failures, and costs at most one extra billable call per probe.
 Image-, video-, and judgment-capable specs are excluded because they
 use separate specialized interfaces. Credentialed tests never run as part of
 `check` or `smoke-test`; credential-free bridge, validation, catalog, and
-workflow guards do. The dedicated GitHub Actions workflow invokes
-the ignored tests of every provider except QwenCloud for eligible pull
-requests, daily verification, and manual dispatch. The MiniMax job first
+workflow guards do. The dedicated GitHub Actions workflow invokes the ignored
+tests of the providers that
+[CI And Credentials](../docs/protocol/live-model-api-tests.md#ci-and-credentials)
+lists, for eligible pull requests, daily verification, and manual dispatch.
+The MiniMax job first
 sends MiniMax-M3 a real tool with strict `Required` selection and asserts
 that the provider returns that tool call.
 The judgment workflow additionally requires the repository Actions variable

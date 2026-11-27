@@ -2,16 +2,16 @@
 
 ## Purpose
 
-Continuously verify that every real chat-provider adapter, and the default
-and every listed effort of every chat-capable exported model spec, can
-complete a request through the generic tool-calling runtime and its
-upstream production API.
+Verify that every real chat-provider adapter, and the default and every
+listed effort of every chat-capable exported model spec, can complete a
+request through the generic tool-calling runtime and its upstream
+production API.
 
 ## Scope
 
 The credentialed suite covers Anthropic, DeepSeek, Google Gemini, Kimi,
-MiniMax, OpenAI, QwenCloud, and xAI. CI runs all of them except QwenCloud, as
-[CI And Credentials](#ci-and-credentials) says. Each provider test takes its
+MiniMax, OpenAI, QwenCloud, and xAI. [CI And Credentials](#ci-and-credentials)
+says which of them CI runs. Each provider test takes its
 specs from the combined catalog of the registry. It runs one probe at the
 default of each chat-capable spec, then one probe for each other listed
 effort, so new specs and efforts enter the live test automatically. The
