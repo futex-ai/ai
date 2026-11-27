@@ -11,7 +11,7 @@
   - **Synthetic recording:** a hand-built recording file with `"source": "synthetic"`. A live recording has `"source": "recorded"`.
   - **Recording workflow:** `.github/workflows/record-provider-streams.yml`. It runs `cargo xtask record-streams` for each provider with that provider's secret, one provider at a time, and uploads the recordings as an artifact.
 - **Background:**
-  - `ai-testkit` holds 48 recordings: six scenarios for each of eight chat providers. All 48 are synthetic, built from provider docs and from the streaming tests of each adapter.
+  - `ai-testkit` holds 56 recordings: seven for each of eight chat providers, the six model scenarios and the agent tool loop. All 56 are synthetic, built from provider docs and from the streaming tests of each adapter.
   - The recordings are the regression safety of the AI library redesign. The conformance runner replays them, compares each request with its recording, and snapshots each result.
   - The recording workflow records the four success scenarios of each provider: `text_turn`, `tool_loop`, `schema_call`, and `image_input`. It runs on `workflow_dispatch` on the default branch, or on a same-repository pull request when someone adds the label `record-provider-streams`. Someone then reviews the artifact and commits the files.
   - Anthropic does not guarantee a thinking block on every request. So a live `tool_loop` recording is useful only when its response holds a thinking block, because it is the only Anthropic thinking-replay case.
@@ -30,5 +30,6 @@
 - **Left out:** None.
 - **Wider fix:** A. Live request-and-response pairs remove invented success shapes. D also catches later provider drift.
 - **Previous examples:** The four cases in the problem, all in the files that `ai-testkit` added on 2026-11-02.
+- **Related:** `plans/follow-ups/minimax-video-live-assertion-claim.md`: the same recording workflow. Its option B adds a `video_input` scenario that this workflow records.
 - **Recommendation:** A. It replaces the invented shapes before the later redesign milestones rely on them, at the cost of a few calls.
 - **Action:** ask the user, because the runs need the provider secrets and billable calls.

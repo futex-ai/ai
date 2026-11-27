@@ -1,0 +1,44 @@
+# MiniMax image test covers only MiniMax-M3
+
+- **Severity:** Low. **Effort:** Small. **Confidence:** High. **Harder later:** No.
+- **Kind:** Outside the scope.
+- **Added:** 2026-11-27, from branch `ci-fix/live-model-apis-minimax-catalog` (pull request #32), found by the implementation review.
+- **Location:** `crates/ai-models-compat/src/minimax/_tests_/multimodal_tests.rs:15` (`serializes_ordered_text_and_image_parts_as_data_urls`), `crates/ai-models-compat/src/minimax/_tests_/support.rs:16` (`custom_model_spec`), `docs/protocol/minimax-model-provider.md:104-106`
+- **Reason:** The image test has sent only MiniMax-M3 since commit `119cfd7`, before this branch, and the user chose a follow-up item on 2026-11-27.
+
+- **Terms:**
+  - **Spec:** a `ModelSpec` value in `crates/ai-interface/src/model_spec.rs` that holds the facts of one model, such as its provider model id and its features.
+  - **Feature:** a `ModelFeature` value of a spec, such as `Vision` or `VideoInput`, that routing reads.
+  - **Custom spec:** a spec that `ModelSpec::custom` builds for a model that no catalog lists, with no features until the caller sets them.
+  - **Dialect:** the fixed settings of one provider for the shared Chat Completions engine, the `CompatModel` adapter in `crates/ai-models-compat`.
+  - **Conformance suite:** the tests of `crates/ai-testkit`, which run each chat adapter against a recording, a file of recorded requests and responses, for each scenario.
+- **Background:**
+  - MiniMax is one of the five dialects of the Chat Completions engine. Its catalog holds one spec, `MINIMAX_M3`, which lists `Vision` and `VideoInput`, at `crates/ai-models-compat/src/minimax/catalog.rs:39-68`.
+  - `docs/protocol/minimax-model-provider.md:104-106` says: "A user message with one text part is sent as a string. Other user messages send their text, image, and video parts as OpenAI-compatible `text`, `image_url`, and `video_url` parts." The rule names no spec, so it holds for every MiniMax spec.
+  - The test helper `custom_model_spec()` at `crates/ai-models-compat/src/minimax/_tests_/support.rs:16` builds the custom spec `minimax-custom` from the MiniMax custom defaults.
+  - The video test `serializes_video_parts_as_video_url_data_urls` at `crates/ai-models-compat/src/minimax/_tests_/multimodal_tests.rs:79` sends the same request with `(MINIMAX_M3, "MiniMax-M3")` and with `(custom_model_spec(), "minimax-custom")`. For each case, it checks the request `model` and the message content. This branch added the custom case in commit `c5f003f` and the `model` check in commit `3c5012d`, on 2026-11-27.
+  - The MiniMax `image_input` recording of the conformance suite, `crates/ai-testkit/recordings/minimax/image_input.json`, also sends `MiniMax-M3`. No other test sends a MiniMax image part.
+  - All five dialects send their requests through `CompatModel::open_stream` at `crates/ai-models-compat/src/engine/client.rs:66`. The xAI image test `serializes_image_context_message` at `crates/ai-models-compat/src/xai/_tests_/xai_multimodal_tests.rs:16` sends an image there with the custom spec `grok-4`. So a gate in `open_stream`, by feature or by an unlisted model id, fails that test.
+- **Problem:** The image test `serializes_ordered_text_and_image_parts_as_data_urls` at `crates/ai-models-compat/src/minimax/_tests_/multimodal_tests.rs:15` sends its request only with `MINIMAX_M3`, which lists `Vision`. So a gate for MiniMax alone that rejects image parts for a spec without `Vision` passes every test. Such a gate can be a MiniMax dialect setting at `crates/ai-models-compat/src/minimax/dialect.rs:32` that reads the features or the model id.
+- **Impact if no action:** Such a change breaks the documented image mapping of every unlisted MiniMax model, and `cargo xtask check` still passes.
+- **Root question:** How does the test suite make sure that every MiniMax spec, also one without `Vision`, sends its image parts as `image_url` parts?
+- **Options:**
+  - **A.** Make the image test send the same request with `(MINIMAX_M3, "MiniMax-M3")` and with `(custom_model_spec(), "minimax-custom")`, as the video test does.
+    - For each case, check the literal request `model` and the expected content, and name the case in the failure text. Keep the M3 case and every check.
+    - To prove the custom case, add a temporary model-id gate to the MiniMax dialect. See the custom case fail, then remove the gate.
+    - Cost: one more case in an existing test. Effort: Small.
+  - **B.** Add one table test in `crates/ai-models-registry/src/_tests_/` that sends image and video parts through the custom spec of each provider. `plans/follow-ups/custom-spec-media-forwarding-coverage.md` holds this option as its option A. Cost: it is a test for the class, and the `testing` skill gives that choice to the user. Effort: Medium.
+- **Left out:**
+  - Change nothing: a MiniMax-only gate still passes every test, so this fails the goal.
+  - Reject image parts for a spec without `Vision`, and document the rejection. This changes the requirement at `docs/protocol/minimax-model-provider.md:104-106` instead of checking it.
+  - A type change that keeps `features` away from the adapters: it fails the goal, because a model-id rule still passes every test.
+- **Wider fix:** B. One table test catches a feature gate or a model-id rule in every adapter.
+- **Previous examples:**
+  - The MiniMax video test sent only MiniMax-M3 until commit `c5f003f` of this branch, on 2026-11-27. With a temporary gate on the model id, its new custom case failed with `UnsupportedInput`.
+  - Commit `119cfd7` of 2026-07-27 wrote the image test with MiniMax-M3 only. The M2.7 specs of that time listed no `Vision`, and the MiniMax protocol doc gave the `image_url` mapping for every spec.
+  - Commit `d796c57` of 2026-08-13 added the video test with MiniMax-M3 only. The M2.7 specs listed no `VideoInput`, and `docs/protocol/video-input.md` said that their requests still sent `video_url` parts.
+- **Related:**
+  - `plans/follow-ups/custom-spec-media-forwarding-coverage.md`: the shared wider fix. Its option A, the table test, also covers this image case. This item is the direct fix, and it can land first.
+  - `plans/follow-ups/remove-provider-constructors.md`: the same test. That work deletes `MiniMaxModel::new` at `crates/ai-models-compat/src/minimax/client.rs:33`, which the image test and option A use. It builds every test model through `Registry` in `crates/ai-models-registry` instead, so the change that lands second rewrites the same test.
+- **Recommendation:** A. It closes the MiniMax gap at the smallest cost, with the pattern of the video test next to it. B best protects the codebase, and `plans/follow-ups/custom-spec-media-forwarding-coverage.md` asks the user for it.
+- **Action:** fix after merge, apply A, because the gap was on `main` before this branch, and the user chose a follow-up item on 2026-11-27.
