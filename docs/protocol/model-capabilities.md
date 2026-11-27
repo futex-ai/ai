@@ -241,8 +241,6 @@ Bold marks the default effort or provider default. `default` marks an output lim
 | `kimi/kimi-k3` | low, high, **max** | 131072 | 1000000 | fixed | yes | always | no | low, high, max |
 | `kimi/custom` | low, high, **max** | 131072 | 0 | fixed | yes | always | no | low, high, max |
 | `minimax/MiniMax-M3` | disabled, **medium** | 512000 | 1000000 | adjustable | no | required only | no | medium |
-| `minimax/MiniMax-M2.7` | **medium** | 131072 | 204800 | adjustable | no | never | no | medium |
-| `minimax/MiniMax-M2.7-highspeed` | **medium** | 131072 | 204800 | adjustable | no | never | no | medium |
 | `minimax/custom` | disabled, low, **medium**, high, extra_high, max | u32::MAX | 0 | adjustable | no | never | no | low, medium, high, extra_high, max |
 | `mock/mock` | **provider default** | 128000 | 128000 | adjustable | yes | always | no | none |
 | `mock/custom` | **provider default** | 128000 | 128000 | adjustable | yes | always | no | none |

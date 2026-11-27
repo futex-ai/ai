@@ -6,12 +6,12 @@ use ai_models_core::test_support::{
 };
 use serde_json::{Value, json};
 
-use crate::{
-    minimax::{MINIMAX_M2_7, MiniMaxModel},
-    stream_test_support::{assistant_delta, content_events, observe},
-};
+use crate::stream_test_support::{assistant_delta, content_events, observe};
 
-use super::{response, support::simple_request};
+use super::{
+    MiniMaxModel, response,
+    support::{custom_model_spec, simple_request},
+};
 
 #[tokio::test]
 async fn incremental_fragments_survive_empty_finish_and_match_buffered() {
@@ -98,11 +98,11 @@ async fn reasoning_snapshots_remain_canonical_with_inferred_fragments() {
 
 async fn observe_stream(events: Vec<StreamItem>) -> (ModelResponse, Vec<Value>) {
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
+    let model = MiniMaxModel::new(http_client, custom_model_spec(), "key");
     let mut recorded = Vec::new();
     let response = observe(&model, &simple_request(), &mut recorded)
         .await
-        .expect("M2.7 stream should complete");
+        .expect("non-M3 stream should complete");
     (response, content_events(&recorded))
 }
 
@@ -154,13 +154,14 @@ fn reasoning_details(text: &str) -> Value {
 }
 
 fn buffered_response(content: &str, reasoning_details: Option<Value>) -> ModelResponse {
+    let spec = custom_model_spec();
     let mut message = json!({"content": content});
     if let Some(reasoning_details) = reasoning_details {
         message["reasoning_details"] = reasoning_details;
     }
     response::parse_response(
-        &MINIMAX_M2_7.text_id(),
-        MINIMAX_M2_7.provider_model_id.as_ref(),
+        &spec.text_id(),
+        spec.provider_model_id.as_ref(),
         Effort::Medium,
         json!({
             "choices": [{"message": message, "finish_reason": "stop"}],

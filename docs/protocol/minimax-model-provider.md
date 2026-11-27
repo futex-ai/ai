@@ -60,7 +60,7 @@ Responses and Anthropic-compatible APIs are out of scope.
 
 ## Known Model Specs
 
-The initial catalog contains one spec for each current, non-legacy agent
+The catalog contains one spec for each current, non-legacy agent
 model. The [control matrix](model-capabilities.md#control-matrix) gives the
 efforts, the default effort, the max output, and the context window of each
 spec.
@@ -68,11 +68,9 @@ spec.
 | Text id | Constant | Intelligence | Speed | Cost | Features |
 | --- | --- | --- | --- | --- | --- |
 | `minimax/MiniMax-M3` | `MINIMAX_M3` | Nine | Medium | Low | tools, structured output, vision, video input, long context, reasoning |
-| `minimax/MiniMax-M2.7` | `MINIMAX_M2_7` | Eight | Medium | Low | tools, structured output, long context, reasoning |
-| `minimax/MiniMax-M2.7-highspeed` | `MINIMAX_M2_7_HIGHSPEED` | Eight | Fast | Medium | tools, structured output, long context, reasoning |
 
-Legacy M2.5, M2.1, and M2 models and the dialogue-specific M2-her model are
-not included. A model that the catalog does not list uses a
+The catalog does not list M2.x models or the dialogue-specific M2-her model.
+A model that the catalog does not list uses a
 [custom spec](model-capabilities.md#custom-specs) with the MiniMax custom
 defaults.
 
@@ -176,11 +174,7 @@ MiniMax-M3 thinking maps from the resolved effort:
 - The capability check lowers low to disabled
 - The capability check lowers high, extra high, and max to medium
 
-M2.x reasoning cannot be disabled. The M2.7 specs therefore list only the
-medium effort. The capability check lowers high, extra high, and max to
-medium. A request with the disabled or low effort fails with
-`UnsupportedControl` for effort before transport. Responses record the
-resolved effort.
+Responses record the resolved effort.
 
 With `reasoning_split: true`, the provider may return both
 `reasoning_content` and `reasoning_details`. A reasoning detail preserves all

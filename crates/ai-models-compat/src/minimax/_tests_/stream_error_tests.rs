@@ -1,16 +1,15 @@
 //! MiniMax stream failure classification tests.
 
-use ai_interface::ErrorKind;
-
-use ai_interface::Model;
+use ai_interface::{ErrorKind, Model};
 use ai_models_core::test_support::{
     SseFixture, data_event, done_event, event, recording_streaming_client,
 };
 use serde_json::json;
 
-use crate::minimax::{MINIMAX_M2_7, MINIMAX_M3, MiniMaxModel};
-
-use super::support::simple_request;
+use super::{
+    MINIMAX_M3, MiniMaxModel,
+    support::{custom_model_spec, simple_request},
+};
 
 #[tokio::test]
 async fn numeric_provider_errors_preserve_classification_until_progress() {
@@ -91,7 +90,7 @@ async fn accepts_replaced_cumulative_content_for_buffered_calls() {
         })),
         done_event(),
     ])]);
-    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
+    let model = MiniMaxModel::new(http_client, custom_model_spec(), "key");
 
     let response = model
         .complete(&simple_request())

@@ -11,10 +11,7 @@ mod stream_quirks;
 #[path = "_tests_/response.rs"]
 mod response;
 
-pub use catalog::{
-    CATALOG, CUSTOM_DEFAULTS, MINIMAX_M2_7, MINIMAX_M2_7_HIGHSPEED, MINIMAX_M3, PROVIDER_ID,
-    known_models,
-};
+pub use catalog::{CATALOG, CUSTOM_DEFAULTS, MINIMAX_M3, PROVIDER_ID, known_models};
 pub use client::MiniMaxModel;
 pub use state::LegacyConverter;
 
