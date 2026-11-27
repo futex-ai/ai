@@ -1,8 +1,5 @@
 # Live Judgment API Test Protocol
 
-Status: Implemented. The first credentialed OpenAI run is pending in
-[Milestone 5](../../plans/shared-judgment-and-openai-decisions.md#milestone-5-registry-smoke-test-and-live-tests).
-
 ## Purpose And Status
 
 This protocol defines credentialed end-to-end verification for every
