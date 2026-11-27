@@ -136,6 +136,28 @@ pub const GPT_IMAGE_2: ModelSpec = media_spec(
     },
 );
 
+/// GPT-6 Luna model for the Decisions API.
+pub const GPT_6_LUNA: ModelSpec = ModelSpec {
+    provider: PROVIDER_ID,
+    provider_model_id: Cow::Borrowed("gpt-6-luna"),
+    context_window_tokens: 0,
+    max_output_tokens: 0,
+    efforts: EffortSet::empty(),
+    default_effort: None,
+    forced_tool_choice: ForcedToolChoice::Never,
+    sampling: Sampling::Fixed,
+    supports_stop_sequences: false,
+    supports_deferred: false,
+    requires_output_limit: false,
+    replay_efforts: Cow::Borrowed(&[]),
+    features: Cow::Borrowed(&[ModelFeature::Judgment, ModelFeature::Vision]),
+    routing: Some(RoutingTiers {
+        intelligence: IntelligenceScore::Five,
+        speed: SpeedTier::VeryFast,
+        cost: CostTier::Low,
+    }),
+};
+
 /// One spec for each known OpenAI provider model.
 pub const CATALOG: &[ModelSpec] = &[
     GPT_5_6_SOL,
@@ -145,6 +167,7 @@ pub const CATALOG: &[ModelSpec] = &[
     GPT_5_4_MINI,
     GPT_5_4_NANO,
     GPT_IMAGE_2,
+    GPT_6_LUNA,
 ];
 
 /// Returns OpenAI models known to this provider crate.

@@ -16,6 +16,7 @@ use super::{
 
 enum Encoding {
     Fields(BTreeMap<String, Vec<u8>>),
+    Ordered(BTreeMap<String, (usize, Vec<u8>)>),
     Raw(Option<Vec<u8>>),
 }
 
@@ -34,6 +35,14 @@ impl Object {
         }
     }
 
+    pub(super) fn ordered() -> Self {
+        Self {
+            encoding: Encoding::Ordered(BTreeMap::new()),
+            key: None,
+            variant: None,
+        }
+    }
+
     pub(super) fn raw() -> Self {
         Self {
             encoding: Encoding::Raw(None),
@@ -45,7 +54,18 @@ impl Object {
     fn field<T: ?Sized + Serialize>(&mut self, key: &str, value: &T) -> Result<()> {
         match &mut self.encoding {
             Encoding::Fields(fields) => {
-                fields.insert(key.to_owned(), value.serialize(CanonicalSerializer)?);
+                fields.insert(
+                    key.to_owned(),
+                    value.serialize(CanonicalSerializer::SORTED)?,
+                );
+            }
+            Encoding::Ordered(fields) => {
+                let bytes = value.serialize(CanonicalSerializer::SORTED)?;
+                let position = fields.len();
+                fields
+                    .entry(key.to_owned())
+                    .or_insert((position, Vec::new()))
+                    .1 = bytes;
             }
             Encoding::Raw(bytes) if key == RAW_VALUE_TOKEN => {
                 *bytes = Some(raw::serialize(value)?);
@@ -56,26 +76,35 @@ impl Object {
     }
 
     fn finish(self) -> Result<Vec<u8>> {
-        let fields = match self.encoding {
-            Encoding::Fields(fields) => fields,
+        let bytes = match self.encoding {
+            Encoding::Fields(fields) => encode_fields(fields)?,
+            Encoding::Ordered(fields) => {
+                let mut fields: Vec<_> = fields.into_iter().collect();
+                fields.sort_unstable_by_key(|(_, (position, _))| *position);
+                encode_fields(fields.into_iter().map(|(key, (_, value))| (key, value)))?
+            }
             Encoding::Raw(Some(bytes)) => return Ok(bytes),
             Encoding::Raw(None) => return Err(serde_json::Error::custom("expected RawValue")),
         };
-        let mut bytes = vec![b'{'];
-        for (key, value) in fields {
-            if bytes.len() > 1 {
-                bytes.push(b',');
-            }
-            bytes.extend(serde_json::to_vec(&key)?);
-            bytes.push(b':');
-            bytes.extend(value);
-        }
-        bytes.push(b'}');
         match self.variant {
             Some(variant) => tagged(variant, bytes),
             None => Ok(bytes),
         }
     }
+}
+
+fn encode_fields(fields: impl IntoIterator<Item = (String, Vec<u8>)>) -> Result<Vec<u8>> {
+    let mut bytes = vec![b'{'];
+    for (key, value) in fields {
+        if bytes.len() > 1 {
+            bytes.push(b',');
+        }
+        bytes.extend(serde_json::to_vec(&key)?);
+        bytes.push(b':');
+        bytes.extend(value);
+    }
+    bytes.push(b'}');
+    Ok(bytes)
 }
 
 impl SerializeMap for Object {

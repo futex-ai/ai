@@ -1,6 +1,9 @@
 //! OpenAI catalog tests.
 
-use ai_interface::{Effort, ModelFeature, ProviderId};
+use ai_interface::{
+    CostTier, Effort, EffortSet, IntelligenceScore, ModelFeature, ProviderId, RoutingTiers,
+    SpeedTier,
+};
 use serde_json::json;
 
 use super::{
@@ -103,4 +106,32 @@ fn gpt_image_2_is_routable_for_image_generation() {
     assert_eq!(model.context_window_tokens, 0);
     assert!(model.has_feature(ModelFeature::ImageGeneration));
     assert!(model.has_feature(ModelFeature::Vision));
+}
+
+#[test]
+fn gpt_6_luna_has_one_judgment_spec_with_vision() {
+    let models = known_models();
+    let matching = models
+        .iter()
+        .filter(|model| model.text_id() == "openai/gpt-6-luna")
+        .collect::<Vec<_>>();
+    assert_eq!(matching.len(), 1);
+    let spec = matching[0];
+    assert_eq!(spec.provider, PROVIDER_ID);
+    assert_eq!(
+        spec.features.as_ref(),
+        [ModelFeature::Judgment, ModelFeature::Vision]
+    );
+    assert_eq!(spec.context_window_tokens, 0);
+    assert_eq!(spec.max_output_tokens, 0);
+    assert_eq!(spec.efforts, EffortSet::empty());
+    assert_eq!(spec.default_effort, None);
+    assert_eq!(
+        spec.routing,
+        Some(RoutingTiers {
+            intelligence: IntelligenceScore::Five,
+            speed: SpeedTier::VeryFast,
+            cost: CostTier::Low,
+        })
+    );
 }

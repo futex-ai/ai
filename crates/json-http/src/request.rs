@@ -45,6 +45,7 @@ impl JsonHttpRequestBuilder {
                 body: None,
                 timeout: DEFAULT_TIMEOUT,
                 idle_timeout: None,
+                follow_redirects: true,
             },
             auth_hooks: Vec::new(),
             default_headers: BTreeMap::new(),
@@ -92,6 +93,13 @@ impl JsonHttpRequestBuilder {
         self
     }
 
+    /// Returns the first redirect response from the transport.
+    /// The reqwest transport keeps its status and headers and skips its body.
+    pub fn without_redirects(mut self) -> Self {
+        self.request.follow_redirects = false;
+        self
+    }
+
     /// Registers an auth hook that will run before dispatch.
     pub fn auth(mut self, auth: DynJsonHttpAuth) -> Self {
         self.auth_hooks.push((auth, None));
@@ -109,7 +117,7 @@ impl JsonHttpRequestBuilder {
     where
         T: Serialize,
     {
-        let body = match body.serialize(CanonicalSerializer) {
+        let body = match body.serialize(CanonicalSerializer::SORTED) {
             Ok(body) => body,
             Err(source) => return Err(Error::SerializeRequest { source }),
         };

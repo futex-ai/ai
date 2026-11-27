@@ -1,32 +1,48 @@
 # Provider redirects can replay request bodies
 
-- **Severity:** High. **Effort:** Small. **Confidence:** High. **Harder later:** Yes.
+- **Severity:** High. **Effort:** Medium. **Confidence:** High. **Harder later:** Yes.
 - **Kind:** Outside the scope.
-- **Added:** 2026-11-02, from branch `calummoore/redesign-2-safety-net`. The options check of the MCP evaluation of `plans/ai-library-redesign.md` found it outside its scope.
-- **Location:** `crates/json-http/src/reqwest_transport.rs`, `crates/json-http/src/reqwest_redirect.rs`, `crates/json-http/src/request.rs`
-- **Reason:** Credential filtering now protects redirect hops. Disabling redirects still adds failures for endpoints that use redirects, so the user decides.
+- **Added:** 2026-11-02, from branch `calummoore/redesign-2-safety-net`. The options check of the MCP evaluation of `plans/ai-library-redesign.md` found it outside its scope. Updated on 2026-11-26 from branch `calummoore/adding-openai-decisions-api-9ler`, review round 1. The update adds option D of finding 2 and the Decisions opt-out. It also adds the retried redirect loop that the finding check found outside the scope. Review round 2 of the same branch added the 3xx body skip and the related item.
+- **Location:** `crates/json-http/src/reqwest_transport.rs`, `crates/json-http/src/reqwest_redirect.rs`, `crates/json-http/src/request.rs`, `crates/ai-models-core/src/errors.rs:56`, `crates/ai-models-core/src/errors.rs:111`
+- **Reason:** Credential filtering now protects redirect hops. Each option that limits redirects adds failures for endpoints that use redirects, so the user decides.
 
 - **Terms:**
   - **`json-http`:** the shared HTTP crate of this workspace, in `crates/json-http`. Every AI provider adapter sends its requests through it.
   - **Cross-origin redirect:** an HTTP 3xx response whose `Location` names another host, port, or scheme.
+  - **Retry layer:** `RetryingModel` in `crates/ai-models-policy`. It repeats a model call after a rate-limited or transient failure, before the first model event.
 - **Background:**
   - The provider transport follows up to 10 redirects. A 307 or 308 redirect sends the same method and body again.
+  - A 303 response, or a 301 or 302 response to a POST, makes the next hop a GET without the body. A 307 or 308 response to a multipart request comes back without a follow, because that body cannot be replayed.
   - Before 2026-11-02, reqwest 0.13.4 removed only standard authorization and cookie headers on cross-origin redirects.
   - Anthropic sends its key in `x-api-key`. Google sends its key in `x-goog-api-key`. That earlier transport kept both headers on cross-origin redirects.
   - The shared transport now removes auth-hook headers and standard credential headers whenever a hop has another origin. It restores them only on the original origin.
   - Config extra headers have lower precedence than adapter and auth headers. The builder applies extras after auth, so an identical extra value cannot hide an auth-header write.
   - JSON, binary, and SSE requests use this transport behavior. The existing redirect limit, method changes, body replay rules, and timeout budget stay in force.
   - The MCP transport of `ai-mcp` already disables redirects, and `docs/protocol/ai-mcp.md` requires that it never sends authorization headers to a redirect target.
+  - The MCP transport that `docs/protocol/ai-mcp.md` specifies follows no redirect and returns any 3xx response to the client.
+  - The OAuth transport that `docs/protocol/mcp-oauth.md` specifies follows redirects only for metadata GETs, after it checks each hop. It never redirects a registration, token, or revocation POST.
   - The redesign lets each provider config set its own base URL, so requests can also go to gateways that the host configures.
-- **Problem:** Credential filtering leaves automatic redirects enabled. A 307 or 308 can still send a private request body to another origin.
-- **Impact if no action:** A redirect can send prompts, media, or tool data to a host that the operator never configured.
-- **Root question:** Should the provider transport follow HTTP redirects?
+  - After the 10th redirect, the transport fails with the reqwest error `too many redirects`. The shared error code in `crates/ai-models-core/src/errors.rs` gives that failure the transient kind, because it is a transport failure. Line 111 does this for buffered calls, and line 56 does it for SSE calls.
+  - The retry layer retries the transient kind. Its standard bounds allow three attempts.
+  - So a same-origin 307 loop on a model call sends 11 authenticated POSTs with the same body in each attempt. It can send up to 33 for one call. The test `redirect_limit_retains_reqwest_failure_for_buffered_and_sse` in `crates/json-http/tests/_tests_/redirect_transport/limit_tests.rs` shows the 11 requests for a GET loop.
+  - On 2026-11-26, a loopback gateway returned HTTP 307 to the OpenAI Decisions adapter. One call sent two authenticated POSTs with the same body. The Decisions protocol requires one request for each call.
+  - The fix opted the Decisions adapter out of redirects with a per-request setting of the `json-http` request builder, in `crates/ai-models-openai/src/openai/decisions/client.rs`. With the setting, a buffered call returns the first 3xx response, and an SSE call returns its HTTP status error.
+  - Review round 2 of the same branch made the reqwest transport skip the body of that 3xx under the setting. It keeps the status and headers, so a failed body read cannot turn the redirect into a transient failure.
+  - Only the Decisions adapter uses the setting. Every other adapter still follows redirects, also the TypeSafe judgment adapter, which sends a POST through the same transport.
+  - A 3xx response that reaches an adapter has the invalid output kind, as `docs/protocol/model-policies.md` says for an unexpected status below 400.
+  - Two adapters send GET requests. The Google video adapter polls its operation and downloads the video sample, and the xAI adapter polls deferred completions.
+  - The item of 2026-11-02 judged that the providers of this workspace do not use redirects in normal operation. No test or live run checks whether a provider GET gets a redirect.
+- **Problem:** Credential filtering leaves automatic redirects enabled. A 307 or 308 can still send a private request body to another origin, or send the same billable request again. A redirect loop sends it 11 times in each attempt, and the retry layer repeats the attempt.
+- **Impact if no action:** A redirect can send prompts, media, or tool data to a host that the operator never configured. A redirect loop can bill up to 33 POSTs for one call with the standard retry bounds.
+- **Root question:** Which redirects may the provider transport follow, so that a request body reaches only the configured origin and is sent once?
 - **Options:**
-  - **A.** Disable automatic redirects in the provider transport. A 3xx response becomes a typed HTTP status error, as the MCP transport does. Risk: a provider or gateway that relies on a redirect stops working until its base URL is fixed. Effort: Small.
-  - **B.** Follow same-origin redirects only, and stop at a cross-origin redirect with a typed error. Same-origin redirects, such as a trailing-slash fix, keep working. Effort: Small.
+  - **A.** Disable automatic redirects in the provider transport. A 3xx response becomes a typed HTTP status error, as the MCP transport does. Risk: a provider or gateway that relies on a redirect stops working until its base URL is fixed. This also stops each GET poll or download that uses a redirect. Effort: Small.
+  - **B.** Follow same-origin redirects only, and stop at a cross-origin redirect with a typed error. Same-origin redirects, such as a trailing-slash fix, keep working. A same-origin 307 or 308 still sends the request again, also in a redirect loop. Effort: Small.
   - **C.** Keep the current redirects with origin-scoped credential filtering. Redirect-dependent gateways keep working, but request bodies can still cross origins. Effort: Small.
-- **Left out:** Forward credentials to another origin. It breaks the provider credential-origin requirement.
-- **Wider fix:** A. One transport default prevents every redirect from replaying a request body.
-- **Previous examples:** The MCP transport of `ai-mcp` disables redirects for the same reason. `docs/protocol/ai-mcp.md` requires it.
-- **Recommendation:** A. It removes the class at the shared transport, and the providers of this workspace do not use redirects in normal operation.
-- **Action:** ask the user, because A and B add failures for redirect responses, and no recorded decision covers that change.
+  - **D.** Follow redirects only for GET requests. For POST, PUT, PATCH, and DELETE, return every 3xx response without a follow, on the buffered and SSE paths. The adapter then gets the 3xx as the Decisions adapter does with its setting. GET polls and downloads keep their redirects with origin-scoped credentials. The OAuth transport of `ai-mcp-oauth` uses the same split, as `docs/protocol/mcp-oauth.md` requires. Risk: a gateway that redirects a POST stops working until its base URL is fixed. A GET redirect loop still sends 11 GETs in each attempt. Update the redirect text of `crates/json-http/README.md` and the tests under `crates/json-http/tests/_tests_/redirect_transport/`. Effort: Medium.
+- **Left out:** Forward credentials to another origin. It breaks the provider credential-origin requirement. Give only the redirect-limit failure a kind that the retry layer does not retry: each attempt still sends 11 POSTs.
+- **Wider fix:** D. One transport rule stops body replay and repeated submission for every method that can carry a body, and it keeps GET redirects. The item of 2026-11-02 named A.
+- **Previous examples:** The MCP transport of `ai-mcp` disables redirects for the same reason. `docs/protocol/ai-mcp.md` requires it. The OAuth transport of `ai-mcp-oauth` follows redirects only for metadata GETs. The Decisions POST of 2026-11-26 went out twice after one 307.
+- **Related:** `plans/follow-ups/json-http-body-read-loses-status.md`: same code. Option D of this item returns every POST 3xx to every adapter without a follow. Its fix must then cover each unfollowed 3xx. The transport can skip the body of that 3xx, as it does under `without_redirects()`, or the error can keep the status, as the other item proposes. Otherwise a failed body read of that 3xx gets the transient kind, and the retry layer sends the POST again.
+- **Recommendation:** D. It stops body replay and repeated submission for each method that carries a body, and it keeps GET redirects, which carry no body. The item of 2026-11-02 recommended A, which is smaller but also stops each GET poll or download that uses a redirect.
+- **Action:** ask the user, because A, B, and D add failures for redirect responses, and no recorded decision covers that change.

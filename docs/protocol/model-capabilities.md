@@ -1,7 +1,5 @@
 # Model Capabilities Protocol
 
-Status: Implemented.
-
 This protocol defines model specs, provider ids, text ids, custom specs,
 effort, the capability check, and the control matrix. The portable controls
 themselves stay in [provider call controls](provider-call-controls.md). That
@@ -36,6 +34,9 @@ a spec for short.
   provider default when the spec has no default effort.
 - The replay need is data for callers and for the test kit. The conformance
   runner checks replay for each spec that has this need.
+- Features are routing data. No adapter check reads them. The judgment
+  support check reads the support value of its adapter, as the
+  [judgment boundary protocol](judgment-boundary.md#support-check) says.
 - Model specs hold no prices. Decision: prices come from the deployment, as
   [model policies](model-policies.md) says, because deployment prices
   change without a release. The rejected alternative put prices in specs.
@@ -45,6 +46,10 @@ a spec for short.
 - Each provider crate exports one constant for each spec and a `CATALOG`
   slice of its specs.
 - A catalog lists each provider model id once.
+- A model that serves more than one modality has one spec. Its features name
+  each modality that the library supports for the model. For example,
+  `openai/gpt-6-luna` advertises `Judgment` and `Vision`. When the library
+  adds chat support for that model, the same spec gains the chat features.
 - `ModelCatalog` combines the catalogs of several providers. It keeps the
   specs in the order in which the host adds them.
 - The [registry](provider-registry.md) combines the catalogs of the
@@ -253,6 +258,7 @@ Bold marks the default effort or provider default. `default` marks an output lim
 | `openai/gpt-5.4-mini` | **disabled** | 128000 | 400000 | fixed while thinking | no | always | no | disabled |
 | `openai/gpt-5.4-nano` | **disabled** | 128000 | 400000 | fixed while thinking | no | always | no | disabled |
 | `openai/gpt-image-2` | **provider default** | 0 | 0 | fixed while thinking | no | always | no | none |
+| `openai/gpt-6-luna` | **provider default** | 0 | 0 | fixed | no | never | no | none |
 | `openai/custom` | **provider default**, disabled, low, medium, high, extra_high, max | u32::MAX | 0 | fixed while thinking | no | always | no | disabled, low, medium, high, extra_high, max |
 | `qwen/qwen3.7-max` | disabled, **high** | 65536 | 1000000 | fixed while thinking | yes | only without thinking | no | high |
 | `qwen/qwen3.7-plus` | disabled, **high** | 65536 | 1000000 | fixed while thinking | yes | only without thinking | no | high |

@@ -10,7 +10,7 @@ use std::{
 };
 
 use super::support::{CountingAuth, Reply, listener, serve};
-use json_http::{JsonHttpClient, ReqwestJsonHttpClient, StaticHeaderAuth};
+use json_http::{Error, JsonHttpClient, ReqwestJsonHttpClient, StaticHeaderAuth};
 use serde_json::json;
 
 #[derive(Clone, Copy, Debug)]
@@ -18,6 +18,63 @@ enum Mode {
     Json,
     Bytes,
     Sse,
+}
+
+#[tokio::test]
+async fn without_redirects_returns_empty_buffered_bodies() {
+    let (origin_listener, origin) = listener().await;
+    let server = serve(
+        origin_listener,
+        vec![redirect_with_body(), redirect_with_body()],
+    );
+    let builder = ReqwestJsonHttpClient::new()
+        .get(&origin)
+        .without_redirects();
+
+    let json = builder.clone().send_value().await.unwrap();
+    let bytes = builder.send_bytes().await.unwrap();
+    let requests = server.await.unwrap();
+
+    assert_eq!(requests.len(), 2);
+    assert_eq!(json.status, 307);
+    assert_eq!(bytes.status, 307);
+    assert_eq!(json.headers.as_raw()["location"], "/target");
+    assert_eq!(bytes.headers.as_raw()["location"], "/target");
+    assert_eq!(json.body, json!(""));
+    assert_eq!(bytes.body, b"");
+}
+
+#[tokio::test]
+async fn without_redirects_returns_an_empty_sse_status_error() {
+    let (origin_listener, origin) = listener().await;
+    let server = serve(origin_listener, vec![redirect_with_body()]);
+
+    let result = ReqwestJsonHttpClient::new()
+        .get(&origin)
+        .without_redirects()
+        .send_sse()
+        .await;
+    let requests = server.await.unwrap();
+    let Err(Error::HttpStatus {
+        status,
+        headers,
+        body,
+    }) = result
+    else {
+        panic!("expected the redirect status error");
+    };
+
+    assert_eq!(requests.len(), 1);
+    assert_eq!(status, 307);
+    assert_eq!(headers.as_raw()["location"], "/target");
+    assert_eq!(body, json!(""));
+}
+
+fn redirect_with_body() -> Reply {
+    Reply {
+        body: "redirect body",
+        ..Reply::redirect("/target".to_owned(), "307 Temporary Redirect")
+    }
 }
 
 #[tokio::test]

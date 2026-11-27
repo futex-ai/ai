@@ -3,7 +3,7 @@
 `ai-models-typesafe` implements TypeSafe System One judgment models behind
 `ai_interface::JudgmentModel`. Depend on it when a composition root needs to
 evaluate typed condition, choice, or score questions against shared text or
-JSON state with explicit credentials.
+JSON content with explicit credentials.
 
 ## Responsibilities
 
@@ -11,8 +11,8 @@ JSON state with explicit credentials.
 - Own the `typesafe` provider id, the Jev model specs, and judgment-only
   routing metadata.
 - Map shared judgment requests and responses to the System One wire contract.
-- Apply shared request validation before transport and shared response
-  postconditions after normalization.
+- Apply shared request validation and input support checks before transport.
+  Apply shared response postconditions after normalization.
 - Normalize provider token usage and translate transport, HTTP, and malformed
   payload failures into shared typed judgment errors.
 
@@ -34,12 +34,15 @@ reasoning control. The adapter sends one request to
 60-second timeout by default. Endpoint and timeout overrides support alternate
 deployments and deterministic tests.
 
-The adapter preserves text and structured JSON content, maps condition
-questions to TypeSafe `noul` questions, requires concrete descriptions for
-every score criterion, and normalizes condition, choice, and score answers
-into the provider-independent interface. It accepts unlisted
-provider model ids so callers can pin newer releases before catalog metadata
-is updated. It does not read environment variables, load credentials, retry,
+The adapter maps the content input to TypeSafe's `state` field. It sends a
+single text or JSON part directly. It sends multiple parts as an array in
+caller order. Instructions use the same mapping.
+The adapter maps condition questions to TypeSafe `noul` questions and sends
+choice criteria in caller order. A score criterion is a label string or an
+object with a label and a description. The adapter normalizes condition,
+choice, and score answers into the shared interface. It accepts unlisted
+provider model ids so callers can pin newer releases before the catalog
+lists them. It does not read environment variables, load credentials, retry,
 price usage, or make network calls during unit tests.
 
 Responses are decoded directly from bytes, and only `2xx` statuses are treated
@@ -60,8 +63,10 @@ optional Retry-After and provider request-id values from its actual response.
 The adapter tries the optional `x-request-id` and `request-id` header aliases.
 `with_clock(Arc<dyn ai_models_core::Clock>)` injects retry-date time.
 Production uses `SystemClock`.
-Local validation remains before dynamic auth and uses any explicit constructor
-key and its last whitespace token to redact known secrets.
+Local validation runs before the support check. The support check rejects
+image parts and conversation inputs with `JudgmentError::UnsupportedInput`
+before dynamic auth or transport. Local error diagnostics redact the explicit
+constructor key and its last whitespace token.
 
 ## Quick Start
 
@@ -83,7 +88,7 @@ fn build_model(api_key: String) -> DynJudgmentModel {
 
 fn urgent_request() -> JudgmentRequest {
     JudgmentRequest {
-        state: "Payouts have failed for three days.".into(),
+        input: "Payouts have failed for three days.".into(),
         questions: BTreeMap::from([(
             "is_urgent".to_owned(),
             JudgmentQuestion::condition("Does this need urgent attention?", None),
@@ -125,6 +130,7 @@ credentials or network access are required.
 
 - [`../../docs/protocol/provider-registry.md`](../../docs/protocol/provider-registry.md)
 - [`../../docs/protocol/typesafe-judgment-provider.md`](../../docs/protocol/typesafe-judgment-provider.md)
+- [`../../docs/protocol/typesafe-judgment-responses.md`](../../docs/protocol/typesafe-judgment-responses.md)
 - [`../../docs/protocol/judgment-boundary.md`](../../docs/protocol/judgment-boundary.md)
 - [`../../docs/protocol/live-judgment-api-tests.md`](../../docs/protocol/live-judgment-api-tests.md)
 - [`../../docs/protocol/model-capabilities.md`](../../docs/protocol/model-capabilities.md)

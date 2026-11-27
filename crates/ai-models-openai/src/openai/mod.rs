@@ -1,5 +1,6 @@
 //! OpenAI Responses model client.
 
+mod decisions;
 mod error_context;
 mod image_generation;
 mod legacy;
@@ -26,6 +27,7 @@ use json_http::{DynJsonHttpAuth, DynJsonHttpClient};
 
 use crate::PROVIDER_ID;
 
+pub use decisions::OpenAiJudgmentModel;
 pub use image_generation::OpenAiImageGenerator;
 pub use legacy::OpenAiLegacyConverter;
 pub use transcription::OpenAiAudioTranscriber;

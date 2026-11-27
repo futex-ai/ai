@@ -52,11 +52,18 @@ pub(crate) fn policy() -> reqwest::redirect::Policy {
 pub(crate) async fn send(
     builder: RequestBuilder,
     auth_names: &BTreeSet<String>,
+    follow_redirects: bool,
 ) -> reqwest::Result<Response> {
     let (client, request) = builder.build_split();
     let request = request?;
     REDIRECTS
-        .scope(RefCell::default(), send_hops(client, request, auth_names))
+        .scope(RefCell::default(), async {
+            if follow_redirects {
+                send_hops(client, request, auth_names).await
+            } else {
+                client.execute(request).await
+            }
+        })
         .await
 }
 

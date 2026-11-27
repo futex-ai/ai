@@ -6,8 +6,8 @@ use std::sync::Arc;
 use unimock::{MockFn, Unimock, matching};
 
 use crate::{
-    DynJudgmentModel, JudgmentAnswer, JudgmentContent, JudgmentError, JudgmentModel,
-    JudgmentModelMock, JudgmentQuestion, JudgmentRequest, JudgmentResponse, ModelUsage,
+    DynJudgmentModel, JudgmentAnswer, JudgmentError, JudgmentModel, JudgmentModelMock,
+    JudgmentQuestion, JudgmentRequest, JudgmentResponse, ModelUsage,
 };
 
 use super::MockJudgmentModel;
@@ -29,10 +29,10 @@ async fn mock_returns_deterministic_answers_and_identity() {
             (
                 "choice".to_owned(),
                 JudgmentAnswer::Choice {
-                    selected: "billing".to_owned(),
+                    selected: "technical".to_owned(),
                     probabilities: BTreeMap::from([
-                        ("billing".to_owned(), 1.0),
-                        ("technical".to_owned(), 0.0),
+                        ("billing".to_owned(), 0.0),
+                        ("technical".to_owned(), 1.0),
                     ]),
                     confidence: 1.0,
                 },
@@ -59,7 +59,7 @@ async fn mock_returns_deterministic_answers_and_identity() {
 async fn mock_applies_shared_request_validation() {
     let error = MockJudgmentModel
         .judge(&JudgmentRequest {
-            state: JudgmentContent::from(" \n"),
+            input: " \n".into(),
             questions: BTreeMap::from([(
                 "condition".to_owned(),
                 JudgmentQuestion::condition("Is it urgent?", None),
@@ -103,7 +103,7 @@ async fn generated_model_mock_returns_a_canned_error() {
 
 fn three_kind_request() -> JudgmentRequest {
     JudgmentRequest {
-        state: JudgmentContent::from("A support ticket"),
+        input: "A support ticket".into(),
         questions: BTreeMap::from([
             (
                 "condition".to_owned(),

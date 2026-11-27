@@ -1,12 +1,13 @@
 //! Normalized live-judgment response validation tests.
 
-use std::borrow::Cow;
-
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+};
 
 use ai_interface::{
-    JudgmentAnswer, JudgmentContent, JudgmentModel, JudgmentQuestion, JudgmentRequest,
-    JudgmentResponse, MockJudgmentModel, ModelFeature, ModelSpec,
+    JudgmentAnswer, JudgmentModel, JudgmentQuestion, JudgmentRequest, JudgmentResponse,
+    MockJudgmentModel, ModelFeature, ModelSpec,
 };
 
 const JUDGMENT_FEATURES: &[ModelFeature] = &[ModelFeature::Judgment];
@@ -18,11 +19,12 @@ pub(super) fn validation_failures(
 ) -> Vec<String> {
     let mut failures = Vec::new();
 
-    if response.provider != "typesafe" {
+    if response.provider != spec.provider.as_str() {
         failures.push(format!(
-            "{}: provider was `{}`, expected `typesafe`",
+            "{}: provider was `{}`, expected `{}`",
             spec.text_id(),
-            response.provider
+            response.provider,
+            spec.provider
         ));
     }
     if response.model_id != spec.provider_model_id {
@@ -51,6 +53,11 @@ pub(super) fn validation_failures(
 
     if let Err(error) = response.validate_against(request) {
         failures.push(format!("{}: {error}", spec.text_id()));
+    }
+    for (id, answer) in &response.answers {
+        if matches!(answer, JudgmentAnswer::Refused) {
+            failures.push(format!("{}: answer `{id}` was refused", spec.text_id()));
+        }
     }
     if response.usage.input_tokens == 0 {
         failures.push(format!("{}: input token usage was zero", spec.text_id()));
@@ -122,11 +129,35 @@ async fn accepts_patched_mock_judgment_output() {
     let response = valid_response(&request).await;
 
     assert!(validation_failures(&spec(), &request, &response).is_empty());
+
+    let openai_spec = ai_models_openai::GPT_6_LUNA;
+    let mut openai_response = response;
+    openai_response.provider = "openai".to_owned();
+    openai_response.model_id = "gpt-6-luna".to_owned();
+    openai_response.resolved_model_id = "gpt-6-luna-release".to_owned();
+    assert_eq!(
+        validation_failures(&openai_spec, &request, &openai_response),
+        Vec::<String>::new()
+    );
+}
+
+#[tokio::test]
+async fn refusal_fails_the_live_probe() {
+    let request = request();
+    let mut response = valid_response(&request).await;
+    response
+        .answers
+        .insert("urgent".to_owned(), JudgmentAnswer::Refused);
+
+    assert_eq!(
+        validation_failures(&spec(), &request, &response),
+        ["typesafe/jev-latest: answer `urgent` was refused"]
+    );
 }
 
 fn request() -> JudgmentRequest {
     JudgmentRequest {
-        state: JudgmentContent::from("Please help with my account today."),
+        input: "Please help with my account today.".into(),
         questions: BTreeMap::from([
             (
                 "urgent".to_owned(),

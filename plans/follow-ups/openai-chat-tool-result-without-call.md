@@ -1,0 +1,36 @@
+# OpenAI chat sends tool results without calls
+
+- **Severity:** Medium. **Likelihood:** Rare. **Effort:** Medium. **Confidence:** Medium. **Harder later:** No.
+- **Kind:** Outside the scope.
+- **Added:** 2026-11-26, from branch `calummoore/adding-openai-decisions-api-9ler`, review round 1. The finding check of finding 3 found it outside the scope.
+- **Location:** `crates/ai-models-openai/src/openai/request_input.rs:49`, `crates/ai-models-openai/src/openai/request_input.rs:78`, `crates/ai-models-openai/src/openai/legacy.rs:89`, `docs/protocol/conversation-parts.md` (section "Messages")
+- **Reason:** The OpenAI chat mapping exists on `main` and is outside the diff of the Decisions branch that found it.
+
+- **Terms:**
+  - **Tool call:** an assistant conversation part with a call id, a tool name, and JSON arguments.
+  - **Tool result:** a conversation part with a call id, a tool name, and the text output of a tool. A tool message holds exactly one.
+  - **Responses input:** the list of items that the OpenAI chat adapter sends: messages, `function_call` items for tool calls, and `function_call_output` items for tool results.
+  - **Skip state:** OpenAI provider state that tells the chat mapping not to replay a tool call part.
+- **Background:**
+  - The OpenAI chat adapter maps a conversation to Responses input in `crates/ai-models-openai/src/openai/request_input.rs`.
+  - At line 49, it maps each tool result to a `function_call_output` item with the call id. It does not check that an earlier item has the same call id.
+  - At line 78, it drops a tool call part whose provider state is the skip state. A later result of that call then also goes out without its call.
+  - The converter of stored version 1 messages writes the skip state in `crates/ai-models-openai/src/openai/legacy.rs:89`. It writes it on a converted tool call without an `openai_function_call` item, when another call of the same message has one.
+  - Nobody checked whether stored conversations have that shape.
+  - `docs/protocol/conversation-parts.md` says that the call id of a tool result names the tool call that the result answers. It gives no rule for a result whose call is absent, and no rule for what an adapter does then.
+  - The review of 2026-11-26 states that OpenAI requires a `function_call` item with the same call id for each `function_call_output` item. Nobody sent such a request to OpenAI from this workspace.
+  - A search of `crates/*/src` on 2026-11-26 found no chat adapter that checks that a tool result has its call. Nobody checked which providers reject such a request.
+  - The judgment boundary closed the same gap on 2026-11-27. The user chose a shared validation rule, so a judgment conversation with a lone tool result fails before any adapter sends it.
+- **Problem:** The OpenAI chat adapter sends a tool result without a check for its call. A conversation without the call, or with a call that the mapping drops, gives a request that OpenAI rejects.
+- **Impact if no action:** A host that trims old history, or that continues a converted conversation, gets a rejected request with the invalid request kind. The error does not name the unmatched call.
+- **Root question:** What does a caller get when a conversation holds a tool result without its tool call?
+- **Options:**
+  - **A.** The OpenAI chat adapter fails such a request before transport with the invalid request kind. It checks the mapped input, so it also catches a call that the mapping drops. Effort: Small.
+  - **B.** Keep the mapping and let the provider reject the request. Record in `docs/protocol/conversation-parts.md` that adapters do not check the pairing. Effort: Small.
+  - **C.** Add a pairing rule to `docs/protocol/conversation-parts.md`: a tool result needs an earlier tool call with the same call id. Apply it in the shared message validation, so every chat adapter fails such a request before transport. Also do A, because a shared check cannot see a call that the OpenAI mapping drops. Risk: a provider that accepts an unmatched result today starts to fail. Effort: Medium.
+- **Left out:** Drop an unmatched result: the caller loses the result without an error. Send the result as user text: it changes the role of the evidence that the caller gave.
+- **Wider fix:** C. One shared rule rejects the case for every chat adapter, also a future one.
+- **Previous examples:** `plans/follow-ups/truncated-call-replay.md`: Anthropic rejects retained history that holds only one side of a tool exchange. `plans/follow-ups/stopped-step-calls.md`: a stopped agent step leaves calls without results, which OpenAI and Anthropic reject.
+- **Related:** Shared judgment validation now requires an earlier tool call with the same call id for each tool result. This rule is a precedent for the chat side. See the [judgment input rules](../../docs/protocol/judgment-boundary.md#requests).
+- **Recommendation:** C. One shared rule gives every chat adapter the same early error, and it matches the shared rule that the judgment boundary already has.
+- **Action:** ask the user, because each option adds a rejection or a rule to `docs/protocol/conversation-parts.md`, which is silent on this case.

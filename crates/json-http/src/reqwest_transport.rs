@@ -88,7 +88,8 @@ impl ReqwestJsonHttpTransport {
         request: &JsonHttpRequest,
     ) -> Result<reqwest::Response> {
         let builder = self.request_builder(request)?.timeout(request.timeout);
-        match reqwest_redirect::send(builder, &request.auth_headers).await {
+        match reqwest_redirect::send(builder, &request.auth_headers, request.follow_redirects).await
+        {
             Ok(response) => Ok(response),
             Err(source) => Err(Error::ReqwestTransport {
                 source: sanitize_reqwest(source),
@@ -103,13 +104,17 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
         let response = self.execute_buffered_request(request).await?;
         let status = response.status().as_u16();
         let headers = JsonHttpHeaders::from(response.headers().clone());
-        let text = match response.text().await {
-            Ok(text) => text,
-            Err(source) => {
-                return Err(Error::ReqwestTransport {
-                    source: sanitize_reqwest(source),
+        let text = if skip_redirect_body(request, status) {
+            String::new()
+        } else {
+            match response.text().await {
+                Ok(text) => text,
+                Err(source) => {
+                    return Err(Error::ReqwestTransport {
+                        source: sanitize_reqwest(source),
+                    }
+                    .with_response_headers(headers));
                 }
-                .with_response_headers(headers));
             }
         };
         let body = serde_json::from_str(&text).unwrap_or(Value::String(text));
@@ -124,13 +129,17 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
         let response = self.execute_buffered_request(request).await?;
         let status = response.status().as_u16();
         let headers = JsonHttpHeaders::from(response.headers().clone());
-        let body = match response.bytes().await {
-            Ok(body) => body.to_vec(),
-            Err(source) => {
-                return Err(Error::ReqwestTransport {
-                    source: sanitize_reqwest(source),
+        let body = if skip_redirect_body(request, status) {
+            Vec::new()
+        } else {
+            match response.bytes().await {
+                Ok(body) => body.to_vec(),
+                Err(source) => {
+                    return Err(Error::ReqwestTransport {
+                        source: sanitize_reqwest(source),
+                    }
+                    .with_response_headers(headers));
                 }
-                .with_response_headers(headers));
             }
         };
         Ok(JsonHttpResponse {
@@ -147,24 +156,32 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
         if wait.is_zero() {
             return Err(timer.error(kind, 0));
         }
-        let mut response =
-            match timeout(wait, reqwest_redirect::send(builder, &request.auth_headers)).await {
-                Ok(Ok(response)) => response,
-                Ok(Err(source)) => {
-                    return Err(Error::SseTransport {
-                        events_received: 0,
-                        source: sanitize_reqwest(source),
-                    });
-                }
-                Err(_) => return Err(timer.error(kind, 0)),
-            };
+        let mut response = match timeout(
+            wait,
+            reqwest_redirect::send(builder, &request.auth_headers, request.follow_redirects),
+        )
+        .await
+        {
+            Ok(Ok(response)) => response,
+            Ok(Err(source)) => {
+                return Err(Error::SseTransport {
+                    events_received: 0,
+                    source: sanitize_reqwest(source),
+                });
+            }
+            Err(_) => return Err(timer.error(kind, 0)),
+        };
 
         if !response.status().is_success() {
             let status = response.status().as_u16();
             let headers = JsonHttpHeaders::from(response.headers().clone());
-            let body = match read_error_body(&mut response, &timer).await {
-                Ok(body) => body,
-                Err(source) => return Err(source.with_response_headers(headers)),
+            let body = if skip_redirect_body(request, status) {
+                Value::String(String::new())
+            } else {
+                match read_error_body(&mut response, &timer).await {
+                    Ok(body) => body,
+                    Err(source) => return Err(source.with_response_headers(headers)),
+                }
             };
             return Err(Error::HttpStatus {
                 status,
@@ -184,6 +201,10 @@ impl JsonHttpTransport for ReqwestJsonHttpTransport {
 
         Ok(Box::new(ReqwestJsonHttpSseStream::new(response, timer)))
     }
+}
+
+fn skip_redirect_body(request: &JsonHttpRequest, status: u16) -> bool {
+    !request.follow_redirects && (300..400).contains(&status)
 }
 
 async fn read_error_body(response: &mut reqwest::Response, timer: &SseTimer) -> Result<Value> {

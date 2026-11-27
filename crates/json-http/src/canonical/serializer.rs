@@ -5,9 +5,19 @@ use std::fmt::Display;
 use serde::{Serialize, Serializer, ser::Error};
 use serde_json::Result;
 
-use super::{object::Object, raw::RAW_VALUE_TOKEN, sequence::Sequence};
+use super::{
+    object::Object, ordered_object::ORDERED_OBJECT_TOKEN, raw::RAW_VALUE_TOKEN, sequence::Sequence,
+};
 
-pub(crate) struct CanonicalSerializer;
+pub(crate) struct CanonicalSerializer {
+    ordered_object: bool,
+}
+
+impl CanonicalSerializer {
+    pub(crate) const SORTED: Self = Self {
+        ordered_object: false,
+    };
+}
 
 macro_rules! scalar {
     ($($method:ident($kind:ty)),* $(,)?) => {
@@ -92,10 +102,16 @@ impl Serializer for CanonicalSerializer {
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
         self,
-        _name: &'static str,
+        name: &'static str,
         value: &T,
     ) -> Result<Vec<u8>> {
-        value.serialize(self)
+        if name == ORDERED_OBJECT_TOKEN {
+            value.serialize(Self {
+                ordered_object: true,
+            })
+        } else {
+            value.serialize(self)
+        }
     }
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
@@ -131,7 +147,11 @@ impl Serializer for CanonicalSerializer {
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Object> {
-        Ok(Object::new(None))
+        if self.ordered_object {
+            Ok(Object::ordered())
+        } else {
+            Ok(Object::new(None))
+        }
     }
 
     fn serialize_struct(self, name: &'static str, _len: usize) -> Result<Object> {

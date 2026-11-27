@@ -42,6 +42,7 @@ fn every_answer_variant_uses_a_snake_case_type_tag() {
                 "confidence": 0.45
             }),
         ),
+        (JudgmentAnswer::Refused, json!({"type": "refused"})),
     ];
 
     for (answer, expected) in cases {
@@ -75,7 +76,7 @@ fn every_answer_variant_reports_its_kind() {
     let cases = [
         (
             JudgmentAnswer::Condition { probability: 1.0 },
-            JudgmentQuestionKind::Condition,
+            Some(JudgmentQuestionKind::Condition),
         ),
         (
             JudgmentAnswer::Choice {
@@ -83,7 +84,7 @@ fn every_answer_variant_reports_its_kind() {
                 probabilities: BTreeMap::from([("yes".to_owned(), 1.0)]),
                 confidence: 1.0,
             },
-            JudgmentQuestionKind::Choice,
+            Some(JudgmentQuestionKind::Choice),
         ),
         (
             JudgmentAnswer::Score {
@@ -91,8 +92,9 @@ fn every_answer_variant_reports_its_kind() {
                 probabilities: BTreeMap::from([(0, 1.0)]),
                 confidence: 1.0,
             },
-            JudgmentQuestionKind::Score,
+            Some(JudgmentQuestionKind::Score),
         ),
+        (JudgmentAnswer::Refused, None),
     ];
 
     for (answer, expected) in cases {

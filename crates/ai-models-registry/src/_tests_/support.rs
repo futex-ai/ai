@@ -37,7 +37,7 @@ pub(super) const PROVIDERS: &[(&str, bool, [bool; 5])] = &[
     (
         "openai",
         cfg!(feature = "openai"),
-        [true, true, true, false, false],
+        [true, true, true, true, false],
     ),
     (
         "qwen",

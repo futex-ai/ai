@@ -120,16 +120,55 @@ async fn generate_video() -> ai_interface::VideoGenerationResult<Vec<u8>> {
 use std::collections::BTreeMap;
 
 use ai_interface::{
-    JudgmentModel, JudgmentQuestion, JudgmentRequest, JudgmentResponse, MockJudgmentModel,
+    ConversationMessage, JudgmentInput, JudgmentLevel, JudgmentModel, JudgmentQuestion,
+    JudgmentRequest, JudgmentResponse, JudgmentResult, MockJudgmentModel,
 };
 
-async fn judge_state() -> ai_interface::JudgmentResult<JudgmentResponse> {
+async fn judge_ticket() -> JudgmentResult<JudgmentResponse> {
     MockJudgmentModel
         .judge(&JudgmentRequest {
-            state: "The payout has failed for three days.".into(),
+            input: "The payout has failed for three days.".into(),
+            questions: BTreeMap::from([
+                (
+                    "urgent".to_owned(),
+                    JudgmentQuestion::condition("Is this urgent?", None),
+                ),
+                (
+                    "queue".to_owned(),
+                    JudgmentQuestion::choice(
+                        "Which team should handle this ticket?",
+                        [("billing", Some("Payouts and refunds".into())), ("other", None)],
+                    ),
+                ),
+                (
+                    "urgency".to_owned(),
+                    JudgmentQuestion::score(
+                        "How soon does this ticket need attention?",
+                        [
+                            JudgmentLevel::from("Routine"),
+                            JudgmentLevel::new("Urgent", Some("Needs action today".into())),
+                        ],
+                    ),
+                ),
+            ]),
+        })
+        .await
+}
+
+async fn judge_conversation() -> JudgmentResult<JudgmentResponse> {
+    let input = JudgmentInput::Conversation {
+        system: Some("Evaluate the customer's last request.".to_owned()),
+        messages: vec![
+            ConversationMessage::user("The payout has failed."),
+            ConversationMessage::assistant("I can check the payout status.", Vec::new()),
+        ],
+    };
+    MockJudgmentModel
+        .judge(&JudgmentRequest {
+            input,
             questions: BTreeMap::from([(
-                "urgent".to_owned(),
-                JudgmentQuestion::condition("Is this urgent?", None),
+                "resolved".to_owned(),
+                JudgmentQuestion::condition("Has the issue been resolved?", None),
             )]),
         })
         .await

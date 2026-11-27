@@ -30,7 +30,7 @@ mod model_tests;
 
 #[cfg(any(feature = "google", feature = "openai"))]
 mod image_tests;
-#[cfg(feature = "typesafe")]
+#[cfg(any(feature = "openai", feature = "typesafe"))]
 mod judgment_tests;
 #[cfg(any(feature = "google", feature = "openai", feature = "typesafe"))]
 mod media_support;

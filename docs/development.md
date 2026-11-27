@@ -64,24 +64,28 @@ up to three billable attempts per catalog model after transient failures.
 ## Live judgment checks
 
 Credentialed judgment checks live in `xtask/tests/live_judgments/mod.rs`. They
-select every TypeSafe catalog spec advertising `Judgment`, construct the
-production adapter behind `DynJudgmentModel`, and evaluate one short support
-message against condition, choice, and a fully described score rubric. Run the
-credential-free guards or the billable TypeSafe catalog with:
+select every OpenAI and TypeSafe catalog spec advertising `Judgment`. Each
+production adapter evaluates a short support message against condition, choice,
+and score questions through `DynJudgmentModel`. Run the credential-free guards
+or an ignored billable catalog with these commands.
 
 ```sh
 cargo test --locked -p xtask --test live_judgments
-LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
+LIVE_JUDGMENT_TYPESAFE_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
   --test live_judgments catalog_tests::typesafe_judgment_catalog \
+  -- --ignored --exact --nocapture
+LIVE_JUDGMENT_OPENAI_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
+  --test live_judgments catalog_tests::openai_judgment_catalog \
   -- --ignored --exact --nocapture
 ```
 
-The `Live judgment APIs` workflow runs the TypeSafe catalog sequentially for
-trusted same-repository pull requests, daily, and on manual dispatch after the
-repository variable `LIVE_JUDGMENT_API_TESTS_ENABLED` is set to `true`. Enable
-it only after provisioning `TYPESAFE_API_KEY`; once enabled, a missing secret
-fails the job. The workflow may make up to three billable attempts per catalog
-model after transient failures.
+The `Live judgment APIs` workflow runs the OpenAI and TypeSafe catalogs in
+sequence for trusted same-repository pull requests, daily, and on manual
+dispatch. Provision `OPENAI_API_KEY` and `TYPESAFE_API_KEY` before you set
+`LIVE_JUDGMENT_API_TESTS_ENABLED` to `true`. Each provider job fails if its
+secret is missing. Each test reads only its own provider's key variable.
+The workflow may make up to three billable attempts per catalog model after
+transient or rate-limit failures.
 
 ## Live video checks
 
@@ -101,11 +105,9 @@ daily schedule and manual dispatch. The separate
 `Live image APIs` workflow exercises every Google and OpenAI image-capable
 catalog spec through `DynImageGenerator` with image-specific validation and
 sequential provider jobs. The `Live judgment APIs`
-workflow exercises every TypeSafe Jev catalog spec through `DynJudgmentModel`
-with `TYPESAFE_API_KEY`, shared answer validation, and sequential retries once
-`LIVE_JUDGMENT_API_TESTS_ENABLED` opts the repository into those billable
-checks. Forked and Dependabot pull requests skip all credentialed workflows
-because GitHub does not provide them repository Actions secrets. The ordinary
+workflow exercises every OpenAI and TypeSafe judgment spec through
+`DynJudgmentModel`. Forked and Dependabot pull requests skip all credentialed
+workflows because GitHub does not provide them repository Actions secrets. The ordinary
 credential-free suite still enforces the live model registry without making
 provider calls.
 

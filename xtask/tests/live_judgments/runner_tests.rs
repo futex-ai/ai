@@ -7,12 +7,12 @@ use std::{
 };
 
 use ai_interface::{
-    DynJudgmentModel, ErrorCore, ErrorKind, JudgmentContent, JudgmentError, JudgmentModel,
-    JudgmentModelMock, JudgmentQuestion, JudgmentRequest, MockJudgmentModel, ModelSpec,
+    DynJudgmentModel, ErrorCore, ErrorKind, JudgmentContent, JudgmentError, JudgmentInput,
+    JudgmentJson, JudgmentLevel, JudgmentModel, JudgmentModelMock, JudgmentOption, JudgmentPart,
+    JudgmentQuestion, JudgmentRequest, MockJudgmentModel, ModelSpec,
 };
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use serde_json::{Map, Value};
-use thiserror::Error;
 use unimock::{MockFn, Unimock, matching};
 
 use super::{
@@ -22,24 +22,15 @@ use super::{
     validation_tests::validation_failures,
 };
 
-const API_KEY_ENV: &str = "LIVE_JUDGMENT_API_KEY";
-
-#[derive(Debug, Eq, Error, PartialEq)]
-enum ApiKeyError {
-    #[error("[xtask/live_judgments] LIVE_JUDGMENT_API_KEY is missing")]
-    Missing,
-    #[error("[xtask/live_judgments] LIVE_JUDGMENT_API_KEY is blank")]
-    Blank,
-}
-
 struct ProbeTarget {
     spec: ModelSpec,
     model: DynJudgmentModel,
 }
 
 pub(super) async fn run_catalog(provider: LiveJudgmentProvider) {
-    let api_key =
-        require_api_key(env::var(API_KEY_ENV).ok()).unwrap_or_else(|error| panic!("{error}"));
+    let api_key = provider
+        .require_api_key(|name| env::var(name).ok())
+        .unwrap_or_else(|error| panic!("{error}"));
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
     let auth = provider.auth(api_key);
     let catalog = provider.judgment_catalog();
@@ -67,20 +58,17 @@ pub(super) async fn run_catalog(provider: LiveJudgmentProvider) {
     );
 }
 
-fn require_api_key(value: Option<String>) -> Result<String, ApiKeyError> {
-    let value = value.ok_or(ApiKeyError::Missing)?;
-    if value.trim().is_empty() {
-        return Err(ApiKeyError::Blank);
-    }
-    Ok(value)
-}
-
 fn probe_request() -> JudgmentRequest {
     JudgmentRequest {
-        state: JudgmentContent::Object(Map::from_iter([(
-            "message".to_owned(),
-            Value::String("Please help; my payment did not go through.".to_owned()),
-        )])),
+        input: JudgmentContent {
+            parts: vec![JudgmentPart::Json {
+                value: JudgmentJson::Object(Map::from_iter([(
+                    "message".to_owned(),
+                    Value::String("Please help; my payment did not go through.".to_owned()),
+                )])),
+            }],
+        }
+        .into(),
         questions: BTreeMap::from([
             (
                 "urgent".to_owned(),
@@ -130,28 +118,23 @@ fn request_failure_message(spec: &ModelSpec, error: &JudgmentError) -> String {
 }
 
 #[test]
-fn requires_a_present_non_empty_api_key() {
-    assert!(matches!(require_api_key(None), Err(ApiKeyError::Missing)));
-    assert!(matches!(
-        require_api_key(Some(" \n\t".to_owned())),
-        Err(ApiKeyError::Blank)
-    ));
-    assert_eq!(
-        require_api_key(Some(" secret ".to_owned())).unwrap(),
-        " secret "
-    );
-}
-
-#[test]
 fn probe_request_has_the_documented_provider_neutral_shape() {
     let request = probe_request();
-    let JudgmentContent::Object(state) = request.state else {
-        panic!("probe state must be an object");
+    let JudgmentInput::Content(input) = request.input else {
+        panic!("probe input must be content");
+    };
+    let [
+        JudgmentPart::Json {
+            value: JudgmentJson::Object(object),
+        },
+    ] = input.parts.as_slice()
+    else {
+        panic!("probe input must contain one JSON object");
     };
 
-    assert_eq!(state.len(), 1);
+    assert_eq!(object.len(), 1);
     assert_eq!(
-        state.get("message"),
+        object.get("message"),
         Some(&Value::String(
             "Please help; my payment did not go through.".to_owned()
         ))
@@ -168,16 +151,19 @@ fn probe_request_has_the_documented_provider_neutral_shape() {
         request.questions.get("urgent"),
         Some(JudgmentQuestion::Condition { .. })
     ));
+    let expected_options = [
+        JudgmentOption::new("billing", None),
+        JudgmentOption::new("technical", None),
+        JudgmentOption::new("other", None),
+    ];
     assert!(matches!(
         request.questions.get("queue"),
-        Some(JudgmentQuestion::Choice { options, .. })
-            if options.keys().map(String::as_str).collect::<Vec<_>>()
-                == vec!["billing", "other", "technical"]
+        Some(JudgmentQuestion::Choice { options, .. }) if options == &expected_options
     ));
-    let expected_levels = vec![
-        JudgmentContent::from("Calm"),
-        JudgmentContent::from("Frustrated"),
-        JudgmentContent::from("Very frustrated"),
+    let expected_levels = [
+        JudgmentLevel::from("Calm"),
+        JudgmentLevel::from("Frustrated"),
+        JudgmentLevel::from("Very frustrated"),
     ];
     assert!(matches!(
         request.questions.get("frustration"),

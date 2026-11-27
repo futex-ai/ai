@@ -1,0 +1,56 @@
+# A failed body read loses the HTTP status
+
+- **Severity:** Medium. **Likelihood:** Rare. **Effort:** Medium. **Confidence:** High. **Harder later:** No.
+- **Kind:** Fix after merge.
+- **Added:** 2026-11-26, from branch `calummoore/adding-openai-decisions-api-9ler`, review round 2. It is wider fix E of finding 9, which the agent split off. It adds the cases of other adapters that the finding check found outside the scope.
+- **Location:** `crates/json-http/src/error.rs:15`, `crates/json-http/src/reqwest_transport.rs`, `crates/json-http/src/test_support/types.rs:134`, `crates/json-http/src/test_support/failure.rs:39`, `crates/ai-models-core/src/errors.rs:56`, `crates/ai-models-core/src/errors.rs:111`, `crates/ai-models-openai/src/openai/decisions/client.rs:105`, `crates/json-http/README.md`
+- **Reason:** The fix changes a public json-http error variant and the shared classifiers that every adapter uses, and both are outside the diff of the Decisions branch.
+
+- **Terms:**
+  - **`json-http`:** the shared HTTP crate in `crates/json-http`. Every adapter sends its requests through it.
+  - **Transient kind:** the error kind for a short provider or transport failure before progress. The retry layer retries it.
+  - **Recording:** a json-http test-support record of one transport call, `RecordedResponse` in `crates/json-http/src/test_support/types.rs`. A replay test restores each recorded failure from it.
+  - **Unfollowed 3xx:** a redirect response that the transport returns to the adapter instead of following it.
+- **Background:**
+  - The reqwest transport of json-http gets the status and the headers of a response first. Then it reads the body.
+  - A buffered call reads the whole body, in `execute` and `execute_bytes` of `crates/json-http/src/reqwest_transport.rs`. When that read fails, the transport returns a reqwest transport error with the headers only. The status is lost.
+  - An SSE call with a non-2xx status reads at most 64 KiB of the error body, in `read_error_body` of the same file. When that read fails, the transport returns an SSE transport error with the headers only.
+  - `Error::ResponseContext`, at `crates/json-http/src/error.rs:15`, holds the headers and the original failure. It has no status field.
+  - A recorded failure, `RecordedResponse::Failure` at `crates/json-http/src/test_support/types.rs:134`, holds optional headers and a failure class. It has no status.
+  - `RecordedFailure::capture`, at `crates/json-http/src/test_support/failure.rs:39`, records a body read failure as the class `Transport`.
+  - The json-http README says that recordings keep sanitized headers for these failures and restore their failure class on replay.
+  - The shared classifier of buffered calls, `request_error_core` at `crates/ai-models-core/src/errors.rs:111`, gives each transport failure the transient kind before it looks at anything else.
+  - The shared stream classifier, `classify_json_http_stream_error` at `crates/ai-models-core/src/errors.rs:56`, does the same for an SSE call before its first event.
+  - So a 4xx response whose body read fails gets the transient kind in every adapter. Its status would give a final kind, such as the invalid request kind for HTTP 400 or the rejected key kind for HTTP 401.
+  - The OpenAI Decisions adapter gives each failure of `send_bytes` to the shared classifier, at `crates/ai-models-openai/src/openai/decisions/client.rs:105`. So a Decisions 4xx with a failed body read gets the transient kind too.
+  - An unfollowed 3xx whose body read fails gets the transient kind in the same way. An example is a 307 for a multipart body. Its status would give the invalid output kind, which the retry layer does not retry.
+  - `docs/protocol/model-policies.md`, section "Error kinds", gives each status its kind, and it gives a transport failure the transient kind. It does not say which rule wins when the status arrived before the body read failed.
+  - The retry layer retries the transient kind, with at most three attempts by default. The live judgment retry wrapper, at `xtask/tests/live_judgments/retry_tests.rs:55`, also allows three attempts.
+  - The fallback preset "only when another model can succeed" moves on after the transient kind. It does not move on after the invalid request kind.
+  - A 2xx response whose body read fails also gets the transient kind. The provider can have processed and billed that request, so a host that retries can pay twice.
+  - `docs/protocol/openai-judgment-responses.md`, section "Timeout, Retries, And Billing", keeps that failure transient for Decisions. It warns that a host that retries it can pay twice.
+  - On 2026-11-26, a loopback 307 with a truncated body gave the Decisions adapter the transient kind. A complete 307 gave the documented invalid output error with the message `unexpected HTTP redirect`.
+  - The fix of 2026-11-26 covers only a redirect under `without_redirects()`. The reqwest transport now returns such a `3xx` with its status, its headers, and an empty body, and it does not read the body.
+  - With that fix, a buffered call gets the `3xx` response, and an SSE call gets an HTTP status error with an empty body.
+  - The loopback test `truncated_redirect_preserves_the_decisions_redirect_error`, in `crates/ai-models-openai/tests/decisions_redirects.rs`, makes a body read fail. Its server sends a `Content-Length` one byte larger than the body, then closes the connection.
+- **Problem:** When the body read of a response fails, json-http keeps the headers and loses the status. The shared classifiers then give the failure the transient kind, whatever the status was.
+- **Impact if no action:** The retry layer repeats a 4xx or an unfollowed 3xx that must end the call, and the caller sees the wrong kind. A fallback with the preset above also moves on after an invalid request.
+- **Root question:** Which kind must a call get when the status of its response arrived but the body read failed?
+- **Options:**
+  - **A.** Change only the docs. State in `docs/protocol/model-policies.md` that a failed body read is a transport failure for every status, also for a 4xx. A 4xx and an unfollowed 3xx stay retried. Effort: Small.
+  - **B.** Keep the status on every failure after the status arrived. Effort: Medium.
+    - Add the status to `Error::ResponseContext`, with an accessor beside `response_headers()`. Set it in the buffered and SSE paths of the reqwest transport.
+    - Keep the status in `RecordedResponse::Failure`, with a default for older recordings, and restore it on replay.
+    - Make `request_error_core` and `classify_json_http_stream_error` give a 3xx, 4xx, or 5xx status its status kind before the transport rule. The message is `HTTP <status>`, because no body arrived.
+    - Keep the transient kind for a 2xx, as the Decisions doc states.
+    - Update the json-http README. Add a json-http test and a Decisions regression with a truncated 4xx body.
+  - **C.** Give the json-http interface a response whose status and headers arrive before its body. Each adapter then reads the body itself and knows the status of each read failure. Risk: every adapter and the recordings change. Effort: Large.
+- **Left out:** Skip the body for each status that a caller selects, as the transport now does for a `3xx` under `without_redirects()`: an adapter needs a 4xx body for its error code, and a 2xx body is the result. Infer the status from a header such as `Location`: another response can carry the same header. Give a 2xx whose body read fails a kind that the retry layer does not retry: it breaks the transient rule for transport failures, which stays. B gives the status that such a later rule needs.
+- **Wider fix:** B. One status field on the shared error lets every classifier use the status, so no adapter needs its own check.
+- **Previous examples:** The Decisions case of 2026-11-26 in the background. `plans/follow-ups/json-http-redirect-leaks-keys.md` records a related case: the redirect-limit failure gets the transient kind at `crates/ai-models-core/src/errors.rs:111`, and the retry layer repeats it.
+- **Related:**
+  - `plans/follow-ups/json-http-redirect-leaks-keys.md`: same code. Its option D returns every POST `3xx` to every adapter without a follow. Its fix must then cover each unfollowed 3xx, with B of this item or with the body skip of `without_redirects()`.
+  - `plans/follow-ups/json-http-buffered-status-rule.md`: same code. Its option B returns `Error::HttpStatus` for every buffered non-2xx. The design of both items must say what a non-2xx with a failed body read returns.
+  - `plans/follow-ups/auth-hook-outside-deadline.md`: options that conflict. Its option A ends a body read from outside the transport, so the status that B keeps is lost.
+- **Recommendation:** B. It gives each classifier the status that already arrived, and it keeps the 2xx rule. B also best protects the codebase.
+- **Action:** fix after merge, apply B, because B changes a public json-http error variant that every adapter uses, and the failure needs a body read error after the status.

@@ -35,13 +35,17 @@ jobs:
           - provider: TypeSafe
             test: catalog_tests::typesafe_judgment_catalog
             api_key: TYPESAFE_API_KEY
+          - provider: OpenAI
+            test: catalog_tests::openai_judgment_catalog
+            api_key: OPENAI_API_KEY
     steps:
       - name: Require provider credential
         env:
-          LIVE_JUDGMENT_API_KEY: ${{ secrets[matrix.api_key] }}
+          PROVIDER_API_KEY: ${{ secrets[matrix.api_key] }}
+          PROVIDER_SECRET_NAME: ${{ matrix.api_key }}
         run: |
-          if [[ -z "$LIVE_JUDGMENT_API_KEY" ]]; then
-            echo "::error::Missing required Actions secret ${{ matrix.api_key }}"
+          if [[ -z "$PROVIDER_API_KEY" ]]; then
+            echo "::error::Missing required Actions secret $PROVIDER_SECRET_NAME"
             exit 1
           fi
 
@@ -67,5 +71,9 @@ jobs:
 
       - name: Test every judgment catalog model
         env:
-          LIVE_JUDGMENT_API_KEY: ${{ secrets[matrix.api_key] }}
-        run: cargo test --locked -p xtask --test live_judgments "${{ matrix.test }}" -- --ignored --exact --nocapture
+          PROVIDER_API_KEY: ${{ secrets[matrix.api_key] }}
+          PROVIDER_SECRET_NAME: ${{ matrix.api_key }}
+        run: |
+          export "LIVE_JUDGMENT_${PROVIDER_SECRET_NAME}=$PROVIDER_API_KEY"
+          unset PROVIDER_API_KEY
+          cargo test --locked -p xtask --test live_judgments "${{ matrix.test }}" -- --ignored --exact --nocapture

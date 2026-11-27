@@ -21,5 +21,5 @@ thiserror = "2.0.20"
 ai-interface = { workspace = true, features = ["test-support"] }
 ai-models-core = { workspace = true, features = ["test-support"] }
 json-http = { workspace = true, features = ["test-support"] }
-tokio = { version = "1.52.1", features = ["macros", "rt"] }
+tokio = { version = "1.52.1", features = ["io-util", "macros", "net", "rt", "sync"] }
 unimock = "0.6.8"

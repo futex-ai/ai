@@ -200,16 +200,27 @@ runtime implementation.
   second controls, downloaded MP4 bytes with metadata, and typed policy,
   timeout, and retry errors. `ModelFeature::VideoGeneration` is the stable
   routing capability.
-- Defines the `JudgmentModel` boundary for evaluating text or JSON state
-  against typed condition, choice, and score questions in one call. Local
-  validation rejects empty state and malformed question maps before provider
-  access. Score rubrics require a description for every ordered level, while
-  condition and choice descriptions remain optional.
-  `JudgmentResponse::validate_against` checks successful answer kinds,
-  option and level membership, complete probability distributions, bounded
-  numeric values, distribution sums, and internal consistency (the selected
-  option is the most probable one and the expected score matches its
-  distribution within documented tolerances) before callers consume them.
+- Defines the `JudgmentModel` boundary for evaluating a `JudgmentInput`
+  against typed condition, choice, and score questions in one call.
+  Content inputs and question instructions use ordered `JudgmentPart`
+  values for text, JSON objects or arrays, and inline images.
+  Conversation inputs reuse `ConversationMessage` and accept optional
+  system instructions.
+  A choice keeps its `JudgmentOption` values in caller order.
+  A score uses ordered `JudgmentLevel` values. Each level has a label.
+  Condition criteria, options, and levels can carry optional text or JSON
+  descriptions through `JudgmentDescription`.
+  Local validation rejects empty input, invalid conversation messages, and
+  invalid questions, including duplicate option labels.
+  Each adapter then checks its `JudgmentSupport` before transport.
+  `JudgmentError::UnsupportedInput` identifies the input form or part that
+  the adapter cannot send.
+  `JudgmentResponse::validate_against` checks answer kinds, option and level
+  membership, complete probability distributions, value ranges, and
+  distribution sums. It also checks selection and expected score consistency.
+  For `JudgmentAnswer::Refused`, `kind()` returns `None` and validation
+  passes for any question kind. The response retains the other answers and
+  the usage of the call.
   The `typesafe` provider id and `ModelFeature::Judgment` are the stable
   routing identities.
 - Defines `ToolInvocation`, which carries the runtime operation id used as a
@@ -391,6 +402,7 @@ back into it.
 - [`../../docs/protocol/image-generation.md`](../../docs/protocol/image-generation.md)
 - [`../../docs/protocol/video-generation.md`](../../docs/protocol/video-generation.md)
 - [`../../docs/protocol/judgment-boundary.md`](../../docs/protocol/judgment-boundary.md)
+- [`../../docs/protocol/judgment-responses.md`](../../docs/protocol/judgment-responses.md)
 - [`../../docs/protocol/typesafe-judgment-provider.md`](../../docs/protocol/typesafe-judgment-provider.md)
 - [`../../docs/protocol/live-judgment-api-tests.md`](../../docs/protocol/live-judgment-api-tests.md)
 - [`../../docs/protocol/tool-output-management.md`](../../docs/protocol/tool-output-management.md)

@@ -22,5 +22,6 @@
 - **Left out:** A content check on downloads: it lets a 3xx with a valid body through.
 - **Wider fix:** B. It rejects every non-2xx status before any caller sees the response.
 - **Previous examples:** Review finding 90 of 2026-11-03.
+- **Related:** `plans/follow-ups/json-http-body-read-loses-status.md`: same code. Both items change the buffered send path and the error type of `json-http`. Option B of this item returns `Error::HttpStatus` for every non-2xx. The other item keeps the status of a response whose body read fails. The design of both must say what a non-2xx with a failed body read returns.
 - **Recommendation:** B. One rule at the boundary that every buffered call passes.
 - **Action:** ask the user, because B adds stricter validation to the public `json-http` boundary.

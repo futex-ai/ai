@@ -37,15 +37,18 @@ pub enum JudgmentAnswer {
         /// Provider-reported distribution confidence.
         confidence: f64,
     },
+    /// The model declined to answer the question.
+    Refused,
 }
 
 impl JudgmentAnswer {
-    /// Returns the question shape answered by this value.
-    pub fn kind(&self) -> JudgmentQuestionKind {
+    /// Returns the question shape, or no kind for a refusal.
+    pub fn kind(&self) -> Option<JudgmentQuestionKind> {
         match self {
-            Self::Condition { .. } => JudgmentQuestionKind::Condition,
-            Self::Choice { .. } => JudgmentQuestionKind::Choice,
-            Self::Score { .. } => JudgmentQuestionKind::Score,
+            Self::Condition { .. } => Some(JudgmentQuestionKind::Condition),
+            Self::Choice { .. } => Some(JudgmentQuestionKind::Choice),
+            Self::Score { .. } => Some(JudgmentQuestionKind::Score),
+            Self::Refused => None,
         }
     }
 }

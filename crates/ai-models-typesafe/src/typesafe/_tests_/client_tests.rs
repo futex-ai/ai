@@ -23,6 +23,43 @@ use super::{
 const API_KEY: &str = "typesafe-secret-key";
 
 #[tokio::test]
+async fn choice_criteria_keep_caller_order_on_the_wire() {
+    let request = JudgmentRequest {
+        input: "ticket".into(),
+        questions: BTreeMap::from([(
+            "department".to_owned(),
+            JudgmentQuestion::choice(
+                "Choose a team",
+                [
+                    ("technical", None),
+                    ("billing", Some("Payments".into())),
+                    ("other", None),
+                ],
+            ),
+        )]),
+    };
+    let response = JsonHttpResponse {
+        headers: Default::default(),
+        status: 200,
+        body: br#"{"model":"jev-latest","answers":{"department":{"type":"choice","choice":"technical","probabilities":{"technical":1.0,"billing":0.0,"other":0.0},"confidence":1.0}}}"#.to_vec(),
+    };
+    let (http, requests) = recording_http_client(response);
+
+    TypeSafeJudgmentModel::new(http, "jev-latest", API_KEY)
+        .judge(&request)
+        .await
+        .unwrap();
+
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 1);
+    let body = requests[0].body.as_ref().unwrap().as_json_bytes().unwrap();
+    assert_eq!(
+        str::from_utf8(body).unwrap(),
+        r#"{"model":"jev-latest","questions":{"department":{"criteria":{"technical":null,"billing":"Payments","other":null},"instructions":"Choose a team","type":"choice"}},"state":"ticket"}"#
+    );
+}
+
+#[tokio::test]
 async fn sends_the_exact_bearer_authenticated_request() {
     let (http_client, requests) = recording_http_client(successful_response());
     let model = TypeSafeJudgmentModel::new(http_client, "jev-latest", API_KEY);
@@ -83,7 +120,7 @@ async fn sends_the_exact_bearer_authenticated_request() {
 #[tokio::test]
 async fn duplicate_score_keys_are_rejected_through_judge() {
     let request = JudgmentRequest {
-        state: "ticket".into(),
+        input: "ticket".into(),
         questions: BTreeMap::from([(
             "score".to_owned(),
             JudgmentQuestion::score("Score?", ["low", "high"]),
@@ -141,7 +178,7 @@ async fn local_validation_returns_the_exact_error_before_transport() {
 
     let empty_state = model
         .judge(&JudgmentRequest {
-            state: "  ".into(),
+            input: "  ".into(),
             questions: simple_request().questions,
         })
         .await
@@ -154,7 +191,7 @@ async fn local_validation_returns_the_exact_error_before_transport() {
 
     let no_questions = model
         .judge(&JudgmentRequest {
-            state: "ticket".into(),
+            input: "ticket".into(),
             questions: BTreeMap::new(),
         })
         .await
@@ -167,12 +204,12 @@ async fn local_validation_returns_the_exact_error_before_transport() {
 
     let no_options = model
         .judge(&JudgmentRequest {
-            state: "ticket".into(),
+            input: "ticket".into(),
             questions: BTreeMap::from([(
                 "choice".to_owned(),
                 JudgmentQuestion::Choice {
                     instructions: "Choose".into(),
-                    options: BTreeMap::new(),
+                    options: Vec::new(),
                 },
             )]),
         })
@@ -191,12 +228,12 @@ async fn local_validation_returns_the_exact_error_before_transport() {
 
     let secret_id = model
         .judge(&JudgmentRequest {
-            state: "ticket".into(),
+            input: "ticket".into(),
             questions: BTreeMap::from([(
                 API_KEY.to_owned(),
                 JudgmentQuestion::Choice {
                     instructions: "Choose".into(),
-                    options: BTreeMap::new(),
+                    options: Vec::new(),
                 },
             )]),
         })
@@ -214,7 +251,7 @@ async fn local_validation_returns_the_exact_error_before_transport() {
     );
     let invalid = dynamic
         .judge(&JudgmentRequest {
-            state: "ticket".into(),
+            input: "ticket".into(),
             questions: BTreeMap::new(),
         })
         .await
@@ -230,12 +267,12 @@ async fn local_validation_returns_the_exact_error_before_transport() {
     compound.auth = Arc::new(Unimock::new(()));
     let compound_error = compound
         .judge(&JudgmentRequest {
-            state: "ticket".into(),
+            input: "ticket".into(),
             questions: BTreeMap::from([(
                 "q-local-secret".to_owned(),
                 JudgmentQuestion::Choice {
                     instructions: "Choose".into(),
-                    options: BTreeMap::new(),
+                    options: Vec::new(),
                 },
             )]),
         })

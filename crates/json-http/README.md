@@ -21,9 +21,13 @@ SSE streams without embedding reqwest boilerplate in each caller.
 or attached as multipart byte fields, and responses can be read as raw bytes,
 `serde_json::Value`, or deserialized into typed response DTOs.
 
-Typed request bodies serialize directly into JSON bytes. Object keys keep
-their sorted wire order. Buffered responses expose `headers`, and successful
-SSE streams expose `headers()`. Both use `JsonHttpHeaders`, a case-insensitive
+Typed request bodies serialize directly into JSON bytes. Object keys use
+sorted wire order by default. Use `OrderedObject::new` with key-value pairs
+to write one object in insertion order. The TypeSafe adapter uses it for
+choice criteria. Nested objects use the same sorted default.
+
+Buffered responses expose `headers`, and successful SSE streams expose
+`headers()`. Both use `JsonHttpHeaders`, a case-insensitive
 header collection that keeps repeated and binary values. Its `Debug` output
 prints header names only. `as_raw()` gives explicit access to values for
 retry-after and request-id parsing. `as_raw_mut()` permits raw header changes.
@@ -48,8 +52,12 @@ the request has a different scheme, host, or port from the supplied origin.
 Every header is a credential unless the adapter supplied it through `header`
 or `headers` and no auth hook changed it. Standard credential headers always
 remain credentials. The builder marks credential names in `auth_headers`.
-Requests follow up to ten redirects. Redirects preserve credentials on the
-original origin and remove credential headers elsewhere.
+Requests follow up to ten redirects by default. Use `without_redirects()` on
+the request builder to stop at the first `3xx` response. The reqwest transport
+keeps its status and headers and skips its body. Buffered calls return an
+empty body. SSE calls return an HTTP status error with an empty body.
+Redirects preserve credentials on the original origin and remove credential
+headers elsewhere.
 A 307 or 308 response with a multipart body is returned without following
 the redirect, because that body cannot be replayed.
 The transport also protects standard authorization, cookie, and API-key headers.

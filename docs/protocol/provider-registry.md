@@ -1,7 +1,5 @@
 # Provider Registry Protocol
 
-Status: Implemented.
-
 This protocol governs how hosts build adapters through the registry. The
 per-provider constructors `new`, `with_auth`, and `with_catalog_auth` remain
 until the user answers the
@@ -42,7 +40,7 @@ combined catalog.
 | Provider | Default base URL | Paths that the adapters add |
 | --- | --- | --- |
 | `anthropic` | `https://api.anthropic.com` | `/v1/messages` |
-| `openai` | `https://api.openai.com` | `/v1/responses`, `/v1/images/generations`, `/v1/images/edits`, `/v1/audio/transcriptions` |
+| `openai` | `https://api.openai.com` | `/v1/responses`, `/v1/images/generations`, `/v1/images/edits`, `/v1/audio/transcriptions`, `/v1/decisions` |
 | `google` | `https://generativelanguage.googleapis.com` | `/v1beta/models/{model}:streamGenerateContent?alt=sse`, `/v1/models/{model}:generateContent`, `/v1beta/models/{model}:predictLongRunning`, `/v1beta/{operation}` |
 | `deepseek` | `https://api.deepseek.com` | `/chat/completions` |
 | `kimi` | `https://api.moonshot.ai` | `/v1/chat/completions` |
@@ -92,7 +90,7 @@ regional endpoint covered only part of a provider.
 | xAI deferred lifecycle | None | 60 s | 5 s |
 | OpenAI and Google image adapters | None | 120 s | None |
 | OpenAI transcription adapter | None | 60 s | None |
-| TypeSafe judgment adapter | None | 60 s | None |
+| OpenAI and TypeSafe judgment adapters | None | 60 s | None |
 | Google video adapter | None | 600 s | 10 s |
 
 - A timeout that the config sets replaces that default for every adapter of
@@ -119,7 +117,7 @@ regional endpoint covered only part of a provider.
 | Provider | Model | Image | Video | Transcription | Judgment |
 | --- | --- | --- | --- | --- | --- |
 | `anthropic` | yes | no | no | no | no |
-| `openai` | yes | yes | no | yes | no |
+| `openai` | yes | yes | no | yes | yes |
 | `google` | yes | yes | yes | no | no |
 | `deepseek`, `kimi`, `qwen`, `minimax`, `xai` | yes | no | no | no | no |
 | `typesafe` | no | no | no | no | yes |

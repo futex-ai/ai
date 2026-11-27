@@ -80,7 +80,7 @@ fn usage_total_saturates_and_other_buckets_stay_empty() {
 
 fn request() -> JudgmentRequest {
     JudgmentRequest {
-        state: "ticket".into(),
+        input: "ticket".into(),
         questions: BTreeMap::from([(
             "is_urgent".to_owned(),
             JudgmentQuestion::condition("Urgent?", None),

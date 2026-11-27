@@ -7,7 +7,7 @@ use ai_models_compat::{
     xai::GROK_4_5,
 };
 use ai_models_google::{GEMINI_3_1_FLASH_IMAGE, GEMINI_3_6_FLASH};
-use ai_models_openai::{GPT_5_6_SOL, GPT_IMAGE_2};
+use ai_models_openai::{GPT_5_6_SOL, GPT_6_LUNA, GPT_IMAGE_2};
 use ai_models_registry::{BuildResult, ProviderConfig, Registry};
 use ai_models_typesafe::JEV_LATEST;
 use json_http::DynJsonHttpClient;
@@ -64,6 +64,7 @@ pub(super) fn build(client: DynJsonHttpClient) -> BuildResult<()> {
     let _minimax = registry.model(&MINIMAX_M3)?;
     let _openai = registry.model(&GPT_5_6_SOL)?;
     let _openai_image = registry.image(&GPT_IMAGE_2)?;
+    let _openai_judgment = registry.judgment(&GPT_6_LUNA)?;
     let _qwen = registry.model(&QWEN_3_7_PLUS)?;
     let _typesafe = registry.judgment(&JEV_LATEST)?;
     let _xai = registry.model(&GROK_4_5)?;

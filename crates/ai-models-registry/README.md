@@ -20,9 +20,9 @@ the supplied spec, client, and config. The host adds retry, fallback,
 concurrency, and pricing layers after construction.
 
 Every provider except TypeSafe builds models. Google and OpenAI build image
-adapters, Google builds video adapters, OpenAI builds transcription adapters,
-and TypeSafe builds judgment adapters. No catalog lists a video model or a
-transcription model. A host builds those adapters from a custom spec that
+adapters. Google builds video adapters, and OpenAI builds transcription
+adapters. OpenAI and TypeSafe build judgment adapters. No catalog lists a video
+model or a transcription model. A host builds those adapters from a custom spec that
 names the provider model, as the Quick Start shows. A video adapter keeps its
 600-second total timeout and 10-second poll interval unless the config sets
 them.
@@ -53,17 +53,22 @@ open constructor default-effort decision. Prefer the registry in new code.
 ```rust
 use std::sync::Arc;
 
-use ai_interface::{DynModel, DynVideoGenerator, ModelSpec, ProviderId};
+use ai_interface::{DynJudgmentModel, DynModel, DynVideoGenerator, ModelSpec, ProviderId};
 use ai_models_registry::{BuildResult, ProviderConfig, Registry};
 use json_http::ReqwestJsonHttpClient;
 
 fn registry() -> Registry {
     Registry::new(Arc::new(ReqwestJsonHttpClient::new()))
         .with_provider(ProviderConfig::new(ProviderId::new("google"), "demo-key"))
+        .with_provider(ProviderConfig::new(ai_models_openai::PROVIDER_ID, "demo-key"))
 }
 
 fn build(spec: &ModelSpec) -> BuildResult<DynModel> {
     registry().model(spec)
+}
+
+fn build_judgment() -> BuildResult<DynJudgmentModel> {
+    registry().judgment(&ai_models_openai::GPT_6_LUNA)
 }
 
 fn build_video(model_id: String) -> BuildResult<DynVideoGenerator> {
@@ -97,6 +102,7 @@ cargo clippy -p ai-models-registry --all-targets --all-features -- -D warnings
 
 - [Architecture](../../docs/architecture.md)
 - [Provider registry](../../docs/protocol/provider-registry.md)
+- [OpenAI judgment provider](../../docs/protocol/openai-judgment-provider.md)
 - [Model capabilities](../../docs/protocol/model-capabilities.md)
 - [Conversation parts](../../docs/protocol/conversation-parts.md)
 - [Shared config and adapter helpers](../ai-models-core/README.md)

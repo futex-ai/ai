@@ -70,7 +70,7 @@ fn assert_malformed(error: &JudgmentError, expected_detail: &str) {
 
 fn condition_request() -> JudgmentRequest {
     JudgmentRequest {
-        state: "ticket".into(),
+        input: "ticket".into(),
         questions: BTreeMap::from([(
             "is_urgent".to_owned(),
             JudgmentQuestion::condition("Urgent?", None),
@@ -80,7 +80,7 @@ fn condition_request() -> JudgmentRequest {
 
 fn choice_request() -> JudgmentRequest {
     JudgmentRequest {
-        state: "ticket".into(),
+        input: "ticket".into(),
         questions: BTreeMap::from([(
             "team".to_owned(),
             JudgmentQuestion::choice("Team?", [("billing", None), ("technical", None)]),

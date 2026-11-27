@@ -48,9 +48,12 @@ fn workflow_bounds_parallelism_duration_and_superseded_runs() {
 
 #[test]
 fn workflow_requires_only_the_current_provider_secret_before_checkout() {
-    let credential = "LIVE_JUDGMENT_API_KEY: ${{ secrets[matrix.api_key] }}";
+    let credential = concat!(
+        "PROVIDER_API_KEY: ${{ secrets[matrix.api_key] }}\n",
+        "          PROVIDER_SECRET_NAME: ${{ matrix.api_key }}",
+    );
     assert_eq!(WORKFLOW.matches(credential).count(), 2);
-    assert!(WORKFLOW.contains("if [[ -z \"$LIVE_JUDGMENT_API_KEY\" ]]; then"));
+    assert!(WORKFLOW.contains("if [[ -z \"$PROVIDER_API_KEY\" ]]; then"));
     assert!(WORKFLOW.contains("exit 1"));
     assert!(
         WORKFLOW.find("- name: Require provider credential") < WORKFLOW.find("- name: Checkout")
@@ -59,16 +62,20 @@ fn workflow_requires_only_the_current_provider_secret_before_checkout() {
 
 #[test]
 fn workflow_runs_the_exact_ignored_catalog_test_without_artifacts() {
-    assert!(WORKFLOW.contains(
-        "cargo test --locked -p xtask --test live_judgments \"${{ matrix.test }}\" -- --ignored --exact --nocapture"
-    ));
+    assert!(WORKFLOW.contains(concat!(
+        "export \"LIVE_JUDGMENT_${PROVIDER_SECRET_NAME}=$PROVIDER_API_KEY\"\n",
+        "          unset PROVIDER_API_KEY\n",
+        "          cargo test --locked -p xtask --test live_judgments \"${{ matrix.test }}\" -- --ignored --exact --nocapture",
+    )));
     assert!(!WORKFLOW.contains("upload-artifact"));
     assert!(!WORKFLOW.contains("judgment response"));
 }
 
 #[test]
 fn ordinary_ci_remains_credential_free() {
-    assert!(!ORDINARY_CI.contains("LIVE_JUDGMENT_API_KEY"));
+    for provider in LiveJudgmentProvider::ALL {
+        assert!(!ORDINARY_CI.contains(&provider.api_key_variable()));
+    }
     assert!(!ORDINARY_CI.contains("--test live_judgments"));
     assert!(!ORDINARY_CI.contains("TYPESAFE_API_KEY"));
     assert!(!ORDINARY_CI.contains("secrets."));

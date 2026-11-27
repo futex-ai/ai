@@ -6,7 +6,7 @@ use async_trait::async_trait;
 
 use crate::{
     JudgmentAnswer, JudgmentError, JudgmentModel, JudgmentQuestion, JudgmentQuestionProblem,
-    JudgmentRequest, JudgmentResponse, JudgmentResult, ModelUsage,
+    JudgmentRequest, JudgmentResponse, JudgmentResult, JudgmentSupport, ModelUsage,
 };
 
 const MOCK_MODEL_ID: &str = "mock-judgment";
@@ -21,6 +21,7 @@ impl JudgmentModel for MockJudgmentModel {
         if let Err(error) = request.validate() {
             return Err(error.with_identity("mock", MOCK_MODEL_ID));
         }
+        JudgmentSupport::ALL.check(request, "mock", MOCK_MODEL_ID)?;
         let mut answers = BTreeMap::new();
         for (id, question) in &request.questions {
             answers.insert(id.clone(), answer_question(id, question)?);
@@ -39,15 +40,17 @@ fn answer_question(id: &str, question: &JudgmentQuestion) -> JudgmentResult<Judg
     match question {
         JudgmentQuestion::Condition { .. } => Ok(JudgmentAnswer::Condition { probability: 1.0 }),
         JudgmentQuestion::Choice { options, .. } => {
-            let Some(selected) = options.keys().next().cloned() else {
+            let Some(first) = options.first() else {
                 return Err(JudgmentError::invalid_question(
                     id,
                     JudgmentQuestionProblem::NoOptions,
                 )
                 .with_identity("mock", MOCK_MODEL_ID));
             };
+            let selected = first.label.clone();
             let probabilities = options
-                .keys()
+                .iter()
+                .map(|option| &option.label)
                 .map(|label| (label.clone(), f64::from(label == &selected)))
                 .collect();
             Ok(JudgmentAnswer::Choice {

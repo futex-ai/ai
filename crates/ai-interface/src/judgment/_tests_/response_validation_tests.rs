@@ -3,14 +3,14 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    JudgmentAnswer, JudgmentAnswerProblem, JudgmentContent, JudgmentError, JudgmentQuestion,
-    JudgmentQuestionKind, JudgmentRequest, JudgmentResponse, ModelUsage,
+    JudgmentAnswer, JudgmentAnswerProblem, JudgmentError, JudgmentQuestion, JudgmentQuestionKind,
+    JudgmentRequest, JudgmentResponse, ModelUsage,
 };
 
 #[test]
 fn validation_reports_the_first_missing_answer_in_request_order() {
     let request = JudgmentRequest {
-        state: JudgmentContent::from("state"),
+        input: "state".into(),
         questions: BTreeMap::from([
             ("zeta".to_owned(), JudgmentQuestion::condition("zeta", None)),
             (
@@ -51,7 +51,7 @@ fn validation_rejects_an_answer_kind_mismatch() {
 #[test]
 fn validation_accepts_complete_answers_for_all_question_kinds() {
     let request = JudgmentRequest {
-        state: JudgmentContent::from("state"),
+        input: "state".into(),
         questions: valid_questions(),
     };
     let response = response_with(BTreeMap::from([
@@ -84,6 +84,20 @@ fn validation_accepts_complete_answers_for_all_question_kinds() {
 }
 
 #[test]
+fn validation_accepts_a_refusal_for_every_question_kind() {
+    for (id, question) in valid_questions() {
+        let request = JudgmentRequest {
+            input: "state".into(),
+            questions: BTreeMap::from([(id.clone(), question)]),
+        };
+        let response = response_with(BTreeMap::from([(id.clone(), JudgmentAnswer::Refused)]));
+
+        let result = response.validate_against(&request);
+        assert!(matches!(result, Ok(())), "{id}: {result:?}");
+    }
+}
+
+#[test]
 fn validation_ignores_answer_ids_not_present_in_the_request() {
     let request = request(JudgmentQuestion::condition("condition", None));
     let response = response_with(BTreeMap::from([
@@ -104,7 +118,7 @@ fn validation_ignores_answer_ids_not_present_in_the_request() {
 
 pub(super) fn request(question: JudgmentQuestion) -> JudgmentRequest {
     JudgmentRequest {
-        state: JudgmentContent::from("state"),
+        input: "state".into(),
         questions: BTreeMap::from([("question".to_owned(), question)]),
     }
 }

@@ -3,7 +3,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use ai_interface::{
-    ErrorKind, JudgmentAnswerProblem, JudgmentContent, JudgmentError, JudgmentQuestion,
+    ErrorKind, JudgmentAnswerProblem, JudgmentDescription, JudgmentError, JudgmentQuestion,
     JudgmentRequest, JudgmentResponse, JudgmentResult,
 };
 use ai_models_core::{ErrorContext, SystemClock};
@@ -13,14 +13,14 @@ use super::parse_response;
 
 pub(super) fn request() -> JudgmentRequest {
     JudgmentRequest {
-        state: "ticket".into(),
+        input: "ticket".into(),
         questions: BTreeMap::from([
             (
                 "choice".to_owned(),
                 JudgmentQuestion::choice(
                     "Team?",
                     [
-                        ("billing", Some(JudgmentContent::from("Payments"))),
+                        ("billing", Some(JudgmentDescription::from("Payments"))),
                         ("technical", None),
                     ],
                 ),
