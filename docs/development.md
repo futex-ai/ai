@@ -32,14 +32,15 @@ LIVE_MODEL_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_mo
   openai_catalog -- --ignored --exact --nocapture
 ```
 
-These calls are billable. The dedicated `Live model APIs` workflow runs all
-eight provider catalogs for same-repository pull requests, every day, and on
-manual dispatch. It requires the repository Actions secrets
+These calls are billable. The dedicated `Live model APIs` workflow runs every
+provider catalog except QwenCloud for same-repository pull requests, every
+day, and on manual dispatch. It requires the repository Actions secrets
 `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`,
-`GOOGLE_API_KEY`, `KIMI_API_KEY`, `MINIMAX_API_KEY`, `OPENAI_API_KEY`,
-`QWEN_API_KEY`, and `XAI_API_KEY`. On an eligible run, a missing secret fails
-its provider job. The [live model API test protocol](protocol/live-model-api-tests.md)
-defines the probes and their success contract.
+`GOOGLE_API_KEY`, `KIMI_API_KEY`, `MINIMAX_API_KEY`, `OPENAI_API_KEY`, and
+`XAI_API_KEY`. On an eligible run, a missing secret fails its provider job.
+The [live model API test protocol](protocol/live-model-api-tests.md) defines
+the probes and their success contract, and gives the reason that CI does not
+run QwenCloud.
 
 ## Live image checks
 
@@ -95,9 +96,9 @@ credential-free smoke tests, and `cargo xtask check`. Limiting push-triggered CI
 to `main` prevents an open pull request from running the same commit once for
 the branch push and again for the pull-request event. The separate `Live model
 APIs` workflow makes billable calls through the production adapters for the
-default and each listed effort of every chat-capable catalog spec through
-the generic tool-calling runtime on eligible pull requests as well as its
-daily schedule and manual dispatch. The separate
+default and each listed effort of every chat-capable catalog spec, except the
+QwenCloud specs, through the generic tool-calling runtime on eligible pull
+requests as well as its daily schedule and manual dispatch. The separate
 `Live image APIs` workflow exercises every Google and OpenAI image-capable
 catalog spec through `DynImageGenerator` with image-specific validation and
 sequential provider jobs. The `Live judgment APIs`

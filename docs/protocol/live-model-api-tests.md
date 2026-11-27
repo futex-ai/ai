@@ -10,13 +10,14 @@ upstream production API.
 ## Scope
 
 The credentialed suite covers Anthropic, DeepSeek, Google Gemini, Kimi,
-MiniMax, OpenAI, QwenCloud, and xAI. Each provider test takes its specs from
-the combined catalog of the registry. It runs one probe at the default of
-each chat-capable spec, then one probe for each other listed effort, so new
-specs and efforts enter the live test automatically. The default probe of a
-spec without a default effort sets no effort. Probes that share a spec
-still run separately because each effort exercises different thinking
-controls. Specs advertising `ModelFeature::ImageGeneration`,
+MiniMax, OpenAI, QwenCloud, and xAI. CI runs all of them except QwenCloud, as
+[CI And Credentials](#ci-and-credentials) says. Each provider test takes its
+specs from the combined catalog of the registry. It runs one probe at the
+default of each chat-capable spec, then one probe for each other listed
+effort, so new specs and efforts enter the live test automatically. The
+default probe of a spec without a default effort sets no effort. Probes that
+share a spec still run separately because each effort exercises different
+thinking controls. Specs advertising `ModelFeature::ImageGeneration`,
 `ModelFeature::VideoGeneration`, or `ModelFeature::Judgment` are routed through
 their specialized provider-neutral traits, not `Model`, and are therefore
 outside this chat connectivity suite.
@@ -137,16 +138,24 @@ They do not send provider requests.
 
 `.github/workflows/live-models.yml` runs for pull requests targeting `main`, on
 the default branch on a daily schedule, and by manual dispatch from the default
-branch. It uses one matrix job per provider, keeps matrix failures independent,
-and limits parallelism to reduce rate pressure. A newer revision of the same
-pull request cancels its superseded live run. The workflow has read-only
-repository permissions and exposes only the current provider's secret, only to
-the credential check and test steps.
+branch. It uses one matrix job per provider except QwenCloud, keeps matrix
+failures independent, and limits parallelism to reduce rate pressure. A newer
+revision of the same pull request cancels its superseded live run. The workflow
+has read-only repository permissions and exposes only the current provider's
+secret, only to the credential check and test steps.
 
 Decision: the paid live suites keep these triggers. The rejected
 alternatives were path filters, a pull-request label, schedules only, a
 small pull-request set, one run for each merged change, and a run set
 from the Cargo dependency graph.
+
+Decision: the workflow leaves out QwenCloud until an account with paid
+QwenCloud access exists, because the free quota of the CI account is
+exhausted. The rejected alternatives were to turn on paid access for that
+account and to replace its secret with the key of an account that has paid
+access.
+[Restore the QwenCloud live job](../../plans/follow-ups/restore-qwencloud-live-job.md)
+gives the steps that add the job again.
 
 The required repository Actions secrets are:
 
@@ -158,7 +167,6 @@ The required repository Actions secrets are:
 | Kimi | `KIMI_API_KEY` |
 | MiniMax | `MINIMAX_API_KEY` |
 | OpenAI | `OPENAI_API_KEY` |
-| QwenCloud | `QWEN_API_KEY` |
 | xAI | `XAI_API_KEY` |
 
 Credentialed jobs run only for same-repository pull requests not authored by

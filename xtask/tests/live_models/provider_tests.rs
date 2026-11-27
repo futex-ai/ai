@@ -60,6 +60,13 @@ impl LiveProvider {
         }
     }
 
+    /// QwenCloud stays out of the Live model APIs workflow until the CI account
+    /// has paid access. See `plans/follow-ups/restore-qwencloud-live-job.md` for
+    /// the steps to restore the job.
+    pub(super) fn in_live_workflow(self) -> bool {
+        self != Self::Qwen
+    }
+
     pub(super) fn workflow_test(self) -> &'static str {
         match self {
             Self::Anthropic => "anthropic_catalog",

@@ -49,9 +49,6 @@ jobs:
           - provider: OpenAI
             test: openai_catalog
             api_key: OPENAI_API_KEY
-          - provider: QwenCloud
-            test: qwen_catalog
-            api_key: QWEN_API_KEY
           - provider: xAI
             test: xai_catalog
             api_key: XAI_API_KEY

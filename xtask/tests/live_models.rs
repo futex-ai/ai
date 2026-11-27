@@ -116,7 +116,10 @@ fn typesafe_judgment_models_never_reach_other_live_runners() {
 fn workflow_covers_every_live_provider() {
     let workflow = include_str!("../../.github/workflows/live-models.yml");
 
-    for provider in LiveProvider::ALL {
+    for provider in LiveProvider::ALL
+        .into_iter()
+        .filter(|provider| provider.in_live_workflow())
+    {
         assert!(
             workflow.contains(&format!("test: {}", provider.workflow_test())),
             "workflow omitted the {} test",
