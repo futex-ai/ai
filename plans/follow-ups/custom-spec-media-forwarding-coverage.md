@@ -1,10 +1,10 @@
 # No shared test for custom-spec media parts
 
 - **Severity:** Low. **Effort:** Medium. **Confidence:** High. **Harder later:** No.
-- **Kind:** Needs decision.
+- **Kind:** Fix after merge.
 - **Added:** 2026-11-27, from branch `ci-fix/live-model-apis-minimax-catalog` (pull request #32), found by the implementation review: the blocked wider fix of review finding 1.
 - **Location:** `crates/ai-models-registry/src/_tests_/model_support.rs:100` (`cases`), `crates/ai-models-registry/src/_tests_/mod.rs`, `docs/protocol/video-input.md` (sections "Provider Mappings" and "Rejecting Providers"), `docs/protocol/qwen-model-provider.md:120-124`, `docs/protocol/model-capabilities.md:86-108` (section "Custom specs"), `crates/ai-interface/src/model_spec.rs:38` (`features`)
-- **Reason:** The recommended option adds a test for a whole defect class, which only the user may approve under "Blocked options" in `references/outcomes.md` of the `decisions-and-findings` skill.
+- **Reason:** The user chose option A on 2026-11-27 and asked for it in a later branch, because the test reaches every adapter, which is outside the purpose of pull request #32.
 
 - **Terms:**
   - **Spec:** a `ModelSpec` value in `crates/ai-interface/src/model_spec.rs` that holds the facts of one model.
@@ -49,4 +49,5 @@
   - `plans/follow-ups/minimax-custom-image-coverage.md`: the direct fix of one case of this class. Option A of this item also covers that image case. That item can land first, and it does not wait for this answer.
   - `plans/follow-ups/remove-provider-constructors.md`: the same construction path. That work builds every test model through the registry, as option A does. The change that lands second follows the test layout of the first.
 - **Recommendation:** A. It is the only option that catches both a feature gate and a model-id rule in every adapter, for the cost of one test.
-- **Action:** ask the user, because A adds a test for a whole defect class, which the rule "A test for the class" of the `testing` skill leaves to the user.
+- **Decision:** On 2026-11-27, the user chose option A, the shared registry test, including the Qwen doc sentence of option A. A test for the class needs the user's approval under "Blocked options" in `references/outcomes.md` of the `decisions-and-findings` skill, and this choice is that approval. The user asked that a later branch build the test, not pull request #32.
+- **Action:** fix after merge, apply A, because the user approved A on 2026-11-27, so a later branch applies it without the user.

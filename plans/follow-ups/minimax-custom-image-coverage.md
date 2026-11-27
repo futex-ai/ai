@@ -27,7 +27,7 @@
     - For each case, check the literal request `model` and the expected content, and name the case in the failure text. Keep the M3 case and every check.
     - To prove the custom case, add a temporary model-id gate to the MiniMax dialect. See the custom case fail, then remove the gate.
     - Cost: one more case in an existing test. Effort: Small.
-  - **B.** Add one table test in `crates/ai-models-registry/src/_tests_/` that sends image and video parts through the custom spec of each provider. `plans/follow-ups/custom-spec-media-forwarding-coverage.md` holds this option as its option A. Cost: it is a test for the class, and the `testing` skill gives that choice to the user. Effort: Medium.
+  - **B.** Add one table test in `crates/ai-models-registry/src/_tests_/` that sends image and video parts through the custom spec of each provider. `plans/follow-ups/custom-spec-media-forwarding-coverage.md` holds this option as its option A. Cost: it reaches every adapter. The user approved it on 2026-11-27 for a later branch. Effort: Medium.
 - **Left out:**
   - Change nothing: a MiniMax-only gate still passes every test, so this fails the goal.
   - Reject image parts for a spec without `Vision`, and document the rejection. This changes the requirement at `docs/protocol/minimax-model-provider.md:104-106` instead of checking it.
@@ -40,5 +40,5 @@
 - **Related:**
   - `plans/follow-ups/custom-spec-media-forwarding-coverage.md`: the shared wider fix. Its option A, the table test, also covers this image case. This item is the direct fix, and it can land first.
   - `plans/follow-ups/remove-provider-constructors.md`: the same test. That work deletes `MiniMaxModel::new` at `crates/ai-models-compat/src/minimax/client.rs:33`, which the image test and option A use. It builds every test model through `Registry` in `crates/ai-models-registry` instead, so the change that lands second rewrites the same test.
-- **Recommendation:** A. It closes the MiniMax gap at the smallest cost, with the pattern of the video test next to it. B best protects the codebase, and `plans/follow-ups/custom-spec-media-forwarding-coverage.md` asks the user for it.
+- **Recommendation:** A. It closes the MiniMax gap at the smallest cost, with the pattern of the video test next to it. B best protects the codebase. The user approved it on 2026-11-27, and `plans/follow-ups/custom-spec-media-forwarding-coverage.md` holds that work.
 - **Action:** fix after merge, apply A, because the gap was on `main` before this branch, and the user chose a follow-up item on 2026-11-27.
