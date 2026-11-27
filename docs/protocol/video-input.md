@@ -65,8 +65,7 @@ Model specs advertising `video_input`:
 | MiniMax | `minimax/MiniMax-M3` |
 
 `google/gemini-3.1-flash-image` is an image-generation model and does not
-accept video. MiniMax M2.7 models are text/tool models without vision or
-video.
+accept video.
 
 ## Provider Mappings
 
@@ -95,9 +94,10 @@ MiniMax-M3 supports video input. Video parts map to the OpenAI-compatible
 { "type": "video_url", "video_url": { "url": "data:video/mp4;base64,<data>" } }
 ```
 
-Only the M3 spec advertises `video_input`. M2.7 requests that carry
-video parts still serialize the `video_url` part; MiniMax rejects them
-upstream because those models are not vision models. Deterministic wire tests
+Only the M3 spec advertises `video_input`. A request with a MiniMax
+[custom spec](model-capabilities.md#custom-specs) still sends its video parts
+as `video_url` parts. The MiniMax API, not the adapter, accepts or rejects
+them. Deterministic wire tests
 cover the serialization; the implementation environment for this change had no
 MiniMax credential, so the billable live assertion is deferred to the
 credentialed workflow.

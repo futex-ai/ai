@@ -6,7 +6,10 @@ use serde_json::json;
 
 use crate::minimax::MINIMAX_M3;
 
-use super::{MiniMaxModel, support::recording_http_client};
+use super::{
+    MiniMaxModel,
+    support::{custom_model_spec, recording_http_client},
+};
 
 #[tokio::test]
 async fn serializes_ordered_text_and_image_parts_as_data_urls() {
@@ -74,7 +77,7 @@ async fn serializes_ordered_text_and_image_parts_as_data_urls() {
 
 #[tokio::test]
 async fn serializes_video_parts_as_video_url_data_urls() {
-    let (http_client, requests) = recording_http_client([JsonHttpResponse {
+    let response = JsonHttpResponse {
         headers: Default::default(),
         status: 200,
         body: json!({
@@ -83,50 +86,63 @@ async fn serializes_video_parts_as_video_url_data_urls() {
                 "message": {"content": "Watched."}
             }]
         }),
-    }]);
-    MiniMaxModel::new(http_client, MINIMAX_M3, "minimax-key")
-        .complete(&ModelRequest {
-            system_prompt: "system".to_owned(),
-            messages: vec![ConversationMessage::user_with_parts(vec![
-                ConversationPart::Text {
-                    text: "What happens in this clip?".to_owned(),
-                    provider_state: None,
-                },
-                ConversationPart::Video {
-                    mime_type: "video/mp4".to_owned(),
-                    data_base64: "dmlkZW8=".to_owned(),
-                    provider_state: None,
-                },
-            ])],
-            tools: Vec::new(),
-            response_schema: None,
-            controls: Default::default(),
-        })
-        .await
-        .expect("multimodal response should parse");
-
-    let requests = requests
-        .lock()
-        .expect("requests lock should not be poisoned");
-    let body = requests[0]
-        .body
-        .as_ref()
-        .and_then(|body| {
-            body.as_json_bytes().map(|bytes| {
-                serde_json::from_slice::<serde_json::Value>(bytes).expect("valid JSON request body")
-            })
-        })
-        .expect("JSON body should be present");
-    assert_eq!(
-        body["messages"][1]["content"],
-        json!([
-            {"type": "text", "text": "What happens in this clip?"},
-            {
-                "type": "video_url",
-                "video_url": {
-                    "url": "data:video/mp4;base64,dmlkZW8="
-                }
+    };
+    let request = ModelRequest {
+        system_prompt: "system".to_owned(),
+        messages: vec![ConversationMessage::user_with_parts(vec![
+            ConversationPart::Text {
+                text: "What happens in this clip?".to_owned(),
+                provider_state: None,
+            },
+            ConversationPart::Video {
+                mime_type: "video/mp4".to_owned(),
+                data_base64: "dmlkZW8=".to_owned(),
+                provider_state: None,
+            },
+        ])],
+        tools: Vec::new(),
+        response_schema: None,
+        controls: Default::default(),
+    };
+    let expected_content = json!([
+        {"type": "text", "text": "What happens in this clip?"},
+        {
+            "type": "video_url",
+            "video_url": {
+                "url": "data:video/mp4;base64,dmlkZW8="
             }
-        ])
-    );
+        }
+    ]);
+
+    for (spec, model_id) in [
+        (MINIMAX_M3, "MiniMax-M3"),
+        (custom_model_spec(), "minimax-custom"),
+    ] {
+        let (http_client, requests) = recording_http_client([response.clone()]);
+        MiniMaxModel::new(http_client, spec, "minimax-key")
+            .complete(&request)
+            .await
+            .unwrap_or_else(|error| {
+                panic!("multimodal response for {model_id} should parse, got {error}")
+            });
+
+        let requests = requests
+            .lock()
+            .expect("requests lock should not be poisoned");
+        let body = requests[0]
+            .body
+            .as_ref()
+            .and_then(|body| {
+                body.as_json_bytes().map(|bytes| {
+                    serde_json::from_slice::<serde_json::Value>(bytes)
+                        .expect("valid JSON request body")
+                })
+            })
+            .expect("JSON body should be present");
+        assert_eq!(body["model"], model_id, "unexpected request model");
+        assert_eq!(
+            body["messages"][1]["content"], expected_content,
+            "unexpected video content for {model_id}"
+        );
+    }
 }

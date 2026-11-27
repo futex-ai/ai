@@ -1,22 +1,22 @@
 //! MiniMax portable call-control tests.
 
-use ai_interface::ErrorKind;
-
 use std::sync::Arc;
 use std::time::Duration;
 
 use ai_interface::{
-    ConversationMessage, Model, ModelCallControls, ModelCompletionMode, ModelControl,
+    ConversationMessage, ErrorKind, Model, ModelCallControls, ModelCompletionMode, ModelControl,
     ModelExecutionControls, ModelGenerationControls, ModelRequest, ModelToolChoice, ToolDefinition,
 };
 use json_http::{JsonHttpClient, JsonHttpResponse, TransportBackedJsonHttpClient};
 use serde_json::{Value, json};
 use unimock::Unimock;
 
-use crate::minimax::MINIMAX_M2_7;
 use crate::minimax::MINIMAX_M3;
 
-use super::{MiniMaxModel, support::recording_http_client};
+use super::{
+    MiniMaxModel,
+    support::{custom_model_spec, recording_http_client},
+};
 
 #[tokio::test]
 async fn maps_supported_controls_and_blank_system_to_the_final_request() {
@@ -118,7 +118,7 @@ async fn minimax_m3_serializes_strict_and_fallback_required_as_required() {
 #[tokio::test]
 async fn fallback_uses_auto_for_minimax_models_without_verified_required_support() {
     let (http_client, requests) = recording_http_client([successful_response()]);
-    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
+    let model = MiniMaxModel::new(http_client, custom_model_spec(), "key");
     let mut request = base_request();
     request.tools = vec![lookup_tool()];
     request.controls.generation.tool_choice = Some(ModelToolChoice::RequiredOrAuto);
@@ -144,7 +144,7 @@ async fn fallback_uses_auto_for_minimax_models_without_verified_required_support
 
 #[tokio::test]
 async fn strict_required_remains_unsupported_for_other_minimax_models() {
-    let model = MiniMaxModel::new(unused_http_client(), MINIMAX_M2_7, "key");
+    let model = MiniMaxModel::new(unused_http_client(), custom_model_spec(), "key");
     let mut request = base_request();
     request.controls.generation.tool_choice = Some(ModelToolChoice::Required);
 

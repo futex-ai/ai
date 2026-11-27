@@ -21,5 +21,6 @@
 - **Left out:** None.
 - **Wider fix:** B.
 - **Previous examples:** Review finding 68 of 2026-11-02, where unsigned Gemini continuations changed their request layout.
+- **Related:** `plans/follow-ups/minimax-video-live-assertion-claim.md`: the same code. Its option B also adds a conformance scenario to `crates/ai-testkit/src/scenario.rs`.
 - **Recommendation:** B. One shared scenario checks the one rule for both adapters.
 - **Action:** ask the user, because B adds a test for a class.

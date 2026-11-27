@@ -6,7 +6,7 @@ use ai_interface::{Effort, Model, ModelRequest};
 use json_http::{JsonHttpResponse, StaticHeaderAuth};
 use serde_json::json;
 
-use crate::minimax::{MINIMAX_M2_7, MINIMAX_M2_7_HIGHSPEED, MINIMAX_M3, known_models};
+use crate::minimax::MINIMAX_M3;
 
 use super::{MiniMaxModel, support::recording_http_client};
 
@@ -54,18 +54,6 @@ async fn maps_disabled_and_enabled_thinking_controls() {
             response.effort().map(Effort::as_str),
             Some(effective.as_str())
         );
-    }
-}
-
-#[test]
-fn m2_7_catalog_entries_always_enable_thinking() {
-    let models = known_models();
-    for id in [MINIMAX_M2_7, MINIMAX_M2_7_HIGHSPEED] {
-        let model = models
-            .iter()
-            .find(|model| model.provider_model_id == id.provider_model_id)
-            .expect("M2.7 model should exist");
-        assert!(model.default_effort.is_some_and(Effort::is_enabled));
     }
 }
 

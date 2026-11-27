@@ -16,5 +16,8 @@
 - **Impact if no action:** Two construction paths stay, with different default efforts for the same model.
 - **Needs:** The user's answer to `plans/follow-ups/constructor-default-effort.md`.
 - **Done when:** The constructors are gone or kept as the answer says, every caller builds through the registry, and `cargo xtask check` passes.
-- **Related:** `plans/follow-ups/constructor-default-effort.md`, the decision that this work waits for.
+- **Related:**
+  - `plans/follow-ups/constructor-default-effort.md`, the decision that this work waits for.
+  - `plans/follow-ups/minimax-custom-image-coverage.md`: the same test. Its fix adds a case to the MiniMax image test, which builds its model with `MiniMaxModel::new`, so the change that lands second rewrites that test.
+  - `plans/follow-ups/custom-spec-media-forwarding-coverage.md`: the same construction path. Its option A builds every test model through the registry, as this work does. The change that lands second follows the test layout of the first.
 - **Action:** ask the user, because the work waits for that decision.

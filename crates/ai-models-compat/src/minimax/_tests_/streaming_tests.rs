@@ -6,9 +6,10 @@ use ai_interface::{ConversationPart, Effort, Model, StructuredOutputSchema};
 use ai_models_core::test_support::{SseFixture, done_event, event, recording_streaming_client};
 use serde_json::{Value, json};
 
-use crate::minimax::{MINIMAX_M2_7, MINIMAX_M3, MiniMaxModel};
-
-use super::{response, support::simple_request};
+use super::{
+    MINIMAX_M3, MiniMaxModel, response,
+    support::{custom_model_spec, simple_request},
+};
 
 #[tokio::test]
 async fn normalizes_cumulative_content_and_preserves_reasoning_details() {
@@ -56,15 +57,16 @@ async fn normalizes_cumulative_content_and_preserves_reasoning_details() {
         done_event(),
     ];
     let (http_client, requests) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "minimax-key");
+    let spec = custom_model_spec();
+    let model = MiniMaxModel::new(http_client, spec.clone(), "minimax-key");
 
     let streamed = model
         .complete(&simple_request())
         .await
         .expect("MiniMax stream should parse");
     let mut parsed = response::parse_response(
-        &MINIMAX_M2_7.text_id(),
-        MINIMAX_M2_7.provider_model_id.as_ref(),
+        &spec.text_id(),
+        spec.provider_model_id.as_ref(),
         Effort::Medium,
         buffered,
         None,
@@ -226,7 +228,8 @@ async fn cumulative_structured_output_matches_buffered_parser() {
         done_event(),
     ];
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
+    let spec = custom_model_spec();
+    let model = MiniMaxModel::new(http_client, spec.clone(), "key");
     let mut request = simple_request();
     request.response_schema = Some(schema.clone());
 
@@ -235,8 +238,8 @@ async fn cumulative_structured_output_matches_buffered_parser() {
         .await
         .expect("structured stream should parse");
     let parsed = response::parse_response(
-        &MINIMAX_M2_7.text_id(),
-        MINIMAX_M2_7.provider_model_id.as_ref(),
+        &spec.text_id(),
+        spec.provider_model_id.as_ref(),
         Effort::Medium,
         body,
         Some(&schema),

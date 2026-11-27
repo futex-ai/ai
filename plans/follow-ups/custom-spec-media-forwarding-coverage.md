@@ -1,0 +1,53 @@
+# No shared test for custom-spec media parts
+
+- **Severity:** Low. **Effort:** Medium. **Confidence:** High. **Harder later:** No.
+- **Kind:** Fix after merge.
+- **Added:** 2026-11-27, from branch `ci-fix/live-model-apis-minimax-catalog` (pull request #32), found by the implementation review: the blocked wider fix of review finding 1.
+- **Location:** `crates/ai-models-registry/src/_tests_/model_support.rs:100` (`cases`), `crates/ai-models-registry/src/_tests_/mod.rs`, `docs/protocol/video-input.md` (sections "Provider Mappings" and "Rejecting Providers"), `docs/protocol/qwen-model-provider.md:120-124`, `docs/protocol/model-capabilities.md:86-108` (section "Custom specs"), `crates/ai-interface/src/model_spec.rs:38` (`features`)
+- **Reason:** The user chose option A on 2026-11-27 and asked for it in a later branch, because the test reaches every adapter, which is outside the purpose of pull request #32.
+
+- **Terms:**
+  - **Spec:** a `ModelSpec` value in `crates/ai-interface/src/model_spec.rs` that holds the facts of one model.
+  - **Feature:** a `ModelFeature` value of a spec, such as `vision` or `video_input`, that routing reads, as `docs/protocol/model-capabilities.md:30` says.
+  - **Custom spec:** a spec that `ModelSpec::custom` builds for a model that no catalog lists, with no features until the caller sets them.
+  - **Registry:** `Registry` in `crates/ai-models-registry`, which builds the adapter of each provider from a spec and a provider config.
+  - **Dialect:** the fixed settings of one of the five providers of the shared Chat Completions engine, the `CompatModel` adapter in `crates/ai-models-compat`.
+- **Background:**
+  - In this item, a media part is an image part or a video part of a user message. Each adapter either sends a media part in the wire form of its provider, or rejects it before transport with the `UnsupportedInput` error kind. The docs give most of these outcomes for each provider, not for each spec, so they hold also for a custom spec.
+  - A defect of this class makes an adapter reject or drop a media part that the docs say it sends. It can also make the adapter send a media part that the docs say it rejects.
+  - `docs/protocol/video-input.md` gives the video outcome of each provider. Google sends `inlineData`, and MiniMax sends `video_url`. Anthropic, OpenAI, xAI, Kimi, Qwen, and DeepSeek reject the part.
+  - The provider protocol docs and the crate READMEs give the image outcome. Anthropic sends a base64 image block, and Google sends `inlineData`. OpenAI sends Responses input content, which the code calls `input_image` at `crates/ai-models-openai/src/openai/request_types.rs:77`. Kimi, MiniMax, and xAI send `image_url`, and DeepSeek rejects the part.
+  - `docs/protocol/qwen-model-provider.md:120-124` gives the Qwen image outcome for the Plus, Flash, and Max specs only. Plus and Flash send `image_url`, and Max rejects the part. No doc gives the outcome for a custom Qwen spec. The code sends `image_url` for every model id except `qwen3.7-max`, at `crates/ai-models-compat/src/engine/messages.rs:49`.
+  - Today no adapter reads the features of its spec. The capability check, `resolve_controls` at `crates/ai-models-core/src/capabilities.rs:45`, does not read them either. One dialect has a model-id rule: the Qwen dialect rejects media parts for `qwen3.7-max`, at `crates/ai-models-compat/src/qwen/dialect.rs:32`.
+  - The five dialects send their requests through the shared `CompatModel::open_stream` at `crates/ai-models-compat/src/engine/client.rs:66`. A gate there fails the xAI image test, which uses a custom spec. So the gap is for a change inside one adapter.
+  - The media tests of the adapters use three kinds of spec:
+    - A custom spec with an id that no catalog lists. The xAI tests in `crates/ai-models-compat/src/xai/_tests_/xai_multimodal_tests.rs` use `grok-4`, the Google image test uses `gemini-2.5-pro`, and the MiniMax video test uses `minimax-custom`.
+    - A custom spec with the id of a catalog spec. The OpenAI tests in `crates/ai-models-openai/src/openai/_tests_/openai_multimodal_tests.rs` use `gpt-5.5`, the id of `GPT_5_5` at `crates/ai-models-openai/src/catalog.rs:91`. The Google video test at `crates/ai-models-google/src/google/_tests_/google/multimodal_tests.rs:87` uses `gemini-3.6-flash`, the id of `GEMINI_3_6_FLASH`.
+    - A catalog spec. The Anthropic tests use `CLAUDE_SONNET_4_6`, the MiniMax image test uses `MINIMAX_M3`, and the DeepSeek rejection test at `crates/ai-models-compat/src/deepseek/_tests_/input_tests.rs:14` uses `DEEPSEEK_V4_PRO`. The Kimi and Qwen tests call a request-builder wrapper with catalog ids, and that wrapper skips `CompatModel::open_stream`.
+  - `model_support::cases()` at `crates/ai-models-registry/src/_tests_/model_support.rs:100` gives one case for each of the eight chat providers. Each case holds a catalog spec and the custom spec `registry-unlisted`. The tests in `crates/ai-models-registry/src/_tests_/model_tests.rs` build both specs through the registry, send a text request, and check the recorded request. No registry test sends a media part.
+- **Problem:** Most adapters have no test that fails when a change inside the adapter brings a defect of this class to custom specs. The Anthropic, Kimi, Qwen, DeepSeek, and MiniMax image tests use catalog specs, so they pass when the change affects only custom specs. The OpenAI tests and the Google video test use custom specs with catalog ids, so they pass when the change affects only unlisted ids.
+- **Impact if no action:** A host that sends media parts to an unlisted model can get a rejection or a lost part that no doc states, while `cargo xtask check` passes. Each adapter must remember its own custom-spec case.
+- **Root question:** How does the workspace make sure that each adapter keeps its documented behaviour for the media parts of a custom spec?
+- **Options:** The table test keeps the letter A, because on 2026-11-27 the user asked for this item with recommendation A. B to D go from the smallest effort to the largest.
+  - **A.** Add one table test in `crates/ai-models-registry/src/_tests_/` over the custom spec of each case of `model_support::cases()`.
+    - Build each model through the registry, and send one request with an image part and one request with a video part.
+    - For each provider and part, check the documented outcome. That outcome is a recorded request with the mapped part, or `UnsupportedInput` with no request.
+    - For the custom Qwen image case, check the current outcome, an `image_url` part. Add one sentence that states it to `docs/protocol/qwen-model-provider.md:120-124`. The approval of A also approves that sentence.
+    - Cost: it is a test for a whole defect class, and it reaches providers outside this branch. Effort: Medium.
+  - **B.** Add one rule to the section "Custom specs" of `docs/protocol/model-capabilities.md`. The rule says that features are routing data. No adapter or capability check accepts or rejects a request because of them. Cost: nothing checks the rule, and it does not cover a model-id rule. Effort: Small.
+  - **C.** Change nothing, and rely on the tests of each adapter, such as the custom image case of `plans/follow-ups/minimax-custom-image-coverage.md`. Cost: each adapter needs its own custom-spec case, and a new adapter or a new media part can miss it. Today Anthropic, DeepSeek, Kimi, Qwen, and the MiniMax image test have no custom-spec case. The OpenAI tests and the Google video test use catalog ids. Effort: Small.
+  - **D.** Split `ModelSpec` into wire facts and routing facts, so that the adapters and `resolve_controls` cannot read `features`. Cost: a change to the public `ai-interface` contract, and every caller crate changes with it. It removes only a feature gate, not a model-id rule. Effort: Large.
+- **Left out:**
+  - A custom-spec case in the media tests of each adapter that lacks one. A checks the same cases in one test, and it also covers a provider that joins `cases()` later.
+  - A lint that flags a read of `features` in an adapter crate: it fails the goal, because a model-id rule still passes every test.
+- **Wider fix:** A. D is a structural fix, but it removes only the feature gate. A is the only option that catches a feature gate and a model-id rule in every adapter.
+- **Previous examples:**
+  - The MiniMax video test `serializes_video_parts_as_video_url_data_urls` sent only MiniMax-M3 until this branch added a custom-spec case on 2026-11-27, in commit `c5f003f`. With a temporary gate on the model id, the custom case failed with `UnsupportedInput`, and the M3 case passed.
+  - The MiniMax image test still sends only MiniMax-M3. Commit `119cfd7` of 2026-07-27 wrote it while the M2.7 specs listed no `vision`. `plans/follow-ups/minimax-custom-image-coverage.md` records it.
+  - Commit `d796c57` of 2026-08-13 added the MiniMax video test with MiniMax-M3 only, while the M2.7 specs listed no `video_input`.
+- **Related:**
+  - `plans/follow-ups/minimax-custom-image-coverage.md`: the direct fix of one case of this class. Option A of this item also covers that image case. That item can land first, and it does not wait for this answer.
+  - `plans/follow-ups/remove-provider-constructors.md`: the same construction path. That work builds every test model through the registry, as option A does. The change that lands second follows the test layout of the first.
+- **Recommendation:** A. It is the only option that catches both a feature gate and a model-id rule in every adapter, for the cost of one test.
+- **Decision:** On 2026-11-27, the user chose option A, the shared registry test, including the Qwen doc sentence of option A. A test for the class needs the user's approval under "Blocked options" in `references/outcomes.md` of the `decisions-and-findings` skill, and this choice is that approval. The user asked that a later branch build the test, not pull request #32.
+- **Action:** fix after merge, apply A, because the user approved A on 2026-11-27, so a later branch applies it without the user.

@@ -22,7 +22,7 @@ fn catalog_matches_supported_minimax_models() {
 
     let models = known_models();
 
-    assert_eq!(models.len(), 3);
+    assert_eq!(models.len(), 1);
     assert_model(
         &models,
         ExpectedModel {
@@ -37,40 +37,6 @@ fn catalog_matches_supported_minimax_models() {
                 ModelFeature::StructuredOutput,
                 ModelFeature::Vision,
                 ModelFeature::VideoInput,
-                ModelFeature::LongContext,
-                ModelFeature::Reasoning,
-            ],
-        },
-    );
-    assert_model(
-        &models,
-        ExpectedModel {
-            provider_model_id: "MiniMax-M2.7",
-            context_window_tokens: 204_800,
-            intelligence_score: IntelligenceScore::Eight,
-            speed: SpeedTier::Medium,
-            cost: CostTier::Low,
-            default_effort: Some(Effort::Medium),
-            features: &[
-                ModelFeature::ToolCalling,
-                ModelFeature::StructuredOutput,
-                ModelFeature::LongContext,
-                ModelFeature::Reasoning,
-            ],
-        },
-    );
-    assert_model(
-        &models,
-        ExpectedModel {
-            provider_model_id: "MiniMax-M2.7-highspeed",
-            context_window_tokens: 204_800,
-            intelligence_score: IntelligenceScore::Eight,
-            speed: SpeedTier::Fast,
-            cost: CostTier::Medium,
-            default_effort: Some(Effort::Medium),
-            features: &[
-                ModelFeature::ToolCalling,
-                ModelFeature::StructuredOutput,
                 ModelFeature::LongContext,
                 ModelFeature::Reasoning,
             ],

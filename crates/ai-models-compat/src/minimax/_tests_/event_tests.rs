@@ -1,18 +1,17 @@
 //! Public completion-event tests for MiniMax streams.
 
-use ai_interface::ErrorKind;
-
-use ai_interface::StructuredOutputSchema;
+use ai_interface::{ErrorKind, StructuredOutputSchema};
 use ai_models_core::test_support::{SseFixture, done_event, event, recording_streaming_client};
 use serde_json::{Value, json};
 
-use crate::stream_test_support::{
-    assistant_delta, assistant_text, content_events, observe, reasoning_delta,
+use crate::{
+    minimax::{MINIMAX_M3, MiniMaxModel},
+    stream_test_support::{
+        assistant_delta, assistant_text, content_events, observe, reasoning_delta,
+    },
 };
 
-use crate::minimax::{MINIMAX_M2_7, MINIMAX_M3, MiniMaxModel};
-
-use super::support::simple_request;
+use super::support::{custom_model_spec, simple_request};
 
 #[tokio::test]
 async fn emits_terminal_cumulative_content_and_append_only_reasoning_with_parity() {
@@ -27,7 +26,7 @@ async fn emits_terminal_cumulative_content_and_append_only_reasoning_with_parity
         usage_chunk(),
     ]);
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
+    let model = MiniMaxModel::new(http_client, custom_model_spec(), "key");
     let mut recorded = Vec::new();
 
     let response = observe(&model, &simple_request(), &mut recorded)
@@ -54,7 +53,7 @@ async fn structured_completion_emits_normalized_content() {
         usage_chunk(),
     ]);
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
+    let model = MiniMaxModel::new(http_client, custom_model_spec(), "key");
     let mut recorded = Vec::new();
     let mut request = simple_request();
     request.response_schema = Some(summary_schema());
@@ -94,7 +93,7 @@ async fn revised_cumulative_content_emits_only_the_terminal_snapshot() {
         usage_chunk(),
     ]);
     let (http_client, _) = recording_streaming_client(vec![SseFixture::Stream(events)]);
-    let model = MiniMaxModel::new(http_client, MINIMAX_M2_7, "key");
+    let model = MiniMaxModel::new(http_client, custom_model_spec(), "key");
     let mut recorded = Vec::new();
 
     let response = observe(&model, &simple_request(), &mut recorded)

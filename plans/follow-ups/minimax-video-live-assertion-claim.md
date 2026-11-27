@@ -1,0 +1,55 @@
+# MiniMax video doc claims a missing live check
+
+- **Severity:** Low. **Effort:** Small. **Confidence:** High. **Harder later:** No.
+- **Kind:** Outside the scope.
+- **Added:** 2026-11-27, from branch `ci-fix/live-model-apis-minimax-catalog` (pull request #32), found by the implementation review.
+- **Location:** `docs/protocol/video-input.md:100-103` (section "Provider Mappings", subsection "MiniMax"), `docs/protocol/minimax-model-provider.md:234-237` (section "Verification Contract"), `docs/protocol/live-model-api-tests.md:24-26` (section "Scope"), `xtask/tests/live_models.rs:181-184` (`minimax_catalog`)
+- **Reason:** Commit `d796c57` put the claim on `main` before this branch, and the user chose a follow-up item on 2026-11-27.
+
+- **Terms:**
+  - **Live test:** an ignored test that calls a paid provider API with a real API key, outside `cargo xtask check`.
+  - **Credentialed workflow:** a GitHub Actions workflow that runs with the provider API key secrets, here `.github/workflows/live-models.yml` or `.github/workflows/record-provider-streams.yml`.
+  - **Wire test:** a unit test that records the HTTP request of an adapter and checks its JSON body, with no network call.
+  - **Conformance scenario:** one fixed request flow, such as `image_input`, that the tests of `crates/ai-testkit` run through each chat adapter against a recording.
+  - **Recording:** a JSON file under `crates/ai-testkit/recordings/<provider>/` that holds the exchanges of one scenario, where an exchange is one HTTP request and its response.
+- **Background:**
+  - `docs/protocol/video-input.md` defines the shared video part of a user message and the wire form of each provider. Its subsection "MiniMax" says that MiniMax sends a video part as a `video_url` part with a `data:` URL.
+  - The subsection ends at lines 100-103 with this sentence: "Deterministic wire tests cover the serialization; the implementation environment for this change had no MiniMax credential, so the billable live assertion is deferred to the credentialed workflow."
+  - Commit `d796c57` of 2026-08-13 wrote the sentence. This branch rewrote the sentences before it, but not the claim.
+  - `live-models.yml`, named "Live model APIs", runs on pull requests to `main` from branches of this repository, once a day, and on manual dispatch. For MiniMax, it runs only `minimax_catalog` at `xtask/tests/live_models.rs:181-184`, with the `MINIMAX_API_KEY` secret.
+  - `minimax_catalog` first calls `run_minimax_m3_required_tool_call` at `xtask/tests/live_models/tool_choice_tests.rs:20`. That probe sends one text message and one tool to MiniMax-M3. Then `run_live_provider` at `xtask/tests/live_models/runner_tests.rs:37` sends the text "Reply with LIVE_MODEL_API_OK." for each catalog model and effort.
+  - `record-provider-streams.yml` also uses the `MINIMAX_API_KEY` secret. It runs on manual dispatch on the default branch, or when someone adds the label `record-provider-streams` to a pull request of this repository. It records only the `text_turn`, `tool_loop`, `schema_call`, and `image_input` scenarios, so it sends no video part either.
+  - Only three files hold live tests: `xtask/tests/live_models.rs`, `xtask/tests/live_images/catalog_tests.rs`, and `xtask/tests/live_judgments/catalog_tests.rs`. No live test sends a video part.
+  - The "Verification" section of the same doc says at lines 141-143 that the chat live suite sends text-only probes. The "Scope" section of `docs/protocol/live-model-api-tests.md` says at lines 24-26 that multimodal input is not part of the live suite.
+  - Under "Future Work", `plans/add-video-input-support.md` lists live video probes for Google and MiniMax with a small video fixture.
+- **Problem:** The sentence says that a credentialed workflow makes the live check of MiniMax video input. Neither credentialed workflow sends a video part to MiniMax, so that check does not exist. The sentence also contradicts the "Verification" section of the same doc.
+- **Impact if no action:** Readers and reviewers trust a paid check that does not run. They do not learn that no live test sends a video part to MiniMax.
+- **Root question:** How does the video input protocol state truthfully which checks verify MiniMax video input?
+- **Options:**
+  - **A.** Replace the sentence at `docs/protocol/video-input.md:100-103` with current facts, for example: "Deterministic wire tests cover the serialization. No live test sends a video part to MiniMax."
+    - The wire test is `serializes_video_parts_as_video_url_data_urls` at `crates/ai-models-compat/src/minimax/_tests_/multimodal_tests.rs:79`. The doc does not name it, because a protocol doc names no functions.
+    - At `docs/protocol/minimax-model-provider.md:234-237`, drop the same words about the implementation environment. Keep the statement that wire coverage and the credentialed workflow stay mandatory.
+    - Both edits follow the rule that a protocol doc records no history.
+    - Risk: still no check shows that MiniMax accepts `video_url` parts, and only the doc says so. Effort: Small.
+  - **B.** Record a `video_input` conformance scenario once with `record-provider-streams.yml`.
+    - Add `video_input` to the fixed-size arrays `Scenario::ALL` and `Scenario::SUCCESS` at `crates/ai-testkit/src/scenario.rs:34-52`.
+    - Add its file to the upload step of the workflow, which names only the four success files at lines 92-95.
+    - Give each of the six rejecting providers a recording with no exchange, like the DeepSeek `image_input` recording.
+    - Add a conformance snapshot under `crates/ai-testkit/tests/_tests_/snapshots/` for each of the eight new recordings.
+    - Name the recording in the MiniMax subsection and in the "Verification" section of `video-input.md`.
+    - Cost: `cargo xtask record-streams` has no scenario filter, because `xtask/src/record_streams/recorder.rs:86` records every success scenario. The workflow has no input, and its matrix at lines 31-48 always lists all eight providers. So one run makes about five billable calls for each provider, because the tool loop makes two. The recording shows only that MiniMax accepted the request once. Effort: Medium.
+  - **C.** Add a paid video probe to `minimax_catalog`, next to the required-tool probe. The probe sends one small video file and one question to `MINIMAX_M3`, the one MiniMax catalog model with the `video_input` feature. It checks that the answer is not empty.
+    - In `docs/protocol/live-model-api-tests.md:24-26`, change the "Scope" section, which puts multimodal input outside the live suite.
+    - In `docs/protocol/video-input.md`, change the "Verification" section at lines 141-143, which says that the live suite sends text-only probes. Reword the claim to name the probe.
+    - In `docs/protocol/minimax-model-provider.md:229-237`, add the probe to the description of the MiniMax live test.
+    - Cost: the `MINIMAX_API_KEY` secret, one more billable call in each run of `live-models.yml`, and a video file that MiniMax accepts. Effort: Medium.
+  - **D.** Add a separate live suite for media input, like the live image suite of `docs/protocol/live-image-api-tests.md`. It holds one ignored test, one workflow with only `workflow_dispatch`, and one protocol doc. The test sends one small video file to MiniMax-M3 and to a Google model with the `video_input` feature. Reword the claim to name the suite. Cost: a new workflow and protocol doc to keep, the Google and MiniMax secrets, and two billable calls for each run. Effort: Large.
+- **Left out:** Change nothing: the doc keeps a claim that no check backs, and it contradicts its own "Verification" section, so this fails the goal.
+- **Wider fix:** None. The `documentation` skill already says that a protocol doc records no history and holds no conflicting statements. The shared outcome rules propose no other wider fix for docs drift.
+- **Previous examples:** No other false claim found. `docs/protocol/minimax-model-provider.md:234-237` holds the same history words, but the check that it names, the required-tool probe, runs in `minimax_catalog`. Option A drops those words too.
+- **Related:**
+  - `plans/follow-ups/live-provider-recordings.md`: the same recording workflow and recordings. Option B of this item records one more scenario with that workflow, and that item decides when the workflow records live exchanges.
+  - `plans/follow-ups/native-unsigned-replay-scenario.md`: the same code. Option B of this item and that item both add a conformance scenario to `crates/ai-testkit/src/scenario.rs`.
+  - `plans/follow-ups/live-workflow-yaml-text-tests.md`: the same file. Option B of this item changes the upload step of `record-provider-streams.yml`. Option C of that item moves the job of that workflow into a reusable workflow.
+- **Recommendation:** A. It removes the false claim at the smallest cost, and the "Verification" section and the live suite protocol already state the same fact. C gives the strongest evidence, but it needs a secret and changes the live suite scope, so only the user can choose it.
+- **Action:** fix after merge, apply A, because the claim was on `main` before this branch, and the user chose a follow-up item on 2026-11-27.

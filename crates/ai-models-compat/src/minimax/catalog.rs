@@ -64,62 +64,8 @@ pub const MINIMAX_M3: ModelSpec = ModelSpec {
     }),
 };
 
-/// MiniMax-M2.7 model facts at its default medium effort.
-pub const MINIMAX_M2_7: ModelSpec = ModelSpec {
-    provider: PROVIDER_ID,
-    provider_model_id: Cow::Borrowed("MiniMax-M2.7"),
-    context_window_tokens: 204_800,
-    max_output_tokens: 131_072,
-    efforts: EffortSet::new(Effort::Medium),
-    default_effort: Some(Effort::Medium),
-    forced_tool_choice: ForcedToolChoice::Never,
-    sampling: Sampling::Adjustable,
-    supports_stop_sequences: false,
-    supports_deferred: false,
-    requires_output_limit: false,
-    replay_efforts: Cow::Borrowed(&[Effort::Medium]),
-    features: Cow::Borrowed(&[
-        ModelFeature::ToolCalling,
-        ModelFeature::StructuredOutput,
-        ModelFeature::LongContext,
-        ModelFeature::Reasoning,
-    ]),
-    routing: Some(RoutingTiers {
-        intelligence: IntelligenceScore::Eight,
-        speed: SpeedTier::Medium,
-        cost: CostTier::Low,
-    }),
-};
-
-/// MiniMax-M2.7-highspeed model facts at its default medium effort.
-pub const MINIMAX_M2_7_HIGHSPEED: ModelSpec = ModelSpec {
-    provider: PROVIDER_ID,
-    provider_model_id: Cow::Borrowed("MiniMax-M2.7-highspeed"),
-    context_window_tokens: 204_800,
-    max_output_tokens: 131_072,
-    efforts: EffortSet::new(Effort::Medium),
-    default_effort: Some(Effort::Medium),
-    forced_tool_choice: ForcedToolChoice::Never,
-    sampling: Sampling::Adjustable,
-    supports_stop_sequences: false,
-    supports_deferred: false,
-    requires_output_limit: false,
-    replay_efforts: Cow::Borrowed(&[Effort::Medium]),
-    features: Cow::Borrowed(&[
-        ModelFeature::ToolCalling,
-        ModelFeature::StructuredOutput,
-        ModelFeature::LongContext,
-        ModelFeature::Reasoning,
-    ]),
-    routing: Some(RoutingTiers {
-        intelligence: IntelligenceScore::Eight,
-        speed: SpeedTier::Fast,
-        cost: CostTier::Medium,
-    }),
-};
-
 /// One model spec for each provider model id.
-pub const CATALOG: &[ModelSpec] = &[MINIMAX_M3, MINIMAX_M2_7, MINIMAX_M2_7_HIGHSPEED];
+pub const CATALOG: &[ModelSpec] = &[MINIMAX_M3];
 
 /// Returns the model specs known to this dialect.
 pub fn known_models() -> Vec<ModelSpec> {
