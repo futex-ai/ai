@@ -187,8 +187,7 @@ response and usage mapping, and the error contract.
 
 ## Required Verification
 
-Unit tests use `JsonHttpTransportMock` through `TransportBackedJsonHttpClient`
-and never call QwenCloud. Coverage includes provider identity, spec metadata,
+Unit tests use a mock transport and never call QwenCloud. Coverage includes provider identity, spec metadata,
 construction, bearer auth and endpoint, every message role, image mapping and
 Max rejection, thinking controls, private replay and foreign-state
 isolation, parallel tools, terminal-call suppression, structured-output
@@ -196,11 +195,9 @@ modes and validation, finish reasons, response shape, cache usage, HTTP and
 transport errors, logger redaction, deterministic hashing, and credential-free
 smoke construction.
 
-The ignored workspace integration test `xtask/tests/live_models.rs` separately
-calls each listed effort of every Qwen spec through the production adapter
-when an explicit `LIVE_MODEL_API_KEY` is supplied. GitHub Actions runs that
-billable suite for eligible pull requests and from the scheduled/manual
-`Live model APIs` workflow.
+The [live model API test protocol](live-model-api-tests.md) defines the
+billable checks of every Qwen spec against the production API, and says
+whether CI runs them.
 
 Full formatting, file-length lint, Clippy, workspace tests, smoke tests,
 `cargo xtask check`, commit and push, and post-push `cargo xtask review` are

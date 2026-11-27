@@ -1,0 +1,34 @@
+# Recorder picks a text-only model for Qwen images
+
+- **Severity:** Low. **Effort:** Small. **Confidence:** High. **Harder later:** No.
+- **Kind:** Outside the scope.
+- **Added:** 2026-11-27, from branch `ci-fix/live-model-apis-qwencloud-catalog`, found by review round 2.
+- **Location:** `crates/ai-testkit/src/provider.rs:84`, `crates/ai-testkit/README.md:29`, `crates/ai-testkit/README.md:97`, `xtask/README.md:106`
+- **Reason:** The branch that found it removes only the QwenCloud CI job, and the fix changes `ai-testkit`, which that branch does not touch.
+
+- **Terms:**
+  - **Recorder:** the command `cargo xtask record-streams --provider <name>`, in `xtask/src/record_streams/`. It sends the four success scenarios of `ai-testkit` to the real provider API and writes one recording file for each.
+  - **Recording workflow:** `.github/workflows/record-provider-streams.yml`. It runs the recorder for each provider with the secret of that provider.
+  - **Image scenario:** `Scenario::ImageInput` in `crates/ai-testkit/src/scenario.rs`. It sends a user message with a text prompt and a 32 by 32 PNG, and its file is `image_input.json`.
+  - **`Vision`:** the `ModelFeature` in `crates/ai-interface/src/router.rs` that a model spec advertises when it accepts image input.
+- **Background:**
+  - `Provider::model` at `crates/ai-testkit/src/provider.rs:84` selects the spec for each scenario. For the two tool loops, it selects the first chat spec whose default can think. For every other scenario, also the image scenario, it selects `catalog.first()`.
+  - The Qwen catalog lists `qwen3.7-max`, `qwen3.7-plus`, and `qwen3.7-flash`, in that order (`crates/ai-models-compat/src/qwen/catalog.rs:115`). Only `qwen3.7-plus` and `qwen3.7-flash` advertise `ModelFeature::Vision`.
+  - The Qwen dialect names `qwen3.7-max` as its plain-text model (`crates/ai-models-compat/src/qwen/dialect.rs:32-33`). For that model, the adapter rejects an image part with `UnsupportedInput` and the text `qwen3.7-max accepts plain text messages only`. It does this before it sends a request. The test `rejects_max_images_and_non_user_content_parts` (`crates/ai-models-compat/src/qwen/_tests_/request_tests.rs:83`) checks it.
+  - The recorder also writes the file of a failed scenario, and it counts that scenario as an error. `crates/ai-testkit/README.md:97-98` says that DeepSeek and the first Qwen spec reject image input before transport, so their image recordings hold no HTTP exchange.
+  - The first chat spec of each other provider advertises `Vision`, except DeepSeek. No DeepSeek spec advertises `Vision`, and the DeepSeek dialect accepts plain text only. So only for Qwen does the image scenario go to a text-only spec while a spec that accepts images exists.
+- **Problem:** A live recorder run for Qwen never sends the image scenario to QwenCloud. The adapter rejects it with `UnsupportedInput`, the file holds no exchange, and the run counts the scenario as an error each time. The committed snapshot `crates/ai-testkit/tests/_tests_/snapshots/conformance__conformance_tests__qwen_image_input.snap` shows the same rejection.
+- **Impact if no action:** The conformance suite never gets a real Qwen image response, though two Qwen models accept images. Each Qwen recording run reports this expected error beside any real errors.
+- **Root question:** How does the recorder capture a real image exchange for each provider that has a model that accepts images?
+- **Options:**
+  - **A.** For the image scenario, select the first chat spec that advertises `ModelFeature::Vision`. Fall back to the first chat spec when no spec does. Qwen then records `qwen3.7-plus`. DeepSeek keeps its plain-text rejection, and the other six providers keep their first spec. Add a unit test of the choice for Qwen and DeepSeek. Update the sentences on the model choice in `crates/ai-testkit/README.md:29-33` and `xtask/README.md:106-108`. Keep the synthetic Qwen image file until a live run replaces it, so that the change adds no invented response. `crates/ai-testkit/README.md:97-98` stays true until then. Effort: Small.
+  - **B.** Skip the image scenario for a provider whose first chat spec does not advertise `Vision`. The recorder then writes no image file for Qwen and DeepSeek, and it counts no error for them. Their synthetic image files stay, and Qwen still gets no real image exchange. Update the sentences that say the recorder writes four files, at `xtask/README.md:111` and `crates/ai-testkit/README.md:167`. Effort: Small.
+  - **C.** Change nothing, and keep the documented rejection. Each live Qwen run records the adapter's own error, not a provider response. Effort: Small.
+- **Left out:** Put a Qwen spec that accepts images first in the Qwen catalog. The first spec also drives the text, tool, and schema scenarios and the synchronous probe of the live suite, so the change reaches far past the recorder.
+- **Wider fix:** A. It selects the spec from the input that the scenario needs, so a later catalog with a text-only first spec cannot repeat the problem.
+- **Previous examples:** None found. `Provider::model` already applies a rule of the same kind to the tool loops: it selects the first spec whose default can think.
+- **Related:**
+  - `plans/follow-ups/live-provider-recordings.md` has the same code. Its option A runs the recording workflow and commits the files. Until this item is fixed, that run gives no real Qwen image exchange.
+  - `plans/follow-ups/live-workflow-matrix-sync.md` changes the same file. Its option C extends `Provider` in `crates/ai-testkit/src/provider.rs`, and this item changes `Provider::model`. The two changes do not depend on each other.
+- **Recommendation:** A. One small selection rule records a real Qwen image exchange and keeps the documented DeepSeek rejection.
+- **Action:** fix after merge, apply A, because the change is in `ai-testkit` and the recorder docs, outside the files of the branch that found it.

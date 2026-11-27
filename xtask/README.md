@@ -65,10 +65,13 @@ event failures, and costs at most one extra billable call per probe.
 Image-, video-, and judgment-capable specs are excluded because they
 use separate specialized interfaces. Credentialed tests never run as part of
 `check` or `smoke-test`; credential-free bridge, validation, catalog, and
-workflow guards do. The dedicated GitHub Actions workflow invokes
-the ignored tests for eligible pull requests, daily verification, and manual
-dispatch. The MiniMax job first sends MiniMax-M3 a real tool with strict
-`Required` selection and asserts that the provider returns that tool call.
+workflow guards do. The dedicated GitHub Actions workflow invokes the ignored
+tests of the providers that
+[CI And Credentials](../docs/protocol/live-model-api-tests.md#ci-and-credentials)
+lists, for eligible pull requests, daily verification, and manual dispatch.
+The MiniMax job first
+sends MiniMax-M3 a real tool with strict `Required` selection and asserts
+that the provider returns that tool call.
 The judgment workflow additionally requires the repository Actions variable
 `LIVE_JUDGMENT_API_TESTS_ENABLED=true`; its provider job remains skipped until
 the TypeSafe credential is provisioned and that opt-in is enabled.
