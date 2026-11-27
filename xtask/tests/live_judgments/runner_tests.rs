@@ -13,7 +13,6 @@ use ai_interface::{
 };
 use json_http::{JsonHttpClient, ReqwestJsonHttpClient};
 use serde_json::{Map, Value};
-use thiserror::Error;
 use unimock::{MockFn, Unimock, matching};
 
 use super::{
@@ -23,24 +22,15 @@ use super::{
     validation_tests::validation_failures,
 };
 
-const API_KEY_ENV: &str = "LIVE_JUDGMENT_API_KEY";
-
-#[derive(Debug, Eq, Error, PartialEq)]
-enum ApiKeyError {
-    #[error("[xtask/live_judgments] LIVE_JUDGMENT_API_KEY is missing")]
-    Missing,
-    #[error("[xtask/live_judgments] LIVE_JUDGMENT_API_KEY is blank")]
-    Blank,
-}
-
 struct ProbeTarget {
     spec: ModelSpec,
     model: DynJudgmentModel,
 }
 
 pub(super) async fn run_catalog(provider: LiveJudgmentProvider) {
-    let api_key =
-        require_api_key(env::var(API_KEY_ENV).ok()).unwrap_or_else(|error| panic!("{error}"));
+    let api_key = provider
+        .require_api_key(|name| env::var(name).ok())
+        .unwrap_or_else(|error| panic!("{error}"));
     let client: Arc<dyn JsonHttpClient> = Arc::new(ReqwestJsonHttpClient::new());
     let auth = provider.auth(api_key);
     let catalog = provider.judgment_catalog();
@@ -66,14 +56,6 @@ pub(super) async fn run_catalog(provider: LiveJudgmentProvider) {
         failures.len(),
         failures.join("\n")
     );
-}
-
-fn require_api_key(value: Option<String>) -> Result<String, ApiKeyError> {
-    let value = value.ok_or(ApiKeyError::Missing)?;
-    if value.trim().is_empty() {
-        return Err(ApiKeyError::Blank);
-    }
-    Ok(value)
 }
 
 fn probe_request() -> JudgmentRequest {
@@ -133,19 +115,6 @@ fn check_message(spec: &ModelSpec) -> String {
 
 fn request_failure_message(spec: &ModelSpec, error: &JudgmentError) -> String {
     format!("{}: request failed: {error}", spec.text_id())
-}
-
-#[test]
-fn requires_a_present_non_empty_api_key() {
-    assert!(matches!(require_api_key(None), Err(ApiKeyError::Missing)));
-    assert!(matches!(
-        require_api_key(Some(" \n\t".to_owned())),
-        Err(ApiKeyError::Blank)
-    ));
-    assert_eq!(
-        require_api_key(Some(" secret ".to_owned())).unwrap(),
-        " secret "
-    );
 }
 
 #[test]

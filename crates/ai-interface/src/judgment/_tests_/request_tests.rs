@@ -114,6 +114,47 @@ fn validation_rejects_a_blank_question_map_key() {
 }
 
 #[test]
+fn validation_rejects_a_condition_without_instruction_parts() {
+    let questions = BTreeMap::from([(
+        "urgent".to_owned(),
+        JudgmentQuestion::condition(JudgmentContent { parts: vec![] }, None),
+    )]);
+
+    assert_invalid_question(questions, "urgent", JudgmentQuestionProblem::NoInstructions);
+}
+
+#[test]
+fn validation_rejects_a_choice_without_instruction_parts() {
+    let questions = BTreeMap::from([(
+        "team".to_owned(),
+        JudgmentQuestion::choice(JudgmentContent { parts: vec![] }, [("billing", None)]),
+    )]);
+
+    assert_invalid_question(questions, "team", JudgmentQuestionProblem::NoInstructions);
+}
+
+#[test]
+fn validation_rejects_a_score_without_instruction_parts() {
+    let questions = BTreeMap::from([(
+        "frustration".to_owned(),
+        JudgmentQuestion::score(JudgmentContent { parts: vec![] }, ["low", "high"]),
+    )]);
+
+    assert_invalid_question(
+        questions,
+        "frustration",
+        JudgmentQuestionProblem::NoInstructions,
+    );
+}
+
+#[test]
+fn validation_accepts_one_blank_text_instruction_part() {
+    let questions = BTreeMap::from([("urgent".to_owned(), JudgmentQuestion::condition("", None))]);
+
+    request("ticket".into(), questions).validate().unwrap();
+}
+
+#[test]
 fn validation_rejects_a_choice_without_options() {
     let questions = BTreeMap::from([(
         "team".to_owned(),

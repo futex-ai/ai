@@ -71,10 +71,10 @@ or an ignored billable catalog with these commands.
 
 ```sh
 cargo test --locked -p xtask --test live_judgments
-LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
+LIVE_JUDGMENT_TYPESAFE_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
   --test live_judgments catalog_tests::typesafe_judgment_catalog \
   -- --ignored --exact --nocapture
-LIVE_JUDGMENT_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
+LIVE_JUDGMENT_OPENAI_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
   --test live_judgments catalog_tests::openai_judgment_catalog \
   -- --ignored --exact --nocapture
 ```
@@ -83,8 +83,9 @@ The `Live judgment APIs` workflow runs the OpenAI and TypeSafe catalogs in
 sequence for trusted same-repository pull requests, daily, and on manual
 dispatch. Provision `OPENAI_API_KEY` and `TYPESAFE_API_KEY` before you set
 `LIVE_JUDGMENT_API_TESTS_ENABLED` to `true`. Each provider job fails if its
-secret is missing. The workflow may make up to three billable attempts per
-catalog model after transient or rate-limit failures.
+secret is missing. Each test reads only its own provider's key variable.
+The workflow may make up to three billable attempts per catalog model after
+transient or rate-limit failures.
 
 ## Live video checks
 

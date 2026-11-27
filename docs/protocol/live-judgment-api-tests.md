@@ -47,8 +47,9 @@ tests and their credential-free registry, workflow, runner, retry, and
 validation tests. The provider tests are ignored, so `cargo xtask check`
 never runs them. Every provider test:
 
-1. Requires a non-empty `LIVE_JUDGMENT_API_KEY`; missing credentials fail
-   rather than skip.
+1. Reads only `LIVE_JUDGMENT_<PROVIDER>_API_KEY`, where `<PROVIDER>` is the
+   provider id in uppercase. A missing or blank value fails the test before
+   its first request. The failure names the variable and omits its value.
 2. Loads every judgment spec of the provider's catalog, and builds the
    production adapter through the registry with `ReqwestJsonHttpClient`,
    explicit authentication, and the catalog spec.
@@ -102,10 +103,14 @@ Dependabot pull requests skip the credentialed job. The workflow must not use
 registered provider, and exposes only the current provider's secret to its
 credential check and test steps.
 
-| Provider | Secret |
-| --- | --- |
-| TypeSafe | `TYPESAFE_API_KEY` |
-| OpenAI | `OPENAI_API_KEY` |
+| Provider | Actions secret | Test variable |
+| --- | --- | --- |
+| TypeSafe | `TYPESAFE_API_KEY` | `LIVE_JUDGMENT_TYPESAFE_API_KEY` |
+| OpenAI | `OPENAI_API_KEY` | `LIVE_JUDGMENT_OPENAI_API_KEY` |
+
+The workflow builds the test variable from the selected secret name by
+adding the `LIVE_JUDGMENT_` prefix. If a job selects a different provider's
+test, that test fails because its variable is missing.
 
 Each attempt sends one small request billed on input tokens only. A missing
 or non-`true` opt-in variable skips the job. The opt-in should be enabled only
@@ -116,10 +121,10 @@ missing secret on an eligible event is a failing configuration error.
 
 ```sh
 cargo test --locked -p xtask --test live_judgments
-LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
+LIVE_JUDGMENT_TYPESAFE_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
   --test live_judgments catalog_tests::typesafe_judgment_catalog \
   -- --ignored --exact --nocapture
-LIVE_JUDGMENT_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
+LIVE_JUDGMENT_OPENAI_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
   --test live_judgments catalog_tests::openai_judgment_catalog \
   -- --ignored --exact --nocapture
 ```
@@ -128,10 +133,10 @@ LIVE_JUDGMENT_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
 
 Adding a judgment-capable catalog entry to a registered provider requires no
 workflow change. Adding another judgment provider requires implementing
-`JudgmentModel`, advertising `ModelFeature::Judgment`, registering identity,
-authentication, construction, test name, and secret in `LiveJudgmentProvider`,
-adding an ignored catalog test, extending the workflow matrix, and updating
-this protocol's credential table in the same change.
+`JudgmentModel`, advertising `ModelFeature::Judgment`, registering the
+provider and its ignored catalog test, extending the workflow matrix, and
+updating this protocol's credential table in the same change. The provider
+id determines the test variable.
 
 ## Related Protocols
 

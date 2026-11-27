@@ -32,6 +32,12 @@ impl JudgmentRequest {
                     JudgmentQuestionProblem::BlankId,
                 ));
             }
+            if question.instructions().parts.is_empty() {
+                return Err(JudgmentError::invalid_question(
+                    id,
+                    JudgmentQuestionProblem::NoInstructions,
+                ));
+            }
             let problem = match question {
                 JudgmentQuestion::Choice { options, .. } => choice_problem(options),
                 JudgmentQuestion::Score { levels, .. } if levels.len() < 2 => {

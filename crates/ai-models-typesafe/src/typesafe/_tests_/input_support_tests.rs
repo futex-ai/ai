@@ -5,7 +5,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use ai_interface::{
     ConversationMessage, ConversationRole, ErrorKind, JudgmentContent, JudgmentError,
     JudgmentInput, JudgmentInputFeature, JudgmentInputForm, JudgmentModel, JudgmentPart,
-    JudgmentPartKind, JudgmentQuestion, JudgmentResponse, JudgmentResult,
+    JudgmentPartKind, JudgmentQuestion, JudgmentQuestionProblem, JudgmentResponse, JudgmentResult,
 };
 use json_http::{
     MemoryRecordingLog, RecordingLog, RecordingTransport, ReplayTransport,
@@ -13,6 +13,25 @@ use json_http::{
 };
 
 use super::{TypeSafeJudgmentModel, test_support::simple_request};
+
+#[tokio::test]
+async fn empty_instructions_are_rejected_before_transport() {
+    let mut request = simple_request();
+    request.questions = BTreeMap::from([(
+        "is_urgent".to_owned(),
+        JudgmentQuestion::condition(JudgmentContent { parts: vec![] }, None),
+    )]);
+    let (model, requests) = model_with_transport_log();
+
+    let result = model.judge(&request).await;
+
+    assert_eq!(requests.snapshot().len(), 0);
+    assert!(
+        matches!(&result, Err(JudgmentError::InvalidQuestion { core, id, problem: JudgmentQuestionProblem::NoInstructions })
+            if core.kind == ErrorKind::InvalidRequest && id == "is_urgent"),
+        "{result:?}"
+    );
+}
 
 #[tokio::test]
 async fn rejects_image_parts_without_transport() {

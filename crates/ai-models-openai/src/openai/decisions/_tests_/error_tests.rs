@@ -5,7 +5,7 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use ai_interface::{
     ConversationMessage, ConversationPart, ErrorKind, JudgmentContent,
     JudgmentConversationPartKind, JudgmentError, JudgmentInput, JudgmentInputFeature,
-    JudgmentModel, JudgmentPart, JudgmentQuestion,
+    JudgmentModel, JudgmentPart, JudgmentQuestion, JudgmentQuestionProblem,
 };
 use ai_models_core::ProviderConfig;
 use json_http::{
@@ -218,11 +218,26 @@ async fn malformed_output_redacts_decoder_diagnostics() {
 }
 
 #[tokio::test]
+async fn empty_instructions_are_rejected_before_transport() {
+    let (model, log) = model_with_transport_log();
+    let input = request(JudgmentQuestion::condition(
+        JudgmentContent { parts: vec![] },
+        None,
+    ));
+
+    let result = model.judge(&input).await;
+
+    assert_eq!(log.snapshot().len(), 0);
+    assert!(
+        matches!(&result, Err(JudgmentError::InvalidQuestion { core, id, problem: JudgmentQuestionProblem::NoInstructions })
+            if core.kind == ErrorKind::InvalidRequest && id == "caller-id"),
+        "{result:?}"
+    );
+}
+
+#[tokio::test]
 async fn video_is_rejected_before_transport() {
-    let log = Arc::new(MemoryRecordingLog::default());
-    let transport = RecordingTransport::new(Arc::new(ReplayTransport::new(vec![])), log.clone());
-    let http = Arc::new(TransportBackedJsonHttpClient::new(Arc::new(transport)));
-    let model = OpenAiJudgmentModel::from_config(http, spec(), config());
+    let (model, log) = model_with_transport_log();
     let mut input = predicate();
     input.input = JudgmentInput::Conversation {
         system: None,
@@ -240,6 +255,16 @@ async fn video_is_rejected_before_transport() {
             if core.kind == ErrorKind::UnsupportedInput && core.provider == "openai" && core.model_id == MODEL_ID),
         "{result:?}"
     );
+}
+
+fn model_with_transport_log() -> (OpenAiJudgmentModel, Arc<MemoryRecordingLog>) {
+    let log = Arc::new(MemoryRecordingLog::default());
+    let transport = RecordingTransport::new(Arc::new(ReplayTransport::new(vec![])), log.clone());
+    let http = Arc::new(TransportBackedJsonHttpClient::new(Arc::new(transport)));
+    (
+        OpenAiJudgmentModel::from_config(http, spec(), config()),
+        log,
+    )
 }
 
 fn image(data_base64: &str) -> JudgmentContent {

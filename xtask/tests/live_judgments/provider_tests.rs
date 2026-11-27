@@ -7,6 +7,15 @@ use ai_models_registry::{ProviderConfig, Registry, catalog};
 use json_http::{
     DynJsonHttpAuth, DynJsonHttpClient, JsonHttpClient, ReqwestJsonHttpClient, StaticHeaderAuth,
 };
+use thiserror::Error;
+
+#[derive(Debug, Eq, Error, PartialEq)]
+pub(super) enum ApiKeyError {
+    #[error("[xtask/live_judgments] {name} is missing")]
+    Missing { name: String },
+    #[error("[xtask/live_judgments] {name} is blank")]
+    Blank { name: String },
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum LiveJudgmentProvider {
@@ -31,17 +40,41 @@ impl LiveJudgmentProvider {
     }
 
     pub(super) fn workflow_test(self) -> &'static str {
+        macro_rules! test_name {
+            ($module:ident :: $test:ident) => {{
+                let _: fn() = super::$module::$test;
+                concat!(stringify!($module), "::", stringify!($test))
+            }};
+        }
         match self {
-            Self::TypeSafe => "catalog_tests::typesafe_judgment_catalog",
-            Self::OpenAi => "catalog_tests::openai_judgment_catalog",
+            Self::TypeSafe => test_name!(catalog_tests::typesafe_judgment_catalog),
+            Self::OpenAi => test_name!(catalog_tests::openai_judgment_catalog),
         }
     }
 
-    pub(super) fn workflow_secret(self) -> &'static str {
-        match self {
-            Self::TypeSafe => "TYPESAFE_API_KEY",
-            Self::OpenAi => "OPENAI_API_KEY",
+    pub(super) fn workflow_secret(self) -> String {
+        format!(
+            "{}_API_KEY",
+            self.provider_id().as_str().to_ascii_uppercase()
+        )
+    }
+
+    pub(super) fn api_key_variable(self) -> String {
+        format!("LIVE_JUDGMENT_{}", self.workflow_secret())
+    }
+
+    pub(super) fn require_api_key(
+        self,
+        read: impl FnOnce(&str) -> Option<String>,
+    ) -> Result<String, ApiKeyError> {
+        let name = self.api_key_variable();
+        let Some(value) = read(&name) else {
+            return Err(ApiKeyError::Missing { name });
+        };
+        if value.trim().is_empty() {
+            return Err(ApiKeyError::Blank { name });
         }
+        Ok(value)
     }
 
     pub(super) fn catalog(self) -> Vec<ModelSpec> {
@@ -81,6 +114,52 @@ fn filter_judgment_catalog(catalog: Vec<ModelSpec>) -> Vec<ModelSpec> {
         .into_iter()
         .filter(|model| model.has_feature(ModelFeature::Judgment))
         .collect()
+}
+
+#[test]
+fn requires_a_present_non_empty_api_key() {
+    let provider = LiveJudgmentProvider::TypeSafe;
+    assert!(matches!(
+        provider.require_api_key(|_| None),
+        Err(ApiKeyError::Missing { .. })
+    ));
+    assert!(matches!(
+        provider.require_api_key(|_| Some(" \n\t".to_owned())),
+        Err(ApiKeyError::Blank { .. })
+    ));
+    assert_eq!(
+        provider
+            .require_api_key(|name| {
+                (name == "LIVE_JUDGMENT_TYPESAFE_API_KEY").then(|| " fixture-key ".to_owned())
+            })
+            .unwrap(),
+        " fixture-key "
+    );
+}
+
+#[test]
+fn another_providers_key_does_not_unlock_the_catalog() {
+    const OPENAI_KEY: &str = "LIVE_JUDGMENT_OPENAI_API_KEY";
+    const TYPESAFE_KEY: &str = "LIVE_JUDGMENT_TYPESAFE_API_KEY";
+    for (provider, other_key, own_key) in [
+        (LiveJudgmentProvider::OpenAi, TYPESAFE_KEY, OPENAI_KEY),
+        (LiveJudgmentProvider::TypeSafe, OPENAI_KEY, TYPESAFE_KEY),
+    ] {
+        let error = provider
+            .require_api_key(|name| (name == other_key).then(|| "fixture-key".to_owned()))
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            ApiKeyError::Missing {
+                name: own_key.to_owned()
+            }
+        );
+        assert_eq!(
+            error.to_string(),
+            format!("[xtask/live_judgments] {own_key} is missing")
+        );
+    }
 }
 
 #[test]

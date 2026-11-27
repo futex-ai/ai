@@ -147,12 +147,12 @@ LIVE_IMAGE_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask --test live_im
   catalog_tests::openai_image_catalog -- --ignored --exact --nocapture
 
 # Billable: tests every TypeSafe judgment catalog spec against the real API.
-LIVE_JUDGMENT_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
+LIVE_JUDGMENT_TYPESAFE_API_KEY="$TYPESAFE_API_KEY" cargo test --locked -p xtask \
   --test live_judgments catalog_tests::typesafe_judgment_catalog \
   -- --ignored --exact --nocapture
 
 # Billable: tests every OpenAI judgment catalog spec against the real API.
-LIVE_JUDGMENT_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
+LIVE_JUDGMENT_OPENAI_API_KEY="$OPENAI_API_KEY" cargo test --locked -p xtask \
   --test live_judgments catalog_tests::openai_judgment_catalog \
   -- --ignored --exact --nocapture
 ```

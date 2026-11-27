@@ -245,6 +245,12 @@ decision test, unless a line names a user decision. The options check of
   `choice` between the boolean values `true` and `false`, with the two
   descriptions. The probability of `true` becomes the condition
   probability. Milestone 5 checks this mapping with a live comparison.
+  The paid comparison of 2026-11-27 sent three inputs. The boolean choice
+  and the plain predicate agreed within 0.05, and only in the low tail:
+  0.01 against 0.06 and 0.05. The agent's call of 2026-11-27 keeps the
+  boolean choice. A predicate with the criteria joined into its
+  instructions adds prompt text that the caller did not write, and the gap
+  is too small to show which form is better calibrated.
 - **Answers:** `predicate`, `choice`, and `score` map to the shared answers.
   `refusal` maps to `JudgmentAnswer::Refused`. Score probabilities use the
   level `value` as the index. A duplicate option or level in a
@@ -433,16 +439,19 @@ and the ignored live suite cover it.
       `UnsupportedInput` error, `crates/ai-models-registry/README.md` with
       the OpenAI judgment adapter, and `docs/development.md` and
       `xtask/README.md` with the OpenAI live judgment secret and command.
-- [ ] Run the live judgment test against OpenAI once with credentials.
+- [x] Run the live judgment test against OpenAI once with credentials.
       Check that `choice` is the most probable option, that each
       distribution lists every option, and that the error envelope matches
       the protocol doc. Save the output under
       `.context/shared-judgment-and-openai-decisions/`. Raise a decision
       when a check fails.
-- [ ] Compare one condition with criteria, sent as a boolean `choice`,
+- [x] Compare one condition with criteria, sent as a boolean `choice`,
       against the same condition sent as a `predicate`, in one paid call.
       Save the output in the same folder. Raise a decision when the two
       probabilities disagree by more than the response check tolerance.
+
+Evidence of the paid runs of 2026-11-27 is in
+`.context/shared-judgment-and-openai-decisions/live/`.
 
 ## Milestone 6: Verification, commit, review, and pull request
 

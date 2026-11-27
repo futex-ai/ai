@@ -14,6 +14,8 @@ use super::{JudgmentAnswerProblem, JudgmentInputFeature, JudgmentJsonType};
 pub enum JudgmentQuestionProblem {
     /// The caller-provided question map key is blank.
     BlankId,
+    /// The question has no instruction parts.
+    NoInstructions,
     /// A choice question has no options.
     NoOptions,
     /// A choice question has a blank option label.
@@ -31,6 +33,9 @@ impl fmt::Display for JudgmentQuestionProblem {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::BlankId => formatter.write_str("question id must not be blank"),
+            Self::NoInstructions => {
+                formatter.write_str("question must include at least one instruction part")
+            }
             Self::NoOptions => formatter.write_str("choice must include at least one option"),
             Self::BlankOptionLabel => formatter.write_str("choice option labels must not be blank"),
             Self::DuplicateOptionLabel => {

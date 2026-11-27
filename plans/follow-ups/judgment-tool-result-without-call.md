@@ -34,7 +34,7 @@
 - **Wider fix:** D. One shared rule rejects the case for the mock and for every judgment adapter, also a future one. The first review pass named C.
 - **Previous examples:** `plans/follow-ups/truncated-call-replay.md`: Anthropic rejects retained history that holds only one side of a tool exchange. `plans/follow-ups/stopped-step-calls.md`: a stopped agent step leaves calls without results, which OpenAI and Anthropic reject.
 - **Related:**
-  - `plans/follow-ups/empty-judgment-instructions.md`: the same cause and the same code. Shared validation accepts a form that the Decisions wire rejects, so one answer on where such a rule lives fits both items.
+  - Precedent: on 2026-11-27 the user chose a shared validation rule for the same class of problem. A judgment question with no instruction parts now fails `JudgmentRequest::validate` with the `NoInstructions` problem, before any adapter sends it. Option D here follows the same pattern.
   - `plans/follow-ups/openai-chat-tool-result-without-call.md`: the OpenAI chat adapter sends an unmatched tool result in the same way. A pairing rule in `docs/protocol/conversation-parts.md` can answer both items, so decide them together.
 - **Recommendation:** D. One shared rule rejects the conversation before transport for the mock and every judgment adapter, so each caller gets the same clear error. The first review pass recommended A, a rejection in the Decisions adapter only.
 - **Action:** ask the user, because D adds a stricter validation to the shared judgment contract, and only the user adds a rejection.

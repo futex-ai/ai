@@ -170,10 +170,13 @@ breaks the role table, or `InvalidQuestion { id, problem }` with a typed
 | Problem | Trigger |
 | --- | --- |
 | `BlankId` | the question id is empty or whitespace |
+| `NoInstructions` | the question has zero instruction parts |
 | `NoOptions` | a choice has no options |
 | `BlankOptionLabel` | a choice option label is empty or whitespace |
 | `DuplicateOptionLabel` | two options of a choice have the same label, compared exactly |
 | `TooFewLevels { levels }` | a score has fewer than two levels |
+
+A question can use one blank text part as its instructions.
 
 ## Support Check
 
